@@ -60,6 +60,7 @@ struct Matrix {
     u32 cols = 0;
 
     Matrix(u32 r, u32 c);
+    real& operator()(u32 row, u32 col);
 };
 void free(Matrix&);
 
@@ -68,6 +69,8 @@ void free(Matrix&);
 //--- Utility and debug functions ---
 void print(Vec3);
 void print(Mat3);
+void print(Array&);
+void print(Matrix&);
 
 
 
@@ -140,8 +143,20 @@ inline real& Mat3::operator()(u32 row, u32 col) {
     return data[3*col + row];
 }
 
+inline void zero(Vec3& v) {
+    v.x = v.y = v.z = 0;
+}
+
 inline void zero(Mat3& m) {
     memset(m.data, 0, 9*sizeof(real));
+}
+
+inline void zero(Array& a) {
+    memset(a.data, 0, a.size*sizeof(real));
+}
+
+inline void zero(Matrix& m) {
+    memset(m.data, 0, m.size*sizeof(real));
 }
 
 inline Vec3 operator*(Mat3& m, Vec3 v) {
@@ -169,7 +184,12 @@ inline Mat3 operator*(Mat3& m, Mat3 rhs) {
 inline Array::Array(u32 size) {
     this->size = size;
     if (size)
-        data = (real*)malloc(size*sizeof(real));
+        data = (real*)calloc(size, sizeof(real));
+}
+
+inline real& Array::operator[](u32 i) {
+    Assert(i < size);
+    return data[i];
 }
 
 inline Matrix::Matrix(u32 r, u32 c) {
@@ -177,12 +197,12 @@ inline Matrix::Matrix(u32 r, u32 c) {
     rows = r;
     cols = c;
     if (size)
-        data = (real*)malloc(size*sizeof(real));
+        data = (real*)calloc(size, sizeof(real));
 }
 
-inline real& Array::operator[](u32 i) {
-    Assert(i < size);
-    return data[i];
+inline real& Matrix::operator()(u32 row, u32 col) {
+    Assert(row < this->rows && col < this->cols);
+    return this->data[row + this->rows*col];
 }
 
 inline void free(Array& v) {
@@ -198,12 +218,30 @@ inline void free(Matrix& m) {
 }
 
 inline void print(Vec3 v) {
-    printf("[%f, %f, %f]'", v.x, v.y, v.z);
+    printf("[%f, %f, %f]\n", v.x, v.y, v.z);
 }
 
 inline void print(Mat3 m) {
     printf("\n[%f, %f, %f]\n[%f, %f, %f]\n[%f, %f, %f]\n",
            m(0, 0), m(0, 1), m(0, 2), m(1, 0), m(1, 1), m(1, 2), m(2, 0), m(2, 1), m(2, 2));
+}
+
+inline void print(Array& a) {
+    printf("[");
+    for (u32 i = 0; i < a.size-1; i++)
+        printf("%0.4f, ", a[i]);
+    printf("%0.4f]\n", a[a.size-1]);
+}
+
+inline void print(Matrix& m) {
+    printf("\n");
+    for (u32 i = 0; i < m.rows; i++) {
+        printf("[");
+        for (u32 j = 0; j < m.cols-1; j++) {
+            printf("%0.4f, ", m(i, j));
+        }
+        printf("%0.4f]\n", m(i, m.cols-1));
+    }
 }
 
 } // namespace blast
