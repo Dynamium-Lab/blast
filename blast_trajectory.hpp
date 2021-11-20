@@ -15,46 +15,25 @@ void bspline_basis_functions(u32 nctrl, u32 npts, u32 p, Matrix& basis_p, Matrix
 // - control is a nctrl x dof matrix
 void bspline_control_points(u32 nctrl, u32 njoints, u32 p, Array& x, Matrix& task, Matrix& control);
 
-
-
-
-
-
-
-
-
 // Compute the Position, velocity and acceleration for each point, for each joint, corresponding to
 // the given control points and basis functions.
 // - `control` is a nctrl x njoints matrix
 // - `basis_p`, `basis_v`, `basis_a` are nctrl x npts matrices
 // - `pos`, `vel`, `acc` are njoints x npts matrices
-inline void bspline_pva(u32 nctrl, u32 npts, u32 njoints, real T, Matrix& control, Matrix& basis_p, Matrix& basis_v, Matrix& basis_a, Matrix& pos, Matrix& vel, Matrix& acc) {
-    // Note: This function is performance critical.
-    // Todo: SIMD
-    const auto one_over_T = 1/T;
-    const auto one_over_T2 = one_over_T*one_over_T;
-    zero(pos);
-    zero(vel);
-    zero(acc);
-    for (u32 point = 0; point < npts; point++) {
-        for (u32 joint = 0; joint < njoints; joint++) {
-            auto& p = pos(joint, point);
-            auto& v = vel(joint, point);
-            auto& a = acc(joint, point);
-            for (int i = 0; i < nctrl; i++) {
-                const auto c = control(i, joint);
-                p += c * basis_p(i, point);
-                v += c * basis_v(i, point);
-                a += c * basis_a(i, point);
-            }
-            v *= one_over_T;
-            a *= one_over_T2;
-        }
-    }
-}
+inline void bspline_pva(u32 nctrl, u32 npts, u32 njoints, real T, Matrix& control, Matrix& basis_p, Matrix& basis_v, Matrix& basis_a, Matrix& pos, Matrix& vel, Matrix& acc);
 
 
-//------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+//--------------------------------------------------------------------------------------------------------------------
 inline void bspline_control_points(u32 nctrl, u32 njoints, u32 p, Array& x, Matrix& task, Matrix& control) {
     // Note: performance critical.
     Assert(x.size == njoints*(nctrl-6) + 1 );
@@ -186,6 +165,31 @@ inline void bspline_basis_functions(u32 nctrl, u32 npts, u32 p, Matrix& basis_p,
         basis_p_col += nctrl;
         basis_v_col += nctrl;
         basis_a_col += nctrl;
+    }
+}
+
+inline void bspline_pva(u32 nctrl, u32 npts, u32 njoints, real T, Matrix& control, Matrix& basis_p, Matrix& basis_v, Matrix& basis_a, Matrix& pos, Matrix& vel, Matrix& acc) {
+    // Note: This function is performance critical.
+    // Todo: SIMD
+    const auto one_over_T = 1/T;
+    const auto one_over_T2 = one_over_T*one_over_T;
+    zero(pos);
+    zero(vel);
+    zero(acc);
+    for (u32 point = 0; point < npts; point++) {
+        for (u32 joint = 0; joint < njoints; joint++) {
+            auto& p = pos(joint, point);
+            auto& v = vel(joint, point);
+            auto& a = acc(joint, point);
+            for (int i = 0; i < nctrl; i++) {
+                const auto c = control(i, joint);
+                p += c * basis_p(i, point);
+                v += c * basis_v(i, point);
+                a += c * basis_a(i, point);
+            }
+            v *= one_over_T;
+            a *= one_over_T2;
+        }
     }
 }
 
