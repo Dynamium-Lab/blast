@@ -6,7 +6,7 @@ namespace blast {
 
 using u32 = uint32_t;
 using i32 = int32_t;
-using real = float; // for testing float vs double speed and precision
+using real = double; // for testing float vs double speed and precision
 
 } // namespace blast
 

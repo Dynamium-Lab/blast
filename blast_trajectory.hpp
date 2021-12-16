@@ -2,113 +2,72 @@
 
 namespace blast {
 
+// Constants that define the b-spline
+struct BsplineDef {
+    u32 nctrl;
+    u32 npts;
+    u32 p;
+    u32 njoints;
+};
+
+// Container for the three basis function matrices (p, v, a).
+struct BsplineBasis {
+    Matrix pos; // nctrl x npts
+    Matrix vel;
+    Matrix acc;
+
+    BsplineBasis(BsplineDef def);
+};
+
+// Container for the position, velocity, and acceleration matrices and the time vector.
+struct Pva {
+    Matrix pos; // njoints x npts
+    Matrix vel;
+    Matrix acc;
+    Array t;
+
+    Pva(BsplineDef def);
+};
+
 // Compute the basis functions that will be multiplied by the control points to produce a
-// trajectory. These basis functions only change if the number of points, the number of control
-// points or the order of the splines change. The basis functions for position (`basis_p`) are
-// stored in a `nctrl` x `npts` Matrix.
-// Note: This function is not explicitly optimized for performance because it should not be called in a loop.
-// Note: The three output matrices need to already be the right size.
-void bspline_basis_functions(u32 nctrl, u32 npts, u32 p, Matrix& basis_p, Matrix& basis_v, Matrix& basis_a);
+// trajectory. These basis functions only change if npts, njoints, nctrl, or p changes. The basis
+// functions for position (`basis.pos`) are stored in a `nctrl` x `npts` Matrix. The basis functions
+// for velocity and acceleration are the same sizes.x
 
-// Compute the control points corresponding to the current optimization vector `x` that will ensure
-// that the computed trajectory will respect the boundary conditions in `task`.
-// - control is a nctrl x dof matrix
-void bspline_control_points(u32 nctrl, u32 njoints, u32 p, Array& x, Matrix& task, Matrix& control);
+// Note: The matrices in the output need to already be the right size.
+// Note: This function is not explicitly optimized for performance because it should not be called
+//       in a loop.
+void bspline_basis_functions(BsplineDef def, BsplineBasis& basis);
 
-// Compute the Position, velocity and acceleration for each point, for each joint, corresponding to
-// the given control points and basis functions.
-// - `control` is a nctrl x njoints matrix
-// - `basis_p`, `basis_v`, `basis_a` are nctrl x npts matrices
-// - `pos`, `vel`, `acc` are njoints x npts matrices
-inline void bspline_pva(u32 nctrl, u32 npts, u32 njoints, real T, Matrix& control, Matrix& basis_p, Matrix& basis_v, Matrix& basis_a, Matrix& pos, Matrix& vel, Matrix& acc);
-
-
-
-
-
-
-
+// compute the position, velocity and acceleration for each point, for each joint directly from the
+// optimization vector.
+void bspline_pva(BsplineDef def, Array& x, Matrix& task, BsplineBasis& basis, Pva& pva);
 
 
 
 
 
 //--------------------------------------------------------------------------------------------------------------------
-inline void bspline_control_points(u32 nctrl, u32 njoints, u32 p, Array& x, Matrix& task, Matrix& control) {
-    // Note: performance critical.
-    Assert(x.size == njoints*(nctrl-6) + 1 );
-    Assert(task.rows == njoints);
-    Assert(task.cols == 6);
-    Assert(control.rows == nctrl);
-    Assert(control.cols == njoints);
+inline Pva::Pva(BsplineDef def) :
+    pos(def.njoints, def.npts),
+    vel(def.njoints, def.npts),
+    acc(def.njoints, def.npts),
+    t(def.npts)
+{}
 
-    float T = x[x.size-1];
-    float du = 1.0f/(nctrl-p);
-    float T2 = T*T;
+inline BsplineBasis::BsplineBasis(BsplineDef def) :
+    pos(def.nctrl, def.npts),
+    vel(def.nctrl, def.npts),
+    acc(def.nctrl, def.npts)
+{}
 
-    const auto p0 = &task(0, 0);
-    const auto v0 = &task(0, 1);
-    const auto a0 = &task(0, 2);
-    const auto pf = &task(0, 3);
-    const auto vf = &task(0, 4);
-    const auto af = &task(0, 5);
-
-    u32 ctr_i = 0;
-    auto ctr = control.data;
-    u32 x_idx = 0;
-
-    const float Kv = T*du/p;
-    const float Ka = 2*T2*du*du / (p*(p-1));
-    for (u32 joint = 0; joint < njoints; joint++) {
-        // Initial PVA
-        ctr[ctr_i++] = p0[joint];
-        ctr[ctr_i++] = Kv*v0[joint] + p0[joint];
-        ctr[ctr_i++] = Ka*a0[joint] + 3*ctr[ctr_i - 1] - 2*p0[joint];
-
-        // From optimization vector
-        for (u32 i = 0; i < nctrl-6; i++)
-            ctr[ctr_i++] = x[x_idx++];
-
-        // Final PVA
-        const float Pn = pf[joint];
-        const float Pn_minus_1 = Pn - Kv*vf[joint];
-        const float Pn_minus_2 = Ka*af[joint] - 2*Pn + 3*Pn_minus_1;
-        ctr[ctr_i++] = Pn_minus_2;
-        ctr[ctr_i++] = Pn_minus_1;
-        ctr[ctr_i++] = Pn;
-    }
-
-//---- Old dof x nctrl shaped matrix ----
-    // // copy first control point (p0)
-    // for (u32 joint = 0; joint < njoints; joint++)
-    //     ctr[ctr_i++] = p0[joint];
-    // // compute control points for initial velocity
-    // const float Kv = T*du/p;
-    // for (u32 joint = 0; joint < njoints; joint++)
-    //     ctr[ctr_i++] = Kv*v0[joint] + p0[joint];
-    // // compute control points for initial acceleration
-    // const float Ka = 2*T2*du*du / (p*(p-1));
-    // for (u32 joint = 0; joint < njoints; joint++)
-    //     ctr[ctr_i++] = Ka*a0[joint] + 3*ctr[ctr_i - njoints] - 2*p0[joint];
-    // // insert all but the last element of the optimization vector
-    // for (u32 i = 0; i < x.size-1; i++)
-    //     ctr[ctr_i++] = x[i];
-    // // compute control points for final pva
-    // for (u32 joint = 0; joint < njoints; joint++) {
-    //     const float Pn = pf[joint];
-    //     const float Pn_minus_1 = Pn - Kv*vf[joint];
-    //     const float Pn_minus_2 = Ka*af[joint] - 2*Pn + 3*Pn_minus_1;
-    //     ctr[ctr_i] = Pn_minus_2;
-    //     ctr[ctr_i+njoints] = Pn_minus_1;
-    //     ctr[ctr_i+2*njoints] = Pn;
-    //     ctr_i++;
-    // }
-}
-
-inline void bspline_basis_functions(u32 nctrl, u32 npts, u32 p, Matrix& basis_p, Matrix& basis_v, Matrix& basis_a) {
-    Assert(basis_p.rows == nctrl && basis_p.cols == npts);
-    Assert(basis_v.rows == nctrl && basis_v.cols == npts);
-    Assert(basis_a.rows == nctrl && basis_a.cols == npts);
+inline void bspline_basis_functions(BsplineDef def, BsplineBasis& basis) {
+    const auto npts = def.npts;
+    const auto nctrl = def.nctrl;
+    const auto p = def.p;
+    Assert(basis.pos.rows == nctrl && basis.pos.cols == npts);
+    Assert(basis.vel.rows == nctrl && basis.vel.cols == npts);
+    Assert(basis.acc.rows == nctrl && basis.acc.cols == npts);
 
     u32 m = nctrl + p;
     Array knots(m+1);
@@ -122,9 +81,9 @@ inline void bspline_basis_functions(u32 nctrl, u32 npts, u32 p, Matrix& basis_p,
 
     Array N(m*(p+1)); // triangle basis function
     const real du = 1.0f / (npts-1);
-    real* basis_p_col = basis_p.data;
-    real* basis_v_col = basis_v.data;
-    real* basis_a_col = basis_a.data;
+    real* basis_p_col = basis.pos.data;
+    real* basis_v_col = basis.vel.data;
+    real* basis_a_col = basis.acc.data;
     for (int point=0; point < npts; point++) {
         const real u = point*du;
 
@@ -168,24 +127,72 @@ inline void bspline_basis_functions(u32 nctrl, u32 npts, u32 p, Matrix& basis_p,
     }
 }
 
-inline void bspline_pva(u32 nctrl, u32 npts, u32 njoints, real T, Matrix& control, Matrix& basis_p, Matrix& basis_v, Matrix& basis_a, Matrix& pos, Matrix& vel, Matrix& acc) {
+inline void bspline_pva(BsplineDef def, Array& x, Matrix& task, BsplineBasis& basis, Pva& pva) {
+    // Note: performance critical.
+    const auto njoints = def.njoints;
+    const auto nctrl = def.nctrl;
+    const auto p = def.p;
+    const auto npts = def.npts;
+
+    static thread_local Matrix control(nctrl, njoints);
+
+    Assert(x.size == njoints*(nctrl-6) + 1 );
+    Assert(task.rows == njoints);
+    Assert(task.cols == 6);
+
+    const real T = x[x.size-1];
+    const real du = 1.0/(nctrl-p);
+    const real T2 = T*T;
+    const real one_over_T = 1/T;
+    const real one_over_T2 = one_over_T*one_over_T;
+
+    const auto p0 = &task(0, 0);
+    const auto v0 = &task(0, 1);
+    const auto a0 = &task(0, 2);
+    const auto pf = &task(0, 3);
+    const auto vf = &task(0, 4);
+    const auto af = &task(0, 5);
+
+    u32 ctr_i = 0;
+    u32 x_i = 0;
+    auto ctr = control.data;
+
+    const real Kv = T*du/p;
+    const real Ka = 2*T2*du*du / (p*(p-1));
+    for (u32 joint = 0; joint < njoints; joint++) {
+        // Initial PVA
+        ctr[ctr_i++] = p0[joint];
+        ctr[ctr_i++] = Kv*v0[joint] + p0[joint];
+        ctr[ctr_i++] = Ka*a0[joint] + 3*ctr[ctr_i - 1] - 2*p0[joint];
+
+        // From optimization vector
+        for (u32 i = 0; i < nctrl-6; i++)
+            ctr[ctr_i++] = x[x_i++];
+
+        // Final PVA
+        const real Pn = pf[joint];
+        const real Pn_minus_1 = Pn - Kv*vf[joint];
+        const real Pn_minus_2 = Ka*af[joint] - 2*Pn + 3*Pn_minus_1;
+        ctr[ctr_i++] = Pn_minus_2;
+        ctr[ctr_i++] = Pn_minus_1;
+        ctr[ctr_i++] = Pn;
+    }
+
     // Note: This function is performance critical.
     // Todo: SIMD
-    const auto one_over_T = 1/T;
-    const auto one_over_T2 = one_over_T*one_over_T;
-    zero(pos);
-    zero(vel);
-    zero(acc);
+    zero(pva.pos);
+    zero(pva.vel);
+    zero(pva.acc);
     for (u32 point = 0; point < npts; point++) {
         for (u32 joint = 0; joint < njoints; joint++) {
-            auto& p = pos(joint, point);
-            auto& v = vel(joint, point);
-            auto& a = acc(joint, point);
+            auto& p = pva.pos(joint, point);
+            auto& v = pva.vel(joint, point);
+            auto& a = pva.acc(joint, point);
             for (int i = 0; i < nctrl; i++) {
                 const auto c = control(i, joint);
-                p += c * basis_p(i, point);
-                v += c * basis_v(i, point);
-                a += c * basis_a(i, point);
+                p += c * basis.pos(i, point);
+                v += c * basis.vel(i, point);
+                a += c * basis.acc(i, point);
             }
             v *= one_over_T;
             a *= one_over_T2;

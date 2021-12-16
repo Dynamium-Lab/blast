@@ -14,10 +14,17 @@ static blast::real get_random() {
 int main() {
     using namespace blast;
 
-    const u32 nctrl = 21;
-    const u32 npts = 4000;
-    const u32 p = 5;
-    const u32 njoints = 1000;
+    BsplineDef def;
+
+    def.nctrl = 21;
+    def.npts = 4000;
+    def.p = 5;
+    def.njoints = 100;
+
+    const auto nctrl = def.nctrl;
+    const auto npts = def.npts;
+    const auto njoints = def.njoints;
+    const auto p = def.p;
 
     // random task
     real amp = 10;
@@ -28,22 +35,17 @@ int main() {
         }
     }
 
-    Matrix basis_p(nctrl, npts);
-    Matrix basis_v(nctrl, npts);
-    Matrix basis_a(nctrl, npts);
-    bspline_basis_functions(nctrl, npts, p, basis_p, basis_v, basis_a);
+    BsplineBasis basis(def);
+    bspline_basis_functions(def, basis);
 
     Array x(njoints*(nctrl-6) + 1);
-    real T = amp * std::abs(get_random());
-    x[x.size-1] = T;
-    real dt = T / (npts-1);
-    Matrix ctrl(nctrl, njoints);
-    bspline_control_points(nctrl, njoints, p, x, task, ctrl);
+    for (u32 i = 0; i < x.size; i++)
+        x[i] = amp * get_random();
+    x[x.size-1] = std::abs(x[x.size-1]);
+    Pva pva(def);
+    bspline_pva(def, x, task, basis, pva);
 
-    Matrix pos(njoints, npts);
-    Matrix vel(njoints, npts);
-    Matrix acc(njoints, npts);
-    bspline_pva(nctrl, npts, njoints, T, ctrl, basis_p, basis_v, basis_a, pos, vel, acc);
+    printf("T = %f\n", x[x.size-1]);
 
     real init_max_pos_error = 0;
     real init_max_vel_error = 0;
@@ -53,21 +55,22 @@ int main() {
     real final_max_acc_error = 0;
     real max_vel_error = 0;
     real max_acc_error = 0;
+    real dt = x[x.size-1] / (npts-1);
     for (u32 i = 0; i < njoints; i++) {
         // boundary conditions
-        init_max_pos_error = std::max(init_max_pos_error, std::abs(pos(i, 0) - task(i, 0)));
-        init_max_vel_error = std::max(init_max_vel_error, std::abs(vel(i, 0) - task(i, 1)));
-        init_max_acc_error = std::max(init_max_acc_error, std::abs(acc(i, 0) - task(i, 2)));
-        final_max_pos_error = std::max(final_max_pos_error, std::abs(pos(i, npts-1) - task(i, 3)));
-        final_max_vel_error = std::max(final_max_vel_error, std::abs(vel(i, npts-1) - task(i, 4)));
-        final_max_acc_error = std::max(final_max_acc_error, std::abs(acc(i, npts-1) - task(i, 5)));
+        init_max_pos_error = std::max(init_max_pos_error, std::abs(pva.pos(i, 0) - task(i, 0)));
+        init_max_vel_error = std::max(init_max_vel_error, std::abs(pva.vel(i, 0) - task(i, 1)));
+        init_max_acc_error = std::max(init_max_acc_error, std::abs(pva.acc(i, 0) - task(i, 2)));
+        final_max_pos_error = std::max(final_max_pos_error, std::abs(pva.pos(i, npts-1) - task(i, 3)));
+        final_max_vel_error = std::max(final_max_vel_error, std::abs(pva.vel(i, npts-1) - task(i, 4)));
+        final_max_acc_error = std::max(final_max_acc_error, std::abs(pva.acc(i, npts-1) - task(i, 5)));
 
         // derivatives
         for (u32 j = 1; j < npts-1; j++) {
-            real diff_p = (pos(i, j+1) - pos(i, j-1)) / (2*dt);
-            max_vel_error = std::max(max_vel_error, std::abs(diff_p - vel(i, j)));
-            real diff_v = (vel(i, j+1) - vel(i, j-1)) / (2*dt);
-            max_acc_error = std::max(max_acc_error, std::abs(diff_v - acc(i, j)));
+            real diff_p = (pva.pos(i, j+1) - pva.pos(i, j-1)) / (2*dt);
+            max_vel_error = std::max(max_vel_error, std::abs(diff_p - pva.vel(i, j)));
+            real diff_v = (pva.vel(i, j+1) - pva.vel(i, j-1)) / (2*dt);
+            max_acc_error = std::max(max_acc_error, std::abs(diff_v - pva.acc(i, j)));
         }
     }
     printf("Boundary conditions:\n");
