@@ -35,17 +35,19 @@ int main() {
         }
     }
 
-    BsplineBasis basis(def);
-    bspline_basis_functions(def, basis);
-
+    // random optimization vector
     Array x(njoints*(nctrl-6) + 1);
     for (u32 i = 0; i < x.size; i++)
         x[i] = amp * get_random();
     x[x.size-1] = std::abs(x[x.size-1]);
+    printf("T = %f\n", x[x.size-1]);
+
+    // Compute basis functions
+    BsplineBasis basis(def);
+
+    // Compute trajectory
     Pva pva(def);
     bspline_pva(def, x, task, basis, pva);
-
-    printf("T = %f\n", x[x.size-1]);
 
     real init_max_pos_error = 0;
     real init_max_vel_error = 0;
