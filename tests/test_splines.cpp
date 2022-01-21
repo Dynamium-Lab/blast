@@ -47,7 +47,7 @@ int main() {
 
     // Compute trajectory
     Pva pva(def);
-    bspline_pva(def, x, task, basis, pva);
+    pva.bspline(def, x, task, basis);
 
     real init_max_pos_error = 0;
     real init_max_vel_error = 0;
