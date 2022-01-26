@@ -1,5 +1,7 @@
 #pragma once
 
+#include "blast.hpp"
+
 namespace blast {
 
 // Constants that define the b-spline
@@ -32,6 +34,8 @@ struct Pva {
 
     // compute the PVA using bsplines.
     void bspline(BsplineDef def, Array& x, Matrix& task, BsplineBasis& basis);
+    u32 joints() const;
+    u32 points() const;
 };
 
 
@@ -46,6 +50,14 @@ inline Pva::Pva(BsplineDef def) :
     acc(def.njoints, def.npts),
     t(def.npts)
 {}
+
+inline u32 Pva::joints() const {
+    return pos.rows;
+}
+
+inline u32 Pva::points() const {
+    return t.size;
+}
 
 inline BsplineBasis::BsplineBasis(BsplineDef def) :
     pos(def.nctrl, def.npts),

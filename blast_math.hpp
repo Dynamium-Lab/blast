@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <limits>
 
+#include "blast.hpp"
+
 namespace blast {
 
 static const real inf = std::numeric_limits<real>::infinity();

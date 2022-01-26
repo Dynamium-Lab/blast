@@ -10,6 +10,7 @@ using real = double; // for testing float vs double speed and precision
 
 } // namespace blast
 
+// todo: trigger breakpoint or something else
 #ifdef _DEBUG
 #define Assert(expr) \
     if (!(expr)){\
@@ -23,3 +24,4 @@ using real = double; // for testing float vs double speed and precision
 //--- Other headers ---
 #include "blast_math.hpp"
 #include "blast_trajectory.hpp"
+#include "blast_manipulator.hpp"
