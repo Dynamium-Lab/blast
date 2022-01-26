@@ -7,7 +7,12 @@ int main() {
 
     printf("Hello World!\n");
 
-    Mat3 m = {1, 2, 3};
+    Mat3 m;
+    m(0, 0) = 1;
+    m(1, 0) = 2;
+    m(2, 0) = 3;
+
+    print(m);
 
     printf("\nPress enter to exit.\n");
     getchar();
