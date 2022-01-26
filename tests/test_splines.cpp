@@ -83,5 +83,8 @@ int main() {
     printf("\nDerivative errors:\n");
     printf("Max velocity error: %f\n", max_vel_error);
     printf("Max acceleration error: %f\n", max_acc_error);
+
+    printf("\nPress enter to exit.\n");
+    getchar();
     return 0;
 }
