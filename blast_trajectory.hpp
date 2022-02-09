@@ -71,10 +71,10 @@ inline BsplineBasis::BsplineBasis(BsplineDef def) :
     u32 m = nctrl + p;
     Array knots(m+1);
     {
-        for (int i = m; i > m-p-1; i--)
+        for (u32 i = m; i > m-p-1; i--)
             knots[i] = 1.0f;
         const real du = 1.0f / (real)(m+1 - 2*(p+1) + 1);
-        for (int i = p+1; i < m-p; i++)
+        for (u32 i = p+1; i < m-p; i++)
             knots[i] = knots[i-1] + du;
     }
 
@@ -83,15 +83,15 @@ inline BsplineBasis::BsplineBasis(BsplineDef def) :
     real* basis_p_col = pos.data;
     real* basis_v_col = vel.data;
     real* basis_a_col = acc.data;
-    for (int point=0; point < npts; point++) {
+    for (u32 point=0; point < npts; point++) {
         const real u = point*du;
 
-        for (int i=0; i<m; i++)
+        for (u32 i=0; i<m; i++)
             N[i] = u >= knots[i] && u < knots[i+1] ? 1.0f : 0.0f;
         if (point == npts-1)
             N[nctrl-1] = 1.0f;
-        for (int pi = 1; pi <= p; pi++) {
-            for (int i = 0; i < m - pi; i++) {
+        for (u32 pi = 1; pi <= p; pi++) {
+            for (u32 i = 0; i < m - pi; i++) {
                 if (knots[i+pi] != knots[i])
                     N[m*pi + i] = N[m*(pi-1) + i] * (u - knots[i]) / (knots[i+pi] - knots[i]);
                 else
@@ -102,21 +102,21 @@ inline BsplineBasis::BsplineBasis(BsplineDef def) :
         }
 
         // position basis functions
-        for (int i = 0; i < nctrl; i++)
+        for (u32 i = 0; i < nctrl; i++)
             basis_p_col[i] = N[m*p + i];
 
         // velocity basis functions
-        for (int i = 0; i < nctrl-1; i++)
+        for (u32 i = 0; i < nctrl-1; i++)
             basis_v_col[i] = -(real)p * N[m*(p-1) + i+1] / (knots[i+p+1] - knots[i+1]);
-        for (int i=1; i < nctrl; i++)
+        for (u32 i=1; i < nctrl; i++)
             basis_v_col[i] += (real)p * N[m*(p-1) + i] / (knots[i+p] - knots[i]);
 
         // acceleration basis functions
-        for (int i = 0; i < nctrl-2; i++)
+        for (u32 i = 0; i < nctrl-2; i++)
             basis_a_col[i] = (p*(p-1)) * N[m*(p-2) + i+2] / ((knots[i+p+1] - knots[i+1]) * (knots[i+p+1] - knots[i+2]));
-        for (int i = 1; i < nctrl-1; i++)
+        for (u32 i = 1; i < nctrl-1; i++)
             basis_a_col[i] -= (p*(p-1)) * N[m*(p-2) + i+1] * (1.0f/(knots[i+p]-knots[i]) + 1.0f/(knots[i+p+1]-knots[i+1])) / (knots[i+p] - knots[i+1]);
-        for (int i = 2; i < nctrl; i++)
+        for (u32 i = 2; i < nctrl; i++)
             basis_a_col[i] += (p*(p-1)) * N[m*(p-2) + i] / ((knots[i+p-1] - knots[i]) * (knots[i+p] - knots[i]));
 
         // increment pointers
@@ -187,7 +187,7 @@ inline void Pva::bspline(BsplineDef def, Array& x, Matrix& task, BsplineBasis& b
             auto& p = pos(joint, point);
             auto& v = vel(joint, point);
             auto& a = acc(joint, point);
-            for (int i = 0; i < nctrl; i++) {
+            for (u32 i = 0; i < nctrl; i++) {
                 const auto c = control(i, joint);
                 p += c * basis.pos(i, point);
                 v += c * basis.vel(i, point);

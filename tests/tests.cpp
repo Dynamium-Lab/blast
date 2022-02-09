@@ -2,6 +2,7 @@
 #include <cmath>
 #include <random>
 
+#include <gtest/gtest.h>
 
 
 static blast::real get_random() {
@@ -11,7 +12,8 @@ static blast::real get_random() {
     return dis(e2);
 }
 
-int main() {
+TEST(SplineTest, TrajectoryCorrectness) {
+
     using namespace blast;
 
     BsplineDef def;
@@ -75,18 +77,13 @@ int main() {
             max_acc_error = std::max(max_acc_error, std::abs(diff_v - pva.acc(i, j)));
         }
     }
-    printf("Boundary conditions:\n");
-    printf("Initial position max error = %f\n", init_max_pos_error);
-    printf("Initial velocity max error = %f\n", init_max_vel_error);
-    printf("Initial acceleration max error = %f\n", init_max_acc_error);
-    printf("Final position max error = %f\n", final_max_pos_error);
-    printf("Final velocity max error = %f\n", final_max_vel_error);
-    printf("Final acceleration max error = %f\n", final_max_acc_error);
-    printf("\nDerivative errors:\n");
-    printf("Max velocity error: %f\n", max_vel_error);
-    printf("Max acceleration error: %f\n", max_acc_error);
 
-    printf("\nPress enter to exit.\n");
-    getchar();
-    return 0;
+    EXPECT_TRUE(init_max_pos_error < 0.1);
+    EXPECT_TRUE(init_max_vel_error < 0.1);
+    EXPECT_TRUE(init_max_acc_error < 0.1);
+    EXPECT_TRUE(final_max_pos_error < 0.1);
+    EXPECT_TRUE(final_max_vel_error < 0.1);
+    EXPECT_TRUE(final_max_acc_error < 0.1);
+    EXPECT_TRUE(max_vel_error < 0.1);
+    EXPECT_TRUE(max_acc_error < 0.1);
 }

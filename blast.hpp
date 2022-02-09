@@ -14,7 +14,7 @@ using real = double; // for testing float vs double speed and precision
 #ifdef _DEBUG
 #define Assert(expr) \
     if (!(expr)){\
-        fprintf(stderr, "Assertion failed in function: %s: %s. File: %s(%d).\n", __FUNCTION__, __LINE__, __FILE__, __LINE__); \
+        fprintf(stderr, "Assertion failed in function: %s. File: %s(%d).\n", __FUNCTION__, __FILE__, __LINE__); \
         exit(-1); \
     }
 #else
