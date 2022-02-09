@@ -62,9 +62,9 @@ TEST(SplineTest, TrajectoryCorrectness) {
     real dt = x[x.size-1] / (npts-1);
     for (u32 i = 0; i < njoints; i++) {
         // boundary conditions
-        init_max_pos_error = std::max(init_max_pos_error, std::abs(pva.pos(i, 0) - task(i, 0)));
-        init_max_vel_error = std::max(init_max_vel_error, std::abs(pva.vel(i, 0) - task(i, 1)));
-        init_max_acc_error = std::max(init_max_acc_error, std::abs(pva.acc(i, 0) - task(i, 2)));
+        init_max_pos_error  = std::max(init_max_pos_error,  std::abs(pva.pos(i, 0) - task(i, 0)));
+        init_max_vel_error  = std::max(init_max_vel_error,  std::abs(pva.vel(i, 0) - task(i, 1)));
+        init_max_acc_error  = std::max(init_max_acc_error,  std::abs(pva.acc(i, 0) - task(i, 2)));
         final_max_pos_error = std::max(final_max_pos_error, std::abs(pva.pos(i, npts-1) - task(i, 3)));
         final_max_vel_error = std::max(final_max_vel_error, std::abs(pva.vel(i, npts-1) - task(i, 4)));
         final_max_acc_error = std::max(final_max_acc_error, std::abs(pva.acc(i, npts-1) - task(i, 5)));
