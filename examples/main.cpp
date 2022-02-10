@@ -1,45 +1,20 @@
 
 #include <stdio.h>
 #include "blast.hpp"
-#include <random>
-
-
-static blast::real get_random() {
-    static thread_local std::random_device rd;
-    static thread_local std::mt19937 e2(rd());
-    static thread_local std::uniform_real_distribution<blast::real> dis(-1, 1);
-    return dis(e2);
-}
+#include "blast_optional_utilities.hpp"
 
 int main() {
     using namespace blast;
 
-    printf("Hello World!\n");
-
-    Mat3 m;
-    m(0, 0) = 1;
-    m(1, 0) = 2;
-    m(2, 0) = 3;
-
-    print(m);
-
-
-    using namespace blast;
-
-    BsplineDef def;
-
-    def.nctrl = 8*3;
-    def.npts = 256;
-    def.p = 5;
-    def.njoints = 7;
-
-    const auto nctrl = def.nctrl;
-    const auto npts = def.npts;
-    const auto njoints = def.njoints;
-    const auto p = def.p;
+    // init
+    const u32 njoints = 7;
+    const u32 npts = 256;
+    const u32 nctrl = 8*3;
+    const u32 p = 5;
+    PvaBspline pva(nctrl, npts, p, njoints);
 
     // random task
-    real amp = 10;
+    real amp = 2;
     Matrix task(njoints, 6);
     for (u32 i = 0; i < task.rows; i++) {
         for (u32 j = 0; j < task.cols; j++) {
@@ -48,18 +23,14 @@ int main() {
     }
 
     // random optimization vector
-    Array x(njoints*(nctrl-6) + 1);
+    Array x(pva.xlen());
     for (u32 i = 0; i < x.size; i++)
         x[i] = amp * get_random();
     x[x.size-1] = 0.9f;
     printf("T = %f\n", x[x.size-1]);
 
-    // Compute basis functions
-    BsplineBasis basis(def);
-
     // Compute trajectory
-    Pva pva(def);
-    pva.bspline(def, x[x.size-1], pva.bspline_control(def, x, task), basis);
+    pva.compute_trajectory(x, task);
 
 
     return 0;

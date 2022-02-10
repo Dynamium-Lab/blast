@@ -9,13 +9,21 @@
 #else
 #include <time.h>
 #endif
+#include <random>
+
 
 #include <cmath>
 #include <stdint.h>
 
 namespace blast {
+inline real get_random() {
+    static thread_local std::random_device rd;
+    static thread_local std::mt19937 e2(rd());
+    static thread_local std::uniform_real_distribution<blast::real> dis(-1, 1);
+    return dis(e2);
+}
 
-int64_t get_tick() {
+inline int64_t get_tick() {
 #if defined(_MSC_VER)
     LARGE_INTEGER start, frequency;
     QueryPerformanceFrequency(&frequency);

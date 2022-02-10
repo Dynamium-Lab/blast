@@ -42,9 +42,9 @@ inline void Manipulator::forward_kinematics(Matrix& joint_position, Matrix& cart
 
 //------ FUNCTIONS ------------------------------------------------------------------------------------
 inline void Manipulator::dynamics(Pva& pva, Matrix& efforts) {
-    Assert(pva.joints() == joints);
+    Assert(pva.joints == joints);
     Assert(efforts.rows == joints);
-    Assert(efforts.cols == pva.points());
+    Assert(efforts.cols == pva.points);
 
     // todo: construct these every run??
     Array s(joints); // sines
@@ -58,7 +58,7 @@ inline void Manipulator::dynamics(Pva& pva, Matrix& efforts) {
     vector<Vec3> f(joints); // forces on joint
     vector<Vec3> n(joints); // axis aligned torque (z is the joint torque)
 
-    for (u32 i = 0; i < pva.points(); i++) {
+    for (u32 i = 0; i < pva.points; i++) {
         auto p = &pva.pos(0, i);
         auto v = &pva.vel(0, i);
         auto a = &pva.acc(0, i);

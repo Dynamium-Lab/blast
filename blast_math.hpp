@@ -1,9 +1,11 @@
 #pragma once
-
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
+#include <utility>
+#include <xmmintrin.h>
+#include <immintrin.h>
 
 #include "blast.hpp"
 
@@ -29,8 +31,6 @@ Vec3 operator+(Vec3 a, Vec3 b);
 Vec3 operator*(real a, Vec3 b);
 Vec3 operator*(Vec3 a, real b);
 
-
-
 // 3x3 matrix
 struct Mat3 {
     real data[9] = {0};
@@ -43,8 +43,6 @@ void zero(Mat3&);
 Mat3 transpose(Mat3&);
 Vec3 operator*(Mat3& m, Vec3 v);
 Mat3 operator*(Mat3& m, Mat3 rhs);
-
-
 
 // Array of real numbers
 struct Array {
@@ -65,8 +63,6 @@ struct Array {
     void zero();
 };
 void zero(Array&);
-
-
 
 // Matrix of real numbers
 struct Matrix {
@@ -89,16 +85,48 @@ struct Matrix {
 };
 void zero(Matrix&);
 
-
-
 //--- Utility and debug functions ---
 void print(Vec3);
 void print(Mat3);
 void print(Array&);
 void print(Matrix&);
 
+//--- SIMD utility functions ---
+float hadd_ps(__m256 r8);
+float hadd_ps( __m128 r4 );
+double hadd_pd(__m256d v);
 
 
+
+
+
+
+// Horizontal sum of 4 lanes of the vector
+inline float hadd_ps( __m128 r4 ) {
+    // Add 4 values into 2
+    const __m128 r2 = _mm_add_ps( r4, _mm_movehl_ps( r4, r4 ) );
+    // Add 2 lower values into the final result
+    const __m128 r1 = _mm_add_ss( r2, _mm_movehdup_ps( r2 ) );
+    // Return the lowest lane of the result vector.
+    // The intrinsic below compiles into noop, modern compilers return floats in the lowest lane of xmm0 register.
+    return _mm_cvtss_f32( r1 );
+}
+
+// Horizontal sum of 8 lanes of the vector
+inline float hadd_ps( __m256 r8 ) {
+    const __m128 low = _mm256_castps256_ps128( r8 );
+    const __m128 high = _mm256_extractf128_ps( r8, 1 );
+    return hadd_ps( _mm_add_ps( low, high ) );
+}
+
+inline double hadd_pd(__m256d v) {
+    __m128d vlow  = _mm256_castpd256_pd128(v);
+    __m128d vhigh = _mm256_extractf128_pd(v, 1); // high 128
+    vlow  = _mm_add_pd(vlow, vhigh);     // reduce down to 128
+
+    __m128d high64 = _mm_unpackhi_pd(vlow, vlow);
+    return  _mm_cvtsd_f64(_mm_add_sd(vlow, high64));  // reduce to scalar
+}
 
 
 

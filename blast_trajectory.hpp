@@ -1,83 +1,66 @@
 #pragma once
-
-#include "blast.hpp"
-
-// todo: cleanup
-#include <utility>
-// SSE SIMD intrinsics
-#include <xmmintrin.h>
-// AVX SIMD intrinsics
-#include <immintrin.h>
-
+#include "blast_math.hpp"
 
 namespace blast {
 
-// Constants that define the b-spline
-struct BsplineDef {
-    u32 nctrl;
-    u32 npts;
-    u32 p;
-    u32 njoints;
-};
-
-// Container for the three basis function matrices (p, v, a).
-// The basis functions do not change once the object is constructed so if you want different npts, njoints, nctrl or p, then make another object.
-// The basis functions are stored in a `nctrl` x `npts` Matrices.
-struct BsplineBasis {
-    Matrix pos; // nctrl x npts
-    Matrix vel;
-    Matrix acc;
-
-    BsplineBasis(BsplineDef def);
-};
-
 // Container for the position, velocity, and acceleration matrices and the time vector.
 struct Pva {
-    Matrix pos; // njoints x npts
-    Matrix vel;
-    Matrix acc;
-    Array t;
+    Matrix pos; // njoints x npoints
+    Matrix vel; // njoints x npoints
+    Matrix acc; // njoints x npoints
+    Array t; // npoints
+    u32 joints;
+    u32 points;
 
-    Pva(BsplineDef def);
+    Pva(u32 npoints, u32 njoints);
 
     // compute the PVA using bsplines.
-    Matrix bspline_control(BsplineDef def, Array& x, Matrix& task);
-    void bspline(BsplineDef def, real T, Matrix& control, BsplineBasis& basis);
-
-    u32 joints() const;
-    u32 points() const;
+    virtual void compute_trajectory(Array&x, Matrix& task) = 0;
+    virtual u32 xlen() = 0;
 };
 
+struct PvaBspline : public Pva {
+    Matrix control; // nctrl x njoints
+    Matrix basis_p; // nctrl x npoints
+    Matrix basis_v; // nctrl x npoints
+    Matrix basis_a; // nctrl x npoints
+    u32 nctrl;
+    u32 p;
 
+    PvaBspline(u32 ncontrol, u32 npoints, u32 P, u32 dof);
+
+    void compute_trajectory(Array&x, Matrix& task) override;
+    u32 xlen() override;
+
+    void compute_basis();
+    void compute_control(Array&x, Matrix& task);
+};
 
 
 
 
 //------ FUNCTIONS ------------------------------------------------------------------------------------
-inline Pva::Pva(BsplineDef def) :
-    pos(def.njoints, def.npts),
-    vel(def.njoints, def.npts),
-    acc(def.njoints, def.npts),
-    t(def.npts)
+inline Pva::Pva(u32 npoints, u32 njoints) :
+    pos(njoints, npoints),
+    vel(njoints, npoints),
+    acc(njoints, npoints),
+    t(npoints),
+    joints(njoints),
+    points(npoints)
 {}
 
-inline u32 Pva::joints() const {
-    return pos.rows;
+inline PvaBspline::PvaBspline(u32 ncontrol, u32 npoints, u32 P, u32 dof) :
+    Pva(npoints, dof),
+    nctrl(ncontrol),
+    p(P),
+    control(ncontrol, dof),
+    basis_p(ncontrol, npoints),
+    basis_v(ncontrol, npoints),
+    basis_a(ncontrol, npoints) {
+    compute_basis();
 }
 
-inline u32 Pva::points() const {
-    return t.size;
-}
-
-inline BsplineBasis::BsplineBasis(BsplineDef def) :
-    pos(def.nctrl, def.npts),
-    vel(def.nctrl, def.npts),
-    acc(def.nctrl, def.npts) {
-
-    const auto npts = def.npts;
-    const auto nctrl = def.nctrl;
-    const auto p = def.p;
-
+inline void PvaBspline::compute_basis() {
     u32 m = nctrl + p;
     Array knots(m+1);
     {
@@ -89,16 +72,16 @@ inline BsplineBasis::BsplineBasis(BsplineDef def) :
     }
 
     Array N(m*(p+1)); // triangle basis function
-    const real du = 1.0f / (npts-1);
-    real* basis_p_col = pos.data;
-    real* basis_v_col = vel.data;
-    real* basis_a_col = acc.data;
-    for (u32 point=0; point < npts; point++) {
+    const real du = 1.0f / (points-1);
+    real* basis_p_col = basis_p.data;
+    real* basis_v_col = basis_v.data;
+    real* basis_a_col = basis_a.data;
+    for (u32 point=0; point < points; point++) {
         const real u = point*du;
 
         for (u32 i=0; i<m; i++)
             N[i] = u >= knots[i] && u < knots[i+1] ? 1.0f : 0.0f;
-        if (point == npts-1)
+        if (point == points-1)
             N[nctrl-1] = 1.0f;
         for (u32 pi = 1; pi <= p; pi++) {
             for (u32 i = 0; i < m - pi; i++) {
@@ -136,18 +119,7 @@ inline BsplineBasis::BsplineBasis(BsplineDef def) :
     }
 }
 
-inline Matrix Pva::bspline_control(BsplineDef def, Array& x, Matrix& task) {
-    const auto njoints = def.njoints;
-    const auto nctrl = def.nctrl;
-    const auto p = def.p;
-    const auto npts = def.npts;
-
-    Matrix control(nctrl, njoints);
-
-    Assert(x.size == njoints*(nctrl-6) + 1 );
-    Assert(task.rows == njoints);
-    Assert(task.cols == 6);
-
+inline void PvaBspline::compute_control(Array&x, Matrix& task) {
     const real T = x[x.size-1];
     const real du = 1.0f/(nctrl-p);
     const real T2 = T*T;
@@ -167,7 +139,7 @@ inline Matrix Pva::bspline_control(BsplineDef def, Array& x, Matrix& task) {
 
     const real Kv = T*du/p;
     const real Ka = 2*T2*du*du / (p*(p-1));
-    for (u32 joint = 0; joint < njoints; joint++) {
+    for (u32 joint = 0; joint < joints; joint++) {
         // Initial PVA
         ctr[ctr_i++] = p0[joint];
         ctr[ctr_i++] = Kv*v0[joint] + p0[joint];
@@ -185,53 +157,30 @@ inline Matrix Pva::bspline_control(BsplineDef def, Array& x, Matrix& task) {
         ctr[ctr_i++] = Pn_minus_1;
         ctr[ctr_i++] = Pn;
     }
-
-    return std::move(control);
 }
 
-// Horizontal sum of 4 lanes of the vector
-inline float hadd_ps( __m128 r4 ) {
-    // Add 4 values into 2
-    const __m128 r2 = _mm_add_ps( r4, _mm_movehl_ps( r4, r4 ) );
-    // Add 2 lower values into the final result
-    const __m128 r1 = _mm_add_ss( r2, _mm_movehdup_ps( r2 ) );
-    // Return the lowest lane of the result vector.
-    // The intrinsic below compiles into noop, modern compilers return floats in the lowest lane of xmm0 register.
-    return _mm_cvtss_f32( r1 );
+inline u32 PvaBspline::xlen() {
+    return joints*(nctrl-6)+1;
 }
 
-// Horizontal sum of 8 lanes of the vector
-inline float hadd_ps( __m256 r8 ) {
-    const __m128 low = _mm256_castps256_ps128( r8 );
-    const __m128 high = _mm256_extractf128_ps( r8, 1 );
-    return hadd_ps( _mm_add_ps( low, high ) );
-}
+inline void PvaBspline::compute_trajectory(Array& x, Matrix& task) {
+    Assert(x.size == xlen());
+    Assert(task.rows == joints);
+    Assert(task.cols == 6);
 
-inline double hadd_pd(__m256d v) {
-    __m128d vlow  = _mm256_castpd256_pd128(v);
-    __m128d vhigh = _mm256_extractf128_pd(v, 1); // high 128
-    vlow  = _mm_add_pd(vlow, vhigh);     // reduce down to 128
+    compute_control(x, task);
 
-    __m128d high64 = _mm_unpackhi_pd(vlow, vlow);
-    return  _mm_cvtsd_f64(_mm_add_sd(vlow, high64));  // reduce to scalar
-}
-
-inline void Pva::bspline(BsplineDef def, real T, Matrix& control, BsplineBasis& basis) {
-    // Note: performance critical.
-    const auto njoints = def.njoints;
-    const auto nctrl = def.nctrl;
-    const auto npts = def.npts;
-    const real one_over_T = 1/T;
+    const real one_over_T = 1/x[x.size-1];
     const real one_over_T2 = one_over_T*one_over_T;
 
     auto p = pos.data;
     auto v = vel.data;
     auto a = acc.data;
-    for (u32 point = 0; point < npts; point++) {
-        const auto bp = &basis.pos(0, point);
-        const auto bv = &basis.vel(0, point);
-        const auto ba = &basis.acc(0, point);
-        for (u32 joint = 0; joint < njoints; joint++) {
+    for (u32 point = 0; point < points; point++) {
+        const auto bp = &basis_p(0, point);
+        const auto bv = &basis_v(0, point);
+        const auto ba = &basis_a(0, point);
+        for (u32 joint = 0; joint < joints; joint++) {
 
             const auto c = &control(0, joint);
 
