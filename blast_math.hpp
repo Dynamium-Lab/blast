@@ -60,6 +60,7 @@ struct Array {
     ~Array();
 
     real& operator[](u32 i);
+    real operator[](u32 i) const;
     void resize(u32 new_size);
     void zero();
 };
@@ -81,7 +82,9 @@ struct Matrix {
     Matrix& operator=(const Matrix&); // copy assignment
     Matrix& operator=(Matrix&&);      // move assignment
     ~Matrix();
+
     real& operator()(u32 row, u32 col);
+    real operator()(u32 row, u32 col) const;
     void zero();
 };
 void zero(Matrix&);
@@ -276,6 +279,11 @@ inline real& Array::operator[](u32 i) {
     return data[i];
 }
 
+inline real Array::operator[](u32 i) const {
+    Assert(i < size);
+    return data[i];
+}
+
 inline void Array::resize(u32 new_size) {
     data = (real*)realloc(data, new_size*sizeof(real));
 }
@@ -353,6 +361,11 @@ inline void Matrix::zero() {
 }
 
 inline real& Matrix::operator()(u32 row, u32 col) {
+    Assert(row < this->rows && col < this->cols);
+    return this->data[row + this->rows*col];
+}
+
+inline real Matrix::operator()(u32 row, u32 col) const {
     Assert(row < this->rows && col < this->cols);
     return this->data[row + this->rows*col];
 }
