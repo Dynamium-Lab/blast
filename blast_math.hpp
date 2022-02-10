@@ -1,9 +1,13 @@
 #pragma once
-
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
+#include <utility>
+#include <xmmintrin.h>
+#include <immintrin.h>
+
+#include "blast.hpp"
 
 namespace blast {
 
@@ -15,6 +19,9 @@ struct Vec3 {
     real x = 0;
     real y = 0;
     real z = 0;
+
+    Vec3() {}
+    Vec3(real x, real y, real z);
 };
 void zero(Vec3&);
 Vec3 cross(Vec3 a, Vec3 b);
@@ -24,12 +31,12 @@ Vec3 operator+(Vec3 a, Vec3 b);
 Vec3 operator*(real a, Vec3 b);
 Vec3 operator*(Vec3 a, real b);
 
-
-
 // 3x3 matrix
 struct Mat3 {
     real data[9] = {0};
 
+    Mat3() {}
+    Mat3(real x1, real y1, real z1, real x2, real y2, real z2, real x3, real y3, real z3);
     real& operator()(u32 row, u32 col);
 };
 void zero(Mat3&);
@@ -37,20 +44,25 @@ Mat3 transpose(Mat3&);
 Vec3 operator*(Mat3& m, Vec3 v);
 Mat3 operator*(Mat3& m, Mat3 rhs);
 
-
-
 // Array of real numbers
 struct Array {
     real * data = nullptr;
     u32 size = 0;
 
-    Array(u32 size);
+    Array() {}
+    Array(u32 new_size);    // normal constructor
+    Array(const Array&);    // copy constructor
+    Array(Array&&);         // move constructor
+    Array& operator=(const Array&); // copy assignment
+    Array& operator=(Array&&);      // move assignment
+    ~Array();
+
     real& operator[](u32 i);
+    real operator[](u32 i) const;
+    void resize(u32 new_size);
+    void zero();
 };
 void zero(Array&);
-void free(Array&);
-
-
 
 // Matrix of real numbers
 struct Matrix {
@@ -59,12 +71,19 @@ struct Matrix {
     u32 rows = 0;
     u32 cols = 0;
 
-    Matrix(u32 r, u32 c);
+    Matrix() {}
+    Matrix(u32 r, u32 c);   // normal constructor
+    Matrix(const Matrix&);  // copy constructor
+    Matrix(Matrix&&);       // move constructor
+    Matrix& operator=(const Matrix&); // copy assignment
+    Matrix& operator=(Matrix&&);      // move assignment
+    ~Matrix();
+
     real& operator()(u32 row, u32 col);
+    real operator()(u32 row, u32 col) const;
+    void zero();
 };
-void free(Matrix&);
-
-
+void zero(Matrix&);
 
 //--- Utility and debug functions ---
 void print(Vec3);
@@ -72,16 +91,67 @@ void print(Mat3);
 void print(Array&);
 void print(Matrix&);
 
+//--- SIMD utility functions ---
+float hadd_ps(__m256 r8);
+float hadd_ps( __m128 r4 );
+double hadd_pd(__m256d v);
 
 
+
+
+
+
+// Horizontal sum of 4 lanes of the vector
+inline float hadd_ps( __m128 r4 ) {
+    // Add 4 values into 2
+    const __m128 r2 = _mm_add_ps( r4, _mm_movehl_ps( r4, r4 ) );
+    // Add 2 lower values into the final result
+    const __m128 r1 = _mm_add_ss( r2, _mm_movehdup_ps( r2 ) );
+    // Return the lowest lane of the result vector.
+    // The intrinsic below compiles into noop, modern compilers return floats in the lowest lane of xmm0 register.
+    return _mm_cvtss_f32( r1 );
+}
+
+// Horizontal sum of 8 lanes of the vector
+inline float hadd_ps( __m256 r8 ) {
+    const __m128 low = _mm256_castps256_ps128( r8 );
+    const __m128 high = _mm256_extractf128_ps( r8, 1 );
+    return hadd_ps( _mm_add_ps( low, high ) );
+}
+
+inline double hadd_pd(__m256d v) {
+    __m128d vlow  = _mm256_castpd256_pd128(v);
+    __m128d vhigh = _mm256_extractf128_pd(v, 1); // high 128
+    vlow  = _mm_add_pd(vlow, vhigh);     // reduce down to 128
+
+    __m128d high64 = _mm_unpackhi_pd(vlow, vlow);
+    return  _mm_cvtsd_f64(_mm_add_sd(vlow, high64));  // reduce to scalar
+}
 
 
 
 
 
 //-----------------------------------------------------------------------
+inline Vec3::Vec3(real x, real y, real z)
+    : x(x), y(y), z(z) {
+
+}
+
+inline Mat3::Mat3(real x1, real y1, real z1, real x2, real y2, real z2, real x3, real y3, real z3) {
+    data[0] = x1;
+    data[1] = y1;
+    data[2] = z1;
+    data[3] = x2;
+    data[4] = y2;
+    data[5] = z2;
+    data[6] = x3;
+    data[7] = y3;
+    data[8] = z3;
+}
+
 inline Mat3 transpose(Mat3& m) {
-    Mat3 result = {
+    Mat3 result {
         m(0, 0),
         m(0, 1),
         m(0, 2),
@@ -152,11 +222,11 @@ inline void zero(Mat3& m) {
 }
 
 inline void zero(Array& a) {
-    memset(a.data, 0, a.size*sizeof(real));
+    a.zero();
 }
 
 inline void zero(Matrix& m) {
-    memset(m.data, 0, m.size*sizeof(real));
+    m.zero();
 }
 
 inline Vec3 operator*(Mat3& m, Vec3 v) {
@@ -181,15 +251,75 @@ inline Mat3 operator*(Mat3& m, Mat3 rhs) {
     return r;
 }
 
-inline Array::Array(u32 size) {
-    this->size = size;
+inline Array::Array(u32 size) : size(size) {
     if (size)
         data = (real*)calloc(size, sizeof(real));
+}
+
+inline Array::Array(const Array& a) : size(a.size) {
+    if (size) {
+        data = (real*)calloc(size, sizeof(real));
+        memcpy(data, a.data, size*sizeof(real));
+    }
+}
+
+inline Array::Array(Array&& a) : data(a.data), size(a.size) {
+    a.data = nullptr;
+    a.size = 0;
+}
+
+inline Array& Array::operator=(const Array& a) {
+    if (this != &a) {
+        if (!data) {
+            data = (real*)malloc(a.size * sizeof(real));
+        }
+        else if (a.size >= size) {
+            std::free(data);
+            data = (real*)malloc(a.size * sizeof(real));
+        }
+        Assert(data);
+
+        size = a.size;
+        std::memcpy(data, a.data, size*sizeof(real));
+    }
+    return *this;
+}
+
+inline Array& Array::operator=(Array&& a) {
+    if (this != &a) {
+        if (data)
+            std::free(data);
+        data = a.data;
+        size = a.size;
+        a.data = nullptr;
+        a.size = 0;
+    }
+    return *this;
+}
+
+inline Array::~Array() {
+    if (data)
+        std::free(data);
 }
 
 inline real& Array::operator[](u32 i) {
     Assert(i < size);
     return data[i];
+}
+
+inline real Array::operator[](u32 i) const {
+    Assert(i < size);
+    return data[i];
+}
+
+inline void Array::resize(u32 new_size) {
+    data = (real*)realloc(data, new_size*sizeof(real));
+}
+
+inline void Array::zero() {
+    if(data)
+        for (u32 i = 0; i<size; i++)
+            data[i] = 0;
 }
 
 inline Matrix::Matrix(u32 r, u32 c) {
@@ -200,21 +330,72 @@ inline Matrix::Matrix(u32 r, u32 c) {
         data = (real*)calloc(size, sizeof(real));
 }
 
+inline Matrix::Matrix(const Matrix& m) : size(m.size), cols(m.cols), rows(m.rows) {
+    if (size) {
+        data = (real*)calloc(size, sizeof(real));
+        memcpy(data, m.data, size*sizeof(real));
+    }
+}
+
+inline Matrix::Matrix(Matrix&& m) : data(m.data), size(m.size), cols(m.cols), rows(m.rows) {
+    m.data = nullptr;
+    m.size = 0;
+    m.rows = 0;
+    m.cols = 0;
+}
+
+inline Matrix& Matrix::operator=(const Matrix& m) {
+    if (this != &m) {
+        if (!data) {
+            data = (real*)malloc(m.size * sizeof(real));
+        }
+        else if (m.size >= size) {
+            std::free(data);
+            data = (real*)malloc(m.size * sizeof(real));
+        }
+        Assert(data);
+
+        size = m.size;
+        cols = m.cols;
+        rows = m.rows;
+        std::memcpy(data, m.data, size*sizeof(real));
+    }
+    return *this;
+}
+
+inline Matrix& Matrix::operator=(Matrix&& m) {
+    if (this != &m) {
+        if (data)
+            std::free(data);
+        data = m.data;
+        size = m.size;
+        rows = m.rows;
+        cols = m.cols;
+        m.data = nullptr;
+        m.size = 0;
+        m.rows = 0;
+        m.cols = 0;
+    }
+    return *this;
+}
+
+inline Matrix::~Matrix() {
+    if (data)
+        std::free(data);
+}
+
+inline void Matrix::zero() {
+    memset(data, 0, size*sizeof(real));
+}
+
 inline real& Matrix::operator()(u32 row, u32 col) {
     Assert(row < this->rows && col < this->cols);
     return this->data[row + this->rows*col];
 }
 
-inline void free(Array& v) {
-    std::free(v.data);
-    v.size = 0;
-    v.data = nullptr;
-}
-
-inline void free(Matrix& m) {
-    std::free(m.data);
-    m.size = 0;
-    m.data = nullptr;
+inline real Matrix::operator()(u32 row, u32 col) const {
+    Assert(row < this->rows && col < this->cols);
+    return this->data[row + this->rows*col];
 }
 
 inline void print(Vec3 v) {
