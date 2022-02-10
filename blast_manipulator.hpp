@@ -79,7 +79,7 @@ inline void Manipulator::dynamics(Pva& pva, Matrix& efforts) {
             // first joint
             w[0] = v[0] * e[0];
             wd[0] = a[0] * e[0];
-            cdd[0] = Qt[0] * Vec3{0, 0, 9.81}; // simulate gravity by accelerating the base upward
+            cdd[0] = Qt[0] * Vec3{0, 0, 9.81f}; // simulate gravity by accelerating the base upward
 
             // all but first joint
             for (u32 j = 1; j < joints; j++) {

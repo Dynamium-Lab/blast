@@ -1,7 +1,21 @@
-
-#include <stdio.h>
 #include "blast.hpp"
+#include "blast_optional_utilities.hpp"
 #include <random>
+
+#include <benchmark/benchmark.h>
+
+// static void BM_StringCreation(benchmark::State& state) {
+//     for (auto _ : state)
+//         std::string empty_string;
+// }
+// BENCHMARK(BM_StringCreation);
+
+// static void BM_StringCopy(benchmark::State& state) {
+//     std::string x = "hello";
+//     for (auto _ : state)
+//         std::string copy(x);
+// }
+// BENCHMARK(BM_StringCopy);
 
 
 static blast::real get_random() {
@@ -11,18 +25,8 @@ static blast::real get_random() {
     return dis(e2);
 }
 
-int main() {
-    using namespace blast;
-
-    printf("Hello World!\n");
-
-    Mat3 m;
-    m(0, 0) = 1;
-    m(1, 0) = 2;
-    m(2, 0) = 3;
-
-    print(m);
-
+static void BM_Splines(benchmark::State& state) {
+    // init code here
 
     using namespace blast;
 
@@ -51,16 +55,17 @@ int main() {
     Array x(njoints*(nctrl-6) + 1);
     for (u32 i = 0; i < x.size; i++)
         x[i] = amp * get_random();
-    x[x.size-1] = 0.9f;
-    printf("T = %f\n", x[x.size-1]);
+    x[x.size-1] = std::abs(x[x.size-1]);
+    // printf("T = %f\n", x[x.size-1]);
 
     // Compute basis functions
+    Pva pva(def);
     BsplineBasis basis(def);
 
-    // Compute trajectory
-    Pva pva(def);
-    pva.bspline(def, x[x.size-1], pva.bspline_control(def, x, task), basis);
-
-
-    return 0;
+    for (auto _ : state) {
+        auto control = pva.bspline_control(def, x, task);
+        pva.bspline(def, x[x.size-1], control, basis);
+        benchmark::ClobberMemory();
+    }
 }
+BENCHMARK(BM_Splines)->Unit(benchmark::kMicrosecond);
