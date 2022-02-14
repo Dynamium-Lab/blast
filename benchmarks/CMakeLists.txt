@@ -11,8 +11,10 @@ set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-include_directories(../)
-include_directories(../optional)
+
+include_directories(../blast/)
+include_directories(../blast/optional)
+include_directories(../../lib/Eigen/Eigen)
 
 # todo: generalize this
 find_package(benchmark REQUIRED PATHS ../../lib/benchmark/build)
@@ -20,3 +22,7 @@ include_directories(../../lib/benchmark/include)
 
 add_executable(bench benchmarks.cpp)
 target_link_libraries(bench benchmark::benchmark benchmark::benchmark_main)
+
+if (MSVC)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX512")
+endif (MSVC)

@@ -6,12 +6,11 @@ set(CMAKE_INCLUDE_CURRENT_DIR   ON)
 set(CMAKE_VERBOSE_MAKEFILE      OFF)
 set(CMAKE_COLOR_MAKEFILE        ON)
 
-set(CMAKE_BUILD_TYPE Release)
-
 set(CMAKE_CXX_STANDARD 11)
 
-include_directories(../)
-include_directories(../optional)
+include_directories(../blast/)
+include_directories(../blast/optional)
+include_directories(../../lib/Eigen/Eigen)
 
 add_executable(
     main 

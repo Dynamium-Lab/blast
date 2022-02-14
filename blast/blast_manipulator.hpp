@@ -1,6 +1,6 @@
 #pragma once
 
-#include "blast.hpp"
+#include "blast_math.hpp"
 #include <vector>
 #include <cmath>
 
@@ -20,6 +20,8 @@ struct Manipulator {
     vector<Vec3> sv; // vector from next joint to center of mass
     vector<Mat3> I; // axis aligned inertial matrices
 
+    Manipulator(u32 njoints);
+
     void dynamics(Pva& pva, Matrix& efforts);
     void forward_kinematics(Matrix& joint_position, Matrix& cartesian_position);
 };
@@ -38,9 +40,17 @@ inline void Manipulator::forward_kinematics(Matrix& joint_position, Matrix& cart
 
 
 
-
-
 //------ FUNCTIONS ------------------------------------------------------------------------------------
+
+inline Manipulator::Manipulator(u32 njoints) :
+    joints(njoints),
+    av(njoints),
+    e(njoints),
+    m(njoints),
+    sv(njoints),
+    I(njoints) {
+}
+
 inline void Manipulator::dynamics(Pva& pva, Matrix& efforts) {
     Assert(pva.joints == joints);
     Assert(efforts.rows == joints);
@@ -101,7 +111,7 @@ inline void Manipulator::dynamics(Pva& pva, Matrix& efforts) {
             n[idx] = Q[idx]*(I[idx]*wd[idx] + cross(w[idx], I[idx]*w[idx]) + cross(av[idx]+sv[idx], Qt[idx]*f[idx]));
 
             // all but last joint
-            for (u32 j = joints-2; j>=0; j--) {
+            for (int j = (int)joints-2; j>=0; j--) {
                 f[j] = Q[j]*(m[j]*cdd[j] + f[j+1]);
                 n[j] = Q[j]*(I[j]*wd[j] + cross(w[j], I[j]*w[j]) + n[j+1] + cross(av[j]+sv[j], Qt[j]*f[j]) - cross(sv[j], f[j+1]));
             }
