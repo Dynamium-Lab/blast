@@ -14,7 +14,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 include_directories(../blast/)
 include_directories(../blast/optional)
-include_directories(../../lib/Eigen/Eigen)
 
 # todo: generalize this
 find_package(benchmark REQUIRED PATHS ../../lib/benchmark/build)

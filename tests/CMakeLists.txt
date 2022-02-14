@@ -13,7 +13,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 include_directories(../blast/)
 include_directories(../blast/optional)
-include_directories(../../lib/Eigen/Eigen)
 
 include(FetchContent)
 FetchContent_Declare(

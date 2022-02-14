@@ -1,7 +1,5 @@
 #include "blast.hpp"
 #include "blast_optional_utilities.hpp"
-#include <cmath>
-#include <random>
 
 #include <gtest/gtest.h>
 

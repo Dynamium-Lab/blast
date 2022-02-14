@@ -10,7 +10,6 @@ set(CMAKE_CXX_STANDARD 11)
 
 include_directories(../blast/)
 include_directories(../blast/optional)
-include_directories(../../lib/Eigen/Eigen)
 
 add_executable(
     main 
