@@ -16,12 +16,11 @@ include_directories(../blast/)
 include_directories(../blast/optional)
 
 # todo: generalize this
-find_package(benchmark REQUIRED PATHS ../../lib/benchmark/build)
-include_directories(../../lib/benchmark/include)
+find_package(benchmark REQUIRED)
 
 add_executable(bench benchmarks.cpp)
 target_link_libraries(bench benchmark::benchmark benchmark::benchmark_main)
 
 if (MSVC)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX512")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX2")
 endif (MSVC)
