@@ -41,7 +41,7 @@ BENCHMARK(BM_Splines)->Unit(benchmark::kMicrosecond);
 
 static void BM_Dynamics(benchmark::State& state) {
     using namespace blast;
-    Manipulator manip(7);
+    ManipulatorGeneric manip(7);
 
     const auto npts = 256;
     const auto njoints = 7;

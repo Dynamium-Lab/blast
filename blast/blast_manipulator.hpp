@@ -10,25 +10,33 @@ using std::vector;
 
 struct Manipulator {
     u32 joints;
+    Array vmax;
+    Array vmin;
 
+    Manipulator(u32 njoints) : joints(njoints) {}
+
+    virtual void dynamics(Pva& pva, Matrix& efforts) = 0;
+};
+
+struct ManipulatorGeneric : public Manipulator {
     // DH parameters
-    vector<Vec3> av; // vector from joint to next joint
-    vector<Vec3> e; // unit vectors of joints
+    vector<Vec3> av;    // vector from joint to next joint
+    vector<Vec3> e;     // unit vectors of joints
 
     // inertial parameters
-    vector<real> m; // mass
-    vector<Vec3> sv; // vector from next joint to center of mass
-    vector<Mat3> I; // axis aligned inertial matrices
+    vector<real> m;     // mass
+    vector<Vec3> sv;    // vector from next joint to center of mass
+    vector<Mat3> I;     // axis aligned inertial matrices
 
-    Manipulator(u32 njoints);
+    ManipulatorGeneric(u32 njoints);
 
-    void dynamics(Pva& pva, Matrix& efforts);
+    virtual void dynamics(Pva& pva, Matrix& efforts) override;
     void forward_kinematics(Matrix& joint_position, Matrix& cartesian_position);
 };
 
 
 
-inline void Manipulator::forward_kinematics(Matrix& joint_position, Matrix& cartesian_position) {
+inline void ManipulatorGeneric::forward_kinematics(Matrix& joint_position, Matrix& cartesian_position) {
     Assert(joint_position.rows == joints);
     Assert(joint_position.cols == cartesian_position.cols);
     Assert(cartesian_position.rows == 6);
@@ -42,8 +50,8 @@ inline void Manipulator::forward_kinematics(Matrix& joint_position, Matrix& cart
 
 //------ FUNCTIONS ------------------------------------------------------------------------------------
 
-inline Manipulator::Manipulator(u32 njoints) :
-    joints(njoints),
+inline ManipulatorGeneric::ManipulatorGeneric(u32 njoints) :
+    Manipulator(njoints),
     av(njoints),
     e(njoints),
     m(njoints),
@@ -51,7 +59,7 @@ inline Manipulator::Manipulator(u32 njoints) :
     I(njoints) {
 }
 
-inline void Manipulator::dynamics(Pva& pva, Matrix& efforts) {
+inline void ManipulatorGeneric::dynamics(Pva& pva, Matrix& efforts) {
     Assert(pva.joints == joints);
     Assert(efforts.rows == joints);
     Assert(efforts.cols == pva.points);
