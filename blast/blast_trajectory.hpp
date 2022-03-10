@@ -8,7 +8,7 @@ struct Pva {
     Matrix pos; // njoints x npoints
     Matrix vel; // njoints x npoints
     Matrix acc; // njoints x npoints
-    Array t; // npoints
+    Array t;    // npoints
     u32 joints;
     u32 points;
 
