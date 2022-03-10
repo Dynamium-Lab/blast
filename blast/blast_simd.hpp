@@ -23,7 +23,7 @@ inline float simd_hadd( __m256 r8 ) {
     return simd_hadd( _mm_add_ps( low, high ) );
 }
 
-inline double simd_hadd(__m256d& v) {
+inline double simd_hadd(__m256d v) {
 #if defined(__MINGW64__) || defined(__MINGW64__) || defined(__MINGW32__)
     return v[0] + v[1] + v[2] + v[3];
 #else

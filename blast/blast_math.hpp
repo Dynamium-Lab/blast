@@ -18,8 +18,9 @@ struct Vec3 {
     real x = 0;
     real y = 0;
     real z = 0;
+    real _pad = 0;
 
-    Vec3() {}
+    Vec3() = default;
     Vec3(real x, real y, real z);
 };
 void zero(Vec3&);
@@ -34,7 +35,7 @@ Vec3 operator*(Vec3 a, real b);
 struct Mat3 {
     real data[9] = {0};
 
-    Mat3() {}
+    Mat3() = default;
     Mat3(real x1, real y1, real z1, real x2, real y2, real z2, real x3, real y3, real z3);
     real& operator()(u32 row, u32 col);
 };
@@ -101,7 +102,7 @@ void print(Matrix&);
 
 //-----------------------------------------------------------------------
 inline Vec3::Vec3(real x, real y, real z)
-    : x(x), y(y), z(z) {
+    : x(x), y(y), z(z), _pad(0) {
 
 }
 
@@ -217,6 +218,33 @@ inline Mat3 operator*(Mat3& m, Mat3 rhs) {
     r.data[8] = m.data[2]*rhs.data[6] + m.data[5]*rhs.data[7] + m.data[8]*rhs.data[8];
     return r;
 }
+
+// inline Mat3 operator*(Mat3& A, Mat3 B) {
+//     Mat3 r;
+//     __m256d A1 = _mm256_loadu_pd(A.data);
+//     __m256d A2 = _mm256_loadu_pd(A.data+3);
+//     __m256d A3 = _mm256_loadu_pd(A.data+6);
+//     auto t1 = _mm256_add_pd(
+//                   _mm256_add_pd(
+//                       _mm256_mul_pd(A1, _mm256_set1_pd(B(0, 0))),
+//                       _mm256_mul_pd(A2, _mm256_set1_pd(B(1, 0)))),
+//                   _mm256_mul_pd(A3, _mm256_set1_pd(B(2, 0))));
+//     auto t2 = _mm256_add_pd(
+//                   _mm256_add_pd(
+//                       _mm256_mul_pd(A1, _mm256_set1_pd(B(0, 1))),
+//                       _mm256_mul_pd(A2, _mm256_set1_pd(B(1, 1)))),
+//                   _mm256_mul_pd(A3, _mm256_set1_pd(B(2, 1))));
+//     auto t3 = _mm256_add_pd(
+//                   _mm256_add_pd(
+//                       _mm256_mul_pd(A1, _mm256_set1_pd(B(0, 2))),
+//                       _mm256_mul_pd(A2, _mm256_set1_pd(B(1, 2)))),
+//                   _mm256_mul_pd(A3, _mm256_set1_pd(B(2, 2))));
+
+//     _mm256_storeu_pd(r.data, t1);
+//     _mm256_storeu_pd(r.data+3, t2);
+//     _mm256_storeu_pd(r.data+6, t3);
+//     return r;
+// }
 
 inline Array::Array(u32 size) : size(size) {
     if (size)
