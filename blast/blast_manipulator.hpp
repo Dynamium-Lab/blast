@@ -162,14 +162,10 @@ inline void ManipulatorGeneric::dynamics(Pva& pva, Matrix& efforts) {
 } // dynamics()
 
 inline void ManipulatorUR5::dynamics(Pva& pva, Matrix& efforts) {
-    Assert(is_init)
+    Assert(is_init);
 
-    double sin1, sin2, sin3, sin4, sin5, sin6;
-    double cos1, cos2, cos3, cos4, cos5, cos6;
-
-    double pos1, pos2, pos3, pos4, pos5, pos6;
-    double vel1, vel2, vel3, vel4, vel5, vel6;
-    double acc1, acc2, acc3, acc4, acc5, acc6;
+    real vel1, vel2, vel3, vel4, vel5, vel6;
+    real acc1, acc2, acc3, acc4, acc5, acc6;
 
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
     Mat3 Q1t, Q2t, Q3t, Q4t, Q5t, Q6t;
@@ -182,12 +178,6 @@ inline void ManipulatorUR5::dynamics(Pva& pva, Matrix& efforts) {
 
     // loop all points
     for (u32 i = 0; i < pva.points; i++) {
-        pos1 = pva.pos(i, 0);
-        pos2 = pva.pos(i, 1);
-        pos3 = pva.pos(i, 2);
-        pos4 = pva.pos(i, 3);
-        pos5 = pva.pos(i, 4);
-        pos6 = pva.pos(i, 5);
         vel1 = pva.vel(i, 0);
         vel2 = pva.vel(i, 1);
         vel3 = pva.vel(i, 2);
@@ -201,54 +191,63 @@ inline void ManipulatorUR5::dynamics(Pva& pva, Matrix& efforts) {
         acc5 = pva.acc(i, 4);
         acc6 = pva.acc(i, 5);
 
-        // todo: simd
-        sin1 = sin(pos1);
-        cos1 = cos(pos1);
-        sin2 = sin(pos2);
-        cos2 = cos(pos2);
-        sin3 = sin(pos3);
-        cos3 = cos(pos3);
-        sin4 = sin(pos4);
-        cos4 = cos(pos4);
-        sin5 = sin(pos5);
-        cos5 = cos(pos5);
-        sin6 = sin(pos6);
-        cos6 = cos(pos6);
+        // SIMD compute sines and cosines note: approx 10% faster
+        auto p = &pva.pos(0, i);
+        real s[6];
+        real c[6];
+        // first 4
+        {
+            __m256d s_tmp;
+            __m256d c_tmp;
+            __m256d angle_v = _mm256_load_pd(p);
+            s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+            _mm256_storeu_pd(s, s_tmp);
+            _mm256_storeu_pd(c, c_tmp);
+        }
+        // 5 and 6
+        {
+            __m128d angle_v = _mm_load_pd(p+4);
+            __m128d s_tmp;
+            __m128d c_tmp;
+            s_tmp = _mm_sincos_pd(&c_tmp, angle_v);
+            _mm_storeu_pd(s+4, s_tmp);
+            _mm_storeu_pd(c+4, c_tmp);
+        }
 
-        Q1(0, 0) = cos1;
-        Q1(1, 0) = sin1;
+        Q1(0, 0) = c[0];
+        Q1(1, 0) = s[0];
         Q1(2, 1) = 1.0;
-        Q1(0, 2) = sin1;
-        Q1(1, 2) = -cos1;
+        Q1(0, 2) = s[0];
+        Q1(1, 2) = -c[0];
 
-        Q2(0, 0) = -sin2;
-        Q2(1, 0) = cos2;
-        Q2(0, 1) = -cos2;
-        Q2(1, 1) = -sin2;
+        Q2(0, 0) = -s[1];
+        Q2(1, 0) = c[1];
+        Q2(0, 1) = -c[1];
+        Q2(1, 1) = -s[1];
         Q2(2, 2) = 1.0;
 
-        Q3(0, 0) = cos3;
-        Q3(1, 0) = sin3;
-        Q3(0, 1) = -sin3;
-        Q3(1, 1) = cos3;
+        Q3(0, 0) = c[2];
+        Q3(1, 0) = s[2];
+        Q3(0, 1) = -s[2];
+        Q3(1, 1) = c[2];
         Q3(2, 2) = 1.0;
 
-        Q4(0, 0) = -sin4;
-        Q4(1, 0) = cos4;
+        Q4(0, 0) = -s[3];
+        Q4(1, 0) = c[3];
         Q4(2, 1) = 1.0;
-        Q4(0, 2) = cos4;
-        Q4(1, 2) = sin4;
+        Q4(0, 2) = c[3];
+        Q4(1, 2) = s[3];
 
-        Q5(0, 0) = cos5;
-        Q5(1, 0) = sin5;
+        Q5(0, 0) = c[4];
+        Q5(1, 0) = s[4];
         Q5(2, 1) = 1.0;
-        Q5(0, 2) = sin5;
-        Q5(1, 2) = -cos5;
+        Q5(0, 2) = s[4];
+        Q5(1, 2) = -c[4];
 
-        Q6(0, 0) = cos6;
-        Q6(1, 0) = sin6;
-        Q6(0, 1) = -sin6;
-        Q6(1, 1) = cos6;
+        Q6(0, 0) = c[5];
+        Q6(1, 0) = s[5];
+        Q6(0, 1) = -s[5];
+        Q6(1, 1) = c[5];
         Q6(2, 2) = 1.0;
 
         Q1t = transpose(Q1);
