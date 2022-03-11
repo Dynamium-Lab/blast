@@ -30,6 +30,7 @@ Vec3 operator-(Vec3 a, Vec3 b);
 Vec3 operator+(Vec3 a, Vec3 b);
 Vec3 operator*(real a, Vec3 b);
 Vec3 operator*(Vec3 a, real b);
+Vec3& operator*=(Vec3&v, real a);
 
 // 3x3 matrix
 struct Mat3 {
@@ -175,6 +176,13 @@ inline Vec3 operator*(Vec3 a, real b) {
         a.y * b,
         a.z * b
     };
+}
+
+inline Vec3& operator*=(Vec3&v, real a) {
+    v.x += a;
+    v.y += a;
+    v.z += a;
+    return v;
 }
 
 inline real& Mat3::operator()(u32 row, u32 col) {
