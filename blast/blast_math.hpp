@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <limits>
 #include <utility>
+#include <algorithm>
 
 #include "blast.hpp"
 #include "blast_simd.hpp"
@@ -12,6 +13,7 @@ namespace blast {
 
 static const real inf = std::numeric_limits<real>::infinity();
 static const real nan = std::numeric_limits<real>::quiet_NaN();
+static const real pi  = 3.1415;
 
 // 3D vector
 struct Vec3 {
@@ -56,12 +58,17 @@ struct Array {
     Array(Array&&);         // move constructor
     Array& operator=(const Array&); // copy assignment
     Array& operator=(Array&&);      // move assignment
+    Array& operator=(const std::initializer_list<real>& other);
     ~Array();
 
     real& operator[](u32 i);
     real operator[](u32 i) const;
+    Array operator-();
+
     void resize(u32 new_size);
     void zero();
+    real& back();
+    real back() const;
 };
 void zero(Array&);
 
@@ -247,7 +254,6 @@ inline Mat3 operator*(Mat3& m, Mat3 rhs) {
 //                       _mm256_mul_pd(A1, _mm256_set1_pd(B(0, 2))),
 //                       _mm256_mul_pd(A2, _mm256_set1_pd(B(1, 2)))),
 //                   _mm256_mul_pd(A3, _mm256_set1_pd(B(2, 2))));
-
 //     _mm256_storeu_pd(r.data, t1);
 //     _mm256_storeu_pd(r.data+3, t2);
 //     _mm256_storeu_pd(r.data+6, t3);
@@ -300,6 +306,20 @@ inline Array& Array::operator=(Array&& a) {
     return *this;
 }
 
+inline Array& Array::operator=(const std::initializer_list<real>& other) {
+    Assert(other.size() <= size);
+    std::copy_n(other.begin(), size, data);
+    return *this;
+}
+
+inline Array Array::operator-() {
+    Array result(size);
+    for (u32 i = 0; i < size; i++) {
+        result[i] = -data[i];
+    }
+    return std::move(result);
+}
+
 inline Array::~Array() {
     if (data)
         std::free(data);
@@ -323,6 +343,14 @@ inline void Array::zero() {
     if(data)
         for (u32 i = 0; i<size; i++)
             data[i] = 0;
+}
+
+inline real& Array::back() {
+    return data[size-1];
+}
+
+inline real Array::back() const {
+    return data[size-1];
 }
 
 inline Matrix::Matrix(u32 r, u32 c) {

@@ -12,8 +12,12 @@ struct Manipulator {
     u32 joints;
     Array vmax;
     Array vmin;
+    Array amax;
+    Array amin;
+    Array umax;
+    Array umin;
 
-    Manipulator(u32 njoints) : joints(njoints), vmax(njoints), vmin(njoints) {}
+    Manipulator(u32 njoints) : joints(njoints), vmax(njoints), vmin(njoints), amax(njoints), amin(njoints), umax(njoints), umin(njoints) {}
 
     virtual void dynamics(Pva& pva, Matrix& efforts) = 0;
 };
@@ -178,18 +182,18 @@ inline void ManipulatorUR5::dynamics(Pva& pva, Matrix& efforts) {
 
     // loop all points
     for (u32 i = 0; i < pva.points; i++) {
-        vel1 = pva.vel(i, 0);
-        vel2 = pva.vel(i, 1);
-        vel3 = pva.vel(i, 2);
-        vel4 = pva.vel(i, 3);
-        vel5 = pva.vel(i, 4);
-        vel6 = pva.vel(i, 5);
-        acc1 = pva.acc(i, 0);
-        acc2 = pva.acc(i, 1);
-        acc3 = pva.acc(i, 2);
-        acc4 = pva.acc(i, 3);
-        acc5 = pva.acc(i, 4);
-        acc6 = pva.acc(i, 5);
+        vel1 = pva.vel(0, i);
+        vel2 = pva.vel(1, i);
+        vel3 = pva.vel(2, i);
+        vel4 = pva.vel(3, i);
+        vel5 = pva.vel(4, i);
+        vel6 = pva.vel(5, i);
+        acc1 = pva.acc(0, i);
+        acc2 = pva.acc(1, i);
+        acc3 = pva.acc(2, i);
+        acc4 = pva.acc(3, i);
+        acc5 = pva.acc(4, i);
+        acc6 = pva.acc(5, i);
 
         // SIMD compute sines and cosines note: approx 10% faster
         auto p = &pva.pos(0, i);
@@ -327,12 +331,12 @@ inline void ManipulatorUR5::dynamics(Pva& pva, Matrix& efforts) {
         n1 = Q1*(I1*wd12 + cross(w12, I1*w12) + n2 + cross(a1v+s1, Q1t*f1) - cross(s1, f2));
 
         //-- extract torques (last element of each moment vector)
-        efforts(i, 0) = n1.z;
-        efforts(i, 1) = n2.z;
-        efforts(i, 2) = n3.z;
-        efforts(i, 3) = n4.z;
-        efforts(i, 4) = n5.z;
-        efforts(i, 5) = n6.z;
+        efforts(0, i) = n1.z;
+        efforts(1, i) = n2.z;
+        efforts(2, i) = n3.z;
+        efforts(3, i) = n4.z;
+        efforts(4, i) = n5.z;
+        efforts(5, i) = n6.z;
     }
 }
 
@@ -340,6 +344,16 @@ inline void ManipulatorUR5::init_dynamics(real mass) {
     is_init = true;
 
     base_p.z = 0.089159;
+
+    umax = {
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+    };
+    umin = -umax;
 
     // kinematic parameters
     a2 = 0.425;
