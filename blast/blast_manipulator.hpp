@@ -38,12 +38,6 @@ struct ManipulatorGeneric : public Manipulator {
     void forward_kinematics(Matrix& joint_position, Matrix& cartesian_position);
 };
 
-struct Gen3Lite : public Manipulator {
-
-    Gen3Lite();
-    virtual void dynamics(Pva& pva, Matrix& efforts) override;
-};
-
 struct ManipulatorUR5 : public Manipulator {
     bool is_init = false;
 
@@ -66,11 +60,16 @@ struct ManipulatorUR5 : public Manipulator {
     void init_dynamics(real mass=0);
 };
 
+struct Gen3Lite : public Manipulator {
+
+    Gen3Lite();
+    virtual void dynamics(Pva& pva, Matrix& efforts) override;
+};
 
 
 
 
-//------ FUNCTIONS ------------------------------------------------------------------------------------
+//------ Generic manipulator functions -----------------------------------------------------------------------------------
 
 inline ManipulatorGeneric::ManipulatorGeneric(u32 njoints) :
     Manipulator(njoints),
@@ -170,6 +169,15 @@ inline void ManipulatorGeneric::dynamics(Pva& pva, Matrix& efforts) {
     } // for points
 
 } // dynamics()
+
+inline void ManipulatorGeneric::forward_kinematics(Matrix& joint_position, Matrix& cartesian_position) {
+    Assert(joint_position.rows == joints);
+    Assert(joint_position.cols == cartesian_position.cols);
+    Assert(cartesian_position.rows == 6);
+    // todo: Implement me!
+}
+
+//------ Universal Robots UR5e manipulator functions ---------------------------------------------------------------------
 
 inline void ManipulatorUR5::dynamics(Pva& pva, Matrix& efforts) {
     Assert(is_init);
@@ -442,12 +450,7 @@ inline void ManipulatorUR5::init_dynamics(real mass) {
     }
 }
 
-inline void ManipulatorGeneric::forward_kinematics(Matrix& joint_position, Matrix& cartesian_position) {
-    Assert(joint_position.rows == joints);
-    Assert(joint_position.cols == cartesian_position.cols);
-    Assert(cartesian_position.rows == 6);
-    // todo: Implement me!
-}
+//------ Kinova Gen3 Lite manipulator functions --------------------------------------------------------------------------
 
 inline Gen3Lite::Gen3Lite() :
     Manipulator(6) {}
