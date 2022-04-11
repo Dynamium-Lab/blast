@@ -34,15 +34,11 @@ struct ManipulatorGeneric : public Manipulator {
     void forward_kinematics(Matrix& joint_position, Matrix& cartesian_position);
 };
 
+struct Gen3Lite : public Manipulator {
 
-
-inline void ManipulatorGeneric::forward_kinematics(Matrix& joint_position, Matrix& cartesian_position) {
-    Assert(joint_position.rows == joints);
-    Assert(joint_position.cols == cartesian_position.cols);
-    Assert(cartesian_position.rows == 6);
-
-    // todo: Implement me!
-}
+    Gen3Lite();
+    virtual void dynamics(Pva& pva, Matrix& efforts) override;
+};
 
 
 
@@ -149,6 +145,18 @@ inline void ManipulatorGeneric::dynamics(Pva& pva, Matrix& efforts) {
 
 } // dynamics()
 
+inline void ManipulatorGeneric::forward_kinematics(Matrix& joint_position, Matrix& cartesian_position) {
+    Assert(joint_position.rows == joints);
+    Assert(joint_position.cols == cartesian_position.cols);
+    Assert(cartesian_position.rows == 6);
+    // todo: Implement me!
+}
 
+inline Gen3Lite::Gen3Lite() :
+    Manipulator(6) {}
+
+inline void Gen3Lite::dynamics(Pva& pva, Matrix& efforts) {
+
+}
 
 } // namespace blast
