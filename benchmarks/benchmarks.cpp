@@ -39,12 +39,13 @@ static void BM_Splines(benchmark::State& state) {
 }
 BENCHMARK(BM_Splines)->Unit(benchmark::kMicrosecond);
 
-static void BM_Dynamics(benchmark::State& state) {
+static void BM_Dynamics_ur5(benchmark::State& state) {
     using namespace blast;
-    ManipulatorGeneric manip(7);
+    ManipulatorUR5 manip;
+    manip.init_dynamics();
 
     const auto npts = 256;
-    const auto njoints = 7;
+    const auto njoints = 6;
     const auto nctrl = 8*3;
     const auto p = 5;
 
@@ -72,4 +73,4 @@ static void BM_Dynamics(benchmark::State& state) {
         manip.dynamics(pva, efforts);
     }
 }
-BENCHMARK(BM_Dynamics)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_Dynamics_ur5)->Unit(benchmark::kMicrosecond);
