@@ -15,3 +15,7 @@ add_executable(
     main 
     main.cpp test.cpp
 )
+add_executable(
+    eval 
+    eval.cpp
+)
