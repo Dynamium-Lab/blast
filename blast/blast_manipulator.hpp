@@ -10,6 +10,8 @@ using std::vector;
 
 struct Manipulator {
     u32 joints;
+    Array pmax;
+    Array pmin;
     Array vmax;
     Array vmin;
     Array amax;
@@ -17,7 +19,7 @@ struct Manipulator {
     Array umax;
     Array umin;
 
-    Manipulator(u32 njoints) : joints(njoints), vmax(njoints), vmin(njoints), amax(njoints), amin(njoints), umax(njoints), umin(njoints) {}
+    Manipulator(u32 njoints) : joints(njoints), vmax(njoints), vmin(njoints), pmax(njoints), pmin(njoints), amax(njoints), amin(njoints), umax(njoints), umin(njoints) {}
 
     virtual void dynamics(Pva& pva, Matrix& efforts) = 0;
 };
@@ -61,9 +63,18 @@ struct ManipulatorUR5 : public Manipulator {
 };
 
 struct Gen3Lite : public Manipulator {
+    // todo: inertial and kinematic parameters
 
     Gen3Lite();
+
+    // compute joint torque as a function of trajector (pva)
     virtual void dynamics(Pva& pva, Matrix& efforts) override;
+
+    // compute forward kinematics for 1 point
+    Array Gen3Lite::forward_kinematics(Array& joint_position);
+
+    // compute forward kinematics for N points
+    Matrix Gen3Lite::forward_kinematics(Matrix& joint_position);
 };
 
 
@@ -453,10 +464,29 @@ inline void ManipulatorUR5::init_dynamics(real mass) {
 //------ Kinova Gen3 Lite manipulator functions --------------------------------------------------------------------------
 
 inline Gen3Lite::Gen3Lite() :
-    Manipulator(6) {}
+    Manipulator(6) {
+    pmax = {2.69, 2.69, 2.69, 2.59, 2.57, 2.59};
+    pmin = -pmax;
+    vmax = {1.6, 1.6, 1.6, 1.6, 1.6, 3.2};
+    vmin = -vmax;
+    umax = {10, 14, 10, 7, 7, 7};
+    umin = -umax;
+}
 
 inline void Gen3Lite::dynamics(Pva& pva, Matrix& efforts) {
 
+}
+
+inline Array Gen3Lite::forward_kinematics(Array& joint_position) {
+    Array pose(6);
+
+    return pose;
+}
+
+inline Matrix Gen3Lite::forward_kinematics(Matrix& joint_position) {
+    Matrix poses(6, joint_position.cols);
+
+    return poses;
 }
 
 } // namespace blast
