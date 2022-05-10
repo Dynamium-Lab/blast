@@ -24,6 +24,8 @@ struct Vec3 {
 
     Vec3() = default;
     Vec3(real x, real y, real z);
+
+    Vec3& operator+=(Vec3&v);
 };
 void zero(Vec3&);
 Vec3 cross(Vec3 a, Vec3 b);
@@ -41,6 +43,7 @@ struct Mat3 {
     Mat3() = default;
     Mat3(real x1, real y1, real z1, real x2, real y2, real z2, real x3, real y3, real z3);
     real& operator()(u32 row, u32 col);
+    Mat3& operator*=(Mat3& rhs);
 };
 void zero(Mat3&);
 Mat3 transpose(Mat3&);
@@ -212,6 +215,13 @@ inline void zero(Matrix& m) {
     m.zero();
 }
 
+inline Vec3& Vec3::operator+=(Vec3&v) {
+    x += v.x;
+    y += v.y;
+    z += v.z;
+    return *this;
+}
+
 inline Vec3 operator*(Mat3& m, Vec3 v) {
     Vec3 r;
     r.x = m.data[0]*v.x + m.data[3]*v.y + m.data[6]*v.z;
@@ -234,31 +244,10 @@ inline Mat3 operator*(Mat3& m, Mat3 rhs) {
     return r;
 }
 
-// inline Mat3 operator*(Mat3& A, Mat3 B) {
-//     Mat3 r;
-//     __m256d A1 = _mm256_loadu_pd(A.data);
-//     __m256d A2 = _mm256_loadu_pd(A.data+3);
-//     __m256d A3 = _mm256_loadu_pd(A.data+6);
-//     auto t1 = _mm256_add_pd(
-//                   _mm256_add_pd(
-//                       _mm256_mul_pd(A1, _mm256_set1_pd(B(0, 0))),
-//                       _mm256_mul_pd(A2, _mm256_set1_pd(B(1, 0)))),
-//                   _mm256_mul_pd(A3, _mm256_set1_pd(B(2, 0))));
-//     auto t2 = _mm256_add_pd(
-//                   _mm256_add_pd(
-//                       _mm256_mul_pd(A1, _mm256_set1_pd(B(0, 1))),
-//                       _mm256_mul_pd(A2, _mm256_set1_pd(B(1, 1)))),
-//                   _mm256_mul_pd(A3, _mm256_set1_pd(B(2, 1))));
-//     auto t3 = _mm256_add_pd(
-//                   _mm256_add_pd(
-//                       _mm256_mul_pd(A1, _mm256_set1_pd(B(0, 2))),
-//                       _mm256_mul_pd(A2, _mm256_set1_pd(B(1, 2)))),
-//                   _mm256_mul_pd(A3, _mm256_set1_pd(B(2, 2))));
-//     _mm256_storeu_pd(r.data, t1);
-//     _mm256_storeu_pd(r.data+3, t2);
-//     _mm256_storeu_pd(r.data+6, t3);
-//     return r;
-// }
+inline Mat3& Mat3::operator*=(Mat3& rhs) {
+    *this = *this*rhs;
+    return *this;
+}
 
 inline Array::Array(u32 size) : size(size) {
     if (size)

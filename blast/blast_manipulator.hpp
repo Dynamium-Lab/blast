@@ -63,8 +63,15 @@ struct ManipulatorUR5 : public Manipulator {
 };
 
 struct Gen3Lite : public Manipulator {
-    // todo: inertial and kinematic parameters
+    Vec3 p_base;
+    real m[6];
+    Mat3 I[6];
+    Vec3 av[6];
+    Vec3 dv[6];
+    Vec3 sv[6];
+    Vec3 ev[6];
 
+    // default constructor
     Gen3Lite();
 
     // compute joint torque as a function of trajector (pva)
@@ -72,9 +79,6 @@ struct Gen3Lite : public Manipulator {
 
     // compute forward kinematics for 1 point
     Array Gen3Lite::forward_kinematics(Array& joint_position);
-
-    // compute forward kinematics for N points
-    Matrix Gen3Lite::forward_kinematics(Matrix& joint_position);
 };
 
 
@@ -463,30 +467,246 @@ inline void ManipulatorUR5::init_dynamics(real mass) {
 
 //------ Kinova Gen3 Lite manipulator functions --------------------------------------------------------------------------
 
-inline Gen3Lite::Gen3Lite() :
-    Manipulator(6) {
+inline Gen3Lite::Gen3Lite() : Manipulator(6) {
+    // position of the first joint with respect to the table in the center of the base
+    p_base = {0, 0, 0.1283};
+
+    // mass
+    m[0] = 0.959744;
+    m[1] = 1.177561;
+    m[2] = 0.597676;
+    m[3] = 0.526934;
+    m[4] = 0.580973;
+    m[5] = 0.2018;
+
+    // inertial tensor
+    I[0] = {0.0016595, 2e-08,    3.6e-07,   2e-08,    0.00140355, 0.00034927, 3.6e-07,    0.00034927, 0.00089493};
+    I[1] = {0.0114928, 1e-06,    1.6e-07,   1e-06,    0.00102851, 0.00140765, 1.6e-07,    0.00140765, 0.01133492};
+    I[2] = {0.0016326, 7.11E-06, 1.54e-06,  7.11E-06, 0.00029798, 9.587E-05,  1.54E-06,   9.587E-05,  0.00169091};
+    I[3] = {0.0006910, 2.4E-07,  0.0001648, 2.4E-07,  0.00078519, 7.4E-07,    0.00016483, 7.4E-07,    0.00034115};
+    I[4] = {0.0002127, 5.21E-06, 2.91E-06,  5.21E-06, 0.00106371, 1.1E-07,    2.91E-06,   1.1E-07,    0.00108465};
+    I[5] = {0.0003428, 1.9e-7,   1e-7,      1.9e-7,   0.00028915, 0.00000027, 1e-7,       0.00000027, 0.00013076};
+
+    // center of mass
+    av[0] = {0.000025,  0.022135, 0.099377};
+    av[1] = {0.029983,  0.211548, 0.045303};
+    av[2] = {0.030156, -0.095022, 0.007356};
+    av[3] = {0.005752,  0.010004, 0.087192};
+    av[4] = {0.080565,  0.009804, 0.018728};
+    av[5] = {0.009930,  0.009950, 0.061360};
+
+    // vector to next joint
+    dv[0] = {0.000,   -0.030,   0.115};
+    dv[1] = {0.000,    0.280,   0.000};
+    dv[2] = {0.000,   -0.140,   0.020};
+    dv[3] = {0.0285,   0.000,   0.105};
+    dv[4] = {-0.105,   0.000,   0.0285};
+    dv[5] = {0.000,    0.000,   0.044};
+
+    // center of mass (from next joint)
+    sv[0] = dv[0] - av[0];
+    sv[1] = dv[1] - av[1];
+    sv[2] = dv[2] - av[2];
+    sv[3] = dv[3] - av[3];
+    sv[4] = dv[4] - av[4];
+    sv[5] = dv[5] - av[5];
+
+    // unit joint direction
+    ev[0] = { 0,  0,  1};
+    ev[1] = { 0, -1,  0};
+    ev[2] = { 0,  0, -1};
+    ev[3] = { 0, -1,  0};
+    ev[4] = { 1,  0,  0};
+    ev[5] = {-1,  0,  0};
+
+    // kinematic and dynamic constraints
     pmax = {2.69, 2.69, 2.69, 2.59, 2.57, 2.59};
-    pmin = -pmax;
-    vmax = {1.6, 1.6, 1.6, 1.6, 1.6, 3.2};
+    vmax = {1.6,  1.6,  1.6,  1.6,  1.6,  3.2};
+    umax = {10,   14,   10,   7,    7,    7};
     vmin = -vmax;
-    umax = {10, 14, 10, 7, 7, 7};
+    pmin = -pmax;
     umin = -umax;
 }
 
 inline void Gen3Lite::dynamics(Pva& pva, Matrix& efforts) {
 
+    Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
+    Mat3 Q1t, Q2t, Q3t, Q4t, Q5t, Q6t;
+    Vec3 w12, w23, w34, w45, w56, w67;
+    Vec3 wd12, wd23, wd34, wd45, wd56, wd67;
+    Vec3 cdd01, cdd12, cdd23, cdd34, cdd45, cdd56, cdd67;
+    cdd01.z = 9.81;
+    Vec3 f1, f2, f3, f4, f5, f6;
+    Vec3 n1, n2, n3, n4, n5, n6;
+
+    // loop all points
+    for (u32 i = 0; i < pva.points; i++) {
+        auto v = &pva.vel(0, i);
+        auto a = &pva.acc(0, i);
+
+        // SIMD compute sines and cosines note: approx 10% faster
+        auto p = &pva.pos(0, i);
+        real s[6];
+        real c[6];
+        // first 4
+        {
+            __m256d s_tmp;
+            __m256d c_tmp;
+            __m256d angle_v = _mm256_load_pd(p);
+            s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+            _mm256_storeu_pd(s, s_tmp);
+            _mm256_storeu_pd(c, c_tmp);
+        }
+        // 5 and 6
+        {
+            __m128d angle_v = _mm_load_pd(p+4);
+            __m128d s_tmp;
+            __m128d c_tmp;
+            s_tmp = _mm_sincos_pd(&c_tmp, angle_v);
+            _mm_storeu_pd(s+4, s_tmp);
+            _mm_storeu_pd(c+4, c_tmp);
+        }
+
+        Q1 = {c[0],  s[0],  0,       -s[0],  c[0],  0,        0,  0,  1};
+        Q2 = {c[1],  0,     s[1],    -s[1],  0,     c[1],     0, -1,  0};
+        Q3 = {c[2], -s[2],  0,       -s[2], -c[2],  0,        0,  0, -1};
+        Q4 = {c[3],  0,     s[3],    -s[3],  0,     c[3],     0, -1,  0};
+        Q5 = {0,     s[4], -c[4],     0,     c[4],  s[4],     1,  0,  0};
+        Q6 = {0,     s[5],  c[5],     0,     c[5], -s[5],    -1,  0,  0};
+        Q1t = transpose(Q1);
+        Q2t = transpose(Q2);
+        Q3t = transpose(Q3);
+        Q4t = transpose(Q4);
+        Q5t = transpose(Q5);
+        Q6t = transpose(Q6);
+
+        // note: this is the Newton algorithm in 'Element de robotique' course notes.
+        //-- kinematics
+        w12 = v[0]*ev[0];
+        w23 = Q2t*w12 + v[1]*ev[1];
+        w34 = Q3t*w23 + v[2]*ev[2];
+        w45 = Q4t*w34 + v[3]*ev[3];
+        w56 = Q5t*w45 + v[4]*ev[4];
+        w67 = Q6t*w56 + v[5]*ev[5];
+
+        wd12 = a[0]*ev[0];
+        cdd12 = Q1t*cdd01
+                + cross(wd12, (av[0] + sv[0]))
+                + cross(w12, cross(w12, (av[0]+sv[0])));
+
+        wd23 = Q2t*wd12 + a[1]*ev[1] + v[1]*cross((Q2t*w12), (ev[1]));
+        cdd23 = Q2t*cdd12
+                + cross(wd23, av[1] + sv[1])
+                + cross(w23, cross(w23, (av[1]+sv[1])))
+                - Q2t*cross(wd12, sv[0])
+                - Q2t*cross(w12, cross(w12, sv[0]));
+
+        wd34 = Q3t*wd23 + a[2]*ev[2] + v[2]*cross((Q3t*w23), (ev[2]));
+        cdd34 = Q3t*cdd23
+                + cross(wd34, av[2] + sv[2])
+                + cross(w34, cross(w34, (av[2]+sv[2])))
+                - Q3t*cross(wd23, sv[1])
+                - Q3t*cross(w23, cross(w23, sv[1]));
+
+        wd45 = Q4t*wd34 + a[3]*ev[3] + v[3]*cross((Q4t*w34), (ev[3]));
+        cdd45 = Q4t*cdd34
+                + cross(wd45, av[3] + sv[3])
+                + cross(w45, cross(w45, (av[3]+sv[3])))
+                - Q4t*cross(wd34, sv[2])
+                - Q4t*cross(w34, cross(w34, sv[2]));
+
+        wd56 = Q5t*wd45 + a[4]*ev[4] + v[4]*cross((Q5t*w45), (ev[4]));
+        cdd56 = Q5t*cdd45
+                + cross(wd56, av[4] + sv[4])
+                + cross(w56, cross(w56, (av[4]+sv[4])))
+                - Q5t*cross(wd45, sv[3])
+                - Q5t*cross(w45, cross(w45, sv[3]));
+
+        wd67 = Q6t*wd56 + a[5]*ev[5] + v[5]*cross((Q6t*w56), (ev[5]));
+        cdd67 = Q6t*cdd56
+                + cross(wd67, av[5] + sv[5])
+                + cross(w67, cross(w67, (av[5]+sv[5])))
+                - Q6t*cross(wd56, sv[4])
+                - Q6t*cross(w56, cross(w56, sv[4]));
+
+        //-- dynamics
+        f6 = Q6*(m[5]*cdd67);
+        n6 = Q6*(I[5]*wd67 + cross(w67, I[5]*w67) + cross(av[5]+sv[5], Q6t*f6));
+
+        f5 = Q5*(m[4]*cdd56 + f6);
+        n5 = Q5*(I[4]*wd56 + cross(w56, I[4]*w56) + n6 + cross(av[4]+sv[4], Q5t*f5) - cross(sv[4], f6));
+
+        f4 = Q4*(m[3]*cdd45 + f5);
+        n4 = Q4*(I[3]*wd45 + cross(w45, I[3]*w45) + n5 + cross(av[3]+sv[3], Q4t*f4) - cross(sv[3], f5));
+
+        f3 = Q3*(m[2]*cdd34 + f4);
+        n3 = Q3*(I[2]*wd34 + cross(w34, I[2]*w34) + n4 + cross(av[2]+sv[2], Q3t*f3) - cross(sv[2], f4));
+
+        f2 = Q2*(m[1]*cdd23 + f3);
+        n2 = Q2*(I[1]*wd23 + cross(w23, I[1]*w23) + n3 + cross(av[1]+sv[1], Q2t*f2) - cross(sv[1], f3));
+
+        f1 = Q1*(m[0]*cdd12 + f2);
+        n1 = Q1*(I[0]*wd12 + cross(w12, I[0]*w12) + n2 + cross(av[0]+sv[0], Q1t*f1) - cross(sv[0], f2));
+
+        //-- extract torques (last element of each moment vector)
+        efforts(0, i) = n1.z;
+        efforts(1, i) = n2.z;
+        efforts(2, i) = n3.z;
+        efforts(3, i) = n4.z;
+        efforts(4, i) = n5.z;
+        efforts(5, i) = n6.z;
+    }
 }
 
 inline Array Gen3Lite::forward_kinematics(Array& joint_position) {
+    real s[6];
+    real c[6];
+    auto p = joint_position.data;
+    // first 4
+    {
+        __m256d s_tmp;
+        __m256d c_tmp;
+        __m256d angle_v = _mm256_load_pd(p);
+        s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+        _mm256_storeu_pd(s, s_tmp);
+        _mm256_storeu_pd(c, c_tmp);
+    }
+    // 5 and 6
+    {
+        __m128d angle_v = _mm_load_pd(p+4);
+        __m128d s_tmp;
+        __m128d c_tmp;
+        s_tmp = _mm_sincos_pd(&c_tmp, angle_v);
+        _mm_storeu_pd(s+4, s_tmp);
+        _mm_storeu_pd(c+4, c_tmp);
+    }
+
+    Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
+    Q1 = {c[0],  s[0],  0,        -s[0],  c[0],  0,         0,  0,  1};
+    Q2 = {c[1],  0,     s[1],     -s[1],  0,     c[1],      0, -1,  0};
+    Q3 = {c[2], -s[2],  0,        -s[2], -c[2],  0,         0,  0, -1};
+    Q4 = {c[3],  0,     s[3],     -s[3],  0,     c[3],      0, -1,  0};
+    Q5 = {0,     s[4], -c[4],      0,     c[4],  s[4],      1,  0,  0};
+    Q6 = {0,     s[5],  c[5],      0,     c[5], -s[5],     -1,  0,  0};
+
+    auto Q_tmp = Q1;
+    auto p_tmp = Q_tmp*av[0];
+    p_tmp += (Q_tmp*=Q2)*av[1];
+    p_tmp += (Q_tmp*=Q3)*av[2];
+    p_tmp += (Q_tmp*=Q4)*av[3];
+    p_tmp += (Q_tmp*=Q5)*av[4];
+    p_tmp += (Q_tmp*=Q6)*av[5];
+    p_tmp += p_base;
+
     Array pose(6);
-
+    pose[0] = p_tmp.x;
+    pose[1] = p_tmp.y;
+    pose[2] = p_tmp.z;
+    // todo: Q_tmp(0, 0) and Q_tmp(2, 2) must not be zero!!
+    pose[3] = atan2(Q_tmp(1, 0), Q_tmp(0, 0));
+    pose[3] = atan2(-Q_tmp(2, 0), sqrt(Q_tmp(2, 1)*Q_tmp(2, 1) + Q_tmp(2, 2)*Q_tmp(2, 2)));
+    pose[3] = atan2(Q_tmp(2, 1), Q_tmp(2, 2));
     return pose;
-}
-
-inline Matrix Gen3Lite::forward_kinematics(Matrix& joint_position) {
-    Matrix poses(6, joint_position.cols);
-
-    return poses;
 }
 
 } // namespace blast
