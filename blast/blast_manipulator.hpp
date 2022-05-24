@@ -22,6 +22,7 @@ struct Manipulator {
     Manipulator(u32 njoints) : joints(njoints), vmax(njoints), vmin(njoints), pmax(njoints), pmin(njoints), amax(njoints), amin(njoints), umax(njoints), umin(njoints) {}
 
     virtual void dynamics(Pva& pva, Matrix& efforts) = 0;
+    virtual void dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& efforts) = 0;
 };
 
 struct ManipulatorGeneric : public Manipulator {
@@ -76,6 +77,7 @@ struct Gen3Lite : public Manipulator {
 
     // compute joint torque as a function of trajector (pva)
     virtual void dynamics(Pva& pva, Matrix& efforts) override;
+    virtual void dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& efforts) override;
 
     // compute forward kinematics for 1 point
     Array Gen3Lite::forward_kinematics(Array& joint_position);
@@ -529,6 +531,10 @@ inline Gen3Lite::Gen3Lite() : Manipulator(6) {
 }
 
 inline void Gen3Lite::dynamics(Pva& pva, Matrix& efforts) {
+    dynamics(pva.pos, pva.vel, pva.acc, efforts);
+}
+
+inline void Gen3Lite::dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& efforts) {
 
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
     Mat3 Q1t, Q2t, Q3t, Q4t, Q5t, Q6t;
@@ -540,12 +546,12 @@ inline void Gen3Lite::dynamics(Pva& pva, Matrix& efforts) {
     Vec3 n1, n2, n3, n4, n5, n6;
 
     // loop all points
-    for (u32 i = 0; i < pva.points; i++) {
-        auto v = &pva.vel(0, i);
-        auto a = &pva.acc(0, i);
+    for (u32 i = 0; i < pos.cols; i++) {
+        auto v = &vel(0, i);
+        auto a = &acc(0, i);
 
         // SIMD compute sines and cosines note: approx 10% faster
-        auto p = &pva.pos(0, i);
+        auto p = &pos(0, i);
         real s[6];
         real c[6];
         // first 4
