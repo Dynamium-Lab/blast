@@ -37,6 +37,8 @@ struct PvaBspline : public Pva {
 };
 
 
+// compute a trajectory using bspline
+PvaBspline simple_bspline_trajectory(u32 ncontrol, u32 npoints, u32 P, u32 dof, Matrix& task, real T);
 
 
 //------ FUNCTIONS ------------------------------------------------------------------------------------
@@ -146,7 +148,7 @@ inline void PvaBspline::compute_control(Array&x, Matrix& task) {
         ctr[ctr_i++] = Ka*a0[joint] + 3*ctr[ctr_i - 1] - 2*p0[joint];
 
         // From optimization vector
-        for (u32 i = 0; i < nctrl-6; i++)
+        for (u32 i = 3; i < nctrl-3; i++)
             ctr[ctr_i++] = x[x_i++];
 
         // Final PVA
@@ -189,9 +191,9 @@ inline void PvaBspline::compute_trajectory(Array& x, Matrix& task) {
             auto accum_a = _mm256_setzero_pd();
             for (u32 i = 0; i<nctrl; i += 4) {
                 const auto c_v  = _mm256_loadu_pd(&c[i]);
-                const auto bp_v  = _mm256_loadu_pd(&bp[i]);
-                const auto bv_v  = _mm256_loadu_pd(&bv[i]);
-                const auto ba_v  = _mm256_loadu_pd(&ba[i]);
+                const auto bp_v = _mm256_loadu_pd(&bp[i]);
+                const auto bv_v = _mm256_loadu_pd(&bv[i]);
+                const auto ba_v = _mm256_loadu_pd(&ba[i]);
                 accum_p = _mm256_fmadd_pd(c_v, bp_v, accum_p);
                 accum_v = _mm256_fmadd_pd(c_v, bv_v, accum_v);
                 accum_a = _mm256_fmadd_pd(c_v, ba_v, accum_a);
@@ -206,5 +208,14 @@ inline void PvaBspline::compute_trajectory(Array& x, Matrix& task) {
         }
     }
 }
+
+inline PvaBspline simple_bspline_trajectory(u32 npoints, u32 P, u32 dof, Matrix& task, real T) {
+    PvaBspline traj(6, npoints, P, dof);
+    Array x(traj.xlen());
+    x[0] = T;
+    traj.compute_trajectory(x, task);
+    return traj;
+}
+
 
 } // namespace blast
