@@ -774,7 +774,7 @@ inline Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
     dv[3] = { 0.0, -0.2084, -0.0064};
     dv[4] = { 0.0,  0.0,    -0.1059};
     dv[5] = { 0.0, -0.1059,  0.0};
-    dv[6] = { 0.0,  0.0,    -0.0615};
+    dv[6] = { 0.0,  0.0,    -0.0615-0.110};
 
     // center of mass (from next joint)
     sv[0] = dv[0] - av[0];
@@ -847,7 +847,7 @@ inline void Gen3_7DOF::dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& e
         }
 
         // note: these are stored column-wise
-        Q1 = {c[0], -s[0],  0,        -s[0], -c[0],   0,        0,  0,  1};
+        Q1 = {c[0], -s[0],  0,        -s[0], -c[0],   0,        0,  0, -1};
         Q2 = {c[1],   0,   s[1],      -s[1],   0,    c[1],      0, -1,  0};
         Q3 = {c[2],   0,  -s[2],      -s[2],   0,   -c[2],      0,  1,  0};
         Q4 = {c[3],   0,   s[3],      -s[3],   0,    c[3],      0, -1,  0};
@@ -977,7 +977,7 @@ inline Array Gen3_7DOF::forward_kinematics(Array& joint_position) {
     }
 
     // note: these are stored column-wise
-    Q1 = {c[0], -s[0],  0,        -s[0], -c[0],   0,        0,  0,  1};
+    Q1 = {c[0], -s[0],  0,        -s[0], -c[0],   0,        0,  0, -1};
     Q2 = {c[1],   0,   s[1],      -s[1],   0,    c[1],      0, -1,  0};
     Q3 = {c[2],   0,  -s[2],      -s[2],   0,   -c[2],      0,  1,  0};
     Q4 = {c[3],   0,   s[3],      -s[3],   0,    c[3],      0, -1,  0};
@@ -985,15 +985,15 @@ inline Array Gen3_7DOF::forward_kinematics(Array& joint_position) {
     Q6 = {c[5],   0,   s[5],      -s[5],   0,    c[5],      0, -1,  0};
     Q7 = {c[6],   0,  -s[6],      -s[6],   0,   -c[6],      0,  1,  0};
 
+    auto p_tmp = p_base;
     auto Q_tmp = Q1;
-    auto p_tmp = Q_tmp*dv[0];
+    p_tmp += Q_tmp*dv[0];
     p_tmp += (Q_tmp*=Q2)*dv[1];
     p_tmp += (Q_tmp*=Q3)*dv[2];
     p_tmp += (Q_tmp*=Q4)*dv[3];
     p_tmp += (Q_tmp*=Q5)*dv[4];
     p_tmp += (Q_tmp*=Q6)*dv[5];
     p_tmp += (Q_tmp*=Q7)*dv[6];
-    p_tmp += p_base;
 
     Array pose(6);
     pose[0] = p_tmp.x;
