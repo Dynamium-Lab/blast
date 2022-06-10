@@ -786,13 +786,13 @@ inline Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
     sv[6] = dv[6] - av[6];
 
     // unit joint direction
-    ev[0] = { 0,  0,  -1};
-    ev[1] = { 0, -1,  0};
-    ev[2] = { 0,  1,  0};
-    ev[3] = { 0, -1,  0};
-    ev[4] = { 0,  1,  0};
-    ev[5] = { 0, -1,  0};
-    ev[6] = { 0,  1,  0};
+    ev[0] = { 0,  0,  1};
+    ev[1] = { 0,  0,  1};
+    ev[2] = { 0,  0,  1};
+    ev[3] = { 0,  0,  1};
+    ev[4] = { 0,  0,  1};
+    ev[5] = { 0,  0,  1};
+    ev[6] = { 0,  0,  1};
 
     // kinematic and dynamic constraints
     pmax = {2.69, 2.69, 2.69, 2.59, 2.57, 2.59}; // rad
