@@ -38,7 +38,8 @@ struct PvaBspline : public Pva {
 
 
 // compute a trajectory using bspline
-PvaBspline simple_bspline_trajectory(u32 ncontrol, u32 npoints, u32 P, u32 dof, Matrix& task, real T);
+// todo: did not work because of factor of 4 ncontrol constraint FIX
+// PvaBspline simple_bspline_trajectory(u32 npoints, u32 P, u32 dof, Matrix& task, real T);
 
 
 //------ FUNCTIONS ------------------------------------------------------------------------------------
@@ -209,13 +210,15 @@ inline void PvaBspline::compute_trajectory(Array& x, Matrix& task) {
     }
 }
 
-inline PvaBspline simple_bspline_trajectory(u32 npoints, u32 P, u32 dof, Matrix& task, real T) {
-    PvaBspline traj(6, npoints, P, dof);
-    Array x(traj.xlen());
-    x[0] = T;
-    traj.compute_trajectory(x, task);
-    return traj;
-}
+
+
+// inline PvaBspline simple_bspline_trajectory(u32 npoints, u32 P, u32 dof, Matrix& task, real T) {
+//     PvaBspline traj(6, npoints, P, dof);
+//     Array x(traj.xlen());
+//     x[0] = T;
+//     traj.compute_trajectory(x, task);
+//     return traj;
+// }
 
 
 } // namespace blast
