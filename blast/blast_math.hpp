@@ -104,6 +104,11 @@ void print(Matrix&);
 
 
 
+//--- Collision functions ---
+real two_segment_distance(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1);
+
+
+
 
 
 
@@ -443,6 +448,149 @@ inline void print(Matrix& m) {
         }
         printf("%0.4f]\n", m(i, m.cols-1));
     }
+}
+
+
+// Compute the root of h(z) = h0 + slope*z and clamp it to the interval
+// [0,1]. It is required that for h1 = h(1), either (h0 < 0 and h1 > 0)
+// or (h0 > 0 and h1 < 0).
+//note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
+// todo: overkill?
+real clamped_root(real slope, real h0, real h1) {
+    real r;
+    if (h0 < 0) {
+        if (h1 > 0) {
+            r = -h0 / slope;
+            if (r > 1) {
+                r = 0.5;
+            }
+            // The slope is positive and -h0 is positive, so there is
+            // no need to test for a negative value and clamp it.
+        }
+        else {
+            r = 1;
+        }
+    }
+    else {
+        r = 0;
+    }
+    return r;
+}
+
+//note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
+inline real two_segment_distance(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
+    auto P1mP0 = P1 - P0;
+    auto Q1mQ0 = Q1 - Q0;
+    auto P0mQ0 = P0 - Q0;
+    real a = dot(P1mP0, P1mP0);
+    real b = dot(P1mP0, Q1mQ0);
+    real c = dot(Q1mQ0, Q1mQ0);
+    real d = dot(P1mP0, P0mQ0);
+    real e = dot(Q1mQ0, P0mQ0);
+
+
+    // The derivatives dR/ds(i,j) at the four corners of the domain.
+    real f00 = d;
+    real f10 = f00 + a;
+    real f01 = f00 - b;
+    real f11 = f10 - b;
+
+    // The derivatives dR/dt(i,j) at the four corners of the domain.
+    real g00 = -e;
+    real g10 = g00 - b;
+    real g01 = g00 + c;
+    real g11 = g10 + c;
+
+    if (a > 0 && c > 0) {
+        // Compute the solutions to dR/ds(s0,0) = 0 and
+        // dR/ds(s1,1) = 0.  The location of sI on the s-axis is
+        // stored in classifyI (I = 0 or 1).  If sI <= 0, classifyI
+        // is -1.  If sI >= 1, classifyI is 1.  If 0 < sI < 1,
+        // classifyI is 0.  This information helps determine where to
+        // search for the minimum point (s,t).  The fij values are
+        // dR/ds(i,j) for i and j in {0,1}.
+
+        real sValue[2] = {
+            clamped_root(a, f00, f10),
+            clamped_root(a, f01, f11)
+        };
+
+        i32 classify[2] = {0, 0};
+        for (size_t i = 0; i < 2; ++i) {
+            if (sValue[i] <= 0)
+                classify[i] = -1;
+            else if (sValue[i] >= 1)
+                classify[i] = 1;
+            else
+                classify[i] = 0;
+        }
+
+        if (classify[0] == -1 && classify[1] == -1) {
+            // The minimum must occur on s = 0 for 0 <= t <= 1.
+            result.parameter[0] = 0;
+            result.parameter[1] = clamped_root(c, g00, g01);
+        }
+        else if (classify[0] == +1 && classify[1] == +1) {
+            // The minimum must occur on s = 1 for 0 <= t <= 1.
+            result.parameter[0] = 1;
+            result.parameter[1] = clamped_root(c, g10, g11);
+        }
+        else {
+            // The line dR/ds = 0 intersects the domain [0,1]^2 in a
+            // nondegenerate segment. Compute the endpoints of that
+            // segment, end[0] and end[1]. The edge[i] flag tells you
+            // on which domain edge end[i] lives: 0 (s=0), 1 (s=1),
+            // 2 (t=0), 3 (t=1).
+            i32 edge[2] = { 0, 0 };
+            real end[2][2];
+            ComputeIntersection(sValue, classify, b, f00, f10, edge, end);
+
+            // The directional derivative of R along the segment of
+            // intersection is
+            //   H(z) = (end[1][1]-end[1][0]) *
+            //          dR/dt((1-z)*end[0] + z*end[1])
+            // for z in [0,1]. The formula uses the fact that
+            // dR/ds = 0 on the segment. Compute the minimum of
+            // H on [0,1].
+            ComputeMinimumParameters(edge, end, b, c, e, g00, g10,
+                                     g01, g11, result.parameter);
+        }
+    }
+    else {
+        if (a > 0) {
+            // The Q-segment is degenerate (Q0 and Q1 are the same
+            // point) and the quadratic is R(s,0) = a*s^2 + 2*d*s + f
+            // and has (half) first derivative F(t) = a*s + d.  The
+            // closest P-point is interior to the P-segment when
+            // F(0) < 0 and F(1) > 0.
+            result.parameter[0] = clamped_root(a, f00, f10);
+            result.parameter[1] = 0;
+        }
+        else if (c > 0) {
+            // The P-segment is degenerate (P0 and P1 are the same
+            // point) and the quadratic is R(0,t) = c*t^2 - 2*e*t + f
+            // and has (half) first derivative G(t) = c*t - e.  The
+            // closest Q-point is interior to the Q-segment when
+            // G(0) < 0 and G(1) > 0.
+            result.parameter[0] = 0;
+            result.parameter[1] = clamped_root(c, g00, g01);
+        }
+        else {
+            // P-segment and Q-segment are degenerate.
+            result.parameter[0] = 0;
+            result.parameter[1] = 0;
+        }
+    }
+
+
+    result.closest[0] =
+        (1 - result.parameter[0]) * P0 + result.parameter[0] * P1;
+    result.closest[1] =
+        (1 - result.parameter[1]) * Q0 + result.parameter[1] * Q1;
+    Vector<N, T> diff = result.closest[0] - result.closest[1];
+    result.sqrDistance = Dot(diff, diff);
+    result.distance = std::sqrt(result.sqrDistance);
+    return result;
 }
 
 } // namespace blast
