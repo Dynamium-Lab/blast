@@ -38,7 +38,7 @@ struct PvaBspline : public Pva {
 
 
 // compute a trajectory using bspline
-// todo: did not work because of factor of 4 ncontrol constraint FIX
+// todo: did not work because of factor of 4 ncontrol constraint FIXME!
 // PvaBspline simple_bspline_trajectory(u32 npoints, u32 P, u32 dof, Matrix& task, real T);
 
 

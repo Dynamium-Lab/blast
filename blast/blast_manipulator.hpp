@@ -862,7 +862,8 @@ inline void Gen3_7DOF::dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& e
         Q6t = transpose(Q6);
         Q7t = transpose(Q7);
 
-        // note: this is the Newton algorithm in 'Element de robotique' course notes.
+        // note: This is the Newton algorithm in 'Element de robotique' course notes.
+        //       Careful because some variables are named differently and uses a slightly different conventions.
         //-- kinematics
         w12 = v[0]*ev[0];
         w23 = Q2t*w12 + v[1]*ev[1];
