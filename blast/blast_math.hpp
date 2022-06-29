@@ -67,12 +67,15 @@ struct Array {
     real& operator[](u32 i);
     real operator[](u32 i) const;
     Array operator-();
+    Array& operator*=(real);
 
     void resize(u32 new_size);
     void zero();
     real& back();
     real back() const;
 };
+Array operator*(Array&, real);
+Array operator*(real, Array&);
 void zero(Array&);
 
 // Matrix of real numbers
@@ -102,10 +105,8 @@ void print(Mat3);
 void print(Array&);
 void print(Matrix&);
 
-
-
 //--- Collision functions ---
-real two_segment_distance(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1);
+real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1);
 
 
 
@@ -254,9 +255,9 @@ inline Mat3& Mat3::operator*=(Mat3& rhs) {
     return *this;
 }
 
-inline Array::Array(u32 size) : size(size) {
-    if (size)
-        data = (real*)calloc(size, sizeof(real));
+inline Array::Array(u32 new_size) : size(new_size) {
+    if (new_size)
+        data = (real*)calloc(new_size, sizeof(real));
 }
 
 inline Array::Array(const Array& a) : size(a.size) {
@@ -313,6 +314,25 @@ inline Array Array::operator-() {
     }
     return std::move(result);
 }
+
+Array& Array::operator*=(real n) {
+    for (u32 i = 0; i < size; i++)
+        data[i] *= n;
+    return *this;
+}
+
+Array operator*(Array& a, real b) {
+    Array r(a);
+    r *= b;
+    return r;
+}
+
+Array operator*(real b, Array& a) {
+    Array r(a);
+    r *= b;
+    return r;
+}
+
 
 inline Array::~Array() {
     if (data)
@@ -477,11 +497,154 @@ real clamped_root(real slope, real h0, real h1) {
     return r;
 }
 
+// Compute the intersection of the line dR/ds = 0 with the domain
+// [0,1]^2. The direction of the line dR/ds is conjugate to (1,0),
+// so the algorithm for minimization is effectively the conjugate
+// gradient algorithm for a quadratic function.
 //note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
-inline real two_segment_distance(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
-    auto P1mP0 = P1 - P0;
-    auto Q1mQ0 = Q1 - Q0;
-    auto P0mQ0 = P0 - Q0;
+static void compute_intersection(real* sValue, i32* classify, real b, real f00, real f10, i32* edge, real end[][2]) {
+    // The divisions are theoretically numbers in [0,1]. Numerical
+    // rounding errors might cause the result to be outside the
+    // interval. When this happens, it must be that both numerator
+    // and denominator are nearly zero. The denominator is nearly
+    // zero when the segments are nearly perpendicular. The
+    // numerator is nearly zero when the P-segment is nearly
+    // degenerate (f00 = a is small). The choice of 0.5 should not
+    // cause significant accuracy problems.
+    //
+    // NOTE: You can use bisection to recompute the root or even use
+    // bisection to compute the root and skip the division. This is
+    // generally slower, which might be a problem for high-performance
+    // applications.
+
+    real const zero = 0;
+    real const half = (real)0.5;
+    real const one = 1;
+    if (classify[0] < 0) {
+        edge[0] = 0;
+        end[0][0] = zero;
+        end[0][1] = f00 / b;
+        if (end[0][1] < zero || end[0][1] > one) {
+            end[0][1] = half;
+        }
+
+        if (classify[1] == 0) {
+            edge[1] = 3;
+            end[1][0] = sValue[1];
+            end[1][1] = one;
+        }
+        else { // classify[1] > 0
+            edge[1] = 1;
+            end[1][0] = one;
+            end[1][1] = f10 / b;
+            if (end[1][1] < zero || end[1][1] > one) {
+                end[1][1] = half;
+            }
+        }
+    }
+    else if (classify[0] == 0) {
+        edge[0] = 2;
+        end[0][0] = sValue[0];
+        end[0][1] = zero;
+
+        if (classify[1] < 0) {
+            edge[1] = 0;
+            end[1][0] = zero;
+            end[1][1] = f00 / b;
+            if (end[1][1] < zero || end[1][1] > one) {
+                end[1][1] = half;
+            }
+        }
+        else if (classify[1] == 0) {
+            edge[1] = 3;
+            end[1][0] = sValue[1];
+            end[1][1] = one;
+        }
+        else {
+            edge[1] = 1;
+            end[1][0] = one;
+            end[1][1] = f10 / b;
+            if (end[1][1] < zero || end[1][1] > one) {
+                end[1][1] = half;
+            }
+        }
+    }
+    else { // classify[0] > 0
+        edge[0] = 1;
+        end[0][0] = one;
+        end[0][1] = f10 / b;
+        if (end[0][1] < zero || end[0][1] > one) {
+            end[0][1] = half;
+        }
+
+        if (classify[1] == 0) {
+            edge[1] = 3;
+            end[1][0] = sValue[1];
+            end[1][1] = one;
+        }
+        else {
+            edge[1] = 0;
+            end[1][0] = zero;
+            end[1][1] = f00 / b;
+            if (end[1][1] < zero || end[1][1] > one) {
+                end[1][1] = half;
+            }
+        }
+    }
+}
+
+// Compute the location of the minimum of R on the segment of
+// intersection for the line dR/ds = 0 and the domain [0,1]^2.
+//note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
+static void compute_minimum_parameters(i32* edge, real end[][2], real b, real c, real e, real g00, real g10, real g01, real g11, real* parameter) {
+    real const zero = 0;
+    real const one = 1;
+    real const delta = end[1][1] - end[0][1];
+    real h0 = delta * (-b * end[0][0] + c * end[0][1] - e);
+    if (h0 >= zero) {
+        if (edge[0] == 0) {
+            parameter[0] = zero;
+            parameter[1] = clamped_root(c, g00, g01);
+        }
+        else if (edge[0] == 1) {
+            parameter[0] = one;
+            parameter[1] = clamped_root(c, g10, g11);
+        }
+        else {
+            parameter[0] = end[0][0];
+            parameter[1] = end[0][1];
+        }
+    }
+    else {
+        real h1 = delta * (-b * end[1][0] + c * end[1][1] - e);
+        if (h1 <= zero) {
+            if (edge[1] == 0) {
+                parameter[0] = zero;
+                parameter[1] = clamped_root(c, g00, g01);
+            }
+            else if (edge[1] == 1) {
+                parameter[0] = one;
+                parameter[1] = clamped_root(c, g10, g11);
+            }
+            else {
+                parameter[0] = end[1][0];
+                parameter[1] = end[1][1];
+            }
+        }
+        else { // h0 < 0 and h1 > 0
+            real z = std::min(std::max(h0 / (h0 - h1), zero), one);
+            real omz = one - z;
+            parameter[0] = omz * end[0][0] + z * end[1][0];
+            parameter[1] = omz * end[0][1] + z * end[1][1];
+        }
+    }
+}
+
+//note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
+inline real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
+    auto const P1mP0 = P1 - P0;
+    auto const Q1mQ0 = Q1 - Q0;
+    auto const P0mQ0 = P0 - Q0;
     real a = dot(P1mP0, P1mP0);
     real b = dot(P1mP0, Q1mQ0);
     real c = dot(Q1mQ0, Q1mQ0);
@@ -501,6 +664,7 @@ inline real two_segment_distance(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
     real g01 = g00 + c;
     real g11 = g10 + c;
 
+    real parameter[2] = {0, 0};
     if (a > 0 && c > 0) {
         // Compute the solutions to dR/ds(s0,0) = 0 and
         // dR/ds(s1,1) = 0.  The location of sI on the s-axis is
@@ -527,13 +691,13 @@ inline real two_segment_distance(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
 
         if (classify[0] == -1 && classify[1] == -1) {
             // The minimum must occur on s = 0 for 0 <= t <= 1.
-            result.parameter[0] = 0;
-            result.parameter[1] = clamped_root(c, g00, g01);
+            parameter[0] = 0;
+            parameter[1] = clamped_root(c, g00, g01);
         }
         else if (classify[0] == +1 && classify[1] == +1) {
             // The minimum must occur on s = 1 for 0 <= t <= 1.
-            result.parameter[0] = 1;
-            result.parameter[1] = clamped_root(c, g10, g11);
+            parameter[0] = 1;
+            parameter[1] = clamped_root(c, g10, g11);
         }
         else {
             // The line dR/ds = 0 intersects the domain [0,1]^2 in a
@@ -543,7 +707,7 @@ inline real two_segment_distance(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
             // 2 (t=0), 3 (t=1).
             i32 edge[2] = { 0, 0 };
             real end[2][2];
-            ComputeIntersection(sValue, classify, b, f00, f10, edge, end);
+            compute_intersection(sValue, classify, b, f00, f10, edge, end);
 
             // The directional derivative of R along the segment of
             // intersection is
@@ -552,8 +716,8 @@ inline real two_segment_distance(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
             // for z in [0,1]. The formula uses the fact that
             // dR/ds = 0 on the segment. Compute the minimum of
             // H on [0,1].
-            ComputeMinimumParameters(edge, end, b, c, e, g00, g10,
-                                     g01, g11, result.parameter);
+            compute_minimum_parameters(edge, end, b, c, e, g00, g10,
+                                       g01, g11, parameter);
         }
     }
     else {
@@ -563,8 +727,8 @@ inline real two_segment_distance(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
             // and has (half) first derivative F(t) = a*s + d.  The
             // closest P-point is interior to the P-segment when
             // F(0) < 0 and F(1) > 0.
-            result.parameter[0] = clamped_root(a, f00, f10);
-            result.parameter[1] = 0;
+            parameter[0] = clamped_root(a, f00, f10);
+            parameter[1] = 0;
         }
         else if (c > 0) {
             // The P-segment is degenerate (P0 and P1 are the same
@@ -572,25 +736,20 @@ inline real two_segment_distance(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
             // and has (half) first derivative G(t) = c*t - e.  The
             // closest Q-point is interior to the Q-segment when
             // G(0) < 0 and G(1) > 0.
-            result.parameter[0] = 0;
-            result.parameter[1] = clamped_root(c, g00, g01);
+            parameter[0] = 0;
+            parameter[1] = clamped_root(c, g00, g01);
         }
         else {
             // P-segment and Q-segment are degenerate.
-            result.parameter[0] = 0;
-            result.parameter[1] = 0;
+            parameter[0] = 0;
+            parameter[1] = 0;
         }
     }
 
-
-    result.closest[0] =
-        (1 - result.parameter[0]) * P0 + result.parameter[0] * P1;
-    result.closest[1] =
-        (1 - result.parameter[1]) * Q0 + result.parameter[1] * Q1;
-    Vector<N, T> diff = result.closest[0] - result.closest[1];
-    result.sqrDistance = Dot(diff, diff);
-    result.distance = std::sqrt(result.sqrDistance);
-    return result;
+    Vec3 closest0 = P0 + parameter[0]*P1mP0;
+    Vec3 closest1 = Q0 + parameter[1]*Q1mQ0;
+    Vec3 diff = closest0 - closest1;
+    return dot(diff, diff);
 }
 
 } // namespace blast
