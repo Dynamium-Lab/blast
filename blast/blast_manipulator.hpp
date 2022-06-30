@@ -748,7 +748,7 @@ inline Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
     m[3] = 0.93;
     m[4] = 0.678;
     m[5] = 0.678;
-    m[6] = 0.364;
+    m[6] = 0.364 + 0.921; // todo: cleanup
 
     // inertial tensor
     I[0] = {0.004570, 0.000001, 0.000002, 0.000001, 0.004831, 0.000448, 0.000002, 0.000448, 0.001409};
@@ -767,6 +767,8 @@ inline Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
     av[4] = { 0.000001, -0.009432, -0.063883};
     av[5] = { 0.000001, -0.045483, -0.009650};
     av[6] = {-0.000093,  0.000132, -0.022905};
+    Vec3 av_tool(0, 0, -0.06-0.0615);
+    av[6] = (0.364*av[6] + 0.921*av_tool) * (1 / (0.364+0.921)); // todo: cleanup!!!
 
     // vector to next joint
     dv[0] = { 0.0,  0.0054, -0.1284};
@@ -775,7 +777,7 @@ inline Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
     dv[3] = { 0.0, -0.2084, -0.0064};
     dv[4] = { 0.0,  0.0,    -0.1059};
     dv[5] = { 0.0, -0.1059,  0.0};
-    dv[6] = { 0.0,  0.0,    -0.0615-0.110};
+    dv[6] = { 0.0,  0.0,    -0.0615-0.164};
 
     // center of mass (from next joint)
     sv[0] = dv[0] - av[0];
@@ -877,73 +879,47 @@ inline void Gen3_7DOF::dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& e
         w7 = Q7t*w6 + v[6]*ev[6];
 
         wd1 = a[0]*ev[0];
-        cdd1 = Q1t*cdd0
-               + cross(wd1, av[0])
-               + cross(w1, cross(w1, av[0]));
+        cdd1 = Q1t*cdd0 + cross(wd1, av[0]) + cross(w1, cross(w1, av[0]));
 
         wd2 = Q2t*wd1 + a[1]*ev[1] + v[1]*cross(Q2t*w1, ev[1]);
-        cdd2 = Q2t*cdd1
-               + cross(wd2, av[1])
-               + cross(w2, cross(w2, av[1]))
-               - Q2t*cross(wd1, sv[0])
-               - Q2t*cross(w1, cross(w1, sv[0]));
+        cdd2 = Q2t*cdd1 + cross(wd2, av[1]) + cross(w2, cross(w2, av[1])) - Q2t*cross(wd1, sv[0]) - Q2t*cross(w1, cross(w1, sv[0]));
 
         wd3 = Q3t*wd2 + a[2]*ev[2] + v[2]*cross(Q3t*w2, ev[2]);
-        cdd3 = Q3t*cdd2
-               + cross(wd3, av[2])
-               + cross(w3, cross(w3, av[2]))
-               - Q3t*cross(wd2, sv[1])
-               - Q3t*cross(w2, cross(w2, sv[1]));
+        cdd3 = Q3t*cdd2 + cross(wd3, av[2]) + cross(w3, cross(w3, av[2])) - Q3t*cross(wd2, sv[1]) - Q3t*cross(w2, cross(w2, sv[1]));
 
         wd4 = Q4t*wd3 + a[3]*ev[3] + v[3]*cross(Q4t*w3, ev[3]);
-        cdd4 = Q4t*cdd3
-               + cross(wd4, av[3])
-               + cross(w4, cross(w4, av[3]))
-               - Q4t*cross(wd3, sv[2])
-               - Q4t*cross(w3, cross(w3, sv[2]));
+        cdd4 = Q4t*cdd3 + cross(wd4, av[3]) + cross(w4, cross(w4, av[3])) - Q4t*cross(wd3, sv[2]) - Q4t*cross(w3, cross(w3, sv[2]));
 
         wd5 = Q5t*wd4 + a[4]*ev[4] + v[4]*cross(Q5t*w4, ev[4]);
-        cdd5 = Q5t*cdd4
-               + cross(wd5, av[4])
-               + cross(w5, cross(w5, av[4]))
-               - Q5t*cross(wd4, sv[3])
-               - Q5t*cross(w4, cross(w4, sv[3]));
+        cdd5 = Q5t*cdd4 + cross(wd5, av[4]) + cross(w5, cross(w5, av[4])) - Q5t*cross(wd4, sv[3]) - Q5t*cross(w4, cross(w4, sv[3]));
 
         wd6 = Q6t*wd5 + a[5]*ev[5] + v[5]*cross(Q6t*w5, ev[5]);
-        cdd6 = Q6t*cdd5
-               + cross(wd6, av[5])
-               + cross(w6, cross(w6, av[5]))
-               - Q6t*cross(wd5, sv[4])
-               - Q6t*cross(w5, cross(w5, sv[4]));
+        cdd6 = Q6t*cdd5 + cross(wd6, av[5]) + cross(w6, cross(w6, av[5])) - Q6t*cross(wd5, sv[4]) - Q6t*cross(w5, cross(w5, sv[4]));
 
         wd7 = Q7t*wd6 + a[6]*ev[6] + v[6]*cross(Q7t*w6, ev[6]);
-        cdd7 = Q7t*cdd6
-               + cross(wd7, av[6])
-               + cross(w7, cross(w7, av[6]))
-               - Q7t*cross(wd6, sv[5])
-               - Q7t*cross(w6, cross(w6, sv[5]));
+        cdd7 = Q7t*cdd6 + cross(wd7, av[6]) + cross(w7, cross(w7, av[6])) - Q7t*cross(wd6, sv[5]) - Q7t*cross(w6, cross(w6, sv[5]));
 
         //-- dynamics
-        f7 = Q7*(m[6]*cdd7);
-        n7 = Q7*(I[6]*wd7 + cross(w7, I[6]*w7) + cross(av[6], Q7t*f7));
+        f7 = m[6]*cdd7;
+        n7 = I[6]*wd7 + cross(w7, I[6]*w7) + cross(av[6], f7);
 
-        f6 = Q6*(m[5]*cdd6 + f7);
-        n6 = Q6*(I[5]*wd6 + cross(w6, I[5]*w6) + n7 + cross(av[5], Q6t*f6) - cross(sv[5], f7));
+        f6 = m[5]*cdd6 + Q7*f7;
+        n6 = I[5]*wd6 + cross(w6, I[5]*w6) + Q7*n7 + cross(av[5], f6) + cross(sv[5], (Q7*f7));
 
-        f5 = Q5*(m[4]*cdd5 + f6);
-        n5 = Q5*(I[4]*wd5 + cross(w5, I[4]*w5) + n6 + cross(av[4], Q5t*f5) - cross(sv[4], f6));
+        f5 = m[4]*cdd5 + Q6*f6;
+        n5 = I[4]*wd5 + cross(w5, I[4]*w5) + Q6*n6 + cross(av[4], f5) + cross(sv[4], (Q6*f6));
 
-        f4 = Q4*(m[3]*cdd4 + f5);
-        n4 = Q4*(I[3]*wd4 + cross(w4, I[3]*w4) + n5 + cross(av[3], Q4t*f4) - cross(sv[3], f5));
+        f4 = m[3]*cdd4 + Q5*f5;
+        n4 = I[3]*wd4 + cross(w4, I[3]*w4) + Q5*n5 + cross(av[3], f4) + cross(sv[3], (Q5*f5));
 
-        f3 = Q3*(m[2]*cdd3 + f4);
-        n3 = Q3*(I[2]*wd3 + cross(w3, I[2]*w3) + n4 + cross(av[2], Q3t*f3) - cross(sv[2], f4));
+        f3 = m[2]*cdd3 + Q4*f4;
+        n3 = I[2]*wd3 + cross(w3, I[2]*w3) + Q4*n4 + cross(av[2], f3) + cross(sv[2], (Q4*f4));
 
-        f2 = Q2*(m[1]*cdd2 + f3);
-        n2 = Q2*(I[1]*wd2 + cross(w2, I[1]*w2) + n3 + cross(av[1], Q2t*f2) - cross(sv[1], f3));
+        f2 = m[1]*cdd2 + Q3*f3;
+        n2 = I[1]*wd2 + cross(w2, I[1]*w2) + Q3*n3 + cross(av[1], f2) + cross(sv[1], (Q3*f3));
 
-        f1 = Q1*(m[0]*cdd1 + f2);
-        n1 = Q1*(I[0]*wd1 + cross(w1, I[0]*w1) + n2 + cross(av[0], Q1t*f1) - cross(sv[0], f2));
+        f1 = m[0]*cdd1 + Q2*f2;
+        n1 = I[0]*wd1 + cross(w1, I[0]*w1) + Q2*n2 + cross(av[0], f1) + cross(sv[0], (Q2*f2));
 
         //-- extract torques (last element of each moment vector)
         efforts(0, i) = n1.z;
