@@ -542,11 +542,11 @@ inline Gen3Lite::Gen3Lite() : Manipulator(6) {
     ev[5] = {-1,  0,  0};
 
     // kinematic and dynamic constraints
-    pmax = {2.69, 2.69, 2.69, 2.59, 2.57, 2.59}; // rad
-    vmax = {1.6,  1.6,  1.6,  1.6,  1.6,  3.2};  // rad/s
-    umax = {10,   14,   10,   7,    7,    7};    // Nm
-    vmin = -vmax;
+    pmax = {inf, inf, inf, 2.58, inf, 2.1, inf}; // rad
     pmin = -pmax;
+    vmax = {1.745,  1.745,  1.745,  1.745,  2.443, 2.443, 2.443};  // rad/s
+    vmin = -vmax;
+    umax = {52, 52, 52, 52, 17, 17, 17};    // Nm
     umin = -umax;
 }
 
