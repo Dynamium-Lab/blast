@@ -542,11 +542,11 @@ inline Gen3Lite::Gen3Lite() : Manipulator(6) {
     ev[5] = {-1,  0,  0};
 
     // kinematic and dynamic constraints
-    pmax = {inf, inf, inf, 2.58, inf, 2.1, inf}; // rad
-    pmin = -pmax;
-    vmax = {1.745,  1.745,  1.745,  1.745,  2.443, 2.443, 2.443};  // rad/s
+    pmax = {2.69, 2.69, 2.69, 2.59, 2.57, 2.59}; // rad
+    vmax = {1.6,  1.6,  1.6,  1.6,  1.6,  3.2};  // rad/s
+    umax = {10,   14,   10,   7,    7,    7};    // Nm
     vmin = -vmax;
-    umax = {52, 52, 52, 52, 17, 17, 17};    // Nm
+    pmin = -pmax;
     umin = -umax;
 }
 
@@ -798,11 +798,11 @@ inline Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
     ev[6] = { 0,  0,  1};
 
     // kinematic and dynamic constraints
-    pmax = {2.69, 2.69, 2.69, 2.59, 2.57, 2.59}; // rad
-    vmax = {1.74533, 1.74533, 1.74533, 1.74533, 3.141593, 3.141593}; // rad/s
-    umax = {56, 56, 56, 56, 29, 29, 29};    // Nm
-    vmin = -vmax;
+    pmax = {inf, inf, inf, 2.58, inf, 2.1, inf}; // rad
     pmin = -pmax;
+    vmax = {1.745, 1.745, 1.745, 1.745, 2.443, 2.443, 2.443};  // rad/s
+    vmin = -vmax;
+    umax = {52, 52, 52, 52, 17, 17, 17};    // Nm
     umin = -umax;
 }
 
