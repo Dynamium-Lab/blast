@@ -11,6 +11,13 @@
 
 namespace blast {
 
+// forward declarations
+struct Vec3;
+struct Mat3;
+struct Array;
+struct Matrix;
+
+// useful constants
 static const real inf = std::numeric_limits<real>::infinity();
 static const real nan = std::numeric_limits<real>::quiet_NaN();
 static const real pi  = 3.1415;
@@ -64,6 +71,8 @@ struct Array {
     Array& operator=(const std::initializer_list<real>& other);
     ~Array();
 
+    Array(const Matrix& m); // create an array from a matrix (flatten and copy)
+
     real& operator[](u32 i);
     real operator[](u32 i) const;
     Array operator-();
@@ -74,6 +83,7 @@ struct Array {
     real& back();
     real back() const;
 };
+Array operator-(Array&, Array&);
 Array operator*(Array&, real);
 Array operator*(real, Array&);
 void zero(Array&);
@@ -92,6 +102,8 @@ struct Matrix {
     Matrix& operator=(const Matrix&); // copy assignment
     Matrix& operator=(Matrix&&);      // move assignment
     ~Matrix();
+
+    Matrix(const Array&); // construct a matrix by copying an array into the first collumn (copy)
 
     real& operator()(u32 row, u32 col);
     real operator()(u32 row, u32 col) const;
@@ -272,6 +284,13 @@ inline Array::Array(Array&& a) : data(a.data), size(a.size) {
     a.size = 0;
 }
 
+inline Array::Array(const Matrix& m) : size(m.size) {
+    if (size) {
+        data = (real*)calloc(size, sizeof(real));
+        memcpy(data, m.data, size*sizeof(real));
+    }
+}
+
 inline Array& Array::operator=(const Array& a) {
     if (this != &a) {
         if (!data) {
@@ -313,6 +332,13 @@ inline Array Array::operator-() {
         result[i] = -data[i];
     }
     return std::move(result);
+}
+
+inline Array operator-(Array& v1, Array& v2) {
+    Array r = v1;
+    for (u32 i = 0; i < v1.size; i++)
+        r[i] -= v2[i];
+    return r;
 }
 
 Array& Array::operator*=(real n) {
@@ -427,6 +453,13 @@ inline Matrix& Matrix::operator=(Matrix&& m) {
 inline Matrix::~Matrix() {
     if (data)
         std::free(data);
+}
+
+Matrix::Matrix(const Array& v) : size(v.size), cols(1), rows(v.size) {
+    if (size) {
+        data = (real*)calloc(size, sizeof(real));
+        memcpy(data, v.data, size*sizeof(real));
+    }
 }
 
 inline void Matrix::zero() {
