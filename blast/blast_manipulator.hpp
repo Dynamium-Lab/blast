@@ -16,10 +16,10 @@ struct Manipulator {
     Array vmin;
     Array amax;
     Array amin;
-    Array umax;
-    Array umin;
+    Array tau_max;
+    Array tau_min;
 
-    Manipulator(u32 njoints) : joints(njoints), vmax(njoints), vmin(njoints), pmax(njoints), pmin(njoints), amax(njoints), amin(njoints), umax(njoints), umin(njoints) {}
+    Manipulator(u32 njoints) : joints(njoints), vmax(njoints), vmin(njoints), pmax(njoints), pmin(njoints), amax(njoints), amin(njoints), tau_max(njoints), tau_min(njoints) {}
 
     virtual void dynamics(Pva& pva, Matrix& efforts) = 0;
     virtual void dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& efforts) = 0;
@@ -102,6 +102,9 @@ struct Gen3_7DOF : public Manipulator {
     // compute forward kinematics for 1 point
     Array forward_kinematics(Array& joint_position);
     Array collision_dist_sqr(Array& joint_position);
+
+    // check all constraints on the manipulator for 1 point
+    Array validate(Array& pos, Array& vel, Array& acc);
 };
 
 
@@ -396,7 +399,7 @@ inline void ManipulatorUR5::init_dynamics(real mass) {
 
     base_p.z = 0.089159;
 
-    umax = {
+    tau_max = {
         1,
         1,
         1,
@@ -404,7 +407,7 @@ inline void ManipulatorUR5::init_dynamics(real mass) {
         1,
         1
     };
-    umin = -umax;
+    tau_min = -tau_max;
 
     // kinematic parameters
     a2 = 0.425;
@@ -542,12 +545,12 @@ inline Gen3Lite::Gen3Lite() : Manipulator(6) {
     ev[5] = {-1,  0,  0};
 
     // kinematic and dynamic constraints
-    pmax = {inf, inf, inf, 2.58, inf, 2.1, inf}; // rad
-    pmin = -pmax;
-    vmax = {1.745,  1.745,  1.745,  1.745,  2.443, 2.443, 2.443};  // rad/s
+    pmax = {2.69, 2.69, 2.69, 2.59, 2.57, 2.59}; // rad
+    vmax = {1.6,  1.6,  1.6,  1.6,  1.6,  3.2};  // rad/s
+    tau_max = {10,   14,   10,   7,    7,    7};    // Nm
     vmin = -vmax;
-    umax = {52, 52, 52, 52, 17, 17, 17};    // Nm
-    umin = -umax;
+    pmin = -pmax;
+    tau_min = -tau_max;
 }
 
 inline void Gen3Lite::dynamics(Pva& pva, Matrix& efforts) {
@@ -798,12 +801,12 @@ inline Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
     ev[6] = { 0,  0,  1};
 
     // kinematic and dynamic constraints
-    pmax = {2.69, 2.69, 2.69, 2.59, 2.57, 2.59}; // rad
-    vmax = {1.74533, 1.74533, 1.74533, 1.74533, 3.141593, 3.141593}; // rad/s
-    umax = {56, 56, 56, 56, 29, 29, 29};    // Nm
-    vmin = -vmax;
+    pmax = {inf, inf, inf, 2.58, inf, 2.1, inf}; // rad
     pmin = -pmax;
-    umin = -umax;
+    vmax = {1.745, 1.745, 1.745, 1.745, 2.443, 2.443, 2.443};  // rad/s
+    vmin = -vmax;
+    tau_max = {52, 52, 52, 52, 17, 17, 17};    // Nm
+    tau_min = -tau_max;
 }
 
 inline void Gen3_7DOF::dynamics(Pva& pva, Matrix& efforts) {
@@ -1062,6 +1065,65 @@ inline Array Gen3_7DOF::collision_dist_sqr(Array& joint_position) {
     distSqrMin = {dist1sqr, dist2sqr, distTJ4sqr-r1_sqr, distTJ6sqr-r1_sqr, distTEEsqr-r1_sqr};
 
     return distSqrMin;
+}
+
+inline Array Gen3_7DOF::validate(Array& pos, Array& vel, Array& acc) {
+    // todo: performance!
+
+    Matrix p(pos);//note: perf hit
+    Matrix v(vel);//note: perf hit
+    Matrix a(acc);//note: perf hit
+
+    // 5 collision results
+    // position constraints x2 for each joint
+    // velocity constraints x2 for each joint
+    // torque constraints x2 for each joint
+    Array result(5 + 7*2*3);
+
+    // distance to collision >= 0
+    result[0] = collision_dist_sqr(pos)[0]; // dist1sqr
+    result[1] = collision_dist_sqr(pos)[1]; // dist2sqr
+    result[2] = collision_dist_sqr(pos)[2]; // distTJ4sqr - r1_sqr
+    result[3] = collision_dist_sqr(pos)[3]; // distTJ6sqr - r1_sqr
+    result[4] = collision_dist_sqr(pos)[4]; // distTEEsqr - r1_sqr
+
+    Matrix efforts(joints, 1); //note: perf hit
+    dynamics(p, v, a, efforts);
+
+    auto current_result = &result[1];
+    Array tmp(joints);
+
+    // pos - pmin >= 0
+    tmp = pos - pmin;
+    memcpy(current_result, tmp.data, tmp.size * sizeof(real));
+    current_result += joints;
+
+    // pmax - pos >= 0
+    tmp = pmax - pos;
+    memcpy(current_result, tmp.data, tmp.size * sizeof(real));
+    current_result += joints;
+
+    // vel - vmin >= 0
+    tmp = vel - vmin;
+    memcpy(current_result, tmp.data, tmp.size * sizeof(real));
+    current_result += joints;
+
+    // vmax - vel >= 0
+    tmp = vmax - vel;
+    memcpy(current_result, tmp.data, tmp.size * sizeof(real));
+    current_result += joints;
+
+    // tau - tau_min >= 0
+    Array tau(efforts); //note: perf hit
+    tmp = tau - tau_min;
+    memcpy(current_result, tmp.data, tmp.size * sizeof(real));
+    current_result += joints;
+
+    // tau_max - tau >= 0
+    tmp = tau_max - tau;
+    memcpy(current_result, tmp.data, tmp.size * sizeof(real));
+
+    return result;
 }
 
 } // namespace blast

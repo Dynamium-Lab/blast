@@ -51,8 +51,8 @@ int main() {
         u32 r_index = 0;
         for (u32 point = 0; point < pva.points; point++) {
             for (u32 j = 0; j < pva.joints; j++) {
-                result[r_index++] = (manip.umin[j] - efforts(j, point)) / manip.umax[j];
-                result[r_index++] = (efforts(j, point) - manip.umax[j]) / manip.umax[j];
+                result[r_index++] = (manip.tau_min[j] - efforts(j, point)) / manip.tau_max[j];
+                result[r_index++] = (efforts(j, point) - manip.tau_max[j]) / manip.tau_max[j];
             }
         }
         return result;
