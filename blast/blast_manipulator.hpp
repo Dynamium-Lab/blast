@@ -101,6 +101,8 @@ struct Gen3_7DOF : public Manipulator {
 
     // compute forward kinematics for 1 point
     Array forward_kinematics(Array& joint_position);
+
+    // check collision
     Array collision_dist_sqr(Array& joint_position);
 
     // check all constraints on the manipulator for 1 point
@@ -1090,7 +1092,7 @@ inline Array Gen3_7DOF::validate(Array& pos, Array& vel, Array& acc) {
     Matrix efforts(joints, 1); //note: perf hit
     dynamics(p, v, a, efforts);
 
-    auto current_result = &result[1];
+    auto current_result = &result[5];
     Array tmp(joints);
 
     // pos - pmin >= 0
