@@ -1055,6 +1055,8 @@ inline real Gen3_7DOF::self_collision_dist_sqr(Array& joint_position) {
 inline Array Gen3_7DOF::validate(Array& pos, Array& vel, Array& acc) {
     // todo: performance!
 
+    // todo: could/should we remove almost half of the constraints (by checking the abs of the position, velocity and torque)
+
     Matrix p(pos);//note: perf hit
     Matrix v(vel);//note: perf hit
     Matrix a(acc);//note: perf hit

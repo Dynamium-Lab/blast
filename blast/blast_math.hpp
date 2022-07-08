@@ -62,16 +62,15 @@ struct Array {
     real * data = nullptr;
     u32 size = 0;
 
-    Array() {}
+    Array() = default;
     Array(u32 new_size);    // normal constructor
     Array(const Array&);    // copy constructor
     Array(Array&&);         // move constructor
+    Array(const Matrix& m); // create an array from a matrix (flatten and copy)
     Array& operator=(const Array&); // copy assignment
     Array& operator=(Array&&);      // move assignment
     Array& operator=(const std::initializer_list<real>& other);
     ~Array();
-
-    Array(const Matrix& m); // create an array from a matrix (flatten and copy)
 
     real& operator[](u32 i);
     real operator[](u32 i) const;
@@ -95,15 +94,15 @@ struct Matrix {
     u32 rows = 0;
     u32 cols = 0;
 
-    Matrix() {}
+    Matrix() = default;
     Matrix(u32 r, u32 c);   // normal constructor
     Matrix(const Matrix&);  // copy constructor
     Matrix(Matrix&&);       // move constructor
+    Matrix(const Array&);   // construct a matrix by copying an array into the first collumn (copy)
     Matrix& operator=(const Matrix&); // copy assignment
     Matrix& operator=(Matrix&&);      // move assignment
     ~Matrix();
 
-    Matrix(const Array&); // construct a matrix by copying an array into the first collumn (copy)
 
     real& operator()(u32 row, u32 col);
     real operator()(u32 row, u32 col) const;
