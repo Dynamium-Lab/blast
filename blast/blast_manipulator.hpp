@@ -102,8 +102,8 @@ struct Gen3_7DOF : public Manipulator {
     // compute forward kinematics for 1 point
     Array forward_kinematics(Array& joint_position);
 
-    // check if the robot is colliding with itself
-    real self_collision_dist_sqr(Array& joint_position);
+    // check collision
+    Array collision_dist_sqr(Array& joint_position);
 
     // check all constraints on the manipulator for 1 point
     Array validate(Array& pos, Array& vel, Array& acc);
@@ -991,7 +991,7 @@ inline Array Gen3_7DOF::forward_kinematics(Array& joint_position) {
     return pose;
 }
 
-inline real Gen3_7DOF::self_collision_dist_sqr(Array& joint_position) {
+inline Array Gen3_7DOF::collision_dist_sqr(Array& joint_position) {
     real s[8];
     real c[8];
     auto p = joint_position.data;
@@ -1027,6 +1027,7 @@ inline real Gen3_7DOF::self_collision_dist_sqr(Array& joint_position) {
     Vec3 p_orig(0, 0, 0);
     Vec3 p_j2;
     Vec3 p_j3;
+    Vec3 p_j4;
     Vec3 p_j6;
     Vec3 p_ee;
 
@@ -1037,6 +1038,7 @@ inline real Gen3_7DOF::self_collision_dist_sqr(Array& joint_position) {
     p_tmp += (Q_tmp*=Q2)*dv[1];
     p_j3 = p_tmp;
     p_tmp += (Q_tmp*=Q3)*dv[2];
+    p_j4 = p_tmp;
     p_tmp += (Q_tmp*=Q4)*dv[3];
     p_tmp += (Q_tmp*=Q5)*dv[4];
     p_j6 = p_tmp;
@@ -1046,10 +1048,25 @@ inline real Gen3_7DOF::self_collision_dist_sqr(Array& joint_position) {
 
     const real r1_sqr = 0.09*0.09;
     const real r2_sqr = 0.09*0.09;
+
+    // Self collisions sqr
     real dist1sqr = two_segment_distance_sqr(p_orig, p_j2, p_j6, p_ee) - r1_sqr;
     real dist2sqr = two_segment_distance_sqr(p_j2, p_j3, p_j6, p_ee) - r2_sqr;
 
-    return dist1sqr < dist2sqr ? dist1sqr : dist2sqr;
+    // Collision with table sqr
+    const Vec3 p_table(0, 0, -0.0025); // todo: Correct coords (z or y) ??
+    real distTJ4sqr = p_j4.z - p_table.z;
+    distTJ4sqr *= distTJ4sqr;
+    real distTJ6sqr = p_j6.z - p_table.z;
+    distTJ6sqr *= distTJ6sqr;
+    real distTEEsqr = p_ee.z - p_table.z;
+    distTEEsqr *= distTEEsqr;
+
+    // Array of distance min sqr and distance from table sqr
+    Array distSqrMin(5);
+    distSqrMin = {dist1sqr, dist2sqr, distTJ4sqr-r1_sqr, distTJ6sqr-r1_sqr, distTEEsqr-r1_sqr};
+
+    return distSqrMin;
 }
 
 inline Array Gen3_7DOF::validate(Array& pos, Array& vel, Array& acc) {
@@ -1061,18 +1078,23 @@ inline Array Gen3_7DOF::validate(Array& pos, Array& vel, Array& acc) {
     Matrix v(vel);//note: perf hit
     Matrix a(acc);//note: perf hit
 
-    // 1 collision results
+    // 5 collision results
     // position constraints x2 for each joint
     // velocity constraints x2 for each joint
     // torque constraints x2 for each joint
-    Array result(1 + 7*2*3);
+    Array result(5 + 7*2*3);
 
     // distance to collision >= 0
-    result[0] = self_collision_dist_sqr(pos);
+    result[0] = collision_dist_sqr(pos)[0]; // dist1sqr
+    result[1] = collision_dist_sqr(pos)[1]; // dist2sqr
+    result[2] = collision_dist_sqr(pos)[2]; // distTJ4sqr - r1_sqr
+    result[3] = collision_dist_sqr(pos)[3]; // distTJ6sqr - r1_sqr
+    result[4] = collision_dist_sqr(pos)[4]; // distTEEsqr - r1_sqr
+
     Matrix efforts(joints, 1); //note: perf hit
     dynamics(p, v, a, efforts);
 
-    auto current_result = &result[1];
+    auto current_result = &result[5];
     Array tmp(joints);
 
     // pos - pmin >= 0
