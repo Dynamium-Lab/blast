@@ -107,6 +107,12 @@ struct Gen3_7DOF : public Manipulator {
 
     // check all constraints on the manipulator for 1 point
     Array validate(Array& pos, Array& vel, Array& acc);
+
+    // check all constraints on the manipulator for a trajectory
+    Array validate(Matrix& pos, Matrix& vel, Matrix& acc);
+
+    // check all constraints on the manipulator for a trajectory
+    Array validate(Pva& pva);
 };
 
 
@@ -1072,7 +1078,7 @@ inline Array Gen3_7DOF::collision_dist_sqr(Array& joint_position) {
 inline Array Gen3_7DOF::validate(Array& pos, Array& vel, Array& acc) {
     // todo: performance!
 
-    // todo: could/should we remove almost half of the constraints (by checking the abs of the position, velocity and torque)
+    // todo: could/should we remove almost half of the constraints (by checking the abs of the position, velocity and torque)?
 
     Matrix p(pos);//note: perf hit
     Matrix v(vel);//note: perf hit
@@ -1128,6 +1134,69 @@ inline Array Gen3_7DOF::validate(Array& pos, Array& vel, Array& acc) {
     memcpy(current_result, tmp.data, tmp.size * sizeof(real));
 
     return result;
+}
+
+inline Array Gen3_7DOF::validate(Matrix& pos, Matrix& vel, Matrix& acc) {
+    const auto points = pos.cols;
+    // 5 collision results
+    // position constraints x2 for each joint
+    // velocity constraints x2 for each joint
+    // torque constraints x2 for each joint
+    //** (for each point in the trajectory) **
+    Array result((5 + 7*2*3)*points);
+
+    auto current_result = result.data;
+    for (u32 i = 0; i < points; i++) {
+        // note: Don't try this at home!
+        // note: p is an alias
+        Array p; // temp array with the current values of the position
+        p.data = &pos(0, i);
+        p.size = joints;
+
+        current_result[0] = collision_dist_sqr(p)[0]; // dist1sqr
+        current_result[1] = collision_dist_sqr(p)[1]; // dist2sqr
+        current_result[2] = collision_dist_sqr(p)[2]; // distTJ4sqr - r1_sqr
+        current_result[3] = collision_dist_sqr(p)[3]; // distTJ6sqr - r1_sqr
+        current_result[4] = collision_dist_sqr(p)[4]; // distTEEsqr - r1_sqr
+        current_result += 5;
+
+        // note: must stop the destructor from freeing the memory!
+        p.data = nullptr;
+        p.size = 0;
+    }
+
+    Matrix efforts(joints, pos.cols); // todo: perf hit by constructing every time?
+    dynamics(pos, vel, acc, efforts);
+
+    // pos - pmin >= 0
+    minus_insert(pos, pmin, current_result);
+    current_result += pos.size;
+
+    // pmax - pos >= 0
+    minus_insert(pmax, pos, current_result);
+    current_result += pos.size;
+
+    // vel - vmin >= 0
+    minus_insert(vel, vmin, current_result);
+    current_result += vel.size;
+
+    // vmax - vel >= 0
+    minus_insert(vmax, vel, current_result);
+    current_result += vel.size;
+
+    // tau - tau_min >= 0
+    minus_insert(efforts, tau_min, current_result);
+    current_result += efforts.size;
+
+    // tau_max - tau >= 0
+    minus_insert(tau_max, efforts, current_result);
+
+    return result;
+}
+
+// check all constraints on the manipulator for a trajectory
+inline Array Gen3_7DOF::validate(Pva& pva) {
+    return validate(pva.pos, pva.vel, pva.acc);
 }
 
 } // namespace blast

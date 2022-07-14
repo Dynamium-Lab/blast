@@ -66,7 +66,7 @@ struct Array {
     Array(u32 new_size);    // normal constructor
     Array(const Array&);    // copy constructor
     Array(Array&&);         // move constructor
-    Array(const Matrix& m); // create an array from a matrix (flatten and copy)
+    Array(const Matrix& m); // create an array from a matrix (note:flattens and copies)
     Array& operator=(const Array&); // copy assignment
     Array& operator=(Array&&);      // move assignment
     Array& operator=(const std::initializer_list<real>& other);
@@ -103,7 +103,6 @@ struct Matrix {
     Matrix& operator=(Matrix&&);      // move assignment
     ~Matrix();
 
-
     real& operator()(u32 row, u32 col);
     real operator()(u32 row, u32 col) const;
     void zero();
@@ -119,6 +118,11 @@ void print(Matrix&);
 //--- Collision functions ---
 real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1);
 
+// take each col from the matrix, substract the array, and put the result into dst.
+void minus_insert(Matrix& m, Array& a, real* dst);
+
+// for each collumn of the matrix, substract the collum from the array and put the result into dst.
+void minus_insert(Array& a, Matrix& m, real* dst);
 
 
 
@@ -340,19 +344,19 @@ inline Array operator-(Array& v1, Array& v2) {
     return r;
 }
 
-Array& Array::operator*=(real n) {
+inline Array& Array::operator*=(real n) {
     for (u32 i = 0; i < size; i++)
         data[i] *= n;
     return *this;
 }
 
-Array operator*(Array& a, real b) {
+inline Array operator*(Array& a, real b) {
     Array r(a);
     r *= b;
     return r;
 }
 
-Array operator*(real b, Array& a) {
+inline Array operator*(real b, Array& a) {
     Array r(a);
     r *= b;
     return r;
@@ -454,7 +458,7 @@ inline Matrix::~Matrix() {
         std::free(data);
 }
 
-Matrix::Matrix(const Array& v) : size(v.size), cols(1), rows(v.size) {
+inline Matrix::Matrix(const Array& v) : size(v.size), cols(1), rows(v.size) {
     if (size) {
         data = (real*)calloc(size, sizeof(real));
         memcpy(data, v.data, size*sizeof(real));
@@ -502,13 +506,34 @@ inline void print(Matrix& m) {
     }
 }
 
+void minus_and_insert(Matrix& m, Array& a, real* dst) {
+    Assert(m.rows == a.size);
+    auto m_data = m.data;
+    for (u32 c = 0; c < m.cols; c++) {
+        for (u32 r = 0; r < a.size; r++) {
+            *dst = *m_data - a[r];
+            m_data++;
+            dst++;
+        }
+    }
+}
 
-// Compute the root of h(z) = h0 + slope*z and clamp it to the interval
-// [0,1]. It is required that for h1 = h(1), either (h0 < 0 and h1 > 0)
-// or (h0 > 0 and h1 < 0).
+void minus_insert(Array& a, Matrix& m, real* dst) {
+    Assert(m.rows == a.size);
+    auto m_data = m.data;
+    for (u32 c = 0; c < m.cols; c++) {
+        for (u32 r = 0; r < a.size; r++) {
+            *dst = a[r] - *m_data;
+            m_data++;
+            dst++;
+        }
+    }
+}
+
+
+
 //note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
-// todo: overkill?
-real clamped_root(real slope, real h0, real h1) {
+static real clamped_root(real slope, real h0, real h1) {
     real r;
     if (h0 < 0) {
         if (h1 > 0) {
@@ -516,8 +541,6 @@ real clamped_root(real slope, real h0, real h1) {
             if (r > 1) {
                 r = 0.5;
             }
-            // The slope is positive and -h0 is positive, so there is
-            // no need to test for a negative value and clamp it.
         }
         else {
             r = 1;
@@ -529,26 +552,8 @@ real clamped_root(real slope, real h0, real h1) {
     return r;
 }
 
-// Compute the intersection of the line dR/ds = 0 with the domain
-// [0,1]^2. The direction of the line dR/ds is conjugate to (1,0),
-// so the algorithm for minimization is effectively the conjugate
-// gradient algorithm for a quadratic function.
-//note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
+// note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
 static void compute_intersection(real* sValue, i32* classify, real b, real f00, real f10, i32* edge, real end[][2]) {
-    // The divisions are theoretically numbers in [0,1]. Numerical
-    // rounding errors might cause the result to be outside the
-    // interval. When this happens, it must be that both numerator
-    // and denominator are nearly zero. The denominator is nearly
-    // zero when the segments are nearly perpendicular. The
-    // numerator is nearly zero when the P-segment is nearly
-    // degenerate (f00 = a is small). The choice of 0.5 should not
-    // cause significant accuracy problems.
-    //
-    // NOTE: You can use bisection to recompute the root or even use
-    // bisection to compute the root and skip the division. This is
-    // generally slower, which might be a problem for high-performance
-    // applications.
-
     real const zero = 0;
     real const half = (real)0.5;
     real const one = 1;
@@ -565,7 +570,7 @@ static void compute_intersection(real* sValue, i32* classify, real b, real f00, 
             end[1][0] = sValue[1];
             end[1][1] = one;
         }
-        else { // classify[1] > 0
+        else {
             edge[1] = 1;
             end[1][0] = one;
             end[1][1] = f10 / b;
@@ -601,7 +606,7 @@ static void compute_intersection(real* sValue, i32* classify, real b, real f00, 
             }
         }
     }
-    else { // classify[0] > 0
+    else {
         edge[0] = 1;
         end[0][0] = one;
         end[0][1] = f10 / b;
@@ -625,9 +630,7 @@ static void compute_intersection(real* sValue, i32* classify, real b, real f00, 
     }
 }
 
-// Compute the location of the minimum of R on the segment of
-// intersection for the line dR/ds = 0 and the domain [0,1]^2.
-//note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
+// note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
 static void compute_minimum_parameters(i32* edge, real end[][2], real b, real c, real e, real g00, real g10, real g01, real g11, real* parameter) {
     real const zero = 0;
     real const one = 1;
@@ -663,7 +666,7 @@ static void compute_minimum_parameters(i32* edge, real end[][2], real b, real c,
                 parameter[1] = end[1][1];
             }
         }
-        else { // h0 < 0 and h1 > 0
+        else {
             real z = std::min(std::max(h0 / (h0 - h1), zero), one);
             real omz = one - z;
             parameter[0] = omz * end[0][0] + z * end[1][0];
@@ -672,7 +675,7 @@ static void compute_minimum_parameters(i32* edge, real end[][2], real b, real c,
     }
 }
 
-//note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
+// note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
 inline real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
     auto const P1mP0 = P1 - P0;
     auto const Q1mQ0 = Q1 - Q0;
@@ -683,14 +686,11 @@ inline real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
     real d = dot(P1mP0, P0mQ0);
     real e = dot(Q1mQ0, P0mQ0);
 
-
-    // The derivatives dR/ds(i,j) at the four corners of the domain.
     real f00 = d;
     real f10 = f00 + a;
     real f01 = f00 - b;
     real f11 = f10 - b;
 
-    // The derivatives dR/dt(i,j) at the four corners of the domain.
     real g00 = -e;
     real g10 = g00 - b;
     real g01 = g00 + c;
@@ -698,13 +698,6 @@ inline real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
 
     real parameter[2] = {0, 0};
     if (a > 0 && c > 0) {
-        // Compute the solutions to dR/ds(s0,0) = 0 and
-        // dR/ds(s1,1) = 0.  The location of sI on the s-axis is
-        // stored in classifyI (I = 0 or 1).  If sI <= 0, classifyI
-        // is -1.  If sI >= 1, classifyI is 1.  If 0 < sI < 1,
-        // classifyI is 0.  This information helps determine where to
-        // search for the minimum point (s,t).  The fij values are
-        // dR/ds(i,j) for i and j in {0,1}.
 
         real sValue[2] = {
             clamped_root(a, f00, f10),
@@ -722,57 +715,32 @@ inline real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
         }
 
         if (classify[0] == -1 && classify[1] == -1) {
-            // The minimum must occur on s = 0 for 0 <= t <= 1.
             parameter[0] = 0;
             parameter[1] = clamped_root(c, g00, g01);
         }
         else if (classify[0] == +1 && classify[1] == +1) {
-            // The minimum must occur on s = 1 for 0 <= t <= 1.
             parameter[0] = 1;
             parameter[1] = clamped_root(c, g10, g11);
         }
         else {
-            // The line dR/ds = 0 intersects the domain [0,1]^2 in a
-            // nondegenerate segment. Compute the endpoints of that
-            // segment, end[0] and end[1]. The edge[i] flag tells you
-            // on which domain edge end[i] lives: 0 (s=0), 1 (s=1),
-            // 2 (t=0), 3 (t=1).
             i32 edge[2] = { 0, 0 };
             real end[2][2];
             compute_intersection(sValue, classify, b, f00, f10, edge, end);
 
-            // The directional derivative of R along the segment of
-            // intersection is
-            //   H(z) = (end[1][1]-end[1][0]) *
-            //          dR/dt((1-z)*end[0] + z*end[1])
-            // for z in [0,1]. The formula uses the fact that
-            // dR/ds = 0 on the segment. Compute the minimum of
-            // H on [0,1].
             compute_minimum_parameters(edge, end, b, c, e, g00, g10,
                                        g01, g11, parameter);
         }
     }
     else {
         if (a > 0) {
-            // The Q-segment is degenerate (Q0 and Q1 are the same
-            // point) and the quadratic is R(s,0) = a*s^2 + 2*d*s + f
-            // and has (half) first derivative F(t) = a*s + d.  The
-            // closest P-point is interior to the P-segment when
-            // F(0) < 0 and F(1) > 0.
             parameter[0] = clamped_root(a, f00, f10);
             parameter[1] = 0;
         }
         else if (c > 0) {
-            // The P-segment is degenerate (P0 and P1 are the same
-            // point) and the quadratic is R(0,t) = c*t^2 - 2*e*t + f
-            // and has (half) first derivative G(t) = c*t - e.  The
-            // closest Q-point is interior to the Q-segment when
-            // G(0) < 0 and G(1) > 0.
             parameter[0] = 0;
             parameter[1] = clamped_root(c, g00, g01);
         }
         else {
-            // P-segment and Q-segment are degenerate.
             parameter[0] = 0;
             parameter[1] = 0;
         }
