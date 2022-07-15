@@ -86,6 +86,8 @@ Array operator-(Array&, Array&);
 Array operator*(Array&, real);
 Array operator*(real, Array&);
 void zero(Array&);
+real array_min(Array&);
+real array_max(Array&);
 
 // Matrix of real numbers
 struct Matrix {
@@ -125,9 +127,29 @@ void minus_insert(Matrix& m, Array& a, real* dst);
 void minus_insert(Array& a, Matrix& m, real* dst);
 
 
+real wrap2pi(real r) {
+    while (r < -pi)
+        r += 2*pi;
+    while (r > pi)
+        r-= 2*pi;
+    return r;
+}
 
+float wrap_to_180(float r) {
+    while (r < -180)
+        r += 360;
+    while (r > 180)
+        r-= 360;
+    return r;
+}
 
+real deg2rad(real r) {
+    return r*pi/180;
+}
 
+real rad2deg(real r) {
+    return r*180/pi;
+}
 
 
 
@@ -232,6 +254,20 @@ inline void zero(Array& a) {
     a.zero();
 }
 
+inline real array_min(Array& a) {
+    real result = inf;
+    for(u32 i = 0; i < a.size; i++)
+        result = a[i] < result ? a[i] : result;
+    return result;
+}
+
+inline real array_max(Array& a) {
+    real result = -inf;
+    for(u32 i = 0; i < a.size; i++)
+        result = a[i] > result ? a[i] : result;
+    return result;
+}
+
 inline void zero(Matrix& m) {
     m.zero();
 }
@@ -296,9 +332,8 @@ inline Array::Array(const Matrix& m) : size(m.size) {
 
 inline Array& Array::operator=(const Array& a) {
     if (this != &a) {
-        if (!data) {
+        if (!data)
             data = (real*)malloc(a.size * sizeof(real));
-        }
         else if (a.size >= size) {
             std::free(data);
             data = (real*)malloc(a.size * sizeof(real));
@@ -331,9 +366,8 @@ inline Array& Array::operator=(const std::initializer_list<real>& other) {
 
 inline Array Array::operator-() {
     Array result(size);
-    for (u32 i = 0; i < size; i++) {
+    for (u32 i = 0; i < size; i++)
         result[i] = -data[i];
-    }
     return std::move(result);
 }
 
@@ -420,9 +454,8 @@ inline Matrix::Matrix(Matrix&& m) : data(m.data), size(m.size), cols(m.cols), ro
 
 inline Matrix& Matrix::operator=(const Matrix& m) {
     if (this != &m) {
-        if (!data) {
+        if (!data)
             data = (real*)malloc(m.size * sizeof(real));
-        }
         else if (m.size >= size) {
             std::free(data);
             data = (real*)malloc(m.size * sizeof(real));
@@ -499,9 +532,8 @@ inline void print(Matrix& m) {
     printf("\n");
     for (u32 i = 0; i < m.rows; i++) {
         printf("[");
-        for (u32 j = 0; j < m.cols-1; j++) {
+        for (u32 j = 0; j < m.cols-1; j++)
             printf("%0.4f, ", m(i, j));
-        }
         printf("%0.4f]\n", m(i, m.cols-1));
     }
 }
@@ -530,6 +562,17 @@ void minus_insert(Array& a, Matrix& m, real* dst) {
     }
 }
 
+void minus_insert(Matrix& m, Array& a, real* dst) {
+    Assert(m.rows == a.size);
+    auto m_data = m.data;
+    for (u32 c = 0; c < m.cols; c++) {
+        for (u32 r = 0; r < a.size; r++) {
+            *dst = *m_data - a[r];
+            m_data++;
+            dst++;
+        }
+    }
+}
 
 
 //note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
@@ -538,17 +581,14 @@ static real clamped_root(real slope, real h0, real h1) {
     if (h0 < 0) {
         if (h1 > 0) {
             r = -h0 / slope;
-            if (r > 1) {
+            if (r > 1)
                 r = 0.5;
-            }
         }
-        else {
+        else
             r = 1;
-        }
     }
-    else {
+    else
         r = 0;
-    }
     return r;
 }
 
@@ -561,10 +601,8 @@ static void compute_intersection(real* sValue, i32* classify, real b, real f00, 
         edge[0] = 0;
         end[0][0] = zero;
         end[0][1] = f00 / b;
-        if (end[0][1] < zero || end[0][1] > one) {
+        if (end[0][1] < zero || end[0][1] > one)
             end[0][1] = half;
-        }
-
         if (classify[1] == 0) {
             edge[1] = 3;
             end[1][0] = sValue[1];
@@ -574,9 +612,8 @@ static void compute_intersection(real* sValue, i32* classify, real b, real f00, 
             edge[1] = 1;
             end[1][0] = one;
             end[1][1] = f10 / b;
-            if (end[1][1] < zero || end[1][1] > one) {
+            if (end[1][1] < zero || end[1][1] > one)
                 end[1][1] = half;
-            }
         }
     }
     else if (classify[0] == 0) {
@@ -588,9 +625,8 @@ static void compute_intersection(real* sValue, i32* classify, real b, real f00, 
             edge[1] = 0;
             end[1][0] = zero;
             end[1][1] = f00 / b;
-            if (end[1][1] < zero || end[1][1] > one) {
+            if (end[1][1] < zero || end[1][1] > one)
                 end[1][1] = half;
-            }
         }
         else if (classify[1] == 0) {
             edge[1] = 3;
@@ -601,19 +637,16 @@ static void compute_intersection(real* sValue, i32* classify, real b, real f00, 
             edge[1] = 1;
             end[1][0] = one;
             end[1][1] = f10 / b;
-            if (end[1][1] < zero || end[1][1] > one) {
+            if (end[1][1] < zero || end[1][1] > one)
                 end[1][1] = half;
-            }
         }
     }
     else {
         edge[0] = 1;
         end[0][0] = one;
         end[0][1] = f10 / b;
-        if (end[0][1] < zero || end[0][1] > one) {
+        if (end[0][1] < zero || end[0][1] > one)
             end[0][1] = half;
-        }
-
         if (classify[1] == 0) {
             edge[1] = 3;
             end[1][0] = sValue[1];
@@ -623,9 +656,8 @@ static void compute_intersection(real* sValue, i32* classify, real b, real f00, 
             edge[1] = 0;
             end[1][0] = zero;
             end[1][1] = f00 / b;
-            if (end[1][1] < zero || end[1][1] > one) {
+            if (end[1][1] < zero || end[1][1] > one)
                 end[1][1] = half;
-            }
         }
     }
 }
@@ -674,7 +706,6 @@ static void compute_minimum_parameters(i32* edge, real end[][2], real b, real c,
         }
     }
 }
-
 // note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
 inline real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
     auto const P1mP0 = P1 - P0;
@@ -731,12 +762,12 @@ inline real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
                                        g01, g11, parameter);
         }
     }
-    else {
+    else    {
         if (a > 0) {
             parameter[0] = clamped_root(a, f00, f10);
             parameter[1] = 0;
         }
-        else if (c > 0) {
+        else     if (c > 0) {
             parameter[0] = 0;
             parameter[1] = clamped_root(c, g00, g01);
         }

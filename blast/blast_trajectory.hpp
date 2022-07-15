@@ -9,14 +9,15 @@ struct Pva {
     Matrix vel; // njoints x npoints
     Matrix acc; // njoints x npoints
     Array t;    // npoints
-    u32 joints;
-    u32 points;
+    u32 joints = 0;
+    u32 points = 0;
 
-    Pva(u32 npoints, u32 njoints);
+    Pva() = default;
+    Pva(u32 njoints, u32 npoints);
 
     // compute the PVA using bsplines.
-    virtual void compute_trajectory(Array&x, Matrix& task) = 0;
-    virtual u32 xlen() = 0;
+    virtual void compute_trajectory(Array&x, Matrix& task) {(void) x; (void) task;}
+    virtual u32 xlen() {return 0;}
 };
 
 struct PvaBspline : public Pva {
@@ -43,7 +44,7 @@ struct PvaBspline : public Pva {
 
 
 //------ FUNCTIONS ------------------------------------------------------------------------------------
-inline Pva::Pva(u32 npoints, u32 njoints) :
+inline Pva::Pva(u32 njoints, u32 npoints) :
     pos(njoints, npoints),
     vel(njoints, npoints),
     acc(njoints, npoints),
@@ -53,7 +54,7 @@ inline Pva::Pva(u32 npoints, u32 njoints) :
 {}
 
 inline PvaBspline::PvaBspline(u32 ncontrol, u32 npoints, u32 P, u32 dof) :
-    Pva(npoints, dof),
+    Pva(dof, npoints),
     nctrl(ncontrol),
     p(P),
     control(ncontrol, dof),
@@ -210,7 +211,56 @@ inline void PvaBspline::compute_trajectory(Array& x, Matrix& task) {
     }
 }
 
+inline Pva compute_5order_trajectory(real T, Matrix& task) {
+    const u32 joints = task.rows;
+    const u32 points = (u32)ceil(T*1000 + 1);
 
+    Pva result(joints, points);
+
+    const real deltaT = 0.001;
+    T = (points - 1) * deltaT;
+
+    Matrix A(6, joints);
+
+    for (u32 j=0; j < joints; j++) {
+        const auto p0 = task(j, 0);
+        const auto v0 = task(j, 1)*T;
+        const auto a0 = task(j, 2)*T*T;
+        const auto pf = task(j, 3);
+        const auto vf = task(j, 4)*T;
+        const auto af = task(j, 5)*T*T;
+
+        A(0, j) = p0;
+        A(1, j) = v0;
+        A(2, j) = a0*0.5;
+        A(3, j) = 0.5*af - 1.5*a0 - 10*(p0 - pf) - 6*v0 - 4*vf;
+        A(4, j) = 1.5*a0 - af + 15*(p0 - pf) + 8*v0 + 7*vf;
+        A(5, j) = 0.5*(af - a0) - 6*(p0 - pf) - 3*(v0 + vf);
+    }
+
+    for(u32 i=0; i < points; i++) {
+        const auto s = (real)i / (real)(points - 1);
+        const auto s2 = s*s;
+        const auto s3 = s2*s;
+        const auto s4 = s3*s;
+        const auto s5 = s4*s;
+        result.t[i] = i*deltaT;
+        for (u32 j=0; j < joints; j++) {
+            const auto a = &A(0, j);
+
+            const auto q = a[0] + a[1]*s + a[2]*s2 + a[3]*s3 + a[4]*s4 + a[5]*s5;
+            const auto qd = a[1] + 2*a[2]*s + 3*a[3]*s2 + 4*a[4]*s3 + 5*a[5]*s4;
+            const auto qdd = 2*a[2] + 6*a[3]*s + 12*a[4]*s2 + 20*a[5]*s3;
+
+            result.pos(j, i) = q;
+            result.vel(j, i) = qd/T;
+            result.acc(j, i) = qdd/(T*T);
+        }
+
+    }
+
+    return result;
+}
 
 // inline PvaBspline simple_bspline_trajectory(u32 npoints, u32 P, u32 dof, Matrix& task, real T) {
 //     PvaBspline traj(6, npoints, P, dof);
