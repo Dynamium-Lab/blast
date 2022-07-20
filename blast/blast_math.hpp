@@ -15,6 +15,7 @@ namespace blast {
 struct Vec3;
 struct Mat3;
 struct Array;
+struct ArrayAlias;
 struct Matrix;
 
 // useful constants
@@ -34,14 +35,6 @@ struct Vec3 {
 
     Vec3& operator+=(Vec3&v);
 };
-void zero(Vec3&);
-Vec3 cross(Vec3 a, Vec3 b);
-real dot(Vec3 a, Vec3 b);
-Vec3 operator-(Vec3 a, Vec3 b);
-Vec3 operator+(Vec3 a, Vec3 b);
-Vec3 operator*(real a, Vec3 b);
-Vec3 operator*(Vec3 a, real b);
-Vec3& operator*=(Vec3&v, real a);
 
 // 3x3 matrix
 struct Mat3 {
@@ -52,10 +45,6 @@ struct Mat3 {
     real& operator()(u32 row, u32 col);
     Mat3& operator*=(Mat3& rhs);
 };
-void zero(Mat3&);
-Mat3 transpose(Mat3&);
-Vec3 operator*(Mat3& m, Vec3 v);
-Mat3 operator*(Mat3& m, Mat3 rhs);
 
 // Array of real numbers
 struct Array {
@@ -63,33 +52,43 @@ struct Array {
     u32 size = 0;
 
     Array() = default;
-    Array(u32 new_size);    // normal constructor
-    Array(const Array&);    // copy constructor
-    Array(Array&&);         // move constructor
-    Array(const Matrix& m); // create an array from a matrix (note:flattens and copies)
-    Array& operator=(const Array&); // copy assignment
-    Array& operator=(Array&&);      // move assignment
-    Array& operator=(const std::initializer_list<real>& other);
-    ~Array();
-
-    real& operator[](u32 i);
-    real operator[](u32 i) const;
-    Array operator-();
-    Array& operator*=(real);
-    bool operator==(Array&);
-
-    void resize(u32 new_size);
-    void zero();
-    real& back();
-    real back() const;
+    Array(u32 new_size);            // normal constructor
+    Array(const Array&);            // copy constructor
+    Array(Array&&);                 // move constructor
+    Array(const Matrix& m);         // create an array from a matrix (note:flattens and copies)
+    virtual ~Array();
+    Array&  operator=(const Array&); // copy assignment
+    Array&  operator=(Array&&);      // move assignment
+    Array&  operator=(const std::initializer_list<real>& other);
+    real&   operator[](u32 i);
+    real    operator[](u32 i) const;
+    Array   operator-();
+    Array&  operator*=(real);
+    bool    operator==(Array&);
+    void    resize(u32 new_size);
+    real&   back();
+    real    back() const;
 };
-Array operator-(Array&, Array&);
-Array operator*(Array&, real);
-Array operator*(real, Array&);
-void zero(Array&);
-real array_min(Array&);
-real array_max(Array&);
-bool close(Array&, Array&, real eps = 1e-06);
+
+// Array that does not own it's internal memory (does not free upon destruction)
+struct ArrayAlias : Array {
+    ArrayAlias() = default;
+    ArrayAlias(Matrix& m);          // create an array from a matrix (note: flattens but does not copy)
+    ArrayAlias(Array&);
+    ArrayAlias(ArrayAlias&&);
+    virtual ~ArrayAlias() override;
+
+    const ArrayAlias& operator=(const Array&);
+    ArrayAlias& operator=(Array&);
+
+    //--- deleted functions ---
+    ArrayAlias(u32) = delete;
+    ArrayAlias(const Array&) = delete;
+    ArrayAlias(const Matrix& m) = delete;
+    ArrayAlias& operator=(ArrayAlias&&) = delete;
+    ArrayAlias& operator=(const std::initializer_list<real>& other) = delete;
+    void        resize(u32 new_size) = delete;
+};
 
 // Matrix of real numbers
 struct Matrix {
@@ -103,35 +102,21 @@ struct Matrix {
     Matrix(const Matrix&);  // copy constructor
     Matrix(Matrix&&);       // move constructor
     Matrix(const Array&);   // construct a matrix by copying an array into the first collumn (copy)
+    ~Matrix();
     Matrix& operator=(const Matrix&); // copy assignment
     Matrix& operator=(Matrix&&);      // move assignment
-    ~Matrix();
-
-    real& operator()(u32 row, u32 col);
-    real operator()(u32 row, u32 col) const;
-    void zero();
-
-    Array col(u32 c);
+    real&   operator()(u32 row, u32 col);
+    real    operator()(u32 row, u32 col) const;
+    ArrayAlias col(u32 c);
 };
-void zero(Matrix&);
-
-//--- Utility and debug functions ---
-void print(Vec3);
-void print(Mat3);
-void print(Array&);
-void print(Matrix&);
-
-//--- Collision functions ---
-real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1);
-
-// take each col from the matrix, substract the array, and put the result into dst.
-void minus_insert(Matrix& m, Array& a, real* dst);
-
-// for each collumn of the matrix, substract the collum from the array and put the result into dst.
-void minus_insert(Array& a, Matrix& m, real* dst);
 
 
-real wrap2pi(real r) {
+
+
+
+//------ MISC ---------------------
+
+inline real wrap2pi(real r) {
     while (r < -pi)
         r += 2*pi;
     while (r > pi)
@@ -139,7 +124,7 @@ real wrap2pi(real r) {
     return r;
 }
 
-float wrap_to_180(float r) {
+inline float wrap_to_180(float r) {
     while (r < -180)
         r += 360;
     while (r > 180)
@@ -147,48 +132,135 @@ float wrap_to_180(float r) {
     return r;
 }
 
-real deg2rad(real r) {
-    return r*pi/180;
+inline real deg2rad(real r) {
+    return r * pi/180;
 }
 
-real rad2deg(real r) {
-    return r*180/pi;
+inline real rad2deg(real r) {
+    return r * 180/pi;
+}
+
+inline Array rad2deg(Array& a) {
+    Array r(a.size);
+    for (u32 i = 0; i < a.size; i++)
+        r[i] = a[i] * 180/pi;
+    return r;
+}
+
+inline Array deg2rad(Array& a) {
+    Array r(a.size);
+    for (u32 i = 0; i < a.size; i++)
+        r[i] = a[i] * pi/180;
+    return r;
+}
+
+inline void zero(Vec3& v) {
+    v.x = v.y = v.z = 0;
+}
+
+inline void zero(Mat3& m) {
+    memset(m.data, 0, 9*sizeof(real));
+}
+
+inline void zero(Array& a) {
+    if(a.data)
+        memset(a.data, 0, a.size*sizeof(real));
+}
+
+inline void zero(Matrix& m) {
+    if(m.data)
+        memset(m.data, 0, m.size*sizeof(real));
+}
+
+inline void print(Vec3 v) {
+    printf("[%f, %f, %f]\n", v.x, v.y, v.z);
+}
+
+inline void print(Mat3 m) {
+    printf("\n[%f, %f, %f]\n[%f, %f, %f]\n[%f, %f, %f]\n",
+           m(0, 0), m(0, 1), m(0, 2), m(1, 0), m(1, 1), m(1, 2), m(2, 0), m(2, 1), m(2, 2));
+}
+
+inline void print(Array& a) {
+    if(a.size == 0)
+        return;
+    printf("[");
+    for (u32 i = 0; i < a.size-1; i++)
+        printf("%0.4f, ", a[i]);
+    printf("%0.4f]\n", a[a.size-1]);
+}
+
+inline void print(Matrix& m) {
+    if(m.size == 0)
+        return;
+    printf("\n");
+    for (u32 i = 0; i < m.rows; i++) {
+        printf("[");
+        for (u32 j = 0; j < m.cols-1; j++)
+            printf("%0.4f, ", m(i, j));
+        printf("%0.4f]\n", m(i, m.cols-1));
+    }
+}
+
+inline void minus_insert(Array& a, Matrix& m, real* dst) {
+    Assert(m.rows == a.size);
+    auto m_data = m.data;
+    for (u32 c = 0; c < m.cols; c++) {
+        for (u32 r = 0; r < a.size; r++) {
+            *dst = a[r] - *m_data;
+            m_data++;
+            dst++;
+        }
+    }
+}
+
+inline void minus_insert(Matrix& m, Array& a, real* dst) {
+    Assert(m.rows == a.size);
+    auto m_data = m.data;
+    for (u32 c = 0; c < m.cols; c++) {
+        for (u32 r = 0; r < a.size; r++) {
+            *dst = *m_data - a[r];
+            m_data++;
+            dst++;
+        }
+    }
+}
+
+inline real array_min(Array& a) {
+    real result = inf;
+    for(u32 i = 0; i < a.size; i++)
+        result = a[i] < result ? a[i] : result;
+    return result;
+}
+
+inline real array_max(Array& a) {
+    real result = -inf;
+    for(u32 i = 0; i < a.size; i++)
+        result = a[i] > result ? a[i] : result;
+    return result;
+}
+
+inline bool close(Array& a1, Array& a2, real eps = 1e-05) {
+    Assert(a1.size == a2.size);
+    for (u32 i =0; i < a1.size; i++)
+        if(a1[i] - a2[i] > eps || a1[i] - a2[i] < -eps)
+            return false;
+    return true;
 }
 
 
+//------ Vec3 ---------------------
 
-
-//-----------------------------------------------------------------------
 inline Vec3::Vec3(real x, real y, real z)
     : x(x), y(y), z(z), _pad(0) {
 
 }
 
-inline Mat3::Mat3(real x1, real y1, real z1, real x2, real y2, real z2, real x3, real y3, real z3) {
-    data[0] = x1;
-    data[1] = y1;
-    data[2] = z1;
-    data[3] = x2;
-    data[4] = y2;
-    data[5] = z2;
-    data[6] = x3;
-    data[7] = y3;
-    data[8] = z3;
-}
-
-inline Mat3 transpose(Mat3& m) {
-    Mat3 result {
-        m(0, 0),
-        m(0, 1),
-        m(0, 2),
-        m(1, 0),
-        m(1, 1),
-        m(1, 2),
-        m(2, 0),
-        m(2, 1),
-        m(2, 2)
-    };
-    return result;
+inline Vec3& Vec3::operator+=(Vec3&v) {
+    x += v.x;
+    y += v.y;
+    z += v.z;
+    return *this;
 }
 
 inline Vec3 cross(Vec3 a, Vec3 b) {
@@ -242,61 +314,37 @@ inline Vec3& operator*=(Vec3&v, real a) {
     return v;
 }
 
+
+
+//------ Mat3 ---------------------
+
+inline Mat3::Mat3(real x1, real y1, real z1, real x2, real y2, real z2, real x3, real y3, real z3) {
+    data[0] = x1;
+    data[1] = y1;
+    data[2] = z1;
+    data[3] = x2;
+    data[4] = y2;
+    data[5] = z2;
+    data[6] = x3;
+    data[7] = y3;
+    data[8] = z3;
+}
+
 inline real& Mat3::operator()(u32 row, u32 col) {
     return data[3*col + row];
 }
 
-inline void zero(Vec3& v) {
-    v.x = v.y = v.z = 0;
-}
-
-inline void zero(Mat3& m) {
-    memset(m.data, 0, 9*sizeof(real));
-}
-
-inline void zero(Array& a) {
-    a.zero();
-}
-
-inline real array_min(Array& a) {
-    real result = inf;
-    for(u32 i = 0; i < a.size; i++)
-        result = a[i] < result ? a[i] : result;
-    return result;
-}
-
-inline real array_max(Array& a) {
-    real result = -inf;
-    for(u32 i = 0; i < a.size; i++)
-        result = a[i] > result ? a[i] : result;
-    return result;
-}
-
-inline bool close(Array& a1, Array& a2, real eps) {
-    Assert(a1.size == a2.size);
-    for (u32 i =0; i < a1.size; i++)
-        if(a1[i] - a2[i] > eps || a1[i] - a2[i] < -eps)
-            return false;
-    return true;
-}
-
-inline void zero(Matrix& m) {
-    m.zero();
-}
-
-inline Vec3& Vec3::operator+=(Vec3&v) {
-    x += v.x;
-    y += v.y;
-    z += v.z;
+inline Mat3& Mat3::operator*=(Mat3& rhs) {
+    data[0] = data[0]*rhs.data[0] + data[3]*rhs.data[1] + data[6]*rhs.data[2];
+    data[1] = data[1]*rhs.data[0] + data[4]*rhs.data[1] + data[7]*rhs.data[2];
+    data[2] = data[2]*rhs.data[0] + data[5]*rhs.data[1] + data[8]*rhs.data[2];
+    data[3] = data[0]*rhs.data[3] + data[3]*rhs.data[4] + data[6]*rhs.data[5];
+    data[4] = data[1]*rhs.data[3] + data[4]*rhs.data[4] + data[7]*rhs.data[5];
+    data[5] = data[2]*rhs.data[3] + data[5]*rhs.data[4] + data[8]*rhs.data[5];
+    data[6] = data[0]*rhs.data[6] + data[3]*rhs.data[7] + data[6]*rhs.data[8];
+    data[7] = data[1]*rhs.data[6] + data[4]*rhs.data[7] + data[7]*rhs.data[8];
+    data[8] = data[2]*rhs.data[6] + data[5]*rhs.data[7] + data[8]*rhs.data[8];
     return *this;
-}
-
-inline Vec3 operator*(Mat3& m, Vec3 v) {
-    Vec3 r;
-    r.x = m.data[0]*v.x + m.data[3]*v.y + m.data[6]*v.z;
-    r.y = m.data[1]*v.x + m.data[4]*v.y + m.data[7]*v.z;
-    r.z = m.data[2]*v.x + m.data[5]*v.y + m.data[8]*v.z;
-    return r;
 }
 
 inline Mat3 operator*(Mat3& m, Mat3 rhs) {
@@ -313,10 +361,23 @@ inline Mat3 operator*(Mat3& m, Mat3 rhs) {
     return r;
 }
 
-inline Mat3& Mat3::operator*=(Mat3& rhs) {
-    *this = *this*rhs;
-    return *this;
+inline Mat3 transpose(Mat3& m) {
+    Mat3 result {
+        m(0, 0),
+        m(0, 1),
+        m(0, 2),
+        m(1, 0),
+        m(1, 1),
+        m(1, 2),
+        m(2, 0),
+        m(2, 1),
+        m(2, 2)
+    };
+    return result;
 }
+
+
+//------ Array ---------------------
 
 inline Array::Array(u32 new_size) : size(new_size) {
     if (new_size)
@@ -340,6 +401,11 @@ inline Array::Array(const Matrix& m) : size(m.size) {
         data = (real*)calloc(size, sizeof(real));
         memcpy(data, m.data, size*sizeof(real));
     }
+}
+
+inline Array::~Array() {
+    if (data)
+        free(data);
 }
 
 inline Array& Array::operator=(const Array& a) {
@@ -383,40 +449,15 @@ inline Array Array::operator-() {
     return std::move(result);
 }
 
-inline Array operator-(Array& v1, Array& v2) {
-    Array r = v1;
-    for (u32 i = 0; i < v1.size; i++)
-        r[i] -= v2[i];
-    return r;
+inline bool  Array::operator==(Array& a) {
+    Assert(size == a.size);
+    return close(*this, a);
 }
 
 inline Array& Array::operator*=(real n) {
     for (u32 i = 0; i < size; i++)
         data[i] *= n;
     return *this;
-}
-
-inline bool Array::operator==(Array& a) {
-    Assert(size == a.size);
-    return close(*this, a);
-}
-
-inline Array operator*(Array& a, real b) {
-    Array r(a);
-    r *= b;
-    return r;
-}
-
-inline Array operator*(real b, Array& a) {
-    Array r(a);
-    r *= b;
-    return r;
-}
-
-
-inline Array::~Array() {
-    if (data)
-        std::free(data);
 }
 
 inline real& Array::operator[](u32 i) {
@@ -434,19 +475,77 @@ inline void Array::resize(u32 new_size) {
     size = new_size;
 }
 
-inline void Array::zero() {
-    if(data)
-        for (u32 i = 0; i<size; i++)
-            data[i] = 0;
-}
-
 inline real& Array::back() {
+    Assert(size);
     return data[size-1];
 }
 
 inline real Array::back() const {
+    Assert(size);
     return data[size-1];
 }
+
+inline Vec3 operator*(Mat3& m, Vec3 v) {
+    Vec3 r;
+    r.x = m.data[0]*v.x + m.data[3]*v.y + m.data[6]*v.z;
+    r.y = m.data[1]*v.x + m.data[4]*v.y + m.data[7]*v.z;
+    r.z = m.data[2]*v.x + m.data[5]*v.y + m.data[8]*v.z;
+    return r;
+}
+
+inline Array operator-(Array& v1, Array& v2) {
+    Array r = v1;
+    for (u32 i = 0; i < v1.size; i++)
+        r[i] -= v2[i];
+    return r;
+}
+
+inline Array operator*(Array& a, real b) {
+    Array r(a);
+    r *= b;
+    return r;
+}
+
+inline Array operator*(real b, Array& a) {
+    Array r(a);
+    r *= b;
+    return r;
+}
+
+
+//------ ArrayAlias ---------------------
+
+inline ArrayAlias::ArrayAlias(Matrix& m) {
+    data = m.data;
+    size = m.size;
+}
+
+inline ArrayAlias::ArrayAlias(Array& a) {
+    data = a.data;
+    size = a.size;
+}
+
+inline ArrayAlias::ArrayAlias(ArrayAlias&& a) {
+    data = a.data;
+    size = a.size;
+}
+
+inline ArrayAlias::~ArrayAlias() {}
+
+inline const ArrayAlias& ArrayAlias::operator=(const Array& a) {
+    data = a.data;
+    size = a.size;
+    return *this;
+}
+
+inline ArrayAlias& ArrayAlias::operator=(Array& a) {
+    data = a.data;
+    size = a.size;
+    return *this;
+}
+
+
+//------ Matrix ---------------------
 
 inline Matrix::Matrix(u32 r, u32 c) {
     size = r * c;
@@ -468,6 +567,11 @@ inline Matrix::Matrix(Matrix&& m) : data(m.data), size(m.size), cols(m.cols), ro
     m.size = 0;
     m.rows = 0;
     m.cols = 0;
+}
+
+inline Matrix::~Matrix() {
+    if (data)
+        std::free(data);
 }
 
 inline Matrix& Matrix::operator=(const Matrix& m) {
@@ -504,27 +608,11 @@ inline Matrix& Matrix::operator=(Matrix&& m) {
     return *this;
 }
 
-inline Matrix::~Matrix() {
-    if (data)
-        std::free(data);
-}
-
 inline Matrix::Matrix(const Array& v) : size(v.size), cols(1), rows(v.size) {
     if (size) {
         data = (real*)calloc(size, sizeof(real));
         memcpy(data, v.data, size*sizeof(real));
     }
-}
-
-inline void Matrix::zero() {
-    memset(data, 0, size*sizeof(real));
-}
-
-inline Array Matrix::col(u32 c) {
-    Assert(c < this->cols);
-    Array result(rows);
-    memcpy(result.data, data + rows*c, rows*sizeof(real));
-    return result;
 }
 
 inline real& Matrix::operator()(u32 row, u32 col) {
@@ -537,75 +625,19 @@ inline real Matrix::operator()(u32 row, u32 col) const {
     return this->data[row + this->rows*col];
 }
 
-inline void print(Vec3 v) {
-    printf("[%f, %f, %f]\n", v.x, v.y, v.z);
-}
-
-inline void print(Mat3 m) {
-    printf("\n[%f, %f, %f]\n[%f, %f, %f]\n[%f, %f, %f]\n",
-           m(0, 0), m(0, 1), m(0, 2), m(1, 0), m(1, 1), m(1, 2), m(2, 0), m(2, 1), m(2, 2));
-}
-
-inline void print(Array& a) {
-    if(a.size == 0)
-        return;
-    printf("[");
-    for (u32 i = 0; i < a.size-1; i++)
-        printf("%0.4f, ", a[i]);
-    printf("%0.4f]\n", a[a.size-1]);
-}
-
-inline void print(Matrix& m) {
-    if(m.size == 0)
-        return;
-    printf("\n");
-    for (u32 i = 0; i < m.rows; i++) {
-        printf("[");
-        for (u32 j = 0; j < m.cols-1; j++)
-            printf("%0.4f, ", m(i, j));
-        printf("%0.4f]\n", m(i, m.cols-1));
-    }
-}
-
-void minus_and_insert(Matrix& m, Array& a, real* dst) {
-    Assert(m.rows == a.size);
-    auto m_data = m.data;
-    for (u32 c = 0; c < m.cols; c++) {
-        for (u32 r = 0; r < a.size; r++) {
-            *dst = *m_data - a[r];
-            m_data++;
-            dst++;
-        }
-    }
-}
-
-void minus_insert(Array& a, Matrix& m, real* dst) {
-    Assert(m.rows == a.size);
-    auto m_data = m.data;
-    for (u32 c = 0; c < m.cols; c++) {
-        for (u32 r = 0; r < a.size; r++) {
-            *dst = a[r] - *m_data;
-            m_data++;
-            dst++;
-        }
-    }
-}
-
-void minus_insert(Matrix& m, Array& a, real* dst) {
-    Assert(m.rows == a.size);
-    auto m_data = m.data;
-    for (u32 c = 0; c < m.cols; c++) {
-        for (u32 r = 0; r < a.size; r++) {
-            *dst = *m_data - a[r];
-            m_data++;
-            dst++;
-        }
-    }
+inline ArrayAlias Matrix::col(u32 c) {
+    Assert(c < this->cols);
+    ArrayAlias result;
+    result.data = data + rows*c;
+    result.size = rows;
+    return result;
 }
 
 
-//note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
+//------ Collision ---------------------
+
 static real clamped_root(real slope, real h0, real h1) {
+//note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
     real r;
     if (h0 < 0) {
         if (h1 > 0) {
@@ -621,8 +653,8 @@ static real clamped_root(real slope, real h0, real h1) {
     return r;
 }
 
-// note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
 static void compute_intersection(real* sValue, i32* classify, real b, real f00, real f10, i32* edge, real end[][2]) {
+// note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
     real const zero = 0;
     real const half = (real)0.5;
     real const one = 1;
@@ -691,8 +723,8 @@ static void compute_intersection(real* sValue, i32* classify, real b, real f00, 
     }
 }
 
-// note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
 static void compute_minimum_parameters(i32* edge, real end[][2], real b, real c, real e, real g00, real g10, real g01, real g11, real* parameter) {
+// note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
     real const zero = 0;
     real const one = 1;
     real const delta = end[1][1] - end[0][1];
@@ -735,8 +767,9 @@ static void compute_minimum_parameters(i32* edge, real end[][2], real b, real c,
         }
     }
 }
-// note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
+
 inline real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
+// note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
     auto const P1mP0 = P1 - P0;
     auto const Q1mQ0 = Q1 - Q0;
     auto const P0mQ0 = P0 - Q0;
