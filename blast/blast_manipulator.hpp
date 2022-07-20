@@ -5,6 +5,7 @@
 #include <cmath>
 
 namespace blast {
+
 using std::vector;
 
 
@@ -117,7 +118,7 @@ struct Gen3_7DOF : public Manipulator {
 
 
 
-//------ Generic manipulator functions -----------------------------------------------------------------------------------
+//------ Generic manipulator functions ----------------------------------------------
 
 inline ManipulatorGeneric::ManipulatorGeneric(u32 njoints) :
     Manipulator(njoints),
@@ -225,7 +226,7 @@ inline void ManipulatorGeneric::forward_kinematics(Matrix& joint_position, Matri
     // todo: Implement me!
 }
 
-//------ Universal Robots UR5e manipulator functions ---------------------------------------------------------------------
+//------ Universal Robots UR5e manipulator functions --------------------------------
 
 inline void ManipulatorUR5::dynamics(Pva& pva, Matrix& efforts) {
     Assert(is_init);
@@ -498,7 +499,7 @@ inline void ManipulatorUR5::init_dynamics(real mass) {
     }
 }
 
-//------ Kinova Gen3 Lite manipulator functions --------------------------------------------------------------------------
+//------ Kinova Gen3 Lite manipulator functions -------------------------------------
 
 inline Gen3Lite::Gen3Lite() : Manipulator(6) {
     // position of the first joint with respect to the table in the center of the base
@@ -746,7 +747,7 @@ inline Array Gen3Lite::forward_kinematics(Array& joint_position) {
     return pose;
 }
 
-//------ Kinova Gen3 7DOF manipulator functions --------------------------------------------------------------------------
+//------ Kinova Gen3 7DOF manipulator functions -------------------------------------
 
 inline Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
     // position of the first joint with respect to the table in the center of the base
@@ -1194,7 +1195,6 @@ inline Array Gen3_7DOF::validate(Matrix& pos, Matrix& vel, Matrix& acc) {
     return result;
 }
 
-// check all constraints on the manipulator for a trajectory
 inline Array Gen3_7DOF::validate(Pva& pva) {
     return validate(pva.pos, pva.vel, pva.acc);
 }
