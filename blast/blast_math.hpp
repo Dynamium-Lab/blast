@@ -5,11 +5,14 @@
 #include <limits>
 #include <utility>
 #include <algorithm>
+#include <vector>
 
 #include "blast.hpp"
 #include "blast_simd.hpp"
 
 namespace blast {
+
+using svector = std::vector<real>;
 
 // forward declarations
 struct Vec3;
@@ -32,7 +35,6 @@ struct Vec3 {
 
     Vec3() = default;
     Vec3(real x, real y, real z);
-
     Vec3& operator+=(Vec3&v);
 };
 
@@ -56,6 +58,7 @@ struct Array {
     Array(const Array&);            // copy constructor
     Array(Array&&);                 // move constructor
     Array(const Matrix& m);         // create an array from a matrix (note:flattens and copies)
+    Array(const svector&);
     virtual ~Array();
     Array&  operator=(const Array&); // copy assignment
     Array&  operator=(Array&&);      // move assignment
@@ -68,6 +71,9 @@ struct Array {
     void    resize(u32 new_size);
     real&   back();
     real    back() const;
+    // todo: should we copy???
+    operator svector& ();
+    operator const svector&() const;
 };
 
 // Array that does not own it's internal memory (does not free upon destruction)
@@ -76,6 +82,7 @@ struct ArrayAlias : Array {
     ArrayAlias(Matrix& m);          // create an array from a matrix (note: flattens but does not copy)
     ArrayAlias(Array&);
     ArrayAlias(ArrayAlias&&);
+    ArrayAlias(svector&); // does not copy, does not free
     virtual ~ArrayAlias() override;
 
     const ArrayAlias& operator=(const Array&);
@@ -84,7 +91,8 @@ struct ArrayAlias : Array {
     //--- deleted functions ---
     ArrayAlias(u32) = delete;
     ArrayAlias(const Array&) = delete;
-    ArrayAlias(const Matrix& m) = delete;
+    ArrayAlias(const Matrix&) = delete;
+    ArrayAlias(const svector&) = delete;
     ArrayAlias& operator=(ArrayAlias&&) = delete;
     ArrayAlias& operator=(const std::initializer_list<real>& other) = delete;
     void        resize(u32 new_size) = delete;
@@ -403,6 +411,13 @@ inline Array::Array(const Matrix& m) : size(m.size) {
     }
 }
 
+inline Array::Array(const svector& v) {
+    Assert(!v.empty());
+    size = (u32)v.size();
+    data = (real*)malloc(size*sizeof(real));
+    std::copy(v.begin(), v.end(), data);
+}
+
 inline Array::~Array() {
     if (data)
         free(data);
@@ -512,6 +527,18 @@ inline Array operator*(real b, Array& a) {
     return r;
 }
 
+inline Array::operator svector&() {
+    svector r(size);
+    memcpy(r.data(), data, size*sizeof(real));
+    return r;
+}
+
+inline Array::operator const svector&() const {
+    svector r(size);
+    memcpy(r.data(), data, size*sizeof(real));
+    return r;
+}
+
 
 //------ ArrayAlias ---------------------
 
@@ -528,6 +555,12 @@ inline ArrayAlias::ArrayAlias(Array& a) {
 inline ArrayAlias::ArrayAlias(ArrayAlias&& a) {
     data = a.data;
     size = a.size;
+}
+
+inline ArrayAlias::ArrayAlias(svector& v) {
+    Assert(!v.empty());
+    size = v.size();
+    data = v.data();
 }
 
 inline ArrayAlias::~ArrayAlias() {}

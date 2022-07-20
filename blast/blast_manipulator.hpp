@@ -1103,7 +1103,7 @@ inline Array Gen3_7DOF::validate(Array& pos, Array& vel, Array& acc) {
     result[3] = collision_dist_sqr(pos)[3]; // distTJ6sqr - r1_sqr
     result[4] = collision_dist_sqr(pos)[4]; // distTEEsqr - r1_sqr
 
-    Matrix efforts(joints, 1); //note: perf hit
+    Matrix efforts(joints, 1);
     dynamics(p, v, a, efforts);
 
     auto current_result = &result[5];
@@ -1130,7 +1130,7 @@ inline Array Gen3_7DOF::validate(Array& pos, Array& vel, Array& acc) {
     current_result += joints;
 
     // tau - tau_min >= 0
-    Array tau(efforts); //note: perf hit
+    ArrayAlias tau(efforts);
     tmp = tau - tau_min;
     memcpy(current_result, tmp.data, tmp.size * sizeof(real));
     current_result += joints;
