@@ -76,6 +76,7 @@ struct Array {
     real operator[](u32 i) const;
     Array operator-();
     Array& operator*=(real);
+    bool operator==(Array&);
 
     void resize(u32 new_size);
     void zero();
@@ -88,6 +89,7 @@ Array operator*(real, Array&);
 void zero(Array&);
 real array_min(Array&);
 real array_max(Array&);
+bool close(Array&, Array&, real eps = 1e-06);
 
 // Matrix of real numbers
 struct Matrix {
@@ -108,6 +110,8 @@ struct Matrix {
     real& operator()(u32 row, u32 col);
     real operator()(u32 row, u32 col) const;
     void zero();
+
+    Array col(u32 c);
 };
 void zero(Matrix&);
 
@@ -268,6 +272,14 @@ inline real array_max(Array& a) {
     return result;
 }
 
+inline bool close(Array& a1, Array& a2, real eps) {
+    Assert(a1.size == a2.size);
+    for (u32 i =0; i < a1.size; i++)
+        if(a1[i] - a2[i] > eps || a1[i] - a2[i] < -eps)
+            return false;
+    return true;
+}
+
 inline void zero(Matrix& m) {
     m.zero();
 }
@@ -384,6 +396,11 @@ inline Array& Array::operator*=(real n) {
     return *this;
 }
 
+inline bool Array::operator==(Array& a) {
+    Assert(size == a.size);
+    return close(*this, a);
+}
+
 inline Array operator*(Array& a, real b) {
     Array r(a);
     r *= b;
@@ -414,6 +431,7 @@ inline real Array::operator[](u32 i) const {
 
 inline void Array::resize(u32 new_size) {
     data = (real*)realloc(data, new_size*sizeof(real));
+    size = new_size;
 }
 
 inline void Array::zero() {
@@ -502,6 +520,13 @@ inline void Matrix::zero() {
     memset(data, 0, size*sizeof(real));
 }
 
+inline Array Matrix::col(u32 c) {
+    Assert(c < this->cols);
+    Array result(rows);
+    memcpy(result.data, data + rows*c, rows*sizeof(real));
+    return result;
+}
+
 inline real& Matrix::operator()(u32 row, u32 col) {
     Assert(row < this->rows && col < this->cols);
     return this->data[row + this->rows*col];
@@ -522,6 +547,8 @@ inline void print(Mat3 m) {
 }
 
 inline void print(Array& a) {
+    if(a.size == 0)
+        return;
     printf("[");
     for (u32 i = 0; i < a.size-1; i++)
         printf("%0.4f, ", a[i]);
@@ -529,6 +556,8 @@ inline void print(Array& a) {
 }
 
 inline void print(Matrix& m) {
+    if(m.size == 0)
+        return;
     printf("\n");
     for (u32 i = 0; i < m.rows; i++) {
         printf("[");
