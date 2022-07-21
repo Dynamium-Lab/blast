@@ -18,7 +18,6 @@ using svector = std::vector<real>;
 struct Vec3;
 struct Mat3;
 struct Array;
-struct ArrayAlias;
 struct Matrix;
 
 // useful constants
@@ -50,76 +49,169 @@ struct Mat3 {
 
 // Array of real numbers
 struct Array {
+    // pointer to the heap allocated memory
     real * data = nullptr;
+    // size in number of elements
     u32 size = 0;
+    // if true, the Array does not own the data and will not free it (
+    //  - note: should be as short-lived as possible
+    bool is_alias = false;
 
+    // default constructor
     Array() = default;
-    Array(u32 new_size);            // normal constructor
-    Array(const Array&);            // copy constructor
-    Array(Array&&);                 // move constructor
-    Array(const Matrix& m);         // create an array from a matrix (note:flattens and copies)
+
+    // construct and allocate memory for 'n' elements
+    Array(u32 n);
+
+    // copy constructor
+    Array(const Array&);
+
+    // move constructor
+    Array(Array&&);
+
+    // create an Array from pre-existing data
+    //  - note: becomes an alias
+    Array(real*, u32 n);
+
+    // create an Array from a const std::vector<real
+    //  - (note: copies data
     Array(const svector&);
-    virtual ~Array();
-    Array&  operator=(const Array&); // copy assignment
-    Array&  operator=(Array&&);      // move assignment
-    Array&  operator=(const std::initializer_list<real>& other);
-    real&   operator[](u32 i);
-    real    operator[](u32 i) const;
-    Array   operator-();
-    Array&  operator*=(real);
-    bool    operator==(Array&);
-    void    resize(u32 new_size);
-    real&   back();
-    real    back() const;
 
-    // interop with std::vector<real>
-    operator        svector&();
-    operator const  svector&() const;
-};
+    // create an array from a matrix
+    //  - note: copies data
+    Array(const Matrix& m);
 
-// Array that does not own it's internal memory (does not free upon destruction)
-struct ArrayAlias : Array {
-    ArrayAlias() = default;
-    ArrayAlias(Matrix& m);
-    ArrayAlias(Array&);
-    ArrayAlias(ArrayAlias&&);
-    ArrayAlias(svector&);
-    virtual ~ArrayAlias() override;
+    // create an array from a matrix
+    //  - note: becomes an alias
+    Array(Matrix& m);
 
-    const ArrayAlias& operator=(const Array&);
-    ArrayAlias& operator=(Array&);
+    // free memory if not an alias
+    ~Array();
 
-    //--- deleted functions ---
-    ArrayAlias(u32) = delete;
-    ArrayAlias(const Array&) = delete;
-    ArrayAlias(const Matrix&) = delete;
-    ArrayAlias(const svector&) = delete;
-    ArrayAlias& operator=(ArrayAlias&&) = delete;
-    ArrayAlias& operator=(const std::initializer_list<real>& other) = delete;
-    void        resize(u32 new_size) = delete;
+    // copy assignment
+    Array& operator=(const Array&);
+
+    // move assignment
+    Array& operator=(Array&&);
+
+    // copy data from a list
+    //  - note: must be the same size
+    Array& operator=(const std::initializer_list<real>& other);
+
+    // access the element
+    //  - note: does not check out of bounds
+    real& operator[](u32 i);
+
+    // access value of the element
+    //  - note: does not check out of bounds
+    real operator[](u32 i) const;
+
+    // unary minus
+    Array operator-();
+
+    // multiply with another vector (in place)
+    Array& operator*=(real);
+
+    // check if all values of another array are very close the this one (1e-06)
+    bool operator==(Array&);
+
+    // map the array to the data of the given std::vector<real>
+    //  - note: becomes an alias
+    Array& alias(std::vector<real>&);
+
+    // map the array to the data of the given matrix
+    //  - note: interpret all the data of the matrix as one long array, becomes an alias)
+    Array& alias(Matrix& m);
+
+    // map the Array to the given data
+    //  - note: becomes an alias
+    Array& alias(real*, u32);
+
+    // resize the array
+    //  - note: old pointers to this data may be invalidated
+    //  - note: fails if the array is an alias
+    void resize(u32 new_size);
+
+    // access the last element
+    real& back();
+
+    // access the value of the last element
+    real back() const;
 };
 
 // Matrix of real numbers
 struct Matrix {
-    real * data = nullptr;
+    // pointer to the heap allocated memory
+    real* data = nullptr;
+
+    // size in number of elements
     u32 size = 0;
+
+    // number of rows in the matrix
     u32 rows = 0;
+
+    // number of columns in the matrix
     u32 cols = 0;
 
+    // if true, the Matrix does not own the data and will not free it
+    //  - note: should be as short-lived as possible
+    bool is_alias = false;
+
+    // default constructor
     Matrix() = default;
-    Matrix(u32 r, u32 c);   // normal constructor
-    Matrix(const Matrix&);  // copy constructor
-    Matrix(Matrix&&);       // move constructor
-    Matrix(const Array&);   // construct a matrix by copying an array into the first collumn (copy)
+
+    // construct and allocate memory for 'r x c' elements
+    Matrix(u32 r, u32 c);
+
+    // copy constructor
+    Matrix(const Matrix&);
+
+    // move constructor
+    Matrix(Matrix&&);
+
+    // create a Matrix from pre-existing data
+    //  - note: becomes an alias
+    Matrix(real*, u32 r, u32 c);
+
+    // create an matrix of a single columns from an array
+    //  - note: creates a copy
+    Matrix(const Array&);
+
+    // free memory if not an alias
     ~Matrix();
-    Matrix& operator=(const Matrix&); // copy assignment
-    Matrix& operator=(Matrix&&);      // move assignment
-    real&   operator()(u32 row, u32 col);
-    real    operator()(u32 row, u32 col) const;
-    ArrayAlias col(u32 c);
+
+    // copy assignment
+    Matrix& operator=(const Matrix&);
+
+    // move assignment
+    Matrix& operator=(Matrix&&);
+
+    // map the Matrix to the data of the given Array
+    //  - note: interpret as a n x 1 matrix
+    //  - note: becomes an alias
+    Matrix& alias(Array&);
+
+    // map the Matrix to the data of the given std::vector<real>
+    //  - note: interpret as a n x 1 matrix
+    //  - note: becomes an alias
+    Matrix& alias(std::vector<real>&);
+
+    // map the Matrix to the given data
+    //  - note: becomes an alias
+    Matrix& alias(real*, u32 r, u32 c);
+
+    // access element
+    //  - note: fails if the matrix is not big enough
+    real& operator()(u32 row, u32 col);
+
+    // access value of element
+    //  - note: fails if the matrix is not big enough
+    real operator()(u32 row, u32 col) const;
+
+    // return an array
+    //  - note: alias) accessing the given colum
+    Array col(u32 c);
 };
-
-
 
 
 
@@ -149,14 +241,14 @@ inline real rad2deg(real r) {
     return r * 180/pi;
 }
 
-inline Array rad2deg(Array& a) {
+inline Array rad2deg(const Array& a) {
     Array r(a.size);
     for (u32 i = 0; i < a.size; i++)
         r[i] = a[i] * 180/pi;
     return r;
 }
 
-inline Array deg2rad(Array& a) {
+inline Array deg2rad(const Array& a) {
     Array r(a.size);
     for (u32 i = 0; i < a.size; i++)
         r[i] = a[i] * pi/180;
@@ -211,7 +303,7 @@ inline void print(Matrix& m) {
     }
 }
 
-inline void minus_insert(Array& a, Matrix& m, real* dst) {
+inline void minus_insert(const Array& a, const Matrix& m, real* dst) {
     Assert(m.rows == a.size);
     auto m_data = m.data;
     for (u32 c = 0; c < m.cols; c++) {
@@ -223,7 +315,7 @@ inline void minus_insert(Array& a, Matrix& m, real* dst) {
     }
 }
 
-inline void minus_insert(Matrix& m, Array& a, real* dst) {
+inline void minus_insert(const Matrix& m, const Array& a, real* dst) {
     Assert(m.rows == a.size);
     auto m_data = m.data;
     for (u32 c = 0; c < m.cols; c++) {
@@ -235,21 +327,21 @@ inline void minus_insert(Matrix& m, Array& a, real* dst) {
     }
 }
 
-inline real array_min(Array& a) {
+inline real array_min(const Array& a) {
     real result = inf;
     for(u32 i = 0; i < a.size; i++)
         result = a[i] < result ? a[i] : result;
     return result;
 }
 
-inline real array_max(Array& a) {
+inline real array_max(const Array& a) {
     real result = -inf;
     for(u32 i = 0; i < a.size; i++)
         result = a[i] > result ? a[i] : result;
     return result;
 }
 
-inline bool close(Array& a1, Array& a2, real eps = 1e-05) {
+inline bool close(const Array& a1, const Array& a2, real eps = 1e-05) {
     Assert(a1.size == a2.size);
     for (u32 i =0; i < a1.size; i++)
         if(a1[i] - a2[i] > eps || a1[i] - a2[i] < -eps)
@@ -322,7 +414,6 @@ inline Vec3& operator*=(Vec3&v, real a) {
     v.z += a;
     return v;
 }
-
 
 
 //------ Mat3 ---------------------
@@ -405,6 +496,20 @@ inline Array::Array(Array&& a) : data(a.data), size(a.size) {
     a.size = 0;
 }
 
+inline Array::Array(real* d, u32 n) {
+    data = d;
+    size = n;
+    is_alias = true;
+}
+
+inline Array::Array(const svector& v) {
+    size = (u32)v.size();
+    if (size) {
+        data = (real*)calloc(size, sizeof(real));
+        memcpy(data, v.data(), size*sizeof(real));
+    }
+}
+
 inline Array::Array(const Matrix& m) : size(m.size) {
     if (size) {
         data = (real*)calloc(size, sizeof(real));
@@ -412,15 +517,15 @@ inline Array::Array(const Matrix& m) : size(m.size) {
     }
 }
 
-inline Array::Array(const svector& v) {
-    Assert(!v.empty());
-    size = (u32)v.size();
-    data = (real*)malloc(size*sizeof(real));
-    std::copy(v.begin(), v.end(), data);
+inline Array::Array(Matrix& m) : size(m.size) {
+    if (size) {
+        data = m.data;
+        is_alias = true;
+    }
 }
 
 inline Array::~Array() {
-    if (data)
+    if (!is_alias && data)
         free(data);
 }
 
@@ -465,7 +570,7 @@ inline Array Array::operator-() {
     return std::move(result);
 }
 
-inline bool  Array::operator==(Array& a) {
+inline bool Array::operator==(Array& a) {
     Assert(size == a.size);
     return close(*this, a);
 }
@@ -486,7 +591,36 @@ inline real Array::operator[](u32 i) const {
     return data[i];
 }
 
+inline Array& Array::alias(svector& v) {
+    if (data && !is_alias)
+        free(data);
+    data = v.data();
+    size = (u32)v.size();
+    is_alias = true;
+    return *this;
+}
+
+inline Array& Array::alias(Matrix& m) {
+    if (data && !is_alias)
+        free(data);
+    data = m.data;
+    size = m.size;
+    is_alias = true;
+    return *this;
+}
+
+inline Array& Array::alias(real* p, u32 n) {
+    Assert(p);
+    if (data && !is_alias)
+        free(data);
+    data = p;
+    size = n;
+    is_alias = true;
+    return *this;
+}
+
 inline void Array::resize(u32 new_size) {
+    Assert(!is_alias);
     data = (real*)realloc(data, new_size*sizeof(real));
     size = new_size;
 }
@@ -528,57 +662,6 @@ inline Array operator*(real b, Array& a) {
     return r;
 }
 
-// todo: should we copy???
-inline Array::operator svector&() {
-    svector r(size);
-    memcpy(r.data(), data, size*sizeof(real));
-    return r;
-}
-
-inline Array::operator const svector&() const {
-    svector r(size);
-    memcpy(r.data(), data, size*sizeof(real));
-    return r;
-}
-
-
-//------ ArrayAlias ---------------------
-
-inline ArrayAlias::ArrayAlias(Matrix& m) {
-    data = m.data;
-    size = m.size;
-}
-
-inline ArrayAlias::ArrayAlias(Array& a) {
-    data = a.data;
-    size = a.size;
-}
-
-inline ArrayAlias::ArrayAlias(ArrayAlias&& a) {
-    data = a.data;
-    size = a.size;
-}
-
-inline ArrayAlias::ArrayAlias(svector& v) {
-    Assert(!v.empty());
-    size = (u32)v.size();
-    data = v.data();
-}
-
-inline ArrayAlias::~ArrayAlias() {}
-
-inline const ArrayAlias& ArrayAlias::operator=(const Array& a) {
-    data = a.data;
-    size = a.size;
-    return *this;
-}
-
-inline ArrayAlias& ArrayAlias::operator=(Array& a) {
-    data = a.data;
-    size = a.size;
-    return *this;
-}
-
 
 //------ Matrix ---------------------
 
@@ -604,43 +687,12 @@ inline Matrix::Matrix(Matrix&& m) : data(m.data), size(m.size), cols(m.cols), ro
     m.cols = 0;
 }
 
-inline Matrix::~Matrix() {
-    if (data)
-        std::free(data);
-}
-
-inline Matrix& Matrix::operator=(const Matrix& m) {
-    if (this != &m) {
-        if (!data)
-            data = (real*)malloc(m.size * sizeof(real));
-        else if (m.size >= size) {
-            std::free(data);
-            data = (real*)malloc(m.size * sizeof(real));
-        }
-        Assert(data);
-
-        size = m.size;
-        cols = m.cols;
-        rows = m.rows;
-        std::memcpy(data, m.data, size*sizeof(real));
-    }
-    return *this;
-}
-
-inline Matrix& Matrix::operator=(Matrix&& m) {
-    if (this != &m) {
-        if (data)
-            std::free(data);
-        data = m.data;
-        size = m.size;
-        rows = m.rows;
-        cols = m.cols;
-        m.data = nullptr;
-        m.size = 0;
-        m.rows = 0;
-        m.cols = 0;
-    }
-    return *this;
+inline Matrix::Matrix(real* d, u32 r, u32 c) {
+    data = d;
+    rows = r;
+    cols = c;
+    size = r*c;
+    is_alias = true;
 }
 
 inline Matrix::Matrix(const Array& v) : size(v.size), cols(1), rows(v.size) {
@@ -650,21 +702,95 @@ inline Matrix::Matrix(const Array& v) : size(v.size), cols(1), rows(v.size) {
     }
 }
 
+inline Matrix::~Matrix() {
+    if (!is_alias && data)
+        free(data);
+}
+
+inline Matrix& Matrix::operator=(const Matrix& m) {
+    Assert(m.data);
+    if (this != &m) {
+        if (data == nullptr || is_alias) {
+            data = (real*)malloc(m.size * sizeof(real));
+        }
+        else {
+            data = (real*)realloc(data, m.size * sizeof(real));
+        }
+        Assert(data);
+        size = m.size;
+        cols = m.cols;
+        rows = m.rows;
+        is_alias = false;
+        memcpy(data, m.data, size*sizeof(real));
+    }
+    return *this;
+}
+
+inline Matrix& Matrix::operator=(Matrix&& m) {
+    if (this != &m) {
+        if (data && !is_alias)
+            free(data);
+        data = m.data;
+        size = m.size;
+        rows = m.rows;
+        cols = m.cols;
+        is_alias = m.is_alias;
+        m.is_alias = true; // m is about to be destroid but we don't want it to free the memory
+    }
+    return *this;
+}
+
+Matrix& Matrix::alias(Array& a) {
+    Assert(a.data);
+    if (data && !is_alias)
+        free(data);
+    size = rows = a.size;
+    cols = 1;
+    data = a.data;
+    is_alias = true;
+    return *this;
+}
+
+Matrix& Matrix::alias(std::vector<real>& v) {
+    Assert(!v.empty());
+    if (data && !is_alias)
+        free(data);
+    size = (u32)v.size();
+    rows = size;
+    cols = 1;
+    data = v.data();
+    is_alias = true;
+    return *this;
+}
+
+Matrix& Matrix::alias(real* p, u32 r, u32 c) {
+    Assert(p);
+    if (data && !is_alias)
+        free(data);
+    size = r*c;
+    rows = r;
+    cols = c;
+    data = p;
+    is_alias = true;
+    return *this;
+}
+
 inline real& Matrix::operator()(u32 row, u32 col) {
-    Assert(row < this->rows && col < this->cols);
-    return this->data[row + this->rows*col];
+    Assert(row < rows && col < cols);
+    return data[row + rows*col];
 }
 
 inline real Matrix::operator()(u32 row, u32 col) const {
-    Assert(row < this->rows && col < this->cols);
-    return this->data[row + this->rows*col];
+    Assert(row < rows && col < cols);
+    return data[row + rows*col];
 }
 
-inline ArrayAlias Matrix::col(u32 c) {
+inline Array Matrix::col(u32 c) {
     Assert(c < this->cols);
-    ArrayAlias result;
+    Array result;
     result.data = data + rows*c;
     result.size = rows;
+    result.is_alias = true;
     return result;
 }
 

@@ -1082,13 +1082,11 @@ inline Array Gen3_7DOF::collision_dist_sqr(Array& joint_position) {
 }
 
 inline Array Gen3_7DOF::validate(Array& pos, Array& vel, Array& acc) {
-    // todo: performance!
-
     // todo: could/should we remove almost half of the constraints (by checking the abs of the position, velocity and torque)?
 
-    Matrix p(pos);//note: perf hit
-    Matrix v(vel);//note: perf hit
-    Matrix a(acc);//note: perf hit
+    Matrix p(pos);
+    Matrix v(vel);
+    Matrix a(acc);
 
     // 5 collision results
     // position constraints x2 for each joint
@@ -1130,13 +1128,12 @@ inline Array Gen3_7DOF::validate(Array& pos, Array& vel, Array& acc) {
     current_result += joints;
 
     // tau - tau_min >= 0
-    ArrayAlias tau(efforts);
-    tmp = tau - tau_min;
+    tmp = efforts.col(0) - tau_min;
     memcpy(current_result, tmp.data, tmp.size * sizeof(real));
     current_result += joints;
 
     // tau_max - tau >= 0
-    tmp = tau_max - tau;
+    tmp = tau_max - efforts.col(0);
     memcpy(current_result, tmp.data, tmp.size * sizeof(real));
 
     return result;
