@@ -71,18 +71,19 @@ struct Array {
     void    resize(u32 new_size);
     real&   back();
     real    back() const;
-    // todo: should we copy???
-    operator svector& ();
-    operator const svector&() const;
+
+    // interop with std::vector<real>
+    operator        svector&();
+    operator const  svector&() const;
 };
 
 // Array that does not own it's internal memory (does not free upon destruction)
 struct ArrayAlias : Array {
     ArrayAlias() = default;
-    ArrayAlias(Matrix& m);          // create an array from a matrix (note: flattens but does not copy)
+    ArrayAlias(Matrix& m);
     ArrayAlias(Array&);
     ArrayAlias(ArrayAlias&&);
-    ArrayAlias(svector&); // does not copy, does not free
+    ArrayAlias(svector&);
     virtual ~ArrayAlias() override;
 
     const ArrayAlias& operator=(const Array&);
@@ -527,6 +528,7 @@ inline Array operator*(real b, Array& a) {
     return r;
 }
 
+// todo: should we copy???
 inline Array::operator svector&() {
     svector r(size);
     memcpy(r.data(), data, size*sizeof(real));
@@ -559,7 +561,7 @@ inline ArrayAlias::ArrayAlias(ArrayAlias&& a) {
 
 inline ArrayAlias::ArrayAlias(svector& v) {
     Assert(!v.empty());
-    size = v.size();
+    size = (u32)v.size();
     data = v.data();
 }
 
