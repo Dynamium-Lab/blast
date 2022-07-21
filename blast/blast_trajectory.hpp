@@ -15,9 +15,11 @@ struct Pva {
     Pva() = default;
     Pva(u32 njoints, u32 npoints);
 
+    Pva& operator=(const Pva&);
+
     // compute the PVA using bsplines.
-    virtual void compute_trajectory(Array&x, Matrix& task) {(void) x; (void) task;}
-    virtual u32 xlen() {return 0;}
+    virtual void compute_trajectory(Array&x, Matrix& task) { (void) x; (void) task; }
+    virtual u32 xlen() { return 0; }
 };
 
 struct PvaBspline : public Pva {
@@ -38,9 +40,6 @@ struct PvaBspline : public Pva {
 };
 
 
-// compute a trajectory using bspline
-// todo: did not work because of factor of 4 ncontrol constraint FIXME!
-// PvaBspline simple_bspline_trajectory(u32 npoints, u32 P, u32 dof, Matrix& task, real T);
 
 
 //------ FUNCTIONS ------------------------------------------------------------------------------------
@@ -52,6 +51,16 @@ inline Pva::Pva(u32 njoints, u32 npoints) :
     joints(njoints),
     points(npoints)
 {}
+
+inline Pva& Pva::operator=(const Pva& rhs) {
+    pos = rhs.pos;
+    vel = rhs.vel;
+    acc = rhs.acc;
+    t = rhs.t;
+    joints = rhs.joints;
+    points = rhs.points;
+    return *this;
+}
 
 inline PvaBspline::PvaBspline(u32 ncontrol, u32 npoints, u32 P, u32 dof) :
     Pva(dof, npoints),
@@ -174,13 +183,16 @@ inline void PvaBspline::compute_trajectory(Array& x, Matrix& task) {
 
     compute_control(x, task);
 
-    const real one_over_T = 1/x[x.size-1];
+    const real T = x.back();
+    const real dt = T / (points-1);
+    const real one_over_T = 1/T;
     const real one_over_T2 = one_over_T*one_over_T;
 
     auto p = pos.data;
     auto v = vel.data;
     auto a = acc.data;
     for (u32 point = 0; point < points; point++) {
+        t[point] = dt * point;
         const auto bp = &basis_p(0, point);
         const auto bv = &basis_v(0, point);
         const auto ba = &basis_a(0, point);
@@ -261,14 +273,6 @@ inline Pva compute_5order_trajectory(real T, Matrix& task) {
 
     return result;
 }
-
-// inline PvaBspline simple_bspline_trajectory(u32 npoints, u32 P, u32 dof, Matrix& task, real T) {
-//     PvaBspline traj(6, npoints, P, dof);
-//     Array x(traj.xlen());
-//     x[0] = T;
-//     traj.compute_trajectory(x, task);
-//     return traj;
-// }
 
 
 } // namespace blast

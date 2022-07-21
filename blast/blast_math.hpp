@@ -288,12 +288,14 @@ inline void print(Mat3 m) {
 }
 
 inline void print(Array& a) {
+    using namespace std;
     if(a.size == 0)
         return;
     printf("[");
     for (u32 i = 0; i < a.size-1; i++)
         printf("%0.4f, ", a[i]);
-    printf("%0.4f]\n", a[a.size-1]);
+    printf("%0.4f]", a[a.size-1]);
+    cout << endl;
 }
 
 inline void print(Matrix& m) {
@@ -626,7 +628,10 @@ inline Array& Array::alias(real* p, u32 n) {
 
 inline void Array::resize(u32 new_size) {
     Assert(!is_alias);
-    data = (real*)realloc(data, new_size*sizeof(real));
+    if (new_size > size) {
+        data = (real*)realloc(data, new_size*sizeof(real));
+        memset(data + size, 0, (new_size-size)*sizeof(real));
+    }
     size = new_size;
 }
 
@@ -745,7 +750,7 @@ inline Matrix& Matrix::operator=(Matrix&& m) {
     return *this;
 }
 
-Matrix& Matrix::alias(Array& a) {
+inline Matrix& Matrix::alias(Array& a) {
     Assert(a.data);
     if (data && !is_alias)
         free(data);
@@ -756,7 +761,7 @@ Matrix& Matrix::alias(Array& a) {
     return *this;
 }
 
-Matrix& Matrix::alias(std::vector<real>& v) {
+inline Matrix& Matrix::alias(std::vector<real>& v) {
     Assert(!v.empty());
     if (data && !is_alias)
         free(data);
@@ -768,7 +773,7 @@ Matrix& Matrix::alias(std::vector<real>& v) {
     return *this;
 }
 
-Matrix& Matrix::alias(real* p, u32 r, u32 c) {
+inline Matrix& Matrix::alias(real* p, u32 r, u32 c) {
     Assert(p);
     if (data && !is_alias)
         free(data);

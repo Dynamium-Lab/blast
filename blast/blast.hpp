@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include <iostream>
 
 //--- Basic types used everywhere ---
 namespace blast {
