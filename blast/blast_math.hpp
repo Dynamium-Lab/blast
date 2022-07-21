@@ -208,9 +208,14 @@ struct Matrix {
     //  - note: fails if the matrix is not big enough
     real operator()(u32 row, u32 col) const;
 
-    // return an array
-    //  - note: alias) accessing the given colum
+    // return an array accessing the given colum
+    //  - note: new Array is aliasing our data
     Array col(u32 c);
+
+    // return an array accessing the given colum
+    //  - note: Copies data because we are const
+    //  - note: resulting Array is NOT an alias
+    Array col(u32 c) const;
 };
 
 
@@ -791,6 +796,15 @@ inline Array Matrix::col(u32 c) {
     result.data = data + rows*c;
     result.size = rows;
     result.is_alias = true;
+    return result;
+}
+
+inline Array Matrix::col(u32 c) const {
+    Assert(c < this->cols);
+    Assert(data);
+    Array result(rows);
+    result.size = rows;
+    memcpy(result.data, data + rows*c, rows*sizeof(real));
     return result;
 }
 
