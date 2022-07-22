@@ -32,6 +32,8 @@ struct PvaBspline : public Pva {
 
     PvaBspline(u32 ncontrol, u32 npoints, u32 P, u32 dof);
 
+    // Compute a trajectory from the given optimization vector
+    //  - note: fastest when 'ncontrol' is a multiple of 4 (SIMD)
     void compute_trajectory(Array&x, Matrix& task) override;
     u32 xlen() override;
 
@@ -180,6 +182,7 @@ inline void PvaBspline::compute_trajectory(Array& x, Matrix& task) {
     Assert(x.size == xlen());
     Assert(task.rows == joints);
     Assert(task.cols == 6);
+    Assert(nctrl >= 4);
 
     compute_control(x, task);
 
@@ -188,37 +191,41 @@ inline void PvaBspline::compute_trajectory(Array& x, Matrix& task) {
     const real one_over_T = 1/T;
     const real one_over_T2 = one_over_T*one_over_T;
 
-    auto p = pos.data;
-    auto v = vel.data;
-    auto a = acc.data;
+    // auto p = pos.data;
+    // auto v = vel.data;
+    // auto a = acc.data;
     for (u32 point = 0; point < points; point++) {
         t[point] = dt * point;
-        const auto bp = &basis_p(0, point);
-        const auto bv = &basis_v(0, point);
-        const auto ba = &basis_a(0, point);
+        auto bp = basis_p.col(point);
+        auto bv = basis_v.col(point);
+        auto ba = basis_a.col(point);
         for (u32 joint = 0; joint < joints; joint++) {
+            auto c = control.col(joint);
+            pos(joint, point) = dot(c, bp);
+            vel(joint, point) = dot(c, bv) * one_over_T;
+            acc(joint, point) = dot(c, ba) * one_over_T2;
 
-            const auto c = &control(0, joint);
+            // const auto c = &control(0, joint);
 
-            auto accum_p = _mm256_setzero_pd();
-            auto accum_v = _mm256_setzero_pd();
-            auto accum_a = _mm256_setzero_pd();
-            for (u32 i = 0; i<nctrl; i += 4) {
-                const auto c_v  = _mm256_loadu_pd(&c[i]);
-                const auto bp_v = _mm256_loadu_pd(&bp[i]);
-                const auto bv_v = _mm256_loadu_pd(&bv[i]);
-                const auto ba_v = _mm256_loadu_pd(&ba[i]);
-                accum_p = _mm256_fmadd_pd(c_v, bp_v, accum_p);
-                accum_v = _mm256_fmadd_pd(c_v, bv_v, accum_v);
-                accum_a = _mm256_fmadd_pd(c_v, ba_v, accum_a);
-            }
-
-            *p = simd_hadd(accum_p);
-            *v = simd_hadd(accum_v) * one_over_T;
-            *a = simd_hadd(accum_a) * one_over_T2;
-            p++;
-            v++;
-            a++;
+            // // compute
+            // auto accum_p = _mm256_setzero_pd();
+            // auto accum_v = _mm256_setzero_pd();
+            // auto accum_a = _mm256_setzero_pd();
+            // for (u32 i = 0; i < nctrl-3; i += 4) {
+            //     const auto c_v  = _mm256_loadu_pd(&c[i]);
+            //     const auto bp_v = _mm256_loadu_pd(&bp[i]);
+            //     const auto bv_v = _mm256_loadu_pd(&bv[i]);
+            //     const auto ba_v = _mm256_loadu_pd(&ba[i]);
+            //     accum_p = _mm256_fmadd_pd(c_v, bp_v, accum_p);
+            //     accum_v = _mm256_fmadd_pd(c_v, bv_v, accum_v);
+            //     accum_a = _mm256_fmadd_pd(c_v, ba_v, accum_a);
+            // }
+            // *p = simd_hadd(accum_p);
+            // *v = simd_hadd(accum_v) * one_over_T;
+            // *a = simd_hadd(accum_a) * one_over_T2;
+            // p++;
+            // v++;
+            // a++;
         }
     }
 }

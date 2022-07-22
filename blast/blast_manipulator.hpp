@@ -765,7 +765,7 @@ inline Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
     m[3] = 0.93;
     m[4] = 0.678;
     m[5] = 0.678;
-    m[6] = 0.364 + 0.921; // todo: cleanup
+    m[6] = 0.364 + 0.921;
 
     // inertial tensor
     I[0] = {0.004570, 0.000001, 0.000002, 0.000001, 0.004831, 0.000448, 0.000002, 0.000448, 0.001409};
@@ -785,7 +785,7 @@ inline Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
     av[5] = { 0.000001, -0.045483, -0.009650};
     av[6] = {-0.000093,  0.000132, -0.022905};
     Vec3 av_tool(0, 0, -0.06-0.0615);
-    av[6] = (0.364*av[6] + 0.921*av_tool) * (1 / (0.364+0.921)); // todo: cleanup!!!
+    av[6] = (0.364*av[6] + 0.921*av_tool) * (1 / (0.364+0.921));
 
     // vector to next joint
     dv[0] = { 0.0,  0.0054, -0.1284};
@@ -950,28 +950,38 @@ inline void Gen3_7DOF::dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& e
 }
 
 inline Array Gen3_7DOF::forward_kinematics(Array& joint_position) {
-    real s[8];
-    real c[8];
-    auto p = joint_position.data;
+
+    //  - note: manual SIMD
+    // real s[8];
+    // real c[8];
+    // auto p = joint_position.data;
+    // Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
+    // // first 4
+    // {
+    //     __m256d s_tmp;
+    //     __m256d c_tmp;
+    //     __m256d angle_v = _mm256_load_pd(p);
+    //     s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+    //     _mm256_storeu_pd(s, s_tmp);
+    //     _mm256_storeu_pd(c, c_tmp);
+    // }
+    // // 5, 6 and 7 (note: 8 is computed but never used)
+    // {
+    //     __m256d s_tmp;
+    //     __m256d c_tmp;
+    //     __m256d angle_v = _mm256_load_pd(p+4);
+    //     s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+    //     _mm256_storeu_pd(s+4, s_tmp);
+    //     _mm256_storeu_pd(c+4, c_tmp);
+    // }
+
+    // create aliases instead of actual arrays to allocate the memory on the stack (performance)
+    real s_data[8]; // nearest factor of 4
+    real c_data[8]; // nearest factor of 4
+    Array s(s_data, 8);
+    Array c(c_data, 8);
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
-    // first 4
-    {
-        __m256d s_tmp;
-        __m256d c_tmp;
-        __m256d angle_v = _mm256_load_pd(p);
-        s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-        _mm256_storeu_pd(s, s_tmp);
-        _mm256_storeu_pd(c, c_tmp);
-    }
-    // 5, 6 and 7 (note: 8 is computed but never used)
-    {
-        __m256d s_tmp;
-        __m256d c_tmp;
-        __m256d angle_v = _mm256_load_pd(p+4);
-        s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-        _mm256_storeu_pd(s+4, s_tmp);
-        _mm256_storeu_pd(c+4, c_tmp);
-    }
+    sincos(joint_position, s, c);
 
     // note: these are stored column-wise
     Q1 = {c[0], -s[0],  0,        -s[0], -c[0],   0,        0,  0, -1};
@@ -1004,28 +1014,37 @@ inline Array Gen3_7DOF::forward_kinematics(Array& joint_position) {
 }
 
 inline Array Gen3_7DOF::collision_dist_sqr(Array& joint_position) {
-    real s[8];
-    real c[8];
-    auto p = joint_position.data;
+    //  - note: manual SIMD
+    // real s[8];
+    // real c[8];
+    // auto p = joint_position.data;
+    // Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
+    // // first 4
+    // {
+    //     __m256d s_tmp;
+    //     __m256d c_tmp;
+    //     __m256d angle_v = _mm256_load_pd(p);
+    //     s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+    //     _mm256_storeu_pd(s, s_tmp);
+    //     _mm256_storeu_pd(c, c_tmp);
+    // }
+    // // 5, 6 and 7 (note: 8 is computed but never used)
+    // {
+    //     __m256d s_tmp;
+    //     __m256d c_tmp;
+    //     __m256d angle_v = _mm256_load_pd(p+4);
+    //     s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+    //     _mm256_storeu_pd(s+4, s_tmp);
+    //     _mm256_storeu_pd(c+4, c_tmp);
+    // }
+
+    // create aliases instead of actual arrays to allocate the memory on the stack (performance)
+    real s_data[8]; // nearest factor of 4
+    real c_data[8]; // nearest factor of 4
+    Array s(s_data, 8);
+    Array c(c_data, 8);
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
-    // first 4
-    {
-        __m256d s_tmp;
-        __m256d c_tmp;
-        __m256d angle_v = _mm256_load_pd(p);
-        s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-        _mm256_storeu_pd(s, s_tmp);
-        _mm256_storeu_pd(c, c_tmp);
-    }
-    // 5, 6 and 7 (note: 8 is computed but never used)
-    {
-        __m256d s_tmp;
-        __m256d c_tmp;
-        __m256d angle_v = _mm256_load_pd(p+4);
-        s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-        _mm256_storeu_pd(s+4, s_tmp);
-        _mm256_storeu_pd(c+4, c_tmp);
-    }
+    sincos(joint_position, s, c);
 
     // note: these are stored column-wise
     Q1 = {c[0], -s[0],  0,        -s[0], -c[0],   0,        0,  0, -1};
@@ -1095,11 +1114,12 @@ inline Array Gen3_7DOF::validate(Array& pos, Array& vel, Array& acc) {
     Array result(5 + 7*2*3);
 
     // distance to collision >= 0
-    result[0] = collision_dist_sqr(pos)[0]; // dist1sqr
-    result[1] = collision_dist_sqr(pos)[1]; // dist2sqr
-    result[2] = collision_dist_sqr(pos)[2]; // distTJ4sqr - r1_sqr
-    result[3] = collision_dist_sqr(pos)[3]; // distTJ6sqr - r1_sqr
-    result[4] = collision_dist_sqr(pos)[4]; // distTEEsqr - r1_sqr
+    auto tmp_coll = collision_dist_sqr(pos);
+    result[0] = tmp_coll[0]; // dist1sqr
+    result[1] = tmp_coll[1]; // dist2sqr
+    result[2] = tmp_coll[2]; // distTJ4sqr - r1_sqr
+    result[3] = tmp_coll[3]; // distTJ6sqr - r1_sqr
+    result[4] = tmp_coll[4]; // distTEEsqr - r1_sqr
 
     Matrix efforts(joints, 1);
     dynamics(p, v, a, efforts);
@@ -1150,22 +1170,13 @@ inline Array Gen3_7DOF::validate(Matrix& pos, Matrix& vel, Matrix& acc) {
 
     auto current_result = result.data;
     for (u32 i = 0; i < points; i++) {
-        // note: Don't try this at home!
-        // note: p is an alias
-        Array p; // temp array with the current values of the position
-        p.data = &pos(0, i);
-        p.size = joints;
-
-        current_result[0] = collision_dist_sqr(p)[0]; // dist1sqr
-        current_result[1] = collision_dist_sqr(p)[1]; // dist2sqr
-        current_result[2] = collision_dist_sqr(p)[2]; // distTJ4sqr - r1_sqr
-        current_result[3] = collision_dist_sqr(p)[3]; // distTJ6sqr - r1_sqr
-        current_result[4] = collision_dist_sqr(p)[4]; // distTEEsqr - r1_sqr
+        auto tmp_coll = collision_dist_sqr(pos.col(i));
+        current_result[0] = tmp_coll[0]; // dist1sqr
+        current_result[1] = tmp_coll[1]; // dist2sqr
+        current_result[2] = tmp_coll[2]; // distTJ4sqr - r1_sqr
+        current_result[3] = tmp_coll[3]; // distTJ6sqr - r1_sqr
+        current_result[4] = tmp_coll[4]; // distTEEsqr - r1_sqr
         current_result += 5;
-
-        // note: must stop the destructor from freeing the memory!
-        p.data = nullptr;
-        p.size = 0;
     }
 
     Matrix efforts(joints, pos.cols); // todo: perf hit by constructing every time?

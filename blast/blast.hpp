@@ -12,6 +12,8 @@ using i8    = int8_t;
 using i16   = int16_t;
 using i32   = int32_t;
 using real  = double; // for testing float vs double speed and precision
+#define BLAST_SIZEOF_REAL 8
+static_assert(sizeof(real) == BLAST_SIZEOF_REAL);
 
 } // namespace blast
 

@@ -3,7 +3,17 @@
 
 #include <gtest/gtest.h>
 
+TEST(Math, MathOperations) {
+    using namespace blast;
 
+    Array a(8);
+    a = { 1, 1, 1, 1, 1, 1, 1, 1 };
+    Array b(8);
+    b = { 1, 1, 1, 1, 1, 1, 2, 2 };
+
+    auto r = dot(a, b);
+    EXPECT_EQ(r, (real)10.0);
+}
 
 TEST(SplineTest, TrajectoryCorrectness) {
 

@@ -672,6 +672,86 @@ inline Array operator*(real b, Array& a) {
     return r;
 }
 
+// Compute the dot product of the given arrays
+//  - note: fastest when the number of elements are a factor of 4 or even 8
+inline real dot(Array& a, Array& b) {
+    Assert(a.size == b.size);
+
+    real r = (real)0.0;
+    int i = 0;
+
+    // SIMD what you can
+#if BLAST_SIZEOF_REAL == 8
+    auto accum = _mm256_setzero_pd();
+    for (; i < (int)a.size-3; i += 4) {
+        const auto a_v = _mm256_loadu_pd(&a[i]);
+        const auto b_v = _mm256_loadu_pd(&b[i]);
+        accum = _mm256_fmadd_pd(a_v, b_v, accum);
+    }
+    r = simd_hadd(accum);
+#elif BLAST_SIZEOF_REAL == 4
+    auto accum = _mm256_setzero_ps();
+    for (; i < (int)a.size-7; i += 8) {
+        const auto a_v = _mm256_loadu_ps(&a[i]);
+        const auto b_v = _mm256_loadu_ps(&b[i]);
+        accum = _mm256_fmadd_ps(a_v, b_v, accum);
+    }
+    r = simd_hadd(accum);
+#endif
+    // serialize the rest
+    for (; i < (int)a.size; i++)
+        r += a[i] * b[i];
+
+    return r;
+}
+
+// Compute the sine and the cosine of every element
+//  - note: fastest when the number of elements are a factor of 4 (or even 8 if real is float)
+inline void sincos(Array& angles, Array& sines, Array& cosines) {
+    Assert(angles.size == sines.size && angles.size == cosines.size);
+    // SIMD what we can
+    int i = 0;
+#if BLAST_SIZEOF_REAL == 4
+    for (; i < angles.size-7; i += 8) {
+        __m256 s_tmp;
+        __m256 c_tmp;
+        __m256 angle_v = _mm256_load_ps(&angles.data[i]);
+        s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
+        _mm256_storeu_ps(&sines.data[i], s_tmp);
+        _mm256_storeu_ps(&cosines.data[i], c_tmp);
+    }
+    for (; i < angles.size-3; i += 4) {
+        __m128 s_tmp;
+        __m128 c_tmp;
+        __m128 angle_v = _mm_load_ps(&angles.data[i]);
+        s_tmp = _mm_sincos_ps(&c_tmp, angle_v);
+        _mm_storeu_ps(&sines.data[i], s_tmp);
+        _mm_storeu_ps(&cosines.data[i], c_tmp);
+    }
+#elif BLAST_SIZEOF_REAL == 8
+    for (; i < (int)angles.size-3; i += 4) {
+        __m256d s_tmp;
+        __m256d c_tmp;
+        __m256d angle_v = _mm256_load_pd(&angles.data[i]);
+        s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+        _mm256_storeu_pd(&sines.data[i], s_tmp);
+        _mm256_storeu_pd(&cosines.data[i], c_tmp);
+    }
+    for (; i < (int)angles.size-1; i += 2) {
+        __m128d s_tmp;
+        __m128d c_tmp;
+        __m128d angle_v = _mm_load_pd(&angles.data[i]);
+        s_tmp = _mm_sincos_pd(&c_tmp, angle_v);
+        _mm_storeu_pd(&sines.data[i], s_tmp);
+        _mm_storeu_pd(&cosines.data[i], c_tmp);
+    }
+#endif
+    // serialize the rest
+    for (; i < (int)angles.size; i++) {
+        sines[i] = sin(angles[i]);
+        cosines[i] = cos(angles[i]);
+    }
+}
 
 //------ Matrix ---------------------
 
