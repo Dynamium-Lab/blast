@@ -17,6 +17,7 @@ using svector = std::vector<real>;
 // forward declarations
 struct Vec3;
 struct Mat3;
+struct Mat4;
 struct Array;
 struct Matrix;
 
@@ -45,6 +46,77 @@ struct Mat3 {
     Mat3(real x1, real y1, real z1, real x2, real y2, real z2, real x3, real y3, real z3);
     real& operator()(u32 row, u32 col);
     Mat3& operator*=(Mat3& rhs);
+};
+
+// 4x4 matrix
+struct Mat4 {
+    real data[16] = {0};
+
+    // default
+    Mat4() = default;
+
+    // copy constructor
+    Mat4(const Mat4&);
+
+    // create a diagonal matrix with the value
+    Mat4(real v);
+
+    // copy assignment
+    Mat4& operator=(const Mat4&);
+
+    // copy list into the matrix
+    //  - note: the rest are 0
+    Mat4& operator=(const std::initializer_list<real>&);
+
+    // access the given element
+    real& operator()(u32 row, u32 col);
+
+    // access the given element (value)
+    real operator()(u32 row, u32 col) const;
+
+    // access the element
+    //  - note: does not check out of bounds
+    real& operator[](u32 i);
+
+    // access value of the element
+    //  - note: does not check out of bounds
+    real operator[](u32 i) const;
+
+    // unary minus
+    Mat4 operator-();
+
+    // matrix multiply inplace
+    Mat4& operator*=(Mat4&);
+
+    // multiply each element by the value inplace
+    Mat4& operator*=(real);
+
+    // matrix multiply inplace
+    Mat4& operator+=(Mat4&);
+
+    // matrix multiply inplace
+    Mat4& operator-=(Mat4&);
+
+    // check if all values of another array are the same
+    bool operator==(Mat4&);
+
+    // return a 4D array pointing to the column
+    //  - note: the resulting array is an alias
+    Array col(u32 c);
+
+    // return a 4D array copying the given colum
+    //  - note: Copies data because we are const
+    //  - note: resulting Array is NOT an alias
+    Array col(u32 c) const;
+
+    // // interpret as a Matrix
+    // //  note: the resulting Matrix is an alias
+    // operator Matrix&();
+
+    // // interpret as a 16D Array
+    // //  note: the resulting Array is an alias
+    // operator Array&();
+
 };
 
 // Array of real numbers
@@ -482,6 +554,119 @@ inline Mat3 transpose(Mat3& m) {
     };
     return result;
 }
+
+
+//------ Mat4 ---------------------
+
+Mat4::Mat4(const Mat4& m) {
+    memcpy(data, m.data, 16*sizeof(real));
+}
+
+Mat4::Mat4(real v) {
+    data[0] = v;
+    data[4] = v;
+    data[8] = v;
+    data[12] = v;
+}
+
+Mat4& Mat4::operator=(const Mat4& m) {
+    memcpy(data, m.data, 16*sizeof(real));
+    return *this;
+}
+
+Mat4& Mat4::operator=(const std::initializer_list<real>& l) {
+    u32 i;
+    for (i = 0; i < l.size() && i < 16; i++)
+        data[i] = l.begin()[i];
+    for (; i < 16; i++)
+        data[i]=(real)0.0;
+    return *this;
+}
+
+real& Mat4::operator()(u32 row, u32 col) {
+    Assert(row<4 && col<4);
+    return data[4*col + row];
+}
+
+real Mat4::operator()(u32 row, u32 col) const {
+    Assert(row<4 && col<4);
+    return data[4*col + row];
+}
+
+real& Mat4::operator[](u32 i) {
+    Assert(i < 16);
+    return data[i];
+}
+
+real Mat4::operator[](u32 i) const {
+    Assert(i < 16);
+    return data[i];
+}
+
+Mat4 Mat4::operator-() {
+    Mat4 r;
+    for (u32 i = 0; i < 16; i++)
+        r.data[i] = -data[i];
+    return r;
+}
+
+Mat4& Mat4::operator*=(Mat4&) {
+
+    return *this;
+}
+
+Mat4& Mat4::operator*=(real v) {
+#if BLAST_SIZEOF_REAL == 8
+    const __m256d v_v = _mm256_set1_pd(v);
+    __m256d d1_v = _mm256_loadu_pd(data);
+    __m256d d2_v = _mm256_loadu_pd(data+4);
+    __m256d d3_v = _mm256_loadu_pd(data+8);
+    __m256d d4_v = _mm256_loadu_pd(data+12);
+    d1_v = _mm256_mul_pd(v_v, d1_v);
+    d2_v = _mm256_mul_pd(v_v, d2_v);
+    d3_v = _mm256_mul_pd(v_v, d3_v);
+    d4_v = _mm256_mul_pd(v_v, d4_v);
+    _mm256_store_pd(data, d1_v);
+    _mm256_store_pd(data+4, d1_v);
+    _mm256_store_pd(data+8, d1_v);
+    _mm256_store_pd(data+12, d1_v);
+    // todo: finish
+#else
+// todo: implement
+#endif
+    return *this;
+}
+
+Mat4& Mat4::operator+=(Mat4&) {
+
+    return *this; // todo: implement
+}
+
+Mat4& Mat4::operator-=(Mat4&) {
+
+    return *this; // todo: implement
+}
+
+bool Mat4::operator==(Mat4&) {
+    return false; // todo: implement
+}
+
+Array Mat4::col(u32 c) {
+    return Array(); // todo: implement
+}
+
+Array Mat4::col(u32 c) const {
+    return Array(); // todo: implement
+}
+
+// Mat4::operator Matrix&() {
+//     return Matrix(); // todo: implement
+// }
+
+// Mat4::operator Array&() {
+//     return Array(); // todo: implement
+// }
+
 
 
 //------ Array ---------------------
