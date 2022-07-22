@@ -39,15 +39,16 @@ static void BM_Splines(benchmark::State& state) {
 }
 BENCHMARK(BM_Splines)->Unit(benchmark::kMicrosecond);
 
-static void BM_Dynamics_ur5(benchmark::State& state) {
+static void BM_Dynamics_Gen3_7dof(benchmark::State& state) {
     using namespace blast;
-    ManipulatorUR5 manip;
-    manip.init_dynamics();
+
+    Gen3_7DOF manip;
 
     const auto npts = 256;
-    const auto njoints = 6;
+    const auto njoints = manip.joints;
     const auto nctrl = 8*3;
     const auto p = 5;
+    PvaBspline pva(nctrl, npts, p, njoints);
 
     // random task
     real amp = 10;
@@ -59,13 +60,11 @@ static void BM_Dynamics_ur5(benchmark::State& state) {
     }
 
     // random optimization vector
-    Array x(njoints*(nctrl-6) + 1);
+    Array x(pva.xlen());
     for (u32 i = 0; i < x.size; i++)
         x[i] = amp * get_random();
     x[x.size-1] = std::abs(x[x.size-1]);
-    // printf("T = %f\n", x[x.size-1]);
 
-    PvaBspline pva(nctrl, npts, p, njoints);
     pva.compute_trajectory(x, task);
     Matrix efforts(njoints, npts);
 
@@ -73,4 +72,4 @@ static void BM_Dynamics_ur5(benchmark::State& state) {
         manip.dynamics(pva, efforts);
     }
 }
-BENCHMARK(BM_Dynamics_ur5)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_Dynamics_Gen3_7dof)->Unit(benchmark::kMicrosecond);
