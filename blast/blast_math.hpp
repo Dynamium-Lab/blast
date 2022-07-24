@@ -49,8 +49,11 @@ struct Mat3 {
 };
 
 // 4x4 matrix
-struct Mat4 {
-    real data[16] = {0};
+struct alignas(32) Mat4 {
+    union alignas(32) {
+        real data[16];
+        __m256d ymm[4];
+    };
 
     // default
     Mat4() = default;
@@ -109,13 +112,13 @@ struct Mat4 {
     //  - note: resulting Array is NOT an alias
     Array col(u32 c) const;
 
-    // // interpret as a Matrix
-    // //  note: the resulting Matrix is an alias
-    // operator Matrix&();
+    // interpret as a Matrix
+    //  note: the resulting Matrix is an alias
+    operator Matrix&();
 
-    // // interpret as a 16D Array
-    // //  note: the resulting Array is an alias
-    // operator Array&();
+    // interpret as a 16D Array
+    //  note: the resulting Array is an alias
+    operator Array&();
 
 };
 
@@ -144,6 +147,7 @@ struct Array {
     // create an Array from pre-existing data
     //  - note: becomes an alias
     Array(real*, u32 n);
+    Array(const real*, u32 n);
 
     // create an Array from a const std::vector<real
     //  - (note: copies data
@@ -610,29 +614,35 @@ Mat4 Mat4::operator-() {
     return r;
 }
 
-Mat4& Mat4::operator*=(Mat4&) {
+Mat4& Mat4::operator*=(Mat4& rhs) {
+#if BLAST_SIZEOF_REAL == 8
+    const auto a0 = ymm[0];        // t0 = a00, a10, a20, a30
+    const auto a1 = ymm[1];        // t1 = a01, a11, a21, a31
+    const auto a2 = ymm[2];        // t2 = a02, a12, a22, a32
+    const auto a3 = ymm[3];        // t3 = a03, a13, a23, a33
+    const auto b0 = rhs.ymm[0];    // u0 = b00, b10, b20, b30
+    const auto b1 = rhs.ymm[1];    // u1 = b01, b11, b21, b31
+    const auto b2 = rhs.ymm[2];    // u2 = b02, b12, b22, b32
+    const auto b3 = rhs.ymm[3];    // u3 = b03, b13, b23, b33
 
+#else
+#error Mat4 multiplication is not implemented for floats
+    // todo: implement
+#endif
     return *this;
 }
 
 Mat4& Mat4::operator*=(real v) {
 #if BLAST_SIZEOF_REAL == 8
-    const __m256d v_v = _mm256_set1_pd(v);
-    __m256d d1_v = _mm256_loadu_pd(data);
-    __m256d d2_v = _mm256_loadu_pd(data+4);
-    __m256d d3_v = _mm256_loadu_pd(data+8);
-    __m256d d4_v = _mm256_loadu_pd(data+12);
-    d1_v = _mm256_mul_pd(v_v, d1_v);
-    d2_v = _mm256_mul_pd(v_v, d2_v);
-    d3_v = _mm256_mul_pd(v_v, d3_v);
-    d4_v = _mm256_mul_pd(v_v, d4_v);
-    _mm256_store_pd(data, d1_v);
-    _mm256_store_pd(data+4, d1_v);
-    _mm256_store_pd(data+8, d1_v);
-    _mm256_store_pd(data+12, d1_v);
-    // todo: finish
+    const __m256d _v = _mm256_set1_pd(v);
+    _mm256_store_pd(data, _mm256_mul_pd(_v, _mm256_load_pd(data)));
+    _mm256_store_pd(data+4, _mm256_mul_pd(_v, _mm256_load_pd(data+4)));
+    _mm256_store_pd(data+8, _mm256_mul_pd(_v, _mm256_load_pd(data+8)));
+    _mm256_store_pd(data+12, _mm256_mul_pd(_v, _mm256_load_pd(data+12)));
 #else
-// todo: implement
+    const __m256 _v = _mm256_set1_ps(v);
+    _mm256_store_ps(data, _mm256_mul_ps(_v, _mm256_load_ps(data)));
+    _mm256_store_ps(data+8, _mm256_mul_ps(_v, _mm256_load_ps(data+8)));
 #endif
     return *this;
 }
@@ -659,13 +669,15 @@ Array Mat4::col(u32 c) const {
     return Array(); // todo: implement
 }
 
-// Mat4::operator Matrix&() {
-//     return Matrix(); // todo: implement
-// }
+Mat4::operator Matrix&() {
+    Matrix r;
+    return r; // todo: implement
+}
 
-// Mat4::operator Array&() {
-//     return Array(); // todo: implement
-// }
+Mat4::operator Array&() {
+    Array r;
+    return r; // todo: implement
+}
 
 
 
@@ -690,6 +702,12 @@ inline Array::Array(Array&& a) : data(a.data), size(a.size) {
 
 inline Array::Array(real* d, u32 n) {
     data = d;
+    size = n;
+    is_alias = true;
+}
+
+inline Array::Array(const real* d, u32 n) {
+    data = (real*)d; // todo: look into guarding against removing constness
     size = n;
     is_alias = true;
 }
