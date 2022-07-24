@@ -23,6 +23,8 @@ struct Manipulator {
 
     virtual void dynamics(Pva& pva, Matrix& efforts) = 0;
     virtual void dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& efforts) = 0;
+
+    virtual Array validate(Pva& pva) {return Array();}
 };
 
 struct ManipulatorGeneric : public Manipulator {
@@ -112,7 +114,7 @@ struct Gen3_7DOF : public Manipulator {
     Array validate(Matrix& pos, Matrix& vel, Matrix& acc);
 
     // check all constraints on the manipulator for a trajectory
-    Array validate(Pva& pva);
+    virtual Array validate(Pva& pva) override;
 };
 
 
