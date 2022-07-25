@@ -39,19 +39,21 @@ struct Vec3 {
 };
 
 // 3x3 matrix
-struct Mat3 {
-    real data[9] = {0};
+struct alignas(32) Mat3 {
+    real data[9];
 
     Mat3() = default;
     Mat3(real x1, real y1, real z1, real x2, real y2, real z2, real x3, real y3, real z3);
     real& operator()(u32 row, u32 col);
     Mat3& operator*=(Mat3& rhs);
+    real& operator[](u32 i);
+    real operator[](u32 i) const ;
 };
 
 // 4x4 matrix
 struct alignas(32) Mat4 {
-    union alignas(32) {
-        real data[16];
+    union {
+        real    data[16];
         __m256d ymm[4];
     };
 
@@ -64,12 +66,23 @@ struct alignas(32) Mat4 {
     // create a diagonal matrix with the value
     Mat4(real v);
 
+    // copy list into the matrix
+    //  - note: the rest are NOT initialized if the list does not have 16 elements
+    Mat4(const std::initializer_list<real>&);
+
+    // set every value to 0
+    inline void zero();
+
     // copy assignment
     Mat4& operator=(const Mat4&);
 
     // copy list into the matrix
-    //  - note: the rest are 0
+    //  - note: the rest are NOT initialized if the list does not have 16 elements
     Mat4& operator=(const std::initializer_list<real>&);
+
+    // copy packed doubles list into the matrix
+    //  - note: the rest are 0 if the list does not have 4 elements
+    Mat4& operator=(const std::initializer_list<__m256d>&);
 
     // access the given element
     real& operator()(u32 row, u32 col);
@@ -101,7 +114,7 @@ struct alignas(32) Mat4 {
     Mat4& operator-=(Mat4&);
 
     // check if all values of another array are the same
-    bool operator==(Mat4&);
+    bool operator==(const Mat4&);
 
     // return a 4D array pointing to the column
     //  - note: the resulting array is an alias
@@ -112,13 +125,13 @@ struct alignas(32) Mat4 {
     //  - note: resulting Array is NOT an alias
     Array col(u32 c) const;
 
-    // interpret as a Matrix
-    //  note: the resulting Matrix is an alias
-    operator Matrix&();
+    // // interpret as a Matrix
+    // //  note: the resulting Matrix is an alias
+    // operator Matrix&();
 
-    // interpret as a 16D Array
-    //  note: the resulting Array is an alias
-    operator Array&();
+    // // interpret as a 16D Array
+    // //  note: the resulting Array is an alias
+    // operator Array&();
 
 };
 
@@ -518,6 +531,7 @@ inline real& Mat3::operator()(u32 row, u32 col) {
 }
 
 inline Mat3& Mat3::operator*=(Mat3& rhs) {
+#if 1
     data[0] = data[0]*rhs.data[0] + data[3]*rhs.data[1] + data[6]*rhs.data[2];
     data[1] = data[1]*rhs.data[0] + data[4]*rhs.data[1] + data[7]*rhs.data[2];
     data[2] = data[2]*rhs.data[0] + data[5]*rhs.data[1] + data[8]*rhs.data[2];
@@ -527,6 +541,38 @@ inline Mat3& Mat3::operator*=(Mat3& rhs) {
     data[6] = data[0]*rhs.data[6] + data[3]*rhs.data[7] + data[6]*rhs.data[8];
     data[7] = data[1]*rhs.data[6] + data[4]*rhs.data[7] + data[7]*rhs.data[8];
     data[8] = data[2]*rhs.data[6] + data[5]*rhs.data[7] + data[8]*rhs.data[8];
+#elif BLAST_SIZEOF_REAL == 8
+    const auto a0 = _mm256_load_pd(data);
+    const auto a1 = _mm256_load_pd(data+3);
+    const auto a2 = _mm256_load_pd(data+6);
+
+    const auto _b00 = _mm256_set1_pd(rhs.data[0]);
+    const auto _b10 = _mm256_set1_pd(rhs.data[1]);
+    const auto _b20 = _mm256_set1_pd(rhs.data[2]);
+    auto c0 =   _mm256_mul_pd(a0, _b00);
+    c0 =      _mm256_fmadd_pd(a1, _b10, c0);
+    c0 =      _mm256_fmadd_pd(a2, _b20, c0);
+    _mm256_store_pd(data, c0); // aligned on 32
+
+    const auto _b01 = _mm256_set1_pd(rhs.data[0+3]);
+    const auto _b11 = _mm256_set1_pd(rhs.data[1+3]);
+    const auto _b21 = _mm256_set1_pd(rhs.data[2+3]);
+    auto c1 =   _mm256_mul_pd(a0, _b01);
+    c1 =      _mm256_fmadd_pd(a1, _b11, c1);
+    c1 =      _mm256_fmadd_pd(a2, _b21, c1);
+    _mm256_storeu_pd(data+3, c1); // NOT aligned on 32
+
+    const auto _b02 = _mm256_set1_pd(rhs.data[0+6]);
+    const auto _b12 = _mm256_set1_pd(rhs.data[1+6]);
+    const auto _b22 = _mm256_set1_pd(rhs.data[2+6]);
+    auto c2 =   _mm256_mul_pd(a0, _b02);
+    c2 =      _mm256_fmadd_pd(a1, _b12, c2);
+    c2 =      _mm256_fmadd_pd(a2, _b22, c2);
+    _mm256_storeu_pd(data+6, c2); // NOT aligned on 32
+
+#else
+#error not yet implemented
+#endif
     return *this;
 }
 
@@ -559,26 +605,49 @@ inline Mat3 transpose(Mat3& m) {
     return result;
 }
 
+inline real& Mat3::operator[](u32 i) {
+    Assert(i < 9);
+    return data[i];
+}
+
+inline real Mat3::operator[](u32 i) const {
+    Assert(i < 9);
+    return data[i];
+}
+
 
 //------ Mat4 ---------------------
 
-Mat4::Mat4(const Mat4& m) {
+inline Mat4::Mat4(const Mat4& m) {
     memcpy(data, m.data, 16*sizeof(real));
 }
 
-Mat4::Mat4(real v) {
+inline Mat4::Mat4(real v) {
+    zero();
     data[0] = v;
     data[4] = v;
     data[8] = v;
     data[12] = v;
 }
 
-Mat4& Mat4::operator=(const Mat4& m) {
+inline void Mat4::zero() {
+    memset(data, 0, 16*sizeof(real));
+}
+
+inline Mat4::Mat4(const std::initializer_list<real>& l) {
+    u32 i = 0;
+    for (i = 0; i < l.size() && i < 16; i++)
+        data[i] = l.begin()[i];
+    // for (; i < 16; i++)
+    // data[i]=(real)0.0;
+}
+
+inline Mat4& Mat4::operator=(const Mat4& m) {
     memcpy(data, m.data, 16*sizeof(real));
     return *this;
 }
 
-Mat4& Mat4::operator=(const std::initializer_list<real>& l) {
+inline Mat4& Mat4::operator=(const std::initializer_list<real>& l) {
     u32 i;
     for (i = 0; i < l.size() && i < 16; i++)
         data[i] = l.begin()[i];
@@ -587,58 +656,80 @@ Mat4& Mat4::operator=(const std::initializer_list<real>& l) {
     return *this;
 }
 
-real& Mat4::operator()(u32 row, u32 col) {
+inline Mat4& Mat4::operator=(const std::initializer_list<__m256d>& l) {
+    u32 i;
+    for (i = 0; i < l.size() && i < 4; i++)
+        ymm[i] = l.begin()[i];
+    for (; i < 4; i++)
+        ymm[i] = _mm256_setzero_pd();
+    return *this;
+}
+
+inline real& Mat4::operator()(u32 row, u32 col) {
     Assert(row<4 && col<4);
     return data[4*col + row];
 }
 
-real Mat4::operator()(u32 row, u32 col) const {
+inline real Mat4::operator()(u32 row, u32 col) const {
     Assert(row<4 && col<4);
     return data[4*col + row];
 }
 
-real& Mat4::operator[](u32 i) {
+inline real& Mat4::operator[](u32 i) {
     Assert(i < 16);
     return data[i];
 }
 
-real Mat4::operator[](u32 i) const {
+inline real Mat4::operator[](u32 i) const {
     Assert(i < 16);
     return data[i];
 }
 
-Mat4 Mat4::operator-() {
+inline Mat4 Mat4::operator-() {
     Mat4 r;
     for (u32 i = 0; i < 16; i++)
         r.data[i] = -data[i];
     return r;
 }
 
-Mat4& Mat4::operator*=(Mat4& rhs) {
-#if BLAST_SIZEOF_REAL == 8
-    const auto a0 = ymm[0];        // t0 = a00, a10, a20, a30
-    const auto a1 = ymm[1];        // t1 = a01, a11, a21, a31
-    const auto a2 = ymm[2];        // t2 = a02, a12, a22, a32
-    const auto a3 = ymm[3];        // t3 = a03, a13, a23, a33
-    const auto b0 = rhs.ymm[0];    // u0 = b00, b10, b20, b30
-    const auto b1 = rhs.ymm[1];    // u1 = b01, b11, b21, b31
-    const auto b2 = rhs.ymm[2];    // u2 = b02, b12, b22, b32
-    const auto b3 = rhs.ymm[3];    // u3 = b03, b13, b23, b33
+inline Mat4& Mat4::operator*=(Mat4& rhs) {
+#if 0
+    // naive implementation (no SIMD)
+    Mat4 tmp = *this;
+    for (u32 i = 0; i < 4; i++) {
+        for (u32 j = 0; j < 4; j++) {
+            (*this)(i, j) = tmp(i, 0)*rhs(0, j) + tmp(i, 1)*rhs(1, j) + tmp(i, 2)*rhs(2, j) + tmp(i, 3)*rhs(3, j);
+        }
+    }
+#elif BLAST_SIZEOF_REAL == 8
+    const auto a0 = ymm[0];
+    const auto a1 = ymm[1];
+    const auto a2 = ymm[2];
+    const auto a3 = ymm[3];
+
+    for (u32 i = 0; i < 4; i++) {
+        const auto _b0 = _mm256_set1_pd(rhs(0, i));
+        const auto _b1 = _mm256_set1_pd(rhs(1, i));
+        const auto _b2 = _mm256_set1_pd(rhs(2, i));
+        const auto _b3 = _mm256_set1_pd(rhs(3, i));
+        ymm[i] = _mm256_fmadd_pd(a0, _b0,
+                                 _mm256_fmadd_pd(a1, _b1,
+                                         _mm256_fmadd_pd(a2, _b2,
+                                                 _mm256_mul_pd(a3, _b3))));
+    }
 
 #else
-#error Mat4 multiplication is not implemented for floats
+#error Mat4 multiplication is not (yet) implemented for floats
     // todo: implement
 #endif
     return *this;
 }
 
-Mat4& Mat4::operator*=(real v) {
+inline Mat4& Mat4::operator*=(real v) {
 #if BLAST_SIZEOF_REAL == 8
     const __m256d _v = _mm256_set1_pd(v);
-    _mm256_store_pd(data, _mm256_mul_pd(_v, _mm256_load_pd(data)));
-    _mm256_store_pd(data+4, _mm256_mul_pd(_v, _mm256_load_pd(data+4)));
-    _mm256_store_pd(data+8, _mm256_mul_pd(_v, _mm256_load_pd(data+8)));
-    _mm256_store_pd(data+12, _mm256_mul_pd(_v, _mm256_load_pd(data+12)));
+    for (u32 i = 0; i < 4; i++)
+        ymm[i] =_mm256_mul_pd(_v, ymm[i]);
 #else
     const __m256 _v = _mm256_set1_ps(v);
     _mm256_store_ps(data, _mm256_mul_ps(_v, _mm256_load_ps(data)));
@@ -647,37 +738,103 @@ Mat4& Mat4::operator*=(real v) {
     return *this;
 }
 
-Mat4& Mat4::operator+=(Mat4&) {
+inline Mat4& Mat4::operator+=(Mat4& rhs) {
+#if 0
+    for (u32 i = 0; i < 16; i++)
+        data[i] += rhs[i];
 
-    return *this; // todo: implement
+#elif BLAST_SIZEOF_REAL == 8
+    for (u32 i = 0; i < 4; i++)
+        ymm[i] = _mm256_add_pd(ymm[i], rhs.ymm[i]);
+
+#else
+#error not yet implemented
+#endif
+    return *this;
 }
 
-Mat4& Mat4::operator-=(Mat4&) {
+inline Mat4& Mat4::operator-=(Mat4& rhs) {
+#if 0
+    for (u32 i = 0; i < 16; i++)
+        data[i] -= rhs[i];
 
-    return *this; // todo: implement
+#elif BLAST_SIZEOF_REAL == 8
+    for (u32 i = 0; i < 4; i++)
+        ymm[i] = _mm256_sub_pd(ymm[i], rhs.ymm[i]);
+
+#else
+#error not yet implemented
+#endif
+    return *this;
 }
 
-bool Mat4::operator==(Mat4&) {
-    return false; // todo: implement
+inline bool Mat4::operator==(const Mat4& rhs) {
+    for (u32 i = 0; i < 16; i++)
+        if (data[i] != rhs.data[i])
+            return false;
+    return true;
 }
 
-Array Mat4::col(u32 c) {
-    return Array(); // todo: implement
+inline Mat4 operator*(const Mat4& lhs, const Mat4& rhs) {
+    Mat4 result;
+#if 0
+    // naive implementation (no SIMD)
+    //  note: order of for loops is important!
+    for (u32 j = 0; j < 4; j++) {
+        for (u32 i = 0; i < 4; i++) {
+            result(i, j) = lhs(i, 0)*rhs(0, j) + lhs(i, 1)*rhs(1, j) + lhs(i, 2)*rhs(2, j) + lhs(i, 3)*rhs(3, j);
+        }
+    }
+#elif BLAST_SIZEOF_REAL == 8
+// note: this implementation is approx 20% faster than above serialized code
+    const auto a0 = lhs.ymm[0];
+    const auto a1 = lhs.ymm[1];
+    const auto a2 = lhs.ymm[2];
+    const auto a3 = lhs.ymm[3];
+
+    for (u32 i = 0; i < 4; i++) {
+        const auto _b0 = _mm256_set1_pd(rhs(0, i));
+        const auto _b1 = _mm256_set1_pd(rhs(1, i));
+        const auto _b2 = _mm256_set1_pd(rhs(2, i));
+        const auto _b3 = _mm256_set1_pd(rhs(3, i));
+        result.ymm[i] = _mm256_fmadd_pd(a0, _b0,
+                                        _mm256_fmadd_pd(a1, _b1,
+                                                _mm256_fmadd_pd(a2, _b2,
+                                                        _mm256_mul_pd(a3, _b3))));
+    }
+
+#else
+#error Mat4 multiplication is not (yet) implemented for floats
+    // todo: implement
+#endif
+    return result;
 }
 
-Array Mat4::col(u32 c) const {
-    return Array(); // todo: implement
+inline Array Mat4::col(u32 c) {
+    Assert(c < 4);
+    Array result;
+    result.data = data + 4*c;
+    result.size = 4;
+    result.is_alias = true;
+    return result;
 }
 
-Mat4::operator Matrix&() {
-    Matrix r;
-    return r; // todo: implement
+inline Array Mat4::col(u32 c) const {
+    Assert(c < 4);
+    Array result(4);
+    memcpy(result.data, data + c*4, 4*sizeof(real));
+    return result;
 }
 
-Mat4::operator Array&() {
-    Array r;
-    return r; // todo: implement
-}
+// inline Mat4::operator Matrix&() {
+//     Matrix r;
+//     return r; // todo: implement
+// }
+
+// inline Mat4::operator Array&() {
+//     Array r;
+//     return r; // todo: implement
+// }
 
 
 
@@ -910,6 +1067,7 @@ inline real dot(Array& a, Array& b) {
 
 // Compute the sine and the cosine of every element
 //  - note: fastest when the number of elements are a factor of 4 (or even 8 if real is float)
+//  - note: doing this manually in your function is still faster by about 10%-20%
 inline void sincos(Array& angles, Array& sines, Array& cosines) {
     Assert(angles.size == sines.size && angles.size == cosines.size);
     // SIMD what we can
@@ -935,7 +1093,7 @@ inline void sincos(Array& angles, Array& sines, Array& cosines) {
     for (; i < (int)angles.size-3; i += 4) {
         __m256d s_tmp;
         __m256d c_tmp;
-        __m256d angle_v = _mm256_load_pd(&angles.data[i]);
+        __m256d angle_v = _mm256_load_pd(angles.data + i);
         s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
         _mm256_storeu_pd(&sines.data[i], s_tmp);
         _mm256_storeu_pd(&cosines.data[i], c_tmp);

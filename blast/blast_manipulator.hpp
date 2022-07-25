@@ -24,7 +24,9 @@ struct Manipulator {
     virtual void dynamics(Pva& pva, Matrix& efforts) = 0;
     virtual void dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& efforts) = 0;
 
-    virtual Array validate(Pva& pva) {return Array();}
+    virtual Array validate(Pva& pva) {
+        return Array();
+    }
 };
 
 struct ManipulatorGeneric : public Manipulator {
@@ -103,6 +105,7 @@ struct Gen3_7DOF : public Manipulator {
 
     // compute forward kinematics for 1 point
     Array forward_kinematics(Array& joint_position);
+    Matrix forward_kinematics(Matrix& joint_positions);
 
     // check collision
     Array collision_dist_sqr(Array& joint_position);
@@ -835,8 +838,8 @@ inline void Gen3_7DOF::dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& e
     Mat3 Q1t, Q2t, Q3t, Q4t, Q5t, Q6t, Q7t;
     Vec3 w1, w2, w3, w4, w5, w6, w7;
     Vec3 wd1, wd2, wd3, wd4, wd5, wd6, wd7;
-    Vec3 cdd0, cdd1, cdd2, cdd3, cdd4, cdd5, cdd6, cdd7;
-    cdd0.z = 9.81;
+    Vec3 cdd0 = {0, 0, 9.81};
+    Vec3 cdd1, cdd2, cdd3, cdd4, cdd5, cdd6, cdd7;
     Vec3 f1, f2, f3, f4, f5, f6, f7;
     Vec3 n1, n2, n3, n4, n5, n6, n7;
 
@@ -849,23 +852,13 @@ inline void Gen3_7DOF::dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& e
         auto p = &pos(0, i);
         real s[8];
         real c[8];
-        // first 4
-        {
-            __m256d s_tmp;
-            __m256d c_tmp;
-            __m256d angle_v = _mm256_load_pd(p);
+        __m256d s_tmp;
+        __m256d c_tmp;
+        for (u32 i = 0; i < 8; i += 4) {
+            __m256d angle_v = _mm256_load_pd(p + i);
             s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-            _mm256_storeu_pd(s, s_tmp);
-            _mm256_storeu_pd(c, c_tmp);
-        }
-        // 5, 6 and 7 (note: 8 is computed but never used)
-        {
-            __m256d s_tmp;
-            __m256d c_tmp;
-            __m256d angle_v = _mm256_load_pd(p+4);
-            s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-            _mm256_storeu_pd(s+4, s_tmp);
-            _mm256_storeu_pd(c+4, c_tmp);
+            _mm256_storeu_pd(s+i, s_tmp);
+            _mm256_storeu_pd(c+i, c_tmp);
         }
 
         // note: these are stored column-wise
@@ -953,37 +946,28 @@ inline void Gen3_7DOF::dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& e
 
 inline Array Gen3_7DOF::forward_kinematics(Array& joint_position) {
 
-    //  - note: manual SIMD
-    // real s[8];
-    // real c[8];
-    // auto p = joint_position.data;
-    // Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
-    // // first 4
-    // {
-    //     __m256d s_tmp;
-    //     __m256d c_tmp;
-    //     __m256d angle_v = _mm256_load_pd(p);
-    //     s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-    //     _mm256_storeu_pd(s, s_tmp);
-    //     _mm256_storeu_pd(c, c_tmp);
-    // }
-    // // 5, 6 and 7 (note: 8 is computed but never used)
-    // {
-    //     __m256d s_tmp;
-    //     __m256d c_tmp;
-    //     __m256d angle_v = _mm256_load_pd(p+4);
-    //     s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-    //     _mm256_storeu_pd(s+4, s_tmp);
-    //     _mm256_storeu_pd(c+4, c_tmp);
-    // }
-
-    // create aliases instead of actual arrays to allocate the memory on the stack (performance)
-    real s_data[8]; // nearest factor of 4
-    real c_data[8]; // nearest factor of 4
-    Array s(s_data, 8);
-    Array c(c_data, 8);
+    //  - note: manual SIMD (10% better performance than using sincos function on arrays like commented below)
+    real s[8];
+    real c[8];
+    auto p = joint_position.data;
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
-    sincos(joint_position, s, c);
+
+    __m256d s_tmp;
+    __m256d c_tmp;
+    for (u32 i = 0; i < 8; i += 4) {
+        __m256d angle_v = _mm256_load_pd(p + i);
+        s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+        _mm256_storeu_pd(s+i, s_tmp);
+        _mm256_storeu_pd(c+i, c_tmp);
+    }
+
+    // create aliases instead of actual arrays to allocate the memory on the stack (1.7x performance)
+    // real s_data[8]; // nearest factor of 4
+    // real c_data[8]; // nearest factor of 4
+    // Array s(s_data, 8);
+    // Array c(c_data, 8);
+    // Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
+    // sincos(joint_position, s, c);
 
     // note: these are stored column-wise
     Q1 = {c[0], -s[0],  0,        -s[0], -c[0],   0,        0,  0, -1};
@@ -1009,9 +993,88 @@ inline Array Gen3_7DOF::forward_kinematics(Array& joint_position) {
     pose[1] = p_tmp.y;
     pose[2] = p_tmp.z;
     // todo: Q_tmp(0, 0) and Q_tmp(2, 2) must not be zero!!
-    pose[3] = atan2(Q_tmp(1, 0), Q_tmp(0, 0));
-    pose[4] = atan2(-Q_tmp(2, 0), sqrt(Q_tmp(2, 1)*Q_tmp(2, 1) + Q_tmp(2, 2)*Q_tmp(2, 2)));
-    pose[5] = atan2(Q_tmp(2, 1), Q_tmp(2, 2));
+    // pose[3] = atan2(Q_tmp(1, 0), Q_tmp(0, 0));
+    // pose[4] = atan2(-Q_tmp(2, 0), sqrt(Q_tmp(2, 1)*Q_tmp(2, 1) + Q_tmp(2, 2)*Q_tmp(2, 2)));
+    // pose[5] = atan2(Q_tmp(2, 1), Q_tmp(2, 2));
+    return pose;
+}
+
+inline Matrix Gen3_7DOF::forward_kinematics(Matrix& joint_positions) {
+    auto p = joint_positions.data;
+    Matrix pose(12, joint_positions.cols);
+
+    for (u32 point = 0; point < joint_positions.cols; point++) {
+        // note: manual SIMD computation here is about 10%-20% faster than calling sincos function.
+        real s[8];
+        real c[8];
+        __m256d s_tmp;
+        __m256d c_tmp;
+        for (u32 i = 0; i < 8; i += 4) {
+            __m256d angle_v = _mm256_load_pd(p + i);
+            s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+            _mm256_storeu_pd(s+i, s_tmp);
+            _mm256_storeu_pd(c+i, c_tmp);
+        }
+        // create aliases instead of actual arrays to allocate the memory on the stack (1.7x performance)
+        // real s_data[8]; // nearest factor of 4
+        // real c_data[8]; // nearest factor of 4
+        // Array s(s_data, 8);
+        // Array c(c_data, 8);
+        // sincos(joint_positions.col(point), s, c);
+#if 1
+        Mat3 Q1 = {c[0], -s[0],  0,        -s[0], -c[0],   0,        0,  0, -1};
+        Mat3 Q2 = {c[1],   0,   s[1],      -s[1],   0,    c[1],      0, -1,  0};
+        Mat3 Q3 = {c[2],   0,  -s[2],      -s[2],   0,   -c[2],      0,  1,  0};
+        Mat3 Q4 = {c[3],   0,   s[3],      -s[3],   0,    c[3],      0, -1,  0};
+        Mat3 Q5 = {c[4],   0,  -s[4],      -s[4],   0,   -c[4],      0,  1,  0};
+        Mat3 Q6 = {c[5],   0,   s[5],      -s[5],   0,    c[5],      0, -1,  0};
+        Mat3 Q7 = {c[6],   0,  -s[6],      -s[6],   0,   -c[6],      0,  1,  0};
+        auto p_tmp = p_base;
+        auto Q_tmp = Q1;
+        p_tmp += Q_tmp*dv[0];
+        p_tmp += (Q_tmp*=Q2)*dv[1];
+        p_tmp += (Q_tmp*=Q3)*dv[2];
+        p_tmp += (Q_tmp*=Q4)*dv[3];
+        p_tmp += (Q_tmp*=Q5)*dv[4];
+        p_tmp += (Q_tmp*=Q6)*dv[5];
+        p_tmp += (Q_tmp*=Q7)*dv[6];
+        pose(0, point) = p_tmp.x;
+        pose(1, point) = p_tmp.y;
+        pose(2, point) = p_tmp.z;
+        pose(3, point) = Q_tmp[0];
+        pose(4, point) = Q_tmp[1];
+        pose(5, point) = Q_tmp[2];
+        pose(6, point) = Q_tmp[2];
+        pose(7, point) = Q_tmp[2];
+        pose(8, point) = Q_tmp[2];
+        pose(9, point) = Q_tmp[2];
+        pose(10, point) = Q_tmp[2];
+        pose(11, point) = Q_tmp[2];
+#else
+        const auto p1 = p_base + dv[0];
+        const Mat4 T1 = {c[0], -s[0],  0,   0, -s[0], -c[0],   0,   0,   0,  0, -1,  0,  p1.x, p1.y, p1.z, 1};
+        const Mat4 T2 = {c[1],   0,   s[1], 0, -s[1],   0,   c[1],  0,   0, -1,  0,  0,  dv[1].x, dv[1].y, dv[1].z, 1};
+        const Mat4 T3 = {c[2],   0,  -s[2], 0, -s[2],   0,  -c[2],  0,   0,  1,  0,  0,  dv[2].x, dv[2].y, dv[2].z, 1};
+        const Mat4 T4 = {c[3],   0,   s[3], 0, -s[3],   0,   c[3],  0,   0, -1,  0,  0,  dv[3].x, dv[3].y, dv[3].z, 1};
+        const Mat4 T5 = {c[4],   0,  -s[4], 0, -s[4],   0,  -c[4],  0,   0,  1,  0,  0,  dv[4].x, dv[4].y, dv[4].z, 1};
+        const Mat4 T6 = {c[5],   0,   s[5], 0, -s[5],   0,   c[5],  0,   0, -1,  0,  0,  dv[5].x, dv[5].y, dv[5].z, 1};
+        const Mat4 T7 = {c[6],   0,  -s[6], 0, -s[6],   0,  -c[6],  0,   0,  1,  0,  0,  dv[6].x, dv[6].y, dv[6].z, 1};
+        const auto T = T1*T2*T3*T4*T5*T6*T7;
+        pose(0, point) = T(0, 3);
+        pose(1, point) = T(1, 3);
+        pose(2, point) = T(2, 3);
+        pose(3, point) = T[0];
+        pose(4, point) = T[1];
+        pose(5, point) = T[2];
+        pose(6, point) = T[4];
+        pose(7, point) = T[5];
+        pose(8, point) = T[6];
+        pose(9, point) = T[8];
+        pose(10, point) = T[9];
+        pose(11, point) = T[10];
+#endif
+        p += joints;
+    }
     return pose;
 }
 

@@ -16,6 +16,9 @@
 #include <stdint.h>
 
 namespace blast {
+
+
+// return a random number between -1 and 1
 inline real get_random() {
     static thread_local std::random_device rd;
     static thread_local std::mt19937 e2(rd());

@@ -3,7 +3,7 @@
 
 #include <gtest/gtest.h>
 
-TEST(Math, MathOperations) {
+TEST(Math, ArrayOperations) {
     using namespace blast;
 
     Array a(8);
@@ -13,6 +13,35 @@ TEST(Math, MathOperations) {
 
     auto r = dot(a, b);
     EXPECT_EQ(r, (real)10.0);
+}
+
+TEST(Math, Mat4Operations) {
+    using namespace blast;
+
+    Mat4 m1;  m1 = {1, 2, 3, 4,  1, 2, 3, 4,    1, 2, 2, 4,    1, 2, 3, 4};
+    Mat4 m2;  m2 = {1, 2, 3, 4,  1, 2, 2, 4,    1, 2, 3, 4,    1, 2, 3, 100};
+    for (u32 i = 0; i < 16; i++) {
+        m1[i] = 10*get_random();
+        m2[i] = 5*get_random();
+    }
+
+    Mat4 m3;
+    for (u32 i = 0; i < 4; i++) {
+        for (u32 j = 0; j < 4; j++) {
+            m3(i, j) = m1(i, 0)*m2(0, j) + m1(i, 1)*m2(1, j) + m1(i, 2)*m2(2, j) + m1(i, 3)*m2(3, j);
+        }
+    }
+
+    Mat4 m4 = m1 * m2;
+
+    m1 *= m2;
+
+
+    for (u32 i = 0; i < 16; i++) {
+        std::cout << m1[i]  << ", " << m3[i]<< std::endl;
+        EXPECT_FLOAT_EQ((float)m1[i], (float)m3[i]);
+        EXPECT_FLOAT_EQ((float)m1[i], (float)m4[i]);
+    }
 }
 
 TEST(SplineTest, TrajectoryCorrectness) {
