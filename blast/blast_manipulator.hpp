@@ -821,11 +821,11 @@ inline Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
 
     // kinematic and dynamic constraints
     pmax = {inf, inf, inf, 2.58, inf, 2.1, inf}; // rad
-    pmin = -pmax;
+    // pmin = -pmax;
     vmax = {1.745, 1.745, 1.745, 1.745, 2.443, 2.443, 2.443};  // rad/s
-    vmin = -vmax;
+    // vmin = -vmax;
     tau_max = {52, 52, 52, 52, 17, 17, 17};    // Nm
-    tau_min = -tau_max;
+    // tau_min = -tau_max;
 }
 
 inline void Gen3_7DOF::dynamics(Pva& pva, Matrix& efforts) {
@@ -1227,13 +1227,17 @@ inline Array Gen3_7DOF::validate(Array& pos, Array& vel, Array& acc) {
 inline Array Gen3_7DOF::validate(Matrix& pos, Matrix& vel, Matrix& acc) {
     const auto points = pos.cols;
     // 5 collision results
-    // position constraints x2 for each joint
-    // velocity constraints x2 for each joint
-    // torque constraints x2 for each joint
+    // 2 position constraints
+    // 7 velocity constraints
+    // 7 torque constraints
     //** (for each point in the trajectory) **
-    Array result((5 + 7*2*3)*points);
+    Array result((5 + 2 + 7*2)*points);
 
     auto current_result = result.data;
+    Matrix efforts(joints, pos.cols); // todo: perf hit by constructing every time?
+    dynamics(pos, vel, acc, efforts);
+
+
     for (u32 i = 0; i < points; i++) {
         auto tmp_coll = collision_dist_sqr(pos.col(i));
         current_result[0] = tmp_coll[0]; // dist1sqr
@@ -1242,33 +1246,23 @@ inline Array Gen3_7DOF::validate(Matrix& pos, Matrix& vel, Matrix& acc) {
         current_result[3] = tmp_coll[3]; // distTJ6sqr - r1_sqr
         current_result[4] = tmp_coll[4]; // distTEEsqr - r1_sqr
         current_result += 5;
+
+        auto p = pos.col(i); // note: alias
+        current_result[0] = pmax[3] - abs(p[3]);
+        current_result[1] = pmax[5] - abs(p[5]);
+        current_result += 2;
+
+        auto v = vel.col(i); // note: alias
+        for (int j = 0; j < 7; j++) { // todo: check performance impact of loop
+            current_result[j] = vmax[j] - abs(v[j]);
+        }
+        current_result += 7;
+
+        auto f = efforts.col(i); // note: alias
+        for (int j = 0; j < 7; j++) { // todo: check performance impact of loop
+            current_result[j] = tau_max[j] - abs(f[j]);
+        }
     }
-
-    Matrix efforts(joints, pos.cols); // todo: perf hit by constructing every time?
-    dynamics(pos, vel, acc, efforts);
-
-    // pos - pmin >= 0
-    minus_insert(pos, pmin, current_result);
-    current_result += pos.size;
-
-    // pmax - pos >= 0
-    minus_insert(pmax, pos, current_result);
-    current_result += pos.size;
-
-    // vel - vmin >= 0
-    minus_insert(vel, vmin, current_result);
-    current_result += vel.size;
-
-    // vmax - vel >= 0
-    minus_insert(vmax, vel, current_result);
-    current_result += vel.size;
-
-    // tau - tau_min >= 0
-    minus_insert(efforts, tau_min, current_result);
-    current_result += efforts.size;
-
-    // tau_max - tau >= 0
-    minus_insert(tau_max, efforts, current_result);
 
     return result;
 }
