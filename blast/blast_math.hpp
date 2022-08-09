@@ -367,6 +367,34 @@ inline void zero(Matrix& m) {
         memset(m.data, 0, m.size*sizeof(real));
 }
 
+inline void constant(Vec3& v, real val) {
+    v.x = val;
+    v.y = val;
+    v.z = val;
+}
+
+inline void constant(Mat3& m, real val) {
+    for (u32 i = 0; i < 9; i++)
+        m.data[i] = val;
+}
+
+inline void constant(Mat4& m, real val) {
+    for (u32 i = 0; i < 16; i++)
+        m.data[i] = val;
+}
+
+inline void constant(Array& a, real v) {
+    for (u32 i = 0; i < a.size; i++)
+        a[i] = v;
+}
+
+inline void constant(Matrix& m, real v) {
+    for (u32 i = 0; i < m.size; i++)
+        m.data[i] = v;
+}
+
+
+
 inline void print(Vec3 v) {
     printf("[%f, %f, %f]\n", v.x, v.y, v.z);
 }

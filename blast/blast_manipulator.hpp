@@ -1166,17 +1166,15 @@ inline Array Gen3_7DOF::collision_dist_sqr(Array& joint_position) {
 }
 
 inline Array Gen3_7DOF::validate(Array& pos, Array& vel, Array& acc) {
-    // todo: could/should we remove almost half of the constraints (by checking the abs of the position, velocity and torque)?
-
     Matrix p(pos);
     Matrix v(vel);
     Matrix a(acc);
 
     // 5 collision results
-    // position constraints x2 for each joint
-    // velocity constraints x2 for each joint
-    // torque constraints x2 for each joint
-    Array result(5 + 7*2*3);
+    // 2 position constraints
+    // 7 velocity constraints
+    // 7 torque constraints
+    Array result(5 + 2 + 7*2);
 
     // distance to collision >= 0
     auto tmp_coll = collision_dist_sqr(pos);
@@ -1189,38 +1187,19 @@ inline Array Gen3_7DOF::validate(Array& pos, Array& vel, Array& acc) {
     Matrix efforts(joints, 1);
     dynamics(p, v, a, efforts);
 
-    auto current_result = &result[5];
-    Array tmp(joints);
+    // position constraints for joints 4 and 6
+    result[5] = pmax[3] - abs(pos[3]);
+    result[6] = pmax[5] - abs(pos[5]);
 
-    // pos - pmin >= 0
-    tmp = pos - pmin;
-    memcpy(current_result, tmp.data, tmp.size * sizeof(real));
-    current_result += joints;
+    // velocity constraints for all joints
+    auto current_result = &result[7];
+    for (u32 i = 0; i < 7; i++)
+        current_result[i] = vmax[i] - abs(vel[i]);
 
-    // pmax - pos >= 0
-    tmp = pmax - pos;
-    memcpy(current_result, tmp.data, tmp.size * sizeof(real));
-    current_result += joints;
-
-    // vel - vmin >= 0
-    tmp = vel - vmin;
-    memcpy(current_result, tmp.data, tmp.size * sizeof(real));
-    current_result += joints;
-
-    // vmax - vel >= 0
-    tmp = vmax - vel;
-    memcpy(current_result, tmp.data, tmp.size * sizeof(real));
-    current_result += joints;
-
-    // tau - tau_min >= 0
-    tmp = efforts.col(0) - tau_min;
-    memcpy(current_result, tmp.data, tmp.size * sizeof(real));
-    current_result += joints;
-
-    // tau_max - tau >= 0
-    tmp = tau_max - efforts.col(0);
-    memcpy(current_result, tmp.data, tmp.size * sizeof(real));
-
+    // torque constraints for all joints
+    current_result += 7;
+    for (u32 i = 0; i < 7; i++)
+        current_result[i] = tau_max[i] - abs(efforts(i, 0));
     return result;
 }
 
@@ -1236,7 +1215,6 @@ inline Array Gen3_7DOF::validate(Matrix& pos, Matrix& vel, Matrix& acc) {
     auto current_result = result.data;
     Matrix efforts(joints, pos.cols); // todo: perf hit by constructing every time?
     dynamics(pos, vel, acc, efforts);
-
 
     for (u32 i = 0; i < points; i++) {
         auto tmp_coll = collision_dist_sqr(pos.col(i));
