@@ -1226,20 +1226,21 @@ inline Array Gen3_7DOF::validate(Matrix& pos, Matrix& vel, Matrix& acc) {
         current_result += 5;
 
         auto p = pos.col(i); // note: alias
-        current_result[0] = pmax[3] - abs(p[3]);
-        current_result[1] = pmax[5] - abs(p[5]);
+        current_result[0] = (pmax[3] - abs(p[3])) / pmax[3];
+        current_result[1] = (pmax[5] - abs(p[5])) / pmax[5];
         current_result += 2;
 
         auto v = vel.col(i); // note: alias
         for (int j = 0; j < 7; j++) { // todo: check performance impact of loop
-            current_result[j] = vmax[j] - abs(v[j]);
+            current_result[j] = (vmax[j] - abs(v[j])) / vmax[j];
         }
         current_result += 7;
 
         auto f = efforts.col(i); // note: alias
         for (int j = 0; j < 7; j++) { // todo: check performance impact of loop
-            current_result[j] = tau_max[j] - abs(f[j]);
+            current_result[j] = (tau_max[j] - abs(f[j])) / tau_max[j];
         }
+        current_result += 7;
     }
 
     return result;
