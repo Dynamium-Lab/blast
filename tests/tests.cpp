@@ -38,7 +38,6 @@ TEST(Math, Mat4Operations) {
 
 
     for (u32 i = 0; i < 16; i++) {
-        std::cout << m1[i]  << ", " << m3[i]<< std::endl;
         EXPECT_FLOAT_EQ((float)m1[i], (float)m3[i]);
         EXPECT_FLOAT_EQ((float)m1[i], (float)m4[i]);
     }
@@ -110,4 +109,44 @@ TEST(SplineTest, TrajectoryCorrectness) {
     EXPECT_TRUE(final_max_acc_error < 0.2);
     EXPECT_TRUE(max_vel_error < 0.2);
     EXPECT_TRUE(max_acc_error < 0.9);
+}
+
+TEST(BlastMath, TwoSegmentDist) {
+    auto dist_sqr_test1 = blast::two_segment_distance_sqr({1, 1, 1}, {2, 2, 2}, {1, 0, 0}, {2, 0, 0});
+    auto dist_sqr_test2 = blast::two_segment_distance_sqr({1, 1, 1}, {2, 2, 2}, {1, 0, 0}, {2, 3, 2});
+    auto dist_sqr_test3 = blast::two_segment_distance_sqr({1.5, 3, 2}, {7, 0, 4}, {8.2, 0, 5}, {2, 2, 0});
+    auto dist_sqr_test4 = blast::two_segment_distance_sqr({1, 1, 1}, {2, 2, 2}, {3, 3, 3}, {4, 4, 4});
+
+    EXPECT_FLOAT_EQ(dist_sqr_test1, 1.414213562373095*1.414213562373095);
+    EXPECT_FLOAT_EQ(dist_sqr_test2, 0.408248290463863*0.408248290463863);
+    EXPECT_FLOAT_EQ(dist_sqr_test3, 0.277660159805987*0.277660159805987);
+    EXPECT_FLOAT_EQ(dist_sqr_test4, 1.732050807568877*1.732050807568877);
+}
+
+TEST(BlastManip, SelfCollision) {
+    using namespace blast;
+    blast::Gen3_7DOF manip;
+    blast::Array theta1(7);
+    theta1 = {0, 15, 180, 230, 360, 55, 90};
+    theta1 = deg2rad(theta1);
+    blast::Array theta2(7);
+    theta2 = {0, 0, 0, 0, 0, 0, 0};
+    theta2 = deg2rad(theta2);
+    blast::Array theta3(7);
+    theta3 = {0, 16, 180, 221, 358, 284, 88};
+    theta3 = deg2rad(theta3);
+    blast::Array theta4(7);
+    theta4 = {347, 47, 158, 212, 341, 300, 8};
+    theta4 = deg2rad(theta4);
+
+    auto dist_sqr_min_1 = manip.collision_dist_sqr(theta1);
+    printf("0, 0, 0, 0, 0, 0, 0 : \n");
+    auto dist_sqr_min_2 = manip.collision_dist_sqr(theta2);
+    auto dist_sqr_min_3 = manip.collision_dist_sqr(theta3);
+    auto dist_sqr_min_4 = manip.collision_dist_sqr(theta4);
+
+    EXPECT_TRUE(dist_sqr_min_1[0] > 0 && dist_sqr_min_1[1] > 0);
+    EXPECT_TRUE(dist_sqr_min_2[0] > 0 && dist_sqr_min_2[1] > 0);
+    EXPECT_TRUE(dist_sqr_min_3[0] < 0 && dist_sqr_min_3[1] < 0);
+    EXPECT_TRUE(dist_sqr_min_4[0] < 0 && dist_sqr_min_4[1] > 0);
 }
