@@ -39,7 +39,7 @@ struct Vec3 {
 };
 
 // 3x3 matrix
-struct alignas(32) Mat3 {
+struct Mat3 {
     real data[9];
 
     Mat3() = default;
@@ -604,7 +604,7 @@ inline Mat3& Mat3::operator*=(Mat3& rhs) {
     return *this;
 }
 
-inline Mat3 operator*(Mat3& m, Mat3 rhs) {
+inline Mat3 operator*(Mat3& m, Mat3& rhs) {
     Mat3 r;
     r.data[0] = m.data[0]*rhs.data[0] + m.data[3]*rhs.data[1] + m.data[6]*rhs.data[2];
     r.data[1] = m.data[1]*rhs.data[0] + m.data[4]*rhs.data[1] + m.data[7]*rhs.data[2];
