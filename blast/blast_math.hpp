@@ -7,10 +7,20 @@
 #include <algorithm>
 #include <vector>
 
-#include "blast.hpp"
 #include "blast_simd.hpp"
+#include "blast_error.hpp"
 
 namespace blast {
+
+using u8    = uint8_t;
+using u16   = uint16_t;
+using u32   = uint32_t;
+using i8    = int8_t;
+using i16   = int16_t;
+using i32   = int32_t;
+using real  = double; // for testing float vs double speed and precision
+#define BLAST_SIZEOF_REAL 8
+static_assert(sizeof(real) == BLAST_SIZEOF_REAL);
 
 using svector = std::vector<real>;
 
@@ -39,7 +49,7 @@ struct Vec3 {
 };
 
 // 3x3 matrix
-struct alignas(32) Mat3 {
+struct Mat3 {
     real data[9];
 
     Mat3() = default;
@@ -394,39 +404,6 @@ inline void constant(Matrix& m, real v) {
 }
 
 
-
-inline void print(Vec3 v) {
-    printf("[%f, %f, %f]\n", v.x, v.y, v.z);
-}
-
-inline void print(Mat3 m) {
-    printf("\n[%f, %f, %f]\n[%f, %f, %f]\n[%f, %f, %f]\n",
-           m(0, 0), m(0, 1), m(0, 2), m(1, 0), m(1, 1), m(1, 2), m(2, 0), m(2, 1), m(2, 2));
-}
-
-inline void print(Array& a) {
-    using namespace std;
-    if(a.size == 0)
-        return;
-    printf("[");
-    for (u32 i = 0; i < a.size-1; i++)
-        printf("%0.4f, ", a[i]);
-    printf("%0.4f]", a[a.size-1]);
-    cout << endl;
-}
-
-inline void print(Matrix& m) {
-    if(m.size == 0)
-        return;
-    printf("\n");
-    for (u32 i = 0; i < m.rows; i++) {
-        printf("[");
-        for (u32 j = 0; j < m.cols-1; j++)
-            printf("%0.4f, ", m(i, j));
-        printf("%0.4f]\n", m(i, m.cols-1));
-    }
-}
-
 inline void minus_insert(const Array& a, const Matrix& m, real* dst) {
     Assert(m.rows == a.size);
     auto m_data = m.data;
@@ -624,10 +601,9 @@ inline void Mat4::zero() {
 
 inline Mat4::Mat4(const std::initializer_list<real>& l) {
     u32 i = 0;
+    memset(data, 0, sizeof(*this));
     for (i = 0; i < l.size() && i < 16; i++)
         data[i] = l.begin()[i];
-    // for (; i < 16; i++)
-    // data[i]=(real)0.0;
 }
 
 inline Mat4& Mat4::operator=(const Mat4& m) {
