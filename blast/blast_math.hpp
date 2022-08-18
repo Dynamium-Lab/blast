@@ -535,53 +535,7 @@ inline real& Mat3::operator()(u32 row, u32 col) {
     return data[3*col + row];
 }
 
-inline Mat3& Mat3::operator*=(Mat3& rhs) {
-#if 1
-    data[0] = data[0]*rhs.data[0] + data[3]*rhs.data[1] + data[6]*rhs.data[2];
-    data[1] = data[1]*rhs.data[0] + data[4]*rhs.data[1] + data[7]*rhs.data[2];
-    data[2] = data[2]*rhs.data[0] + data[5]*rhs.data[1] + data[8]*rhs.data[2];
-    data[3] = data[0]*rhs.data[3] + data[3]*rhs.data[4] + data[6]*rhs.data[5];
-    data[4] = data[1]*rhs.data[3] + data[4]*rhs.data[4] + data[7]*rhs.data[5];
-    data[5] = data[2]*rhs.data[3] + data[5]*rhs.data[4] + data[8]*rhs.data[5];
-    data[6] = data[0]*rhs.data[6] + data[3]*rhs.data[7] + data[6]*rhs.data[8];
-    data[7] = data[1]*rhs.data[6] + data[4]*rhs.data[7] + data[7]*rhs.data[8];
-    data[8] = data[2]*rhs.data[6] + data[5]*rhs.data[7] + data[8]*rhs.data[8];
-#elif BLAST_SIZEOF_REAL == 8
-    const auto a0 = _mm256_load_pd(data);
-    const auto a1 = _mm256_load_pd(data+3);
-    const auto a2 = _mm256_load_pd(data+6);
-
-    const auto _b00 = _mm256_set1_pd(rhs.data[0]);
-    const auto _b10 = _mm256_set1_pd(rhs.data[1]);
-    const auto _b20 = _mm256_set1_pd(rhs.data[2]);
-    auto c0 =   _mm256_mul_pd(a0, _b00);
-    c0 =      _mm256_fmadd_pd(a1, _b10, c0);
-    c0 =      _mm256_fmadd_pd(a2, _b20, c0);
-    _mm256_store_pd(data, c0); // aligned on 32
-
-    const auto _b01 = _mm256_set1_pd(rhs.data[0+3]);
-    const auto _b11 = _mm256_set1_pd(rhs.data[1+3]);
-    const auto _b21 = _mm256_set1_pd(rhs.data[2+3]);
-    auto c1 =   _mm256_mul_pd(a0, _b01);
-    c1 =      _mm256_fmadd_pd(a1, _b11, c1);
-    c1 =      _mm256_fmadd_pd(a2, _b21, c1);
-    _mm256_storeu_pd(data+3, c1); // NOT aligned on 32
-
-    const auto _b02 = _mm256_set1_pd(rhs.data[0+6]);
-    const auto _b12 = _mm256_set1_pd(rhs.data[1+6]);
-    const auto _b22 = _mm256_set1_pd(rhs.data[2+6]);
-    auto c2 =   _mm256_mul_pd(a0, _b02);
-    c2 =      _mm256_fmadd_pd(a1, _b12, c2);
-    c2 =      _mm256_fmadd_pd(a2, _b22, c2);
-    _mm256_storeu_pd(data+6, c2); // NOT aligned on 32
-
-#else
-#error not yet implemented
-#endif
-    return *this;
-}
-
-inline Mat3 operator*(Mat3& m, Mat3& rhs) {
+inline Mat3 operator*(Mat3& m, Mat3 rhs) {
     Mat3 r;
     r.data[0] = m.data[0]*rhs.data[0] + m.data[3]*rhs.data[1] + m.data[6]*rhs.data[2];
     r.data[1] = m.data[1]*rhs.data[0] + m.data[4]*rhs.data[1] + m.data[7]*rhs.data[2];
@@ -593,6 +547,12 @@ inline Mat3 operator*(Mat3& m, Mat3& rhs) {
     r.data[7] = m.data[1]*rhs.data[6] + m.data[4]*rhs.data[7] + m.data[7]*rhs.data[8];
     r.data[8] = m.data[2]*rhs.data[6] + m.data[5]*rhs.data[7] + m.data[8]*rhs.data[8];
     return r;
+}
+
+inline Mat3& Mat3::operator*=(Mat3& rhs) {
+    Mat3 mtmp = *this * rhs;
+    *this = mtmp;
+    return *this;
 }
 
 inline Mat3 transpose(Mat3& m) {
@@ -1445,8 +1405,7 @@ inline real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
             real end[2][2];
             compute_intersection(sValue, classify, b, f00, f10, edge, end);
 
-            compute_minimum_parameters(edge, end, b, c, e, g00, g10,
-                                       g01, g11, parameter);
+            compute_minimum_parameters(edge, end, b, c, e, g00, g10, g01, g11, parameter);
         }
     }
     else    {
