@@ -1150,6 +1150,9 @@ inline Array Gen3_7DOF::collision_dist_sqr(Array& joint_position) {
     real dist2sqr = two_segment_distance_sqr(p_j2, p_j3, p_j6, p_ee) - r2_sqr;
 
     // Collision with table sqr
+    const real r4table_sqr = 0.05*0.05;
+    const real r6table_sqr = 0.04*0.04;
+
     const Vec3 p_table(0, 0, -0.0025); // todo: Correct coords (z or y) ??
     real distTJ4sqr = p_j4.z - p_table.z;
     distTJ4sqr *= distTJ4sqr;
@@ -1160,7 +1163,7 @@ inline Array Gen3_7DOF::collision_dist_sqr(Array& joint_position) {
 
     // Array of distance min sqr and distance from table sqr
     Array distSqrMin(5);
-    distSqrMin = {dist1sqr, dist2sqr, distTJ4sqr-r1_sqr, distTJ6sqr-r1_sqr, distTEEsqr-r1_sqr};
+    distSqrMin = {dist1sqr, dist2sqr, distTJ4sqr-r4table_sqr, distTJ6sqr-r6table_sqr, distTEEsqr-r6table_sqr};
 
     return distSqrMin;
 }
