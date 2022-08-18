@@ -42,6 +42,7 @@ struct ManipulatorGeneric : public Manipulator {
     ManipulatorGeneric(u32 njoints);
 
     virtual void dynamics(Pva& pva, Matrix& efforts) override;
+    virtual void dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& efforts) override;
     void forward_kinematics(Matrix& joint_position, Matrix& cartesian_position);
 };
 
@@ -64,6 +65,7 @@ struct ManipulatorUR5 : public Manipulator {
     ManipulatorUR5() : Manipulator(6) {}
 
     virtual void dynamics(Pva& pva, Matrix& efforts) override;
+    virtual void dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& efforts) override;
     void init_dynamics(real mass=0);
 };
 
@@ -854,11 +856,11 @@ inline void Gen3_7DOF::dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& e
         real c[8];
         __m256d s_tmp;
         __m256d c_tmp;
-        for (u32 i = 0; i < 8; i += 4) {
-            __m256d angle_v = _mm256_load_pd(p + i);
+        for (u32 j = 0; j < 8; j += 4) {
+            __m256d angle_v = _mm256_load_pd(p + j);
             s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-            _mm256_storeu_pd(s+i, s_tmp);
-            _mm256_storeu_pd(c+i, c_tmp);
+            _mm256_storeu_pd(s+j, s_tmp);
+            _mm256_storeu_pd(c+j, c_tmp);
         }
 
         // note: these are stored column-wise
@@ -1217,7 +1219,9 @@ inline Array Gen3_7DOF::validate(Matrix& pos, Matrix& vel, Matrix& acc) {
     dynamics(pos, vel, acc, efforts);
 
     for (u32 i = 0; i < points; i++) {
-        auto tmp_coll = collision_dist_sqr(pos.col(i));
+
+        auto p = pos.col(i); // note: alias
+        auto tmp_coll = collision_dist_sqr(p);
         current_result[0] = tmp_coll[0]; // dist1sqr
         current_result[1] = tmp_coll[1]; // dist2sqr
         current_result[2] = tmp_coll[2]; // distTJ4sqr - r1_sqr
@@ -1225,7 +1229,6 @@ inline Array Gen3_7DOF::validate(Matrix& pos, Matrix& vel, Matrix& acc) {
         current_result[4] = tmp_coll[4]; // distTEEsqr - r1_sqr
         current_result += 5;
 
-        auto p = pos.col(i); // note: alias
         current_result[0] = (pmax[3] - abs(p[3])) / pmax[3];
         current_result[1] = (pmax[5] - abs(p[5])) / pmax[5];
         current_result += 2;
