@@ -10,10 +10,9 @@
 #include <time.h>
 #endif
 #include <random>
-
-
 #include <cmath>
-#include <stdint.h>
+
+
 
 namespace blast {
 
@@ -35,8 +34,7 @@ inline void print(Array& a) {
     printf("[");
     for (u32 i = 0; i < a.size-1; i++)
         printf("%0.4f, ", a[i]);
-    printf("%0.4f]", a[a.size-1]);
-    cout << endl;
+    printf("%0.4f]\n", a[a.size-1]);
 }
 
 inline void print(Matrix& m) {

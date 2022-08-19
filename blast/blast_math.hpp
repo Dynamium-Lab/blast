@@ -146,13 +146,9 @@ struct alignas(32) Mat4 {
 
 // Array of real numbers
 struct Array {
-    // pointer to the heap allocated memory
-    real * data = nullptr;
-    // size in number of elements
-    u32 size = 0;
-    // if true, the Array does not own the data and will not free it (
-    //  - note: should be as short-lived as possible
-    bool is_alias = false;
+    real* data = nullptr; // pointer to the heap allocated memory
+    u32   size = 0; // size in number of elements
+    bool  is_alias = false; // if true, the Array does not own the data and will not free it. note: should be as short-lived as possible
 
     // default constructor
     Array() = default;
@@ -169,19 +165,10 @@ struct Array {
     // create an Array from pre-existing data
     //  - note: becomes an alias
     Array(real*, u32 n);
-    Array(const real*, u32 n);
 
     // create an Array from a const std::vector<real
-    //  - (note: copies data
-    Array(const svector&);
-
-    // create an array from a matrix
     //  - note: copies data
-    Array(const Matrix& m);
-
-    // create an array from a matrix
-    //  - note: becomes an alias
-    Array(Matrix& m);
+    Array(const svector&);
 
     // free memory if not an alias
     ~Array();
@@ -226,7 +213,7 @@ struct Array {
     Array& alias(real*, u32);
 
     // resize the array
-    //  - note: old pointers to this data may be invalidated
+    //  - note: old pointers (aliases) to this data may be invalidated
     //  - note: fails if the array is an alias
     void resize(u32 new_size);
 
@@ -239,21 +226,12 @@ struct Array {
 
 // Matrix of real numbers
 struct Matrix {
-    // pointer to the heap allocated memory
-    real* data = nullptr;
-
-    // size in number of elements
-    u32 size = 0;
-
-    // number of rows in the matrix
-    u32 rows = 0;
-
-    // number of columns in the matrix
-    u32 cols = 0;
-
-    // if true, the Matrix does not own the data and will not free it
-    //  - note: should be as short-lived as possible
-    bool is_alias = false;
+    real* data = nullptr; // pointer to the heap allocated memory
+    u32 size = 0; // size in number of elements
+    u32 rows = 0; // number of rows in the matrix
+    u32 cols = 0; // number of columns in the matrix
+    bool is_alias = false; // if true, the Matrix does not own the data and will not free it.
+    // note: Alias matrices should be as short-lived as possible
 
     // default constructor
     Matrix() = default;
@@ -309,11 +287,6 @@ struct Matrix {
     // return an array accessing the given colum
     //  - note: new Array is aliasing our data
     Array col(u32 c);
-
-    // return an array accessing the given colum
-    //  - note: Copies data because we are const
-    //  - note: resulting Array is NOT an alias
-    Array col(u32 c) const;
 };
 
 
@@ -836,31 +809,11 @@ inline Array::Array(real* d, u32 n) {
     is_alias = true;
 }
 
-inline Array::Array(const real* d, u32 n) {
-    data = (real*)d; // todo: look into guarding against removing constness
-    size = n;
-    is_alias = true;
-}
-
 inline Array::Array(const svector& v) {
     size = (u32)v.size();
     if (size) {
         data = (real*)calloc(size, sizeof(real));
         memcpy(data, v.data(), size*sizeof(real));
-    }
-}
-
-inline Array::Array(const Matrix& m) : size(m.size) {
-    if (size) {
-        data = (real*)calloc(size, sizeof(real));
-        memcpy(data, m.data, size*sizeof(real));
-    }
-}
-
-inline Array::Array(Matrix& m) : size(m.size) {
-    if (size) {
-        data = m.data;
-        is_alias = true;
     }
 }
 
@@ -871,23 +824,21 @@ inline Array::~Array() {
 
 inline Array& Array::operator=(const Array& a) {
     if (this != &a) {
-        if (!data)
-            data = (real*)malloc(a.size * sizeof(real));
-        else if (a.size >= size) {
-            std::free(data);
-            data = (real*)malloc(a.size * sizeof(real));
-        }
-        Assert(data);
-
+        if (data && !is_alias)
+            free(data);
         size = a.size;
-        std::memcpy(data, a.data, size*sizeof(real));
+        if (size) {
+            data = (real*)malloc(a.size * sizeof(real));
+            std::copy_n(a.data, size, data);
+        }
+        is_alias = false;
     }
     return *this;
 }
 
 inline Array& Array::operator=(Array&& a) {
     if (this != &a) {
-        if (data)
+        if (data && !is_alias)
             std::free(data);
         data = a.data;
         size = a.size;
@@ -1097,14 +1048,14 @@ inline Matrix::Matrix(u32 r, u32 c) {
         data = (real*)calloc(size, sizeof(real));
 }
 
-inline Matrix::Matrix(const Matrix& m) : size(m.size), cols(m.cols), rows(m.rows) {
+inline Matrix::Matrix(const Matrix& m) : size(m.size), cols(m.cols), rows(m.rows), is_alias(false) {
     if (size) {
         data = (real*)calloc(size, sizeof(real));
         memcpy(data, m.data, size*sizeof(real));
     }
 }
 
-inline Matrix::Matrix(Matrix&& m) : data(m.data), size(m.size), cols(m.cols), rows(m.rows) {
+inline Matrix::Matrix(Matrix&& m) : data(m.data), size(m.size), cols(m.cols), rows(m.rows), is_alias(m.is_alias) {
     m.data = nullptr;
     m.size = 0;
     m.rows = 0;
@@ -1119,7 +1070,7 @@ inline Matrix::Matrix(real* d, u32 r, u32 c) {
     is_alias = true;
 }
 
-inline Matrix::Matrix(const Array& v) : size(v.size), cols(1), rows(v.size) {
+inline Matrix::Matrix(const Array& v) : size(v.size), cols(1), rows(v.size), is_alias(false) {
     if (size) {
         data = (real*)calloc(size, sizeof(real));
         memcpy(data, v.data, size*sizeof(real));
@@ -1168,7 +1119,8 @@ inline Matrix& Matrix::alias(Array& a) {
     Assert(a.data);
     if (data && !is_alias)
         free(data);
-    size = rows = a.size;
+    size = a.size;
+    rows = size;
     cols = 1;
     data = a.data;
     is_alias = true;
@@ -1218,14 +1170,6 @@ inline Array Matrix::col(u32 c) {
     return result;
 }
 
-inline Array Matrix::col(u32 c) const {
-    Assert(c < this->cols);
-    Assert(data);
-    Array result(rows);
-    result.size = rows;
-    memcpy(result.data, data + rows*c, rows*sizeof(real));
-    return result;
-}
 
 
 //------ Collision ---------------------

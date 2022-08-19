@@ -1099,7 +1099,9 @@ inline Array Gen3_7DOF::validate(const Matrix& pos, const Matrix& vel, const Mat
 
     for (u32 i = 0; i < points; i++) {
 
-        auto p = pos.col(i); // note: alias
+        Array p(&pos.data[i * joints], joints);
+        Assert(p.is_alias);
+
         auto tmp_coll = collision_dist_sqr(p);
         current_result[0] = tmp_coll[0]; // dist1sqr
         current_result[1] = tmp_coll[1]; // dist2sqr
@@ -1108,13 +1110,12 @@ inline Array Gen3_7DOF::validate(const Matrix& pos, const Matrix& vel, const Mat
         current_result[4] = tmp_coll[4]; // distTEEsqr - r1_sqr
         current_result += 5;
 
-        current_result[0] = (pmax[3] - abs(p[3])) / pmax[3];
-        current_result[1] = (pmax[5] - abs(p[5])) / pmax[5];
+        current_result[0] = (pmax[3] - abs(pos(3, i))) / pmax[3];
+        current_result[1] = (pmax[5] - abs(pos(5, i))) / pmax[5];
         current_result += 2;
 
-        auto v = vel.col(i); // note: alias
         for (int j = 0; j < 7; j++) { // todo: check performance impact of loop
-            current_result[j] = (vmax[j] - abs(v[j])) / vmax[j];
+            current_result[j] = (vmax[j] - abs(vel(j, i))) / vmax[j];
         }
         current_result += 7;
 
