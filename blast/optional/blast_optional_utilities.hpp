@@ -40,7 +40,6 @@ inline void print(Array& a) {
 inline void print(Matrix& m) {
     if(m.size == 0)
         return;
-    printf("\n");
     for (u32 i = 0; i < m.rows; i++) {
         printf("[");
         for (u32 j = 0; j < m.cols-1; j++)

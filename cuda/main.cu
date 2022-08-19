@@ -25,20 +25,22 @@ int main() {
 
     // task
     Matrix task(7, 6);
-    auto c = task.col(0);
-    Assert(c.is_alias);
-
-    c = {1, 2, 3, 4, 5, 6, 7};
-
+    task.col(0) = {1, 1, 1, 1, 1, 1, 1};
+    task.col(3) = {2, 2, 2, 2, 2, 2, 2};
     print(task);
+
     // compute control points
     pva.compute_control_and_send(x, task);
 
+    printf("host control points:\n");
+    print(pva.host_pva->control);
+    fflush(stdout);
+
     // launch kernel
-    test_kernal<<< pva.points, 1 >>>(pva);
+    test_kernal<<< 1, pva.points >>>(pva);
 
     // collect results
     pva.fetch_pva();
-    print(pva.host_pva->pos);
-    pva.clear();
+    // print(pva.host_pva->pos);
+    // pva.clear();
 }
