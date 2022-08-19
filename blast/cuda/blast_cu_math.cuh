@@ -46,8 +46,19 @@ struct cuArray {
 };
 
 struct cuMatrix {
-
+    double* data;
 };
+
+
+
+__device__ __host__
+inline double dot(double* v1, double* v2, unsigned n) {
+    double r = 0;
+    for (int i = 0; i < n; i++)
+        r += v1[i]*v2[i];
+    return r;
+}
+
 
 
 

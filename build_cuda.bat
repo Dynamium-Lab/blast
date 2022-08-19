@@ -7,7 +7,7 @@ set /A _tic=%time:~0,2%*3600 +%time:~3,1%*10*60 +%time:~4,1%*60 +%time:~6,1%*10 
 
 set includes= -I "./blast"
 set output= -o "./cuda/build/blast_cuda.exe"
-set options= --std c++17 -m64 -G -noeh -D_DEBUG -Xcompiler "/nologo /Z7"
+set options= --std c++17 -m64 -G -noeh -Xcompiler "/nologo /Z7"
 nvcc cuda/main.cu %options% %includes% %output%
 
 

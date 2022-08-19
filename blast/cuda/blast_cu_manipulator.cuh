@@ -5,10 +5,12 @@
 
 namespace blast {
 
+// note: must be a global variable because it is __constant__
+// note: much faster if it's __constant__ because all threads access the same location (heavy use of broadcast operations)
 const int MANIP_BROADCAST_ARENA_SIZE = 256;
 __constant__ double manip_broadcast_arena[MANIP_BROADCAST_ARENA_SIZE];
 
-struct alignas(16) cuGen3_7DOF {
+struct cuGen3_7DOF {
     //note: for the mapping to work, all the data must be on the stack!!
     double      pmax[7];
     double      vmax[7];
@@ -25,7 +27,7 @@ struct alignas(16) cuGen3_7DOF {
     __host__ void init(double mass);
 
     // map to GPU using cudaMemcpyToSymbol
-    __host__ void map_to_gpu(double* arena);
+    __host__ void map_to_gpu();
 
     // compute the dynamics for the given point
     __device__ void dynamics(const double pos[7], const double vel[7], const double acc[7], double tor[7]);
@@ -129,7 +131,7 @@ inline __host__ void cuGen3_7DOF::init(double mass) {
     tau_max[6] = 17;
 }
 
-inline __host__ void cuGen3_7DOF::map_to_gpu(double* arena) {
+inline __host__ void cuGen3_7DOF::map_to_gpu() {
     assert_buffer_size<cuGen3_7DOF, sizeof(manip_broadcast_arena)>(); // compile time check
     cudaMemcpyToSymbol(manip_broadcast_arena, this, sizeof(*this), 0);
 }
