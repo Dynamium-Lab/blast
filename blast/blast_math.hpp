@@ -45,7 +45,6 @@ struct Vec3 {
 
     Vec3() = default;
     Vec3(real x, real y, real z);
-    Vec3& operator+=(Vec3&v);
 };
 
 // 3x3 matrix
@@ -54,8 +53,8 @@ struct Mat3 {
 
     Mat3() = default;
     Mat3(real x1, real y1, real z1, real x2, real y2, real z2, real x3, real y3, real z3);
+
     real& operator()(u32 row, u32 col);
-    Mat3& operator*=(Mat3& rhs);
     real& operator[](u32 i);
     real operator[](u32 i) const ;
 };
@@ -393,16 +392,15 @@ inline void constant(Mat4& m, real val) {
         m.data[i] = val;
 }
 
-inline void constant(Array& a, real v) {
+inline void constant(Array& a, real val) {
     for (u32 i = 0; i < a.size; i++)
-        a[i] = v;
+        a[i] = val;
 }
 
-inline void constant(Matrix& m, real v) {
+inline void constant(Matrix& m, real val) {
     for (u32 i = 0; i < m.size; i++)
-        m.data[i] = v;
+        m.data[i] = val;
 }
-
 
 inline void minus_insert(const Array& a, const Matrix& m, real* dst) {
     Assert(m.rows == a.size);
@@ -458,13 +456,6 @@ inline Vec3::Vec3(real x, real y, real z)
 
 }
 
-inline Vec3& Vec3::operator+=(Vec3&v) {
-    x += v.x;
-    y += v.y;
-    z += v.z;
-    return *this;
-}
-
 inline Vec3 cross(Vec3 a, Vec3 b) {
     Vec3 r;
     r.x = a.y*b.z - a.z*b.y;
@@ -509,10 +500,17 @@ inline Vec3 operator*(Vec3 a, real b) {
     };
 }
 
+inline Vec3& operator+=(Vec3& v1, Vec3& v2) {
+    v1.x += v2.x;
+    v1.y += v2.y;
+    v1.z += v2.z;
+    return v1;
+}
+
 inline Vec3& operator*=(Vec3&v, real a) {
-    v.x += a;
-    v.y += a;
-    v.z += a;
+    v.x *= a;
+    v.y *= a;
+    v.z *= a;
     return v;
 }
 
@@ -549,10 +547,21 @@ inline Mat3 operator*(Mat3& m, Mat3 rhs) {
     return r;
 }
 
-inline Mat3& Mat3::operator*=(Mat3& rhs) {
-    Mat3 mtmp = *this * rhs;
-    *this = mtmp;
-    return *this;
+inline Mat3& operator*=(Mat3& lhs, Mat3& rhs) {
+    lhs = lhs * rhs;
+    return lhs;
+}
+
+inline Mat3 operator+(Mat3& lhs, Mat3& rhs) {
+    Mat3 r;
+    for (u32 i = 0; i < 9; i++)
+        r.data[i] = lhs.data[i] + rhs.data[i];
+    return r;
+}
+
+inline Mat3& operator+=(Mat3& lhs, Mat3& rhs) {
+    lhs = lhs + rhs;
+    return lhs;
 }
 
 inline Mat3 transpose(Mat3& m) {
