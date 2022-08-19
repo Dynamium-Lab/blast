@@ -798,7 +798,7 @@ inline Array::Array(const Array& a) : size(a.size) {
     }
 }
 
-inline Array::Array(Array&& a) : data(a.data), size(a.size) {
+inline Array::Array(Array&& a) : data(a.data), size(a.size), is_alias(a.is_alias) {
     a.data = nullptr;
     a.size = 0;
 }
@@ -842,6 +842,7 @@ inline Array& Array::operator=(Array&& a) {
             std::free(data);
         data = a.data;
         size = a.size;
+        is_alias = a.is_alias;
         a.data = nullptr;
         a.size = 0;
     }
