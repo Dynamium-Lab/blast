@@ -1032,7 +1032,7 @@ inline real dot(Array& a, Array& b) {
 // Compute the sine and the cosine of every element
 //  - note: fastest when the number of elements are a factor of 4 (or even 8 if real is float)
 //  - note: doing this manually in your function is still faster by about 10%-20%
-inline void sincos(Array& angles, Array& sines, Array& cosines) {
+inline void sincos(const Array& angles, Array& sines, Array& cosines) {
     Assert(angles.size == sines.size && angles.size == cosines.size);
     // SIMD what we can
     int i = 0;

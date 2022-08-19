@@ -21,29 +21,12 @@ struct Manipulator {
 
     Manipulator(u32 njoints) : joints(njoints), vmax(njoints), vmin(njoints), pmax(njoints), pmin(njoints), amax(njoints), amin(njoints), tau_max(njoints), tau_min(njoints) {}
 
-    virtual void dynamics(Pva& pva, Matrix& efforts) = 0;
-    virtual void dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& efforts) = 0;
+    virtual void dynamics(const Pva& pva, Matrix& efforts) = 0;
+    virtual void dynamics(const Matrix& pos, const Matrix& vel, const Matrix& acc, Matrix& efforts) = 0;
 
-    virtual Array validate(Pva& pva) {
+    virtual Array validate(const Pva& pva) {
         return Array();
     }
-};
-
-struct ManipulatorGeneric : public Manipulator {
-    // DH parameters
-    vector<Vec3> av;    // vector from joint to next joint
-    vector<Vec3> e;     // unit vectors of joints
-
-    // inertial parameters
-    vector<real> m;     // mass
-    vector<Vec3> sv;    // vector from next joint to center of mass
-    vector<Mat3> I;     // axis aligned inertial matrices
-
-    ManipulatorGeneric(u32 njoints);
-
-    virtual void dynamics(Pva& pva, Matrix& efforts) override;
-    virtual void dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& efforts) override;
-    void forward_kinematics(Matrix& joint_position, Matrix& cartesian_position);
 };
 
 struct ManipulatorUR5 : public Manipulator {
@@ -64,8 +47,8 @@ struct ManipulatorUR5 : public Manipulator {
 
     ManipulatorUR5() : Manipulator(6) {}
 
-    virtual void dynamics(Pva& pva, Matrix& efforts) override;
-    virtual void dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& efforts) override;
+    virtual void dynamics(const Pva& pva, Matrix& efforts) override;
+    virtual void dynamics(const Matrix& pos, const Matrix& vel, const Matrix& acc, Matrix& efforts) override;
     void init_dynamics(real mass=0);
 };
 
@@ -82,8 +65,8 @@ struct Gen3Lite : public Manipulator {
     Gen3Lite();
 
     // compute joint torque as a function of trajector (pva)
-    virtual void dynamics(Pva& pva, Matrix& efforts) override;
-    virtual void dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& efforts) override;
+    virtual void dynamics(const Pva& pva, Matrix& efforts) override;
+    virtual void dynamics(const Matrix& pos, const Matrix& vel, const Matrix& acc, Matrix& efforts) override;
 
     // compute forward kinematics for 1 point
     Array forward_kinematics(Array& joint_position);
@@ -102,143 +85,31 @@ struct Gen3_7DOF : public Manipulator {
     Gen3_7DOF();
 
     // compute joint torque as a function of trajector (pva)
-    virtual void dynamics(Pva& pva, Matrix& efforts) override;
-    virtual void dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& efforts) override;
+    virtual void dynamics(const Pva& pva, Matrix& efforts) override;
+    virtual void dynamics(const Matrix& pos, const Matrix& vel, const Matrix& acc, Matrix& efforts) override;
 
     // compute forward kinematics for 1 point
-    Array forward_kinematics(Array& joint_position);
-    Matrix forward_kinematics(Matrix& joint_positions);
+    Array forward_kinematics(const Array& joint_position);
+    Matrix forward_kinematics(const Matrix& joint_positions);
 
     // check collision
-    Array collision_dist_sqr(Array& joint_position);
+    Array collision_dist_sqr(const Array& joint_position);
 
     // check all constraints on the manipulator for 1 point
-    Array validate(Array& pos, Array& vel, Array& acc);
+    Array validate(const Array& pos, const Array& vel, const Array& acc);
 
     // check all constraints on the manipulator for a trajectory
-    Array validate(Matrix& pos, Matrix& vel, Matrix& acc);
+    Array validate(const Matrix& pos, const Matrix& vel, const Matrix& acc);
 
     // check all constraints on the manipulator for a trajectory
-    virtual Array validate(Pva& pva) override;
+    virtual Array validate(const Pva& pva) override;
 };
 
 
 
-
-
-
-//------ Generic manipulator functions ----------------------------------------------
-
-inline ManipulatorGeneric::ManipulatorGeneric(u32 njoints) :
-    Manipulator(njoints),
-    av(njoints),
-    e(njoints),
-    m(njoints),
-    sv(njoints),
-    I(njoints) {
-}
-
-inline void ManipulatorGeneric::dynamics(Pva& pva, Matrix& efforts) {
-    Assert(pva.joints == joints);
-    Assert(efforts.rows == joints);
-    Assert(efforts.cols == pva.points);
-
-    const auto joints_4 = joints%4? joints + (4-joints%4) : joints; // padding for better SIMD
-    Array s(joints_4); // sines
-    Array c(joints_4); // cosines
-
-    vector<Mat3> Q(joints); // rotation matrices
-    vector<Mat3> Qt(joints); // transpose rotation matrices
-    vector<Vec3> w(joints); // angular velocity
-    vector<Vec3> wd(joints); // angular acceleration
-    vector<Vec3> cdd(joints); // cartesian acceleration of the center of mass
-    vector<Vec3> f(joints); // forces on joint
-    vector<Vec3> n(joints); // axis aligned torque (z is the joint torque)
-
-    for (u32 i = 0; i < pva.points; i++) {
-        auto p = &pva.pos(0, i);
-        auto v = &pva.vel(0, i);
-        auto a = &pva.acc(0, i);
-
-        // SIMD compute sines and cosines
-        for (u32 ji = 0; ji < joints_4/4; ji++) {
-            const auto j = 4*ji;
-            __m256d s_tmp;
-            __m256d c_tmp;
-            __m256d angle_v = _mm256_load_pd(&pva.pos(j, i));
-            s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-            _mm256_storeu_pd(s.data+j, s_tmp);
-            _mm256_storeu_pd(c.data+j, c_tmp);
-        } // note: SIMD saved approx 10-12% compute time here
-
-        for (u32 j = 0; j < joints; j++) {
-
-            // todo: compute rotation matrices!!
-
-            Qt[j] = transpose(Q[j]);
-        }
-
-        // forward kinematics
-        {
-            // first joint
-            w[0] = v[0] * e[0];
-            wd[0] = a[0] * e[0];
-            cdd[0] = Qt[0] * Vec3{0, 0, 9.81f}; // simulate gravity by accelerating the base upward
-
-            // all but first joint
-            for (u32 j = 1; j < joints; j++) {
-                w[j] = Qt[j]*w[j-1] + v[j]*e[j];
-                wd[j] = Qt[j]*wd[j-1] + a[j]*e[j] + v[j]*cross(Qt[j]*wd[j-1], e[j]);
-                cdd[j] = Qt[j]*cdd[j-1]
-                         + cross(wd[j], av[j]+sv[j])
-                         + cross(w[j], cross(w[j], av[j]+sv[j]))
-                         - Qt[j]*cross(wd[j-1], sv[j-1])
-                         - Qt[j]*cross(w[j-1], cross(w[j-1], sv[j-1]));
-            }
-        }
-
-        // reverse dynamics
-        {
-            // last joint
-            u32 idx = joints-1;
-            f[idx] = Q[idx]*(m[idx]*cdd[idx]);
-            n[idx] = Q[idx]*(I[idx]*wd[idx] + cross(w[idx], I[idx]*w[idx]) + cross(av[idx]+sv[idx], Qt[idx]*f[idx]));
-
-            // all but last joint
-            for (int j = (int)joints-2; j>=0; j--) {
-                f[j] = Q[j]*(
-                           m[j]*cdd[j]
-                           + f[j+1]);
-                n[j] = Q[j]*(
-                           I[j]*wd[j]
-                           + cross(w[j], I[j]*w[j])
-                           + n[j+1]
-                           + cross(av[j]+sv[j], Qt[j]*f[j])
-                           - cross(sv[j], f[j+1]));
-            }
-        }
-
-        // note: assuming all revolute joints here
-        // assign joint torques to output
-        for (u32 j = 0; j < joints; j++) {
-            efforts(j, i) = n[j].z;
-        }
-
-    } // for points
-
-} // dynamics()
-
-inline void ManipulatorGeneric::forward_kinematics(Matrix& joint_position, Matrix& cartesian_position) {
-    Assert(joint_position.rows == joints);
-    Assert(joint_position.cols == cartesian_position.cols);
-    Assert(cartesian_position.rows == 6);
-    // todo: Implement me!
-}
-
-
 //------ Universal Robots UR5e manipulator functions ---------------------------------
 
-inline void ManipulatorUR5::dynamics(Pva& pva, Matrix& efforts) {
+inline void ManipulatorUR5::dynamics(const Pva& pva, Matrix& efforts) {
     Assert(is_init);
 
     real vel1, vel2, vel3, vel4, vel5, vel6;
@@ -269,7 +140,7 @@ inline void ManipulatorUR5::dynamics(Pva& pva, Matrix& efforts) {
         acc6 = pva.acc(5, i);
 
         // SIMD compute sines and cosines note: approx 10% faster
-        auto p = &pva.pos(0, i);
+        const auto p = &pva.pos.data[i * pva.joints];
         real s[6];
         real c[6];
         // first 4
@@ -573,11 +444,11 @@ inline Gen3Lite::Gen3Lite() : Manipulator(6) {
     tau_min = -tau_max;
 }
 
-inline void Gen3Lite::dynamics(Pva& pva, Matrix& efforts) {
+inline void Gen3Lite::dynamics(const Pva& pva, Matrix& efforts) {
     dynamics(pva.pos, pva.vel, pva.acc, efforts);
 }
 
-inline void Gen3Lite::dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& efforts) {
+inline void Gen3Lite::dynamics(const Matrix& pos, const Matrix& vel, const Matrix& acc, Matrix& efforts) {
 
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
     Mat3 Q1t, Q2t, Q3t, Q4t, Q5t, Q6t;
@@ -588,13 +459,15 @@ inline void Gen3Lite::dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& ef
     Vec3 f1, f2, f3, f4, f5, f6;
     Vec3 n1, n2, n3, n4, n5, n6;
 
+    const u32 joints = pos.rows;
+
     // loop all points
     for (u32 i = 0; i < pos.cols; i++) {
-        auto v = &vel(0, i);
-        auto a = &acc(0, i);
+        auto v = &vel.data[i * joints];
+        auto a = &acc.data[i * joints];
 
         // SIMD compute sines and cosines note: approx 10% faster
-        auto p = &pos(0, i);
+        auto p = &pos.data[i * joints];
         real s[6];
         real c[6];
         // first 4
@@ -830,11 +703,11 @@ inline Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
     // tau_min = -tau_max;
 }
 
-inline void Gen3_7DOF::dynamics(Pva& pva, Matrix& efforts) {
+inline void Gen3_7DOF::dynamics(const Pva& pva, Matrix& efforts) {
     dynamics(pva.pos, pva.vel, pva.acc, efforts);
 }
 
-inline void Gen3_7DOF::dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& efforts) {
+inline void Gen3_7DOF::dynamics(const Matrix& pos, const Matrix& vel, const Matrix& acc, Matrix& efforts) {
 
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
     Mat3 Q1t, Q2t, Q3t, Q4t, Q5t, Q6t, Q7t;
@@ -845,13 +718,16 @@ inline void Gen3_7DOF::dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& e
     Vec3 f1, f2, f3, f4, f5, f6, f7;
     Vec3 n1, n2, n3, n4, n5, n6, n7;
 
+    const u32 joints = pos.rows;
+    const u32 points = pos.cols;
+
     // loop all points
-    for (u32 i = 0; i < pos.cols; i++) {
-        auto v = &vel(0, i);
-        auto a = &acc(0, i);
+    for (u32 i = 0; i < points; i++) {
+        auto v = &vel.data[i * joints];
+        auto a = &acc.data[i * joints];
 
         // SIMD compute sines and cosines note: approx 10% faster
-        auto p = &pos(0, i);
+        auto p = &pos.data[i * joints];
         real s[8];
         real c[8];
         __m256d s_tmp;
@@ -946,7 +822,7 @@ inline void Gen3_7DOF::dynamics(Matrix& pos, Matrix& vel, Matrix& acc, Matrix& e
     }
 }
 
-inline Array Gen3_7DOF::forward_kinematics(Array& joint_position) {
+inline Array Gen3_7DOF::forward_kinematics(const Array& joint_position) {
 
     //  - note: manual SIMD (10% better performance than using sincos function on arrays like commented below)
     real s[8];
@@ -1001,7 +877,7 @@ inline Array Gen3_7DOF::forward_kinematics(Array& joint_position) {
     return pose;
 }
 
-inline Matrix Gen3_7DOF::forward_kinematics(Matrix& joint_positions) {
+inline Matrix Gen3_7DOF::forward_kinematics(const Matrix& joint_positions) {
     auto p = joint_positions.data;
     Matrix pose(12, joint_positions.cols);
 
@@ -1080,7 +956,7 @@ inline Matrix Gen3_7DOF::forward_kinematics(Matrix& joint_positions) {
     return pose;
 }
 
-inline Array Gen3_7DOF::collision_dist_sqr(Array& joint_position) {
+inline Array Gen3_7DOF::collision_dist_sqr(const Array& joint_position) {
     //  - note: manual SIMD
     // real s[8];
     // real c[8];
@@ -1170,7 +1046,7 @@ inline Array Gen3_7DOF::collision_dist_sqr(Array& joint_position) {
     return distSqrMin;
 }
 
-inline Array Gen3_7DOF::validate(Array& pos, Array& vel, Array& acc) {
+inline Array Gen3_7DOF::validate(const Array& pos, const Array& vel, const Array& acc) {
     Matrix p(pos);
     Matrix v(vel);
     Matrix a(acc);
@@ -1208,7 +1084,7 @@ inline Array Gen3_7DOF::validate(Array& pos, Array& vel, Array& acc) {
     return result;
 }
 
-inline Array Gen3_7DOF::validate(Matrix& pos, Matrix& vel, Matrix& acc) {
+inline Array Gen3_7DOF::validate(const Matrix& pos, const Matrix& vel, const Matrix& acc) {
     const auto points = pos.cols;
     // 5 collision results
     // 2 position constraints
@@ -1252,7 +1128,7 @@ inline Array Gen3_7DOF::validate(Matrix& pos, Matrix& vel, Matrix& acc) {
     return result;
 }
 
-inline Array Gen3_7DOF::validate(Pva& pva) {
+inline Array Gen3_7DOF::validate(const Pva& pva) {
     return validate(pva.pos, pva.vel, pva.acc);
 }
 
