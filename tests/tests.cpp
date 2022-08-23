@@ -159,3 +159,70 @@ TEST(BlastManip, SelfCollision) {
     EXPECT_TRUE(dist_sqr_min_3[0] < 0 && dist_sqr_min_3[1] < 0);
     EXPECT_TRUE(dist_sqr_min_4[0] < 0 && dist_sqr_min_4[1] > 0);
 }
+
+
+TEST(BlastManip, Jacobienne) {
+    using namespace blast;
+    Gen3_7DOF manip;
+    blast::Array theta2(7);
+    theta2 = {0, 0, 0, 0, 0, 0, 0};
+    theta2 = deg2rad(theta2);
+
+    auto J2 = manip.jacobian_matrix(theta2);
+
+    Matrix Jacob2(6, 7);
+    Jacob2(0, 0) = 0.0;
+    Jacob2(1, 0) = 0.0;
+    Jacob2(2, 0) = 1.0;
+    Jacob2(3, 0) = -0.0118;
+    Jacob2(4, 0) = 0.0;
+    Jacob2(5, 0) = 0.0;
+
+    Jacob2(0, 1) = 0.0;
+    Jacob2(1, 1) = 0.0;
+    Jacob2(2, 1) = -1.0;
+    Jacob2(3, 1) = 1.0665;
+    Jacob2(4, 1) = 0.0;
+    Jacob2(5, 1) = 0.0;
+
+    Jacob2(0, 2) = 0.0;
+    Jacob2(1, 2) = 1.0;
+    Jacob2(2, 2) = 0.0;
+    Jacob2(3, 2) = 0.0;
+    Jacob2(4, 2) = 0.0;
+    Jacob2(5, 2) = 0.0;
+
+    Jacob2(0, 3) = 0.0;
+    Jacob2(1, 3) = 0.0;
+    Jacob2(2, 3) = -1.0;
+    Jacob2(3, 3) = 0.6547;
+    Jacob2(4, 3) = 0.0;
+    Jacob2(5, 3) = 0.0;
+
+    Jacob2(0, 4) = 0.0;
+    Jacob2(1, 4) = 1.0;
+    Jacob2(2, 4) = 0.0;
+    Jacob2(3, 4) = 0.0;
+    Jacob2(4, 4) = 0.0;
+    Jacob2(5, 4) = 0.0;
+
+    Jacob2(0, 5) = 0.0;
+    Jacob2(1, 5) = 0.0;
+    Jacob2(2, 5) = -1.0;
+    Jacob2(3, 5) = 0.3314;
+    Jacob2(4, 5) = 0.0;
+    Jacob2(5, 5) = 0.0;
+
+    Jacob2(0, 6) = 0.0;
+    Jacob2(1, 6) = 1.0;
+    Jacob2(2, 6) = 0.0;
+    Jacob2(3, 6) = 0.0;
+    Jacob2(4, 6) = 0.0;
+    Jacob2(5, 6) = 0.0;
+
+    for (u32 i = 0; i < 7; i++) {
+        for (u32 j = 0; j < 6; j++) {
+            EXPECT_FLOAT_EQ((float)J2(j, i), (float)Jacob2(j, i));
+        }
+    }
+}
