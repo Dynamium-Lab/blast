@@ -45,7 +45,6 @@ struct Vec3 {
 
     Vec3() = default;
     Vec3(real x, real y, real z);
-    Vec3& operator+=(Vec3&v);
 };
 
 // 3x3 matrix
@@ -54,8 +53,8 @@ struct Mat3 {
 
     Mat3() = default;
     Mat3(real x1, real y1, real z1, real x2, real y2, real z2, real x3, real y3, real z3);
+
     real& operator()(u32 row, u32 col);
-    Mat3& operator*=(Mat3& rhs);
     real& operator[](u32 i);
     real operator[](u32 i) const ;
 };
@@ -147,13 +146,9 @@ struct alignas(32) Mat4 {
 
 // Array of real numbers
 struct Array {
-    // pointer to the heap allocated memory
-    real * data = nullptr;
-    // size in number of elements
-    u32 size = 0;
-    // if true, the Array does not own the data and will not free it (
-    //  - note: should be as short-lived as possible
-    bool is_alias = false;
+    real* data = nullptr; // pointer to the heap allocated memory
+    u32   size = 0; // size in number of elements
+    bool  is_alias = false; // if true, the Array does not own the data and will not free it. note: should be as short-lived as possible
 
     // default constructor
     Array() = default;
@@ -170,19 +165,10 @@ struct Array {
     // create an Array from pre-existing data
     //  - note: becomes an alias
     Array(real*, u32 n);
-    Array(const real*, u32 n);
 
     // create an Array from a const std::vector<real
-    //  - (note: copies data
-    Array(const svector&);
-
-    // create an array from a matrix
     //  - note: copies data
-    Array(const Matrix& m);
-
-    // create an array from a matrix
-    //  - note: becomes an alias
-    Array(Matrix& m);
+    Array(const svector&);
 
     // free memory if not an alias
     ~Array();
@@ -227,7 +213,7 @@ struct Array {
     Array& alias(real*, u32);
 
     // resize the array
-    //  - note: old pointers to this data may be invalidated
+    //  - note: old pointers (aliases) to this data may be invalidated
     //  - note: fails if the array is an alias
     void resize(u32 new_size);
 
@@ -240,21 +226,12 @@ struct Array {
 
 // Matrix of real numbers
 struct Matrix {
-    // pointer to the heap allocated memory
-    real* data = nullptr;
-
-    // size in number of elements
-    u32 size = 0;
-
-    // number of rows in the matrix
-    u32 rows = 0;
-
-    // number of columns in the matrix
-    u32 cols = 0;
-
-    // if true, the Matrix does not own the data and will not free it
-    //  - note: should be as short-lived as possible
-    bool is_alias = false;
+    real* data = nullptr; // pointer to the heap allocated memory
+    u32 size = 0; // size in number of elements
+    u32 rows = 0; // number of rows in the matrix
+    u32 cols = 0; // number of columns in the matrix
+    bool is_alias = false; // if true, the Matrix does not own the data and will not free it.
+    // note: Alias matrices should be as short-lived as possible
 
     // default constructor
     Matrix() = default;
@@ -310,11 +287,6 @@ struct Matrix {
     // return an array accessing the given colum
     //  - note: new Array is aliasing our data
     Array col(u32 c);
-
-    // return an array accessing the given colum
-    //  - note: Copies data because we are const
-    //  - note: resulting Array is NOT an alias
-    Array col(u32 c) const;
 };
 
 
@@ -393,16 +365,15 @@ inline void constant(Mat4& m, real val) {
         m.data[i] = val;
 }
 
-inline void constant(Array& a, real v) {
+inline void constant(Array& a, real val) {
     for (u32 i = 0; i < a.size; i++)
-        a[i] = v;
+        a[i] = val;
 }
 
-inline void constant(Matrix& m, real v) {
+inline void constant(Matrix& m, real val) {
     for (u32 i = 0; i < m.size; i++)
-        m.data[i] = v;
+        m.data[i] = val;
 }
-
 
 inline void minus_insert(const Array& a, const Matrix& m, real* dst) {
     Assert(m.rows == a.size);
@@ -458,13 +429,6 @@ inline Vec3::Vec3(real x, real y, real z)
 
 }
 
-inline Vec3& Vec3::operator+=(Vec3&v) {
-    x += v.x;
-    y += v.y;
-    z += v.z;
-    return *this;
-}
-
 inline Vec3 cross(Vec3 a, Vec3 b) {
     Vec3 r;
     r.x = a.y*b.z - a.z*b.y;
@@ -509,10 +473,17 @@ inline Vec3 operator*(Vec3 a, real b) {
     };
 }
 
+inline Vec3& operator+=(Vec3& v1, Vec3& v2) {
+    v1.x += v2.x;
+    v1.y += v2.y;
+    v1.z += v2.z;
+    return v1;
+}
+
 inline Vec3& operator*=(Vec3&v, real a) {
-    v.x += a;
-    v.y += a;
-    v.z += a;
+    v.x *= a;
+    v.y *= a;
+    v.z *= a;
     return v;
 }
 
@@ -535,53 +506,7 @@ inline real& Mat3::operator()(u32 row, u32 col) {
     return data[3*col + row];
 }
 
-inline Mat3& Mat3::operator*=(Mat3& rhs) {
-#if 1
-    data[0] = data[0]*rhs.data[0] + data[3]*rhs.data[1] + data[6]*rhs.data[2];
-    data[1] = data[1]*rhs.data[0] + data[4]*rhs.data[1] + data[7]*rhs.data[2];
-    data[2] = data[2]*rhs.data[0] + data[5]*rhs.data[1] + data[8]*rhs.data[2];
-    data[3] = data[0]*rhs.data[3] + data[3]*rhs.data[4] + data[6]*rhs.data[5];
-    data[4] = data[1]*rhs.data[3] + data[4]*rhs.data[4] + data[7]*rhs.data[5];
-    data[5] = data[2]*rhs.data[3] + data[5]*rhs.data[4] + data[8]*rhs.data[5];
-    data[6] = data[0]*rhs.data[6] + data[3]*rhs.data[7] + data[6]*rhs.data[8];
-    data[7] = data[1]*rhs.data[6] + data[4]*rhs.data[7] + data[7]*rhs.data[8];
-    data[8] = data[2]*rhs.data[6] + data[5]*rhs.data[7] + data[8]*rhs.data[8];
-#elif BLAST_SIZEOF_REAL == 8
-    const auto a0 = _mm256_load_pd(data);
-    const auto a1 = _mm256_load_pd(data+3);
-    const auto a2 = _mm256_load_pd(data+6);
-
-    const auto _b00 = _mm256_set1_pd(rhs.data[0]);
-    const auto _b10 = _mm256_set1_pd(rhs.data[1]);
-    const auto _b20 = _mm256_set1_pd(rhs.data[2]);
-    auto c0 =   _mm256_mul_pd(a0, _b00);
-    c0 =      _mm256_fmadd_pd(a1, _b10, c0);
-    c0 =      _mm256_fmadd_pd(a2, _b20, c0);
-    _mm256_store_pd(data, c0); // aligned on 32
-
-    const auto _b01 = _mm256_set1_pd(rhs.data[0+3]);
-    const auto _b11 = _mm256_set1_pd(rhs.data[1+3]);
-    const auto _b21 = _mm256_set1_pd(rhs.data[2+3]);
-    auto c1 =   _mm256_mul_pd(a0, _b01);
-    c1 =      _mm256_fmadd_pd(a1, _b11, c1);
-    c1 =      _mm256_fmadd_pd(a2, _b21, c1);
-    _mm256_storeu_pd(data+3, c1); // NOT aligned on 32
-
-    const auto _b02 = _mm256_set1_pd(rhs.data[0+6]);
-    const auto _b12 = _mm256_set1_pd(rhs.data[1+6]);
-    const auto _b22 = _mm256_set1_pd(rhs.data[2+6]);
-    auto c2 =   _mm256_mul_pd(a0, _b02);
-    c2 =      _mm256_fmadd_pd(a1, _b12, c2);
-    c2 =      _mm256_fmadd_pd(a2, _b22, c2);
-    _mm256_storeu_pd(data+6, c2); // NOT aligned on 32
-
-#else
-#error not yet implemented
-#endif
-    return *this;
-}
-
-inline Mat3 operator*(Mat3& m, Mat3& rhs) {
+inline Mat3 operator*(Mat3& m, Mat3 rhs) {
     Mat3 r;
     r.data[0] = m.data[0]*rhs.data[0] + m.data[3]*rhs.data[1] + m.data[6]*rhs.data[2];
     r.data[1] = m.data[1]*rhs.data[0] + m.data[4]*rhs.data[1] + m.data[7]*rhs.data[2];
@@ -593,6 +518,23 @@ inline Mat3 operator*(Mat3& m, Mat3& rhs) {
     r.data[7] = m.data[1]*rhs.data[6] + m.data[4]*rhs.data[7] + m.data[7]*rhs.data[8];
     r.data[8] = m.data[2]*rhs.data[6] + m.data[5]*rhs.data[7] + m.data[8]*rhs.data[8];
     return r;
+}
+
+inline Mat3& operator*=(Mat3& lhs, Mat3& rhs) {
+    lhs = lhs * rhs;
+    return lhs;
+}
+
+inline Mat3 operator+(Mat3& lhs, Mat3& rhs) {
+    Mat3 r;
+    for (u32 i = 0; i < 9; i++)
+        r.data[i] = lhs.data[i] + rhs.data[i];
+    return r;
+}
+
+inline Mat3& operator+=(Mat3& lhs, Mat3& rhs) {
+    lhs = lhs + rhs;
+    return lhs;
 }
 
 inline Mat3 transpose(Mat3& m) {
@@ -856,19 +798,13 @@ inline Array::Array(const Array& a) : size(a.size) {
     }
 }
 
-inline Array::Array(Array&& a) : data(a.data), size(a.size) {
+inline Array::Array(Array&& a) : data(a.data), size(a.size), is_alias(a.is_alias) {
     a.data = nullptr;
     a.size = 0;
 }
 
 inline Array::Array(real* d, u32 n) {
     data = d;
-    size = n;
-    is_alias = true;
-}
-
-inline Array::Array(const real* d, u32 n) {
-    data = (real*)d; // todo: look into guarding against removing constness
     size = n;
     is_alias = true;
 }
@@ -881,20 +817,6 @@ inline Array::Array(const svector& v) {
     }
 }
 
-inline Array::Array(const Matrix& m) : size(m.size) {
-    if (size) {
-        data = (real*)calloc(size, sizeof(real));
-        memcpy(data, m.data, size*sizeof(real));
-    }
-}
-
-inline Array::Array(Matrix& m) : size(m.size) {
-    if (size) {
-        data = m.data;
-        is_alias = true;
-    }
-}
-
 inline Array::~Array() {
     if (!is_alias && data)
         free(data);
@@ -902,26 +824,25 @@ inline Array::~Array() {
 
 inline Array& Array::operator=(const Array& a) {
     if (this != &a) {
-        if (!data)
-            data = (real*)malloc(a.size * sizeof(real));
-        else if (a.size >= size) {
-            std::free(data);
-            data = (real*)malloc(a.size * sizeof(real));
-        }
-        Assert(data);
-
+        if (data && !is_alias)
+            free(data);
         size = a.size;
-        std::memcpy(data, a.data, size*sizeof(real));
+        if (size) {
+            data = (real*)malloc(a.size * sizeof(real));
+            std::copy_n(a.data, size, data);
+        }
+        is_alias = false;
     }
     return *this;
 }
 
 inline Array& Array::operator=(Array&& a) {
     if (this != &a) {
-        if (data)
+        if (data && !is_alias)
             std::free(data);
         data = a.data;
         size = a.size;
+        is_alias = a.is_alias;
         a.data = nullptr;
         a.size = 0;
     }
@@ -1072,7 +993,7 @@ inline real dot(Array& a, Array& b) {
 // Compute the sine and the cosine of every element
 //  - note: fastest when the number of elements are a factor of 4 (or even 8 if real is float)
 //  - note: doing this manually in your function is still faster by about 10%-20%
-inline void sincos(Array& angles, Array& sines, Array& cosines) {
+inline void sincos(const Array& angles, Array& sines, Array& cosines) {
     Assert(angles.size == sines.size && angles.size == cosines.size);
     // SIMD what we can
     int i = 0;
@@ -1128,14 +1049,14 @@ inline Matrix::Matrix(u32 r, u32 c) {
         data = (real*)calloc(size, sizeof(real));
 }
 
-inline Matrix::Matrix(const Matrix& m) : size(m.size), cols(m.cols), rows(m.rows) {
+inline Matrix::Matrix(const Matrix& m) : size(m.size), cols(m.cols), rows(m.rows), is_alias(false) {
     if (size) {
         data = (real*)calloc(size, sizeof(real));
         memcpy(data, m.data, size*sizeof(real));
     }
 }
 
-inline Matrix::Matrix(Matrix&& m) : data(m.data), size(m.size), cols(m.cols), rows(m.rows) {
+inline Matrix::Matrix(Matrix&& m) : data(m.data), size(m.size), cols(m.cols), rows(m.rows), is_alias(m.is_alias) {
     m.data = nullptr;
     m.size = 0;
     m.rows = 0;
@@ -1150,7 +1071,7 @@ inline Matrix::Matrix(real* d, u32 r, u32 c) {
     is_alias = true;
 }
 
-inline Matrix::Matrix(const Array& v) : size(v.size), cols(1), rows(v.size) {
+inline Matrix::Matrix(const Array& v) : size(v.size), cols(1), rows(v.size), is_alias(false) {
     if (size) {
         data = (real*)calloc(size, sizeof(real));
         memcpy(data, v.data, size*sizeof(real));
@@ -1199,7 +1120,8 @@ inline Matrix& Matrix::alias(Array& a) {
     Assert(a.data);
     if (data && !is_alias)
         free(data);
-    size = rows = a.size;
+    size = a.size;
+    rows = size;
     cols = 1;
     data = a.data;
     is_alias = true;
@@ -1249,14 +1171,6 @@ inline Array Matrix::col(u32 c) {
     return result;
 }
 
-inline Array Matrix::col(u32 c) const {
-    Assert(c < this->cols);
-    Assert(data);
-    Array result(rows);
-    result.size = rows;
-    memcpy(result.data, data + rows*c, rows*sizeof(real));
-    return result;
-}
 
 
 //------ Collision ---------------------
@@ -1445,8 +1359,7 @@ inline real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
             real end[2][2];
             compute_intersection(sValue, classify, b, f00, f10, edge, end);
 
-            compute_minimum_parameters(edge, end, b, c, e, g00, g10,
-                                       g01, g11, parameter);
+            compute_minimum_parameters(edge, end, b, c, e, g00, g10, g01, g11, parameter);
         }
     }
     else    {
