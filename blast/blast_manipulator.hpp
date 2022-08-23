@@ -109,6 +109,9 @@ struct Gen3_7DOF : public Manipulator {
     Array forward_kinematics(Array& joint_position);
     Matrix forward_kinematics(Matrix& joint_positions);
 
+    // compute jacobian matrix
+    Matrix Gen3_7DOF::jacobian_matrix(Array& joint_position);
+
     // check collision
     Array collision_dist_sqr(Array& joint_position);
 
@@ -1078,6 +1081,118 @@ inline Matrix Gen3_7DOF::forward_kinematics(Matrix& joint_positions) {
         p += joints;
     }
     return pose;
+}
+
+inline Matrix Gen3_7DOF::jacobian_matrix(Array& joint_position) {
+
+    //  - note: manual SIMD (10% better performance than using sincos function on arrays like commented below)
+    real s[8];
+    real c[8];
+    auto p = joint_position.data;
+    Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
+
+    __m256d s_tmp;
+    __m256d c_tmp;
+    for (u32 i = 0; i < 8; i += 4) {
+        __m256d angle_v = _mm256_load_pd(p + i);
+        s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+        _mm256_storeu_pd(s+i, s_tmp);
+        _mm256_storeu_pd(c+i, c_tmp);
+    }
+
+    // note: these are stored column-wise
+    Q1 = {c[0], -s[0],  0,        -s[0], -c[0],   0,        0,  0, -1};
+    Q2 = {c[1],   0,   s[1],      -s[1],   0,    c[1],      0, -1,  0};
+    Q3 = {c[2],   0,  -s[2],      -s[2],   0,   -c[2],      0,  1,  0};
+    Q4 = {c[3],   0,   s[3],      -s[3],   0,    c[3],      0, -1,  0};
+    Q5 = {c[4],   0,  -s[4],      -s[4],   0,   -c[4],      0,  1,  0};
+    Q6 = {c[5],   0,   s[5],      -s[5],   0,    c[5],      0, -1,  0};
+    Q7 = {c[6],   0,  -s[6],      -s[6],   0,   -c[6],      0,  1,  0};
+
+    // unit vectors in 1st reference
+    Vec3 e_1[7];
+    e_1[0] = ev[0];
+    auto Q_tmp = Q1;
+    e_1[1] = Q_tmp*ev[1];
+    e_1[2] = (Q_tmp*=Q2)*ev[2];
+    e_1[3] = (Q_tmp*=Q3)*ev[3];
+    e_1[4] = (Q_tmp*=Q4)*ev[4];
+    e_1[5] = (Q_tmp*=Q5)*ev[5];
+    e_1[6] = (Q_tmp*=Q6)*ev[6];
+
+    Vec3 r[7];
+    r[6] = dv[6];
+    r[5] = dv[5] + Q7*r[6];
+    r[4] = dv[4] + Q6*r[5];
+    r[3] = dv[3] + Q5*r[4];
+    r[2] = dv[2] + Q4*r[3];
+    r[1] = dv[1] + Q3*r[2];
+    r[0] = dv[0] + Q2*r[1];
+
+    Q_tmp = Q1;
+    r[1] = (Q_tmp)*r[1];
+    r[2] = (Q_tmp*=Q2)*r[2];
+    r[3] = (Q_tmp*=Q3)*r[3];
+    r[4] = (Q_tmp*=Q4)*r[4];
+    r[5] = (Q_tmp*=Q5)*r[5];
+    r[6] = (Q_tmp*=Q6)*r[6];
+
+
+    auto cr0 = cross(e_1[0], r[0]);
+    auto cr1 = cross(e_1[1], r[1]);
+    auto cr2 = cross(e_1[2], r[2]);
+    auto cr3 = cross(e_1[3], r[3]);
+    auto cr4 = cross(e_1[4], r[4]);
+    auto cr5 = cross(e_1[5], r[5]);
+    auto cr6 = cross(e_1[6], r[6]);
+
+    // jacobian matrix
+    Matrix J(6, 7);
+    J(0, 0) = e_1[0].x;
+    J(1, 0) = e_1[0].y;
+    J(2, 0) = e_1[0].z;
+    J(0, 1) = e_1[1].x;
+    J(1, 1) = e_1[1].y;
+    J(2, 1) = e_1[1].z;
+    J(0, 2) = e_1[2].x;
+    J(1, 2) = e_1[2].y;
+    J(2, 2) = e_1[2].z;
+    J(0, 3) = e_1[3].x;
+    J(1, 3) = e_1[3].y;
+    J(2, 3) = e_1[3].z;
+    J(0, 4) = e_1[4].x;
+    J(1, 4) = e_1[4].y;
+    J(2, 4) = e_1[4].z;
+    J(0, 5) = e_1[5].x;
+    J(1, 5) = e_1[5].y;
+    J(2, 5) = e_1[5].z;
+    J(0, 6) = e_1[6].x;
+    J(1, 6) = e_1[6].y;
+    J(2, 6) = e_1[6].z;
+
+    J(3, 0) = cr0.x;
+    J(4, 0) = cr0.y;
+    J(5, 0) = cr0.z;
+    J(3, 1) = cr1.x;
+    J(4, 1) = cr1.y;
+    J(5, 1) = cr1.z;
+    J(3, 2) = cr2.x;
+    J(4, 2) = cr2.y;
+    J(5, 2) = cr2.z;
+    J(3, 3) = cr3.x;
+    J(4, 3) = cr3.y;
+    J(5, 3) = cr3.z;
+    J(3, 4) = cr4.x;
+    J(4, 4) = cr4.y;
+    J(5, 4) = cr4.z;
+    J(3, 5) = cr5.x;
+    J(4, 5) = cr5.y;
+    J(5, 5) = cr5.z;
+    J(3, 6) = cr6.x;
+    J(4, 6) = cr6.y;
+    J(5, 6) = cr6.z;
+
+    return J;
 }
 
 inline Array Gen3_7DOF::collision_dist_sqr(Array& joint_position) {
