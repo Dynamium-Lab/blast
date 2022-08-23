@@ -207,26 +207,90 @@ TEST(BlastManip, SelfCollision) {
 
 
 TEST(BlastManip, Jacobienne) {
+    // This test ensures that the functions works as it should
+    // todo: Experimental validation is still pending...
     using namespace blast;
     Gen3_7DOF manip;
     blast::Array theta2(7);
+    blast::Array theta1(7);
+    theta1 = {0, 15, 180, 230, 360, 55, 90};
+    theta1 = deg2rad(theta1);
+    blast::Array theta2(7);
     theta2 = {0, 0, 0, 0, 0, 0, 0};
     theta2 = deg2rad(theta2);
+    blast::Array theta3(7);
+    theta3 = {0, 16, 180, 221, 358, 284, 88};
+    theta3 = deg2rad(theta3);
+    blast::Array theta4(7);
+    theta4 = {347, 47, 158, 212, 341, 300, 8};
+    theta4 = deg2rad(theta4);
 
+    // Test 1
+    auto J1 = manip.jacobian_matrix(theta1);
+    Matrix Jacob1(6, 7);
+    Jacob1(0, 0) = 0.0;
+    Jacob1(1, 0) = 0.0;
+    Jacob1(2, 0) = 1.0;
+    Jacob1(3, 0) = -0.01180000000000;
+    Jacob1(4, 0) = 0.620586128124275;
+    Jacob1(5, 0) = 0.0;
+
+    Jacob1(0, 1) = 0.0;
+    Jacob1(1, 1) = 0.0;
+    Jacob1(2, 1) = -1.0;
+    Jacob1(3, 1) = 0.304544485822496;
+    Jacob1(4, 1) = -0.560875587304492;
+    Jacob1(5, 1) = 0.0;
+
+    Jacob1(0, 2) = 0.0;
+    Jacob1(1, 2) = 1.0;
+    Jacob1(2, 2) = 0.0;
+    Jacob1(3, 2) = 0.145165283927464;
+    Jacob1(4, 2) = 0.0;
+    Jacob1(5, 2) = 0.541764215112458;
+
+    Jacob1(0, 3) = -0.258819045102521;
+    Jacob1(1, 3) = 0.0;
+    Jacob1(2, 3) = -0.965925826289068;
+    Jacob1(3, 3) = -0.487196789176532;
+    Jacob1(4, 3) = 0.271466987477372;
+    Jacob1(5, 3) = 0.130543986214888;
+
+    Jacob1(0, 4) = 0.0;
+    Jacob1(1, 4) = -1.0;
+    Jacob1(2, 4) = 0.0;
+    Jacob1(3, 4) = -0.155707067264225;
+    Jacob1(4, 4) = 0.0;
+    Jacob1(5, 4) = 0.222372737749063;
+
+    Jacob1(0, 5) = -0.573576436351046;
+    Jacob1(1, 5) = 0.0;
+    Jacob1(2, 5) = 0.819152044288992;
+    Jacob1(3, 5) = 0.271466987477372;
+    Jacob1(4, 5) = 0.0;
+    Jacob1(5, 5) = 0.190083231006737;
+
+    Jacob1(0, 6) = 0.0;
+    Jacob1(1, 6) = 1.0;
+    Jacob1(2, 6) = 0.0;
+    Jacob1(3, 6) = 0.0;
+    Jacob1(4, 6) = 0.0;
+    Jacob1(5, 6) = 0.0;
+
+    // Test 2
     auto J2 = manip.jacobian_matrix(theta2);
-
     Matrix Jacob2(6, 7);
     Jacob2(0, 0) = 0.0;
     Jacob2(1, 0) = 0.0;
     Jacob2(2, 0) = 1.0;
-    Jacob2(3, 0) = -0.0118;
+    Jacob2(3, 0) = -0.011800000;
     Jacob2(4, 0) = 0.0;
     Jacob2(5, 0) = 0.0;
 
     Jacob2(0, 1) = 0.0;
     Jacob2(1, 1) = 0.0;
     Jacob2(2, 1) = -1.0;
-    Jacob2(3, 1) = 1.0665;
+    Jacob2(3, 1) = 1.066500000;
     Jacob2(4, 1) = 0.0;
     Jacob2(5, 1) = 0.0;
 
@@ -240,7 +304,7 @@ TEST(BlastManip, Jacobienne) {
     Jacob2(0, 3) = 0.0;
     Jacob2(1, 3) = 0.0;
     Jacob2(2, 3) = -1.0;
-    Jacob2(3, 3) = 0.6547;
+    Jacob2(3, 3) = 0.654700000;
     Jacob2(4, 3) = 0.0;
     Jacob2(5, 3) = 0.0;
 
@@ -254,7 +318,7 @@ TEST(BlastManip, Jacobienne) {
     Jacob2(0, 5) = 0.0;
     Jacob2(1, 5) = 0.0;
     Jacob2(2, 5) = -1.0;
-    Jacob2(3, 5) = 0.3314;
+    Jacob2(3, 5) = 0.33140000;
     Jacob2(4, 5) = 0.0;
     Jacob2(5, 5) = 0.0;
 
@@ -267,7 +331,8 @@ TEST(BlastManip, Jacobienne) {
 
     for (u32 i = 0; i < 7; i++) {
         for (u32 j = 0; j < 6; j++) {
-            EXPECT_FLOAT_EQ((float)J2(j, i), (float)Jacob2(j, i));
+            EXPECT_TRUE((real)J2(j, i) - (real)Jacob2(j, i) < 0.0000001); // Allow for errors in the Matlab code
+            EXPECT_TRUE((real)J1(j, i) - (real)Jacob1(j, i) < 0.0000001); // Allow for errors in the Matlab code
         }
     }
 }
