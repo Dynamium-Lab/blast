@@ -31,7 +31,7 @@ struct cuPvaBspline {
     double  one_over_T2;
 
     // data only for the host
-    PvaBspline* host_pva;
+    PvaBspline* host;
 
 
 
@@ -75,17 +75,16 @@ inline void cuPvaBspline::init(u32 _points, u32 _joints, u32 _p, u32 _ncontrol) 
     p        = _p;
     ncontrol = _ncontrol;
 
-    host_pva = new PvaBspline(ncontrol, points, p, joints);
-    host_pva->compute_basis();
+    host = new PvaBspline(ncontrol, points, p, joints);
 
     // prepare and send basis function values
     const u32 basis_bytes = points*ncontrol*sizeof(double);
     cuda_check( cudaMalloc(&device_basis_p, basis_bytes) );
     cuda_check( cudaMalloc(&device_basis_v, basis_bytes) );
     cuda_check( cudaMalloc(&device_basis_a, basis_bytes) );
-    cuda_check( cudaMemcpy(device_basis_p, host_pva->basis_p.data, basis_bytes, cudaMemcpyHostToDevice) );
-    cuda_check( cudaMemcpy(device_basis_p, host_pva->basis_v.data, basis_bytes, cudaMemcpyHostToDevice) );
-    cuda_check( cudaMemcpy(device_basis_p, host_pva->basis_a.data, basis_bytes, cudaMemcpyHostToDevice) );
+    cuda_check( cudaMemcpy(device_basis_p, host->basis_p.data, basis_bytes, cudaMemcpyHostToDevice) );
+    cuda_check( cudaMemcpy(device_basis_v, host->basis_v.data, basis_bytes, cudaMemcpyHostToDevice) );
+    cuda_check( cudaMemcpy(device_basis_a, host->basis_a.data, basis_bytes, cudaMemcpyHostToDevice) );
 
     // prepare pos, vel, and acc matrices and t array
     cuda_check( cudaMalloc(&device_pos,     points*joints*sizeof(double)) );
@@ -125,32 +124,29 @@ inline void cuPvaBspline::clear() {
         cuda_check( cudaFree(device_t) );
         device_t = nullptr;
     }
-
-    delete(host_pva);
-    host_pva = nullptr;
+    delete(host);
+    host = nullptr;
 }
 
 __host__
 inline void cuPvaBspline::fetch_pva() {
-    cuda_check( cudaMemcpy(host_pva->pos.data, device_pos, host_pva->pos.size * sizeof(double), cudaMemcpyDeviceToHost) );
-    cuda_check( cudaMemcpy(host_pva->vel.data, device_vel, host_pva->vel.size * sizeof(double), cudaMemcpyDeviceToHost) );
-    cuda_check( cudaMemcpy(host_pva->acc.data, device_acc, host_pva->acc.size * sizeof(double), cudaMemcpyDeviceToHost) );
+    cuda_check( cudaMemcpy(host->pos.data, device_pos, host->pos.size * sizeof(double), cudaMemcpyDeviceToHost) );
+    cuda_check( cudaMemcpy(host->vel.data, device_vel, host->vel.size * sizeof(double), cudaMemcpyDeviceToHost) );
+    cuda_check( cudaMemcpy(host->acc.data, device_acc, host->acc.size * sizeof(double), cudaMemcpyDeviceToHost) );
 }
 
 __host__
 inline void cuPvaBspline::compute_control(const Array&x, Matrix& task) {
-    Assert(host_pva);
-
+    Assert(host);
     dt = x.back() / (double)(points-1);
     one_over_T = 1.0 / x.back();
     one_over_T2 = one_over_T * one_over_T;
-
-    host_pva->compute_control(x, task);
+    host->compute_control(x, task);
 }
 
 __host__
 inline void cuPvaBspline::send_control() {
-    cuda_check( cudaMemcpy(device_control, host_pva->control.data, joints*ncontrol*sizeof(double), cudaMemcpyHostToDevice) );
+    cuda_check( cudaMemcpy(device_control, host->control.data, joints*ncontrol*sizeof(double), cudaMemcpyHostToDevice) );
 }
 
 __host__
@@ -164,17 +160,16 @@ inline void cuPvaBspline::compute_control_and_send(const Array&x, Matrix& task) 
 //------ DEVICE FUNCTIONS ------------------------------------------------------------------------------------
 __device__
 inline void cuPvaBspline::compute_trajectory(unsigned point) {
-    auto bp = &device_basis_p[point * ncontrol];
-    auto bv = &device_basis_v[point * ncontrol];
-    auto ba = &device_basis_a[point * ncontrol];
-
+    device_t[point] = dt * point;
+    auto bp = device_basis_p + point*ncontrol;
+    auto bv = device_basis_v + point*ncontrol;
+    auto ba = device_basis_a + point*ncontrol;
     for (int joint = 0; joint < joints; joint++) {
-        auto c = &device_control[ncontrol * joint];
+        auto c = device_control + joint*ncontrol;
         device_pos[point*joints + joint] = dot(c, bp, ncontrol);
         device_vel[point*joints + joint] = dot(c, bv, ncontrol) * one_over_T;
         device_acc[point*joints + joint] = dot(c, ba, ncontrol) * one_over_T2;
     }
-    device_t[point] = dt * point;
 }
 
 } // namespace blast

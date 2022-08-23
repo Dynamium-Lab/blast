@@ -19,11 +19,11 @@ namespace blast {
 
 
 inline void print(Vec3 v) {
-    printf("[%f, %f, %f]\n", v.x, v.y, v.z);
+    printf("[% 0.4f, % 0.4f, % 0.4f]\n", v.x, v.y, v.z);
 }
 
 inline void print(Mat3 m) {
-    printf("\n[%f, %f, %f]\n[%f, %f, %f]\n[%f, %f, %f]\n",
+    printf("\n[% 0.4f, % 0.4f, % 0.4f]\n[% 0.4f, % 0.4f, % 0.4f]\n[% 0.4f, % 0.4f, % 0.4f]\n",
            m(0, 0), m(0, 1), m(0, 2), m(1, 0), m(1, 1), m(1, 2), m(2, 0), m(2, 1), m(2, 2));
 }
 
@@ -33,8 +33,8 @@ inline void print(Array& a) {
         return;
     printf("[");
     for (u32 i = 0; i < a.size-1; i++)
-        printf("%0.4f, ", a[i]);
-    printf("%0.4f]\n", a[a.size-1]);
+        printf("% 0.4f, ", a[i]);
+    printf("% 0.4f]\n", a[a.size-1]);
 }
 
 inline void print(Matrix& m) {
@@ -43,8 +43,8 @@ inline void print(Matrix& m) {
     for (u32 i = 0; i < m.rows; i++) {
         printf("[");
         for (u32 j = 0; j < m.cols-1; j++)
-            printf("%0.4f, ", m(i, j));
-        printf("%0.4f]\n", m(i, m.cols-1));
+            printf("% 0.4f, ", m(i, j));
+        printf("% 0.4f]\n", m(i, m.cols-1));
     }
 }
 

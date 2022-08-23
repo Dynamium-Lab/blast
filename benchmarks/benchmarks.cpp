@@ -3,6 +3,12 @@
 
 #include <benchmark/benchmark.h>
 
+#ifdef __NVCC__
+#include "cuda/blast_cuda.cuh"
+#else
+#error "no NVCC"
+#endif
+
 
 static void BM_Mat4(benchmark::State& state) {
     using namespace blast;
@@ -112,3 +118,4 @@ static void BM_Dynamics_Gen3_7dof(benchmark::State& state) {
     }
 }
 BENCHMARK(BM_Dynamics_Gen3_7dof)->Unit(benchmark::kMicrosecond);
+

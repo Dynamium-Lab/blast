@@ -15,10 +15,10 @@ int main() {
 
     //-- prep trajectory
     cuPvaBspline pva;
-    pva.init(100, 7, 5, 8);
+    pva.init(11, 7, 5, 8);
 
     // optim vector
-    Array x(pva.host_pva->xlen());
+    Array x(pva.host->xlen());
     for (int i = 0; i < x.size-1; i++)
         x[i] = get_random();
     x.back() = 5;
@@ -27,20 +27,20 @@ int main() {
     Matrix task(7, 6);
     task.col(0) = {1, 1, 1, 1, 1, 1, 1};
     task.col(3) = {2, 2, 2, 2, 2, 2, 2};
-    print(task);
 
     // compute control points
     pva.compute_control_and_send(x, task);
-
-    printf("host control points:\n");
-    print(pva.host_pva->control);
-    fflush(stdout);
 
     // launch kernel
     test_kernal<<< 1, pva.points >>>(pva);
 
     // collect results
     pva.fetch_pva();
-    // print(pva.host_pva->pos);
-    // pva.clear();
+    printf("GPU computed trajectory:\n");
+    print(pva.host->vel);
+
+    pva.host->compute_trajectory(x, task);
+    printf("CPU computed trajectory:\n");
+    print(pva.host->vel);
+    pva.clear();
 }

@@ -81,6 +81,7 @@ inline PvaBspline::PvaBspline(u32 ncontrol, u32 npoints, u32 P, u32 dof) :
 }
 
 inline void PvaBspline::compute_basis() {
+    printf("Computing basis functions\n");
     u32 m = nctrl + p;
     Array knots(m+1);
     {
@@ -93,6 +94,9 @@ inline void PvaBspline::compute_basis() {
 
     Array N(m*(p+1)); // triangle basis function
     const real du = 1.0f / (points-1);
+    zero(basis_p);
+    zero(basis_v);
+    zero(basis_a);
     real* basis_p_col = basis_p.data;
     real* basis_v_col = basis_v.data;
     real* basis_a_col = basis_a.data;
@@ -195,10 +199,8 @@ inline void PvaBspline::compute_trajectory(const Array& x, Matrix& task) {
     const real dt = T / (points-1);
     const real one_over_T = 1/T;
     const real one_over_T2 = one_over_T*one_over_T;
+    printf("Host dt:%f, 1/T: %f, 1/T^2: %f\n", dt, one_over_T, one_over_T2);
 
-    // auto p = pos.data;
-    // auto v = vel.data;
-    // auto a = acc.data;
     for (u32 point = 0; point < points; point++) {
         t[point] = dt * point;
         auto bp = basis_p.col(point);
@@ -209,28 +211,6 @@ inline void PvaBspline::compute_trajectory(const Array& x, Matrix& task) {
             pos(joint, point) = dot(c, bp);
             vel(joint, point) = dot(c, bv) * one_over_T;
             acc(joint, point) = dot(c, ba) * one_over_T2;
-
-            // const auto c = &control(0, joint);
-
-            // // compute
-            // auto accum_p = _mm256_setzero_pd();
-            // auto accum_v = _mm256_setzero_pd();
-            // auto accum_a = _mm256_setzero_pd();
-            // for (u32 i = 0; i < nctrl-3; i += 4) {
-            //     const auto c_v  = _mm256_loadu_pd(&c[i]);
-            //     const auto bp_v = _mm256_loadu_pd(&bp[i]);
-            //     const auto bv_v = _mm256_loadu_pd(&bv[i]);
-            //     const auto ba_v = _mm256_loadu_pd(&ba[i]);
-            //     accum_p = _mm256_fmadd_pd(c_v, bp_v, accum_p);
-            //     accum_v = _mm256_fmadd_pd(c_v, bv_v, accum_v);
-            //     accum_a = _mm256_fmadd_pd(c_v, ba_v, accum_a);
-            // }
-            // *p = simd_hadd(accum_p);
-            // *v = simd_hadd(accum_v) * one_over_T;
-            // *a = simd_hadd(accum_a) * one_over_T2;
-            // p++;
-            // v++;
-            // a++;
         }
     }
 }

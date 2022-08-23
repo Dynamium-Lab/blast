@@ -41,8 +41,8 @@ inline void cuPrint(double* data, unsigned rows, unsigned cols) {
     for (u32 i = 0; i < rows; i++) {
         printf("[");
         for (u32 j = 0; j < cols-1; j++)
-            printf("%0.4f, ", data[i + rows*j]);
-        printf("%0.4f]\n", data[i + rows*(cols-1)]);
+            printf("% 0.4f, ", data[i + rows*j]);
+        printf("% 0.4f]\n", data[i + rows*(cols-1)]);
     }
 }
 
