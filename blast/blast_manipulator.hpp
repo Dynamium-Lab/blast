@@ -93,7 +93,7 @@ struct Gen3_7DOF : public Manipulator {
     Matrix forward_kinematics(const Matrix& joint_positions);
 
     // compute jacobian matrix
-    Matrix Gen3_7DOF::jacobian_matrix(Array& joint_position);
+    Matrix Gen3_7DOF::jacobian_matrix(const Array& joint_position);
 
     // check collision
     Array collision_dist_sqr(const Array& joint_position);
@@ -959,7 +959,7 @@ inline Matrix Gen3_7DOF::forward_kinematics(const Matrix& joint_positions) {
     return pose;
 }
 
-inline Matrix Gen3_7DOF::jacobian_matrix(Array& joint_position) {
+inline Matrix Gen3_7DOF::jacobian_matrix(const Array& joint_position) {
 
     //  - note: manual SIMD (10% better performance than using sincos function on arrays like commented below)
     real s[8];
@@ -1071,7 +1071,7 @@ inline Matrix Gen3_7DOF::jacobian_matrix(Array& joint_position) {
     return J;
 }
 
-inline Array Gen3_7DOF::collision_dist_sqr(Array& joint_position) {
+inline Array Gen3_7DOF::collision_dist_sqr(const Array& joint_position) {
     //  - note: manual SIMD
     // real s[8];
     // real c[8];
