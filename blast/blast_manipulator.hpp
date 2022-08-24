@@ -988,13 +988,13 @@ inline Matrix Gen3_7DOF::jacobian_matrix(const Array& joint_position) {
     // unit vectors in 1st reference
     Vec3 e_1[7];
     e_1[0] = ev[0];
-    auto Q_tmp = Q1;
+    auto Q_tmp = Q2;
     e_1[1] = Q_tmp*ev[1];
-    e_1[2] = (Q_tmp*=Q2)*ev[2];
-    e_1[3] = (Q_tmp*=Q3)*ev[3];
-    e_1[4] = (Q_tmp*=Q4)*ev[4];
-    e_1[5] = (Q_tmp*=Q5)*ev[5];
-    e_1[6] = (Q_tmp*=Q6)*ev[6];
+    e_1[2] = (Q_tmp*=Q3)*ev[2];
+    e_1[3] = (Q_tmp*=Q4)*ev[3];
+    e_1[4] = (Q_tmp*=Q5)*ev[4];
+    e_1[5] = (Q_tmp*=Q6)*ev[5];
+    e_1[6] = (Q_tmp*=Q7)*ev[6];
 
     Vec3 r[7];
     r[6] = dv[6];
@@ -1005,13 +1005,13 @@ inline Matrix Gen3_7DOF::jacobian_matrix(const Array& joint_position) {
     r[1] = dv[1] + Q3*r[2];
     r[0] = dv[0] + Q2*r[1];
 
-    Q_tmp = Q1;
+    Q_tmp = Q2;
     r[1] = (Q_tmp)*r[1];
-    r[2] = (Q_tmp*=Q2)*r[2];
-    r[3] = (Q_tmp*=Q3)*r[3];
-    r[4] = (Q_tmp*=Q4)*r[4];
-    r[5] = (Q_tmp*=Q5)*r[5];
-    r[6] = (Q_tmp*=Q6)*r[6];
+    r[2] = (Q_tmp*=Q3)*r[2];
+    r[3] = (Q_tmp*=Q4)*r[3];
+    r[4] = (Q_tmp*=Q5)*r[4];
+    r[5] = (Q_tmp*=Q6)*r[5];
+    r[6] = (Q_tmp*=Q7)*r[6];
 
 
     auto cr0 = cross(e_1[0], r[0]);
