@@ -32,10 +32,10 @@ struct cuGen3_7DOF {
     __host__ void init(real mass, u32 npoints);
 
     // fetch the latest computed constraints from the device to the host
-    __host__ void fetch_constraints();
+    __host__ void fetch_constraints(u32 npoints);
 
     // compute the constraints based on the current trajectory point
-    __device__ void compute_constraints(const real pos[7], const real vel[7], const real acc[7], real con[21]);
+    __device__ void compute_constraints(const real pos[7], const real vel[7], const real acc[7], real* con);
 };
 
 
@@ -44,7 +44,8 @@ struct cuGen3_7DOF {
 
 //------ Kinova Gen3 7DOF manipulator functions ---------------------------------------
 
-inline __host__ void cuGen3_7DOF::init(real mass, u32 npoints) {
+__host__
+inline void cuGen3_7DOF::init(real mass, u32 npoints) {
     // position of the first joint with respect to the table in the center of the base
     p_base = {0, 0, 0.1564f};
 
@@ -133,12 +134,20 @@ inline __host__ void cuGen3_7DOF::init(real mass, u32 npoints) {
     tau_max[6] = 17;
 
     assert_buffer_size<cuGen3_7DOF, sizeof(manip_broadcast_arena)>(); // compile time check
-    cuda_check( cudaMemcpyToSymbol(manip_broadcast_arena, this, sizeof(*this), 0) );
     cuda_check( cudaMalloc(&device_constraints, 21*npoints*sizeof(real)) );
     cuda_check( cudaMallocHost(&host_constraints, 21*npoints*sizeof(real)) );
+
+    // note: this must be done last
+    cuda_check( cudaMemcpyToSymbol(manip_broadcast_arena, this, sizeof(*this), 0) );
 }
 
-inline __device__ void cuGen3_7DOF::compute_constraints(const real pos[7], const real vel[7], const real acc[7], real con[21]) {
+__host__
+inline void cuGen3_7DOF::fetch_constraints(u32 npoints) {
+    cuda_check( cudaMemcpy(host_constraints, device_constraints, 21*npoints*sizeof(real), cudaMemcpyDeviceToHost) );
+}
+
+__device__
+inline void cuGen3_7DOF::compute_constraints(const real pos[7], const real vel[7], const real acc[7], real* con) {
 #if BLAST_USE_DOUBLES
     real s[7];
     real c[7];
@@ -175,8 +184,6 @@ inline __device__ void cuGen3_7DOF::compute_constraints(const real pos[7], const
     const Mat3 Q5t( transpose(Q5) );
     const Mat3 Q6t( transpose(Q6) );
     const Mat3 Q7t( transpose(Q7) );
-
-
 
     //-- Collision constraints
     Vec3 p_orig(0, 0, 0);

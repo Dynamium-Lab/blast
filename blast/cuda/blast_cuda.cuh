@@ -20,20 +20,12 @@ __global__ void no_object_kernel(
 __global__
 void test_kernel(cuPvaBspline pva) {
     const u32 point = blockIdx.x * blockDim.x + threadIdx.x;
-    if (point > 255)
-        printf("Error in kernel: point %d is not valid\n", point);
 
     blast::cuGen3_7DOF* manip = (blast::cuGen3_7DOF*)blast::manip_broadcast_arena;
-    if (point == 0) {
-        printf("Manip->I[5].data[5] = %f\n", manip->I[5].data[5]);
-    }
-
     pva.compute_trajectory(point);
 
     const u32 pva_offset = point * 7;
     const u32 constraints_offset = point * 21;
-    if (constraints_offset > 255*21)
-        printf("Error in kernel: constraints offset %d is not valid\n", constraints_offset);
 
     const auto pos = pva.device_pos + pva_offset;
     const auto vel = pva.device_vel + pva_offset;

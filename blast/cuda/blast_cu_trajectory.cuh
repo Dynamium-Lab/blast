@@ -73,11 +73,6 @@ inline void cuPvaBspline::init(u32 _points, u32 _joints, u32 _p, u32 _ncontrol) 
     joints   = _joints;
     p        = _p;
     ncontrol = _ncontrol;
-    printf("Initializing cuPvaBspline for object at address: %p\n", this);
-    printf("\tnpoints%d\n", points);
-    printf("\tjoints%d\n", joints);
-    printf("\tp%d\n", p);
-    printf("\tncontrol%d\n", ncontrol);
 
     host = new PvaBspline(ncontrol, points, p, joints);
 

@@ -9,7 +9,7 @@
 #error "no NVCC"
 #endif
 
-const blast::u32 npoints = 256;
+const blast::u32 npoints = 256*20;
 
 // static void BM_Mat4(benchmark::State& state) {
 //     using namespace blast;
@@ -101,9 +101,8 @@ static void BM_Cuda_Splines(benchmark::State& state) {
 
         // compute trajectory
         pva.compute_control_and_send(x, task);
-        test_kernel<<< 8, npts/8 >>>(pva);
-        cuda_check(  cudaDeviceSynchronize() );
-        // benchmark::ClobberMemory();
+        test_kernel<<< 20, npts/20 >>>(pva);
+        manip.fetch_constraints(npts);
     }
     cudaDeviceSynchronize();
 }
