@@ -8,8 +8,10 @@
 #define cuda_check(expr) \
 { \
     auto code = (expr); \
-    if (code != cudaSuccess) \
-        fprintf(stderr, "Cuda error: %s. In file: %s (%d)", cudaGetErrorString(code), __FILE__,__LINE__);\
+    if (code != cudaSuccess){ \
+        fprintf(stderr, "Cuda error: %s. In file: %s (%d)\n", cudaGetErrorString(code), __FILE__,__LINE__);\
+        abort();\
+    } \
 }
 
 namespace blast {

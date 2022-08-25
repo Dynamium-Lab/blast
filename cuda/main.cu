@@ -32,7 +32,7 @@ int main() {
     pva.compute_control_and_send(x, task);
 
     // launch kernel
-    test_kernal<<< 1, pva.points >>>(pva);
+    test_kernel<<< 1, pva.points >>>(pva);
 
     // collect results
     pva.fetch_pva();

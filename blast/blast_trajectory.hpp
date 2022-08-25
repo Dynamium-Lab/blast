@@ -81,7 +81,6 @@ inline PvaBspline::PvaBspline(u32 ncontrol, u32 npoints, u32 P, u32 dof) :
 }
 
 inline void PvaBspline::compute_basis() {
-    printf("Computing basis functions\n");
     u32 m = nctrl + p;
     Array knots(m+1);
     {
@@ -199,7 +198,6 @@ inline void PvaBspline::compute_trajectory(const Array& x, Matrix& task) {
     const real dt = T / (points-1);
     const real one_over_T = 1/T;
     const real one_over_T2 = one_over_T*one_over_T;
-    printf("Host dt:%f, 1/T: %f, 1/T^2: %f\n", dt, one_over_T, one_over_T2);
 
     for (u32 point = 0; point < points; point++) {
         t[point] = dt * point;
@@ -221,7 +219,7 @@ inline Pva compute_5order_trajectory(real T, Matrix& task) {
 
     Pva result(joints, points);
 
-    const real deltaT = 0.001;
+    const real deltaT = 0.001f;
     T = (points - 1) * deltaT;
 
     Matrix A(6, joints);
@@ -236,10 +234,10 @@ inline Pva compute_5order_trajectory(real T, Matrix& task) {
 
         A(0, j) = p0;
         A(1, j) = v0;
-        A(2, j) = a0*0.5;
-        A(3, j) = 0.5*af - 1.5*a0 - 10*(p0 - pf) - 6*v0 - 4*vf;
-        A(4, j) = 1.5*a0 - af + 15*(p0 - pf) + 8*v0 + 7*vf;
-        A(5, j) = 0.5*(af - a0) - 6*(p0 - pf) - 3*(v0 + vf);
+        A(2, j) = a0*0.5f;
+        A(3, j) = 0.5f*af - 1.5f*a0 - 10*(p0 - pf) - 6*v0 - 4*vf;
+        A(4, j) = 1.5f*a0 - af + 15*(p0 - pf) + 8*v0 + 7*vf;
+        A(5, j) = 0.5f*(af - a0) - 6*(p0 - pf) - 3*(v0 + vf);
     }
 
     for(u32 i=0; i < points; i++) {

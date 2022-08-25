@@ -52,9 +52,9 @@ struct cuMatrix {
 
 
 __device__ __host__
-inline double dot(double* v1, double* v2, unsigned n) {
+inline double dot(const double* v1, const double* v2, const unsigned n) {
     double r = 0;
-    for (int i = 0; i < n; i++)
+    for (u32 i = 0; i < n; i++)
         r += v1[i]*v2[i];
     return r;
 }
