@@ -10,6 +10,13 @@
 #include "blast_simd.hpp"
 #include "blast_error.hpp"
 
+#define BLAST_USE_DOUBLES 0
+
+#ifndef __host__
+#define __host__
+#define __device__
+#endif
+
 namespace blast {
 
 using u8    = uint8_t;
@@ -18,8 +25,15 @@ using u32   = uint32_t;
 using i8    = int8_t;
 using i16   = int16_t;
 using i32   = int32_t;
-using real  = double; // for testing float vs double speed and precision
+
+#if BLAST_USE_DOUBLES
+using real  = double;
 #define BLAST_SIZEOF_REAL 8
+#else
+using real  = float;
+#define BLAST_SIZEOF_REAL 4
+#endif
+
 static_assert(sizeof(real) == BLAST_SIZEOF_REAL);
 
 using svector = std::vector<real>;
@@ -34,7 +48,7 @@ struct Matrix;
 // useful constants
 static const real inf = std::numeric_limits<real>::infinity();
 static const real nan = std::numeric_limits<real>::quiet_NaN();
-static const real pi  = 3.1415;
+static const real pi  = (real)3.1415;
 
 // 3D vector
 struct Vec3 {
@@ -44,6 +58,8 @@ struct Vec3 {
     real _pad = 0;
 
     Vec3() = default;
+
+    __host__ __device__
     Vec3(real x, real y, real z);
 };
 
@@ -52,10 +68,17 @@ struct Mat3 {
     real data[9];
 
     Mat3() = default;
+
+    __host__ __device__
     Mat3(real x1, real y1, real z1, real x2, real y2, real z2, real x3, real y3, real z3);
 
+    __host__ __device__
     real& operator()(u32 row, u32 col);
+
+    __host__ __device__
     real& operator[](u32 i);
+
+    __host__ __device__
     real operator[](u32 i) const ;
 };
 
@@ -88,10 +111,6 @@ struct alignas(32) Mat4 {
     // copy list into the matrix
     //  - note: the rest are NOT initialized if the list does not have 16 elements
     Mat4& operator=(const std::initializer_list<real>&);
-
-    // copy packed doubles list into the matrix
-    //  - note: the rest are 0 if the list does not have 4 elements
-    Mat4& operator=(const std::initializer_list<__m256d>&);
 
     // access the given element
     real& operator()(u32 row, u32 col);
@@ -293,6 +312,7 @@ struct Matrix {
 
 //------ MISC ---------------------
 
+__host__ __device__
 inline real wrap2pi(real r) {
     while (r < -pi)
         r += 2*pi;
@@ -301,6 +321,7 @@ inline real wrap2pi(real r) {
     return r;
 }
 
+__host__ __device__
 inline float wrap_to_180(float r) {
     while (r < -180)
         r += 360;
@@ -309,14 +330,17 @@ inline float wrap_to_180(float r) {
     return r;
 }
 
+__host__ __device__
 inline real deg2rad(real r) {
     return r * pi/180;
 }
 
+__host__ __device__
 inline real rad2deg(real r) {
     return r * 180/pi;
 }
 
+__host__ __device__
 inline Array rad2deg(const Array& a) {
     Array r(a.size);
     for (u32 i = 0; i < a.size; i++)
@@ -324,6 +348,7 @@ inline Array rad2deg(const Array& a) {
     return r;
 }
 
+__host__ __device__
 inline Array deg2rad(const Array& a) {
     Array r(a.size);
     for (u32 i = 0; i < a.size; i++)
@@ -331,50 +356,60 @@ inline Array deg2rad(const Array& a) {
     return r;
 }
 
+__host__ __device__
 inline void zero(Vec3& v) {
     v.x = v.y = v.z = 0;
 }
 
+__host__ __device__
 inline void zero(Mat3& m) {
     memset(m.data, 0, 9*sizeof(real));
 }
 
+__host__ __device__
 inline void zero(Array& a) {
     if(a.data)
         memset(a.data, 0, a.size*sizeof(real));
 }
 
+__host__ __device__
 inline void zero(Matrix& m) {
     if(m.data)
         memset(m.data, 0, m.size*sizeof(real));
 }
 
+__host__ __device__
 inline void constant(Vec3& v, real val) {
     v.x = val;
     v.y = val;
     v.z = val;
 }
 
+__host__ __device__
 inline void constant(Mat3& m, real val) {
     for (u32 i = 0; i < 9; i++)
         m.data[i] = val;
 }
 
+__host__ __device__
 inline void constant(Mat4& m, real val) {
     for (u32 i = 0; i < 16; i++)
         m.data[i] = val;
 }
 
+__host__ __device__
 inline void constant(Array& a, real val) {
     for (u32 i = 0; i < a.size; i++)
         a[i] = val;
 }
 
+__host__ __device__
 inline void constant(Matrix& m, real val) {
     for (u32 i = 0; i < m.size; i++)
         m.data[i] = val;
 }
 
+__host__ __device__
 inline void minus_insert(const Array& a, const Matrix& m, real* dst) {
     Assert(m.rows == a.size);
     auto m_data = m.data;
@@ -387,6 +422,7 @@ inline void minus_insert(const Array& a, const Matrix& m, real* dst) {
     }
 }
 
+__host__ __device__
 inline void minus_insert(const Matrix& m, const Array& a, real* dst) {
     Assert(m.rows == a.size);
     auto m_data = m.data;
@@ -399,6 +435,7 @@ inline void minus_insert(const Matrix& m, const Array& a, real* dst) {
     }
 }
 
+__host__ __device__
 inline real array_min(const Array& a) {
     real result = inf;
     for(u32 i = 0; i < a.size; i++)
@@ -406,6 +443,7 @@ inline real array_min(const Array& a) {
     return result;
 }
 
+__host__ __device__
 inline real array_max(const Array& a) {
     real result = -inf;
     for(u32 i = 0; i < a.size; i++)
@@ -413,6 +451,7 @@ inline real array_max(const Array& a) {
     return result;
 }
 
+__host__ __device__
 inline bool close(const Array& a1, const Array& a2, real eps = 1e-05) {
     Assert(a1.size == a2.size);
     for (u32 i =0; i < a1.size; i++)
@@ -424,11 +463,12 @@ inline bool close(const Array& a1, const Array& a2, real eps = 1e-05) {
 
 //------ Vec3 ---------------------
 
+__host__ __device__
 inline Vec3::Vec3(real x, real y, real z)
     : x(x), y(y), z(z), _pad(0) {
-
 }
 
+__host__ __device__
 inline Vec3 cross(Vec3 a, Vec3 b) {
     Vec3 r;
     r.x = a.y*b.z - a.z*b.y;
@@ -437,10 +477,12 @@ inline Vec3 cross(Vec3 a, Vec3 b) {
     return r;
 }
 
+__host__ __device__
 inline real dot(Vec3 a, Vec3 b) {
     return a.x*b.x + a.y*b.y + a.z*b.z;
 }
 
+__host__ __device__
 inline Vec3 operator-(Vec3 a, Vec3 b) {
     return Vec3{
         a.x - b.x,
@@ -449,6 +491,7 @@ inline Vec3 operator-(Vec3 a, Vec3 b) {
     };
 }
 
+__host__ __device__
 inline Vec3 operator+(Vec3 a, Vec3 b) {
     return Vec3{
         a.x + b.x,
@@ -457,6 +500,7 @@ inline Vec3 operator+(Vec3 a, Vec3 b) {
     };
 }
 
+__host__ __device__
 inline Vec3 operator*(real a, Vec3 b) {
     return Vec3{
         a * b.x,
@@ -465,6 +509,7 @@ inline Vec3 operator*(real a, Vec3 b) {
     };
 }
 
+__host__ __device__
 inline Vec3 operator*(Vec3 a, real b) {
     return Vec3{
         a.x * b,
@@ -473,6 +518,7 @@ inline Vec3 operator*(Vec3 a, real b) {
     };
 }
 
+__host__ __device__
 inline Vec3& operator+=(Vec3& v1, Vec3& v2) {
     v1.x += v2.x;
     v1.y += v2.y;
@@ -480,6 +526,7 @@ inline Vec3& operator+=(Vec3& v1, Vec3& v2) {
     return v1;
 }
 
+__host__ __device__
 inline Vec3& operator*=(Vec3&v, real a) {
     v.x *= a;
     v.y *= a;
@@ -490,6 +537,7 @@ inline Vec3& operator*=(Vec3&v, real a) {
 
 //------ Mat3 ---------------------
 
+__host__ __device__
 inline Mat3::Mat3(real x1, real y1, real z1, real x2, real y2, real z2, real x3, real y3, real z3) {
     data[0] = x1;
     data[1] = y1;
@@ -502,11 +550,13 @@ inline Mat3::Mat3(real x1, real y1, real z1, real x2, real y2, real z2, real x3,
     data[8] = z3;
 }
 
+__host__ __device__
 inline real& Mat3::operator()(u32 row, u32 col) {
     return data[3*col + row];
 }
 
-inline Mat3 operator*(Mat3& m, Mat3 rhs) {
+__host__ __device__
+inline Mat3 operator*(const Mat3& m, const Mat3 rhs) {
     Mat3 r;
     r.data[0] = m.data[0]*rhs.data[0] + m.data[3]*rhs.data[1] + m.data[6]*rhs.data[2];
     r.data[1] = m.data[1]*rhs.data[0] + m.data[4]*rhs.data[1] + m.data[7]*rhs.data[2];
@@ -520,11 +570,13 @@ inline Mat3 operator*(Mat3& m, Mat3 rhs) {
     return r;
 }
 
-inline Mat3& operator*=(Mat3& lhs, Mat3& rhs) {
+__host__ __device__
+inline Mat3& operator*=(Mat3& lhs, const Mat3& rhs) {
     lhs = lhs * rhs;
     return lhs;
 }
 
+__host__ __device__
 inline Mat3 operator+(Mat3& lhs, Mat3& rhs) {
     Mat3 r;
     for (u32 i = 0; i < 9; i++)
@@ -532,31 +584,35 @@ inline Mat3 operator+(Mat3& lhs, Mat3& rhs) {
     return r;
 }
 
+__host__ __device__
 inline Mat3& operator+=(Mat3& lhs, Mat3& rhs) {
     lhs = lhs + rhs;
     return lhs;
 }
 
-inline Mat3 transpose(Mat3& m) {
+__host__ __device__
+inline Mat3 transpose(const Mat3& m) {
     Mat3 result {
-        m(0, 0),
-        m(0, 1),
-        m(0, 2),
-        m(1, 0),
-        m(1, 1),
-        m(1, 2),
-        m(2, 0),
-        m(2, 1),
-        m(2, 2)
+        m.data[0],
+        m.data[3],
+        m.data[6],
+        m.data[1],
+        m.data[4],
+        m.data[7],
+        m.data[2],
+        m.data[5],
+        m.data[8]
     };
     return result;
 }
 
+__host__ __device__
 inline real& Mat3::operator[](u32 i) {
     Assert(i < 9);
     return data[i];
 }
 
+__host__ __device__
 inline real Mat3::operator[](u32 i) const {
     Assert(i < 9);
     return data[i];
@@ -599,15 +655,6 @@ inline Mat4& Mat4::operator=(const std::initializer_list<real>& l) {
         data[i] = l.begin()[i];
     for (; i < 16; i++)
         data[i]=(real)0.0;
-    return *this;
-}
-
-inline Mat4& Mat4::operator=(const std::initializer_list<__m256d>& l) {
-    u32 i;
-    for (i = 0; i < l.size() && i < 4; i++)
-        ymm[i] = l.begin()[i];
-    for (; i < 4; i++)
-        ymm[i] = _mm256_setzero_pd();
     return *this;
 }
 
@@ -665,14 +712,20 @@ inline Mat4& Mat4::operator*=(Mat4& rhs) {
     }
 
 #else
-#error Mat4 multiplication is not (yet) implemented for floats
+// naive implementation (no SIMD)
+    Mat4 tmp = *this;
+    for (u32 i = 0; i < 4; i++) {
+        for (u32 j = 0; j < 4; j++) {
+            (*this)(i, j) = tmp(i, 0)*rhs(0, j) + tmp(i, 1)*rhs(1, j) + tmp(i, 2)*rhs(2, j) + tmp(i, 3)*rhs(3, j);
+        }
+    }
     // todo: implement
 #endif
     return *this;
 }
 
 inline Mat4& Mat4::operator*=(real v) {
-#if BLAST_SIZEOF_REAL == 8
+#if BLAST_USE_DOUBLES
     const __m256d _v = _mm256_set1_pd(v);
     for (u32 i = 0; i < 4; i++)
         ymm[i] =_mm256_mul_pd(_v, ymm[i]);
@@ -694,7 +747,8 @@ inline Mat4& Mat4::operator+=(Mat4& rhs) {
         ymm[i] = _mm256_add_pd(ymm[i], rhs.ymm[i]);
 
 #else
-#error not yet implemented
+    for (u32 i = 0; i < 16; i++)
+        data[i] += rhs[i];
 #endif
     return *this;
 }
@@ -709,7 +763,8 @@ inline Mat4& Mat4::operator-=(Mat4& rhs) {
         ymm[i] = _mm256_sub_pd(ymm[i], rhs.ymm[i]);
 
 #else
-#error not yet implemented
+    for (u32 i = 0; i < 16; i++)
+        data[i] -= rhs[i];
 #endif
     return *this;
 }
@@ -731,7 +786,7 @@ inline Mat4 operator*(const Mat4& lhs, const Mat4& rhs) {
             result(i, j) = lhs(i, 0)*rhs(0, j) + lhs(i, 1)*rhs(1, j) + lhs(i, 2)*rhs(2, j) + lhs(i, 3)*rhs(3, j);
         }
     }
-#elif BLAST_SIZEOF_REAL == 8
+#elif BLAST_USE_DOUBLES
 // note: this implementation is approx 20% faster than above serialized code
     const auto a0 = lhs.ymm[0];
     const auto a1 = lhs.ymm[1];
@@ -750,7 +805,13 @@ inline Mat4 operator*(const Mat4& lhs, const Mat4& rhs) {
     }
 
 #else
-#error Mat4 multiplication is not (yet) implemented for floats
+    // naive implementation (no SIMD)
+    //  note: order of for loops is important!
+    for (u32 j = 0; j < 4; j++) {
+        for (u32 i = 0; i < 4; i++) {
+            result(i, j) = lhs(i, 0)*rhs(0, j) + lhs(i, 1)*rhs(1, j) + lhs(i, 2)*rhs(2, j) + lhs(i, 3)*rhs(3, j);
+        }
+    }
     // todo: implement
 #endif
     return result;
@@ -771,16 +832,6 @@ inline Array Mat4::col(u32 c) const {
     memcpy(result.data, data + c*4, 4*sizeof(real));
     return result;
 }
-
-// inline Mat4::operator Matrix&() {
-//     Matrix r;
-//     return r; // todo: implement
-// }
-
-// inline Mat4::operator Array&() {
-//     Array r;
-//     return r; // todo: implement
-// }
 
 
 
@@ -930,7 +981,8 @@ inline real Array::back() const {
     return data[size-1];
 }
 
-inline Vec3 operator*(Mat3& m, Vec3 v) {
+__host__ __device__
+inline Vec3 operator*(const Mat3& m, const Vec3 v) {
     Vec3 r;
     r.x = m.data[0]*v.x + m.data[3]*v.y + m.data[6]*v.z;
     r.y = m.data[1]*v.x + m.data[4]*v.y + m.data[7]*v.z;
@@ -938,20 +990,20 @@ inline Vec3 operator*(Mat3& m, Vec3 v) {
     return r;
 }
 
-inline Array operator-(Array& v1, Array& v2) {
+inline Array operator-(const Array& v1, const Array& v2) {
     Array r = v1;
     for (u32 i = 0; i < v1.size; i++)
         r[i] -= v2[i];
     return r;
 }
 
-inline Array operator*(Array& a, real b) {
+inline Array operator*(const Array& a, real b) {
     Array r(a);
     r *= b;
     return r;
 }
 
-inline Array operator*(real b, Array& a) {
+inline Array operator*(real b, const Array& a) {
     Array r(a);
     r *= b;
     return r;
@@ -959,26 +1011,26 @@ inline Array operator*(real b, Array& a) {
 
 // Compute the dot product of the given arrays
 //  - note: fastest when the number of elements are a factor of 4 or even 8
-inline real dot(Array& a, Array& b) {
+inline real dot(const Array& a, const Array& b) {
     Assert(a.size == b.size);
 
     real r = (real)0.0;
     int i = 0;
 
     // SIMD what you can
-#if BLAST_SIZEOF_REAL == 8
+#if BLAST_USE_DOUBLES
     auto accum = _mm256_setzero_pd();
     for (; i < (int)a.size-3; i += 4) {
-        const auto a_v = _mm256_loadu_pd(&a[i]);
-        const auto b_v = _mm256_loadu_pd(&b[i]);
+        const auto a_v = _mm256_loadu_pd(&a.data[i]);
+        const auto b_v = _mm256_loadu_pd(&b.data[i]);
         accum = _mm256_fmadd_pd(a_v, b_v, accum);
     }
     r = simd_hadd(accum);
 #elif BLAST_SIZEOF_REAL == 4
     auto accum = _mm256_setzero_ps();
     for (; i < (int)a.size-7; i += 8) {
-        const auto a_v = _mm256_loadu_ps(&a[i]);
-        const auto b_v = _mm256_loadu_ps(&b[i]);
+        const auto a_v = _mm256_loadu_ps(&a.data[i]);
+        const auto b_v = _mm256_loadu_ps(&b.data[i]);
         accum = _mm256_fmadd_ps(a_v, b_v, accum);
     }
     r = simd_hadd(accum);
@@ -997,24 +1049,7 @@ inline void sincos(const Array& angles, Array& sines, Array& cosines) {
     Assert(angles.size == sines.size && angles.size == cosines.size);
     // SIMD what we can
     int i = 0;
-#if BLAST_SIZEOF_REAL == 4
-    for (; i < angles.size-7; i += 8) {
-        __m256 s_tmp;
-        __m256 c_tmp;
-        __m256 angle_v = _mm256_load_ps(&angles.data[i]);
-        s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
-        _mm256_storeu_ps(&sines.data[i], s_tmp);
-        _mm256_storeu_ps(&cosines.data[i], c_tmp);
-    }
-    for (; i < angles.size-3; i += 4) {
-        __m128 s_tmp;
-        __m128 c_tmp;
-        __m128 angle_v = _mm_load_ps(&angles.data[i]);
-        s_tmp = _mm_sincos_ps(&c_tmp, angle_v);
-        _mm_storeu_ps(&sines.data[i], s_tmp);
-        _mm_storeu_ps(&cosines.data[i], c_tmp);
-    }
-#elif BLAST_SIZEOF_REAL == 8
+#if BLAST_USE_DOUBLES
     for (; i < (int)angles.size-3; i += 4) {
         __m256d s_tmp;
         __m256d c_tmp;
@@ -1030,6 +1065,23 @@ inline void sincos(const Array& angles, Array& sines, Array& cosines) {
         s_tmp = _mm_sincos_pd(&c_tmp, angle_v);
         _mm_storeu_pd(&sines.data[i], s_tmp);
         _mm_storeu_pd(&cosines.data[i], c_tmp);
+    }
+#else
+    for (; i < (int)angles.size-7; i += 8) {
+        __m256 s_tmp;
+        __m256 c_tmp;
+        __m256 angle_v = _mm256_load_ps(&angles.data[i]);
+        s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
+        _mm256_storeu_ps(&sines.data[i], s_tmp);
+        _mm256_storeu_ps(&cosines.data[i], c_tmp);
+    }
+    for (; i < (int)angles.size-3; i += 4) {
+        __m128 s_tmp;
+        __m128 c_tmp;
+        __m128 angle_v = _mm_load_ps(&angles.data[i]);
+        s_tmp = _mm_sincos_ps(&c_tmp, angle_v);
+        _mm_storeu_ps(&sines.data[i], s_tmp);
+        _mm_storeu_ps(&cosines.data[i], c_tmp);
     }
 #endif
     // serialize the rest
@@ -1173,9 +1225,19 @@ inline Array Matrix::col(u32 c) {
 
 
 
+__host__ __device__
+inline real clamp(real val, real mini, real maxi) {
+    real r = val < mini ? mini : val;
+    r = r > maxi ? maxi : r;
+    return r;
+}
+
+
+
 //------ Collision ---------------------
 
-static real clamped_root(real slope, real h0, real h1) {
+__host__ __device__
+inline real clamped_root(real slope, real h0, real h1) {
 //note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
     real r;
     if (h0 < 0) {
@@ -1192,7 +1254,8 @@ static real clamped_root(real slope, real h0, real h1) {
     return r;
 }
 
-static void compute_intersection(real* sValue, i32* classify, real b, real f00, real f10, i32* edge, real end[][2]) {
+__host__ __device__
+inline void compute_intersection(real* sValue, i32* classify, real b, real f00, real f10, i32* edge, real end[][2]) {
 // note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
     real const zero = 0;
     real const half = (real)0.5;
@@ -1220,7 +1283,6 @@ static void compute_intersection(real* sValue, i32* classify, real b, real f00, 
         edge[0] = 2;
         end[0][0] = sValue[0];
         end[0][1] = zero;
-
         if (classify[1] < 0) {
             edge[1] = 0;
             end[1][0] = zero;
@@ -1262,7 +1324,8 @@ static void compute_intersection(real* sValue, i32* classify, real b, real f00, 
     }
 }
 
-static void compute_minimum_parameters(i32* edge, real end[][2], real b, real c, real e, real g00, real g10, real g01, real g11, real* parameter) {
+__host__ __device__
+inline void compute_minimum_parameters(i32* edge, real end[][2], real b, real c, real e, real g00, real g10, real g01, real g11, real* parameter) {
 // note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
     real const zero = 0;
     real const one = 1;
@@ -1299,7 +1362,7 @@ static void compute_minimum_parameters(i32* edge, real end[][2], real b, real c,
             }
         }
         else {
-            real z = std::min(std::max(h0 / (h0 - h1), zero), one);
+            real z = clamp( h0/(h0 - h1), 0, 1 );
             real omz = one - z;
             parameter[0] = omz * end[0][0] + z * end[1][0];
             parameter[1] = omz * end[0][1] + z * end[1][1];
@@ -1307,6 +1370,7 @@ static void compute_minimum_parameters(i32* edge, real end[][2], real b, real c,
     }
 }
 
+__host__ __device__
 inline real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
 // note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
     auto const P1mP0 = P1 - P0;
@@ -1317,25 +1381,20 @@ inline real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
     real c = dot(Q1mQ0, Q1mQ0);
     real d = dot(P1mP0, P0mQ0);
     real e = dot(Q1mQ0, P0mQ0);
-
     real f00 = d;
     real f10 = f00 + a;
     real f01 = f00 - b;
     real f11 = f10 - b;
-
     real g00 = -e;
     real g10 = g00 - b;
     real g01 = g00 + c;
     real g11 = g10 + c;
-
     real parameter[2] = {0, 0};
     if (a > 0 && c > 0) {
-
         real sValue[2] = {
             clamped_root(a, f00, f10),
             clamped_root(a, f01, f11)
         };
-
         i32 classify[2] = {0, 0};
         for (size_t i = 0; i < 2; ++i) {
             if (sValue[i] <= 0)
@@ -1345,7 +1404,6 @@ inline real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
             else
                 classify[i] = 0;
         }
-
         if (classify[0] == -1 && classify[1] == -1) {
             parameter[0] = 0;
             parameter[1] = clamped_root(c, g00, g01);
@@ -1358,7 +1416,6 @@ inline real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
             i32 edge[2] = { 0, 0 };
             real end[2][2];
             compute_intersection(sValue, classify, b, f00, f10, edge, end);
-
             compute_minimum_parameters(edge, end, b, c, e, g00, g10, g01, g11, parameter);
         }
     }
@@ -1376,7 +1433,6 @@ inline real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
             parameter[1] = 0;
         }
     }
-
     Vec3 closest0 = P0 + parameter[0]*P1mP0;
     Vec3 closest1 = Q0 + parameter[1]*Q1mQ0;
     Vec3 diff = closest0 - closest1;
