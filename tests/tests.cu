@@ -1,5 +1,9 @@
+
+
+#define BLAST_USE_DOUBLES 1
 #include "blast.hpp"
 #include "blast_optional_utilities.hpp"
+#include "cuda/blast_cuda.cuh"
 
 #include <gtest/gtest.h>
 
@@ -104,10 +108,10 @@ TEST(Math, TwoSegmentDist) {
     auto dist_sqr_test3 = blast::two_segment_distance_sqr({1.5, 3, 2}, {7, 0, 4}, {8.2, 0, 5}, {2, 2, 0});
     auto dist_sqr_test4 = blast::two_segment_distance_sqr({1, 1, 1}, {2, 2, 2}, {3, 3, 3}, {4, 4, 4});
 
-    EXPECT_FLOAT_EQ((float)dist_sqr_test1, (float)(1.414213562373095*1.414213562373095));
-    EXPECT_FLOAT_EQ((float)dist_sqr_test2, (float)(0.408248290463863*0.408248290463863));
-    EXPECT_FLOAT_EQ((float)dist_sqr_test3, (float)(0.277660159805987*0.277660159805987));
-    EXPECT_FLOAT_EQ((float)dist_sqr_test4, (float)(1.732050807568877*1.732050807568877));
+    EXPECT_FLOAT_EQ((float)dist_sqr_test1, 1.414213562373095f*1.414213562373095f);
+    EXPECT_FLOAT_EQ((float)dist_sqr_test2, 0.408248290463863f*0.408248290463863f);
+    EXPECT_FLOAT_EQ((float)dist_sqr_test3, 0.277660159805987f*0.277660159805987f);
+    EXPECT_FLOAT_EQ((float)dist_sqr_test4, 1.732050807568877f*1.732050807568877f);
 }
 
 TEST(SplineTest, TrajectoryCorrectness) {
@@ -177,20 +181,19 @@ TEST(SplineTest, TrajectoryCorrectness) {
     EXPECT_TRUE(max_acc_error < 0.9);
 }
 
-
 TEST(BlastManip, SelfCollision) {
     using namespace blast;
-    blast::Gen3_7DOF manip;
-    blast::Array theta1(7);
+    Gen3_7DOF manip;
+    Array theta1(7);
     theta1 = {0, 15, 180, 230, 360, 55, 90};
     theta1 = deg2rad(theta1);
-    blast::Array theta2(7);
+    Array theta2(7);
     theta2 = {0, 0, 0, 0, 0, 0, 0};
     theta2 = deg2rad(theta2);
-    blast::Array theta3(7);
+    Array theta3(7);
     theta3 = {0, 16, 180, 221, 358, 284, 88};
     theta3 = deg2rad(theta3);
-    blast::Array theta4(7);
+    Array theta4(7);
     theta4 = {347, 47, 158, 212, 341, 300, 8};
     theta4 = deg2rad(theta4);
 
@@ -203,4 +206,44 @@ TEST(BlastManip, SelfCollision) {
     EXPECT_TRUE(dist_sqr_min_2[0] > 0 && dist_sqr_min_2[1] > 0);
     EXPECT_TRUE(dist_sqr_min_3[0] < 0 && dist_sqr_min_3[1] < 0);
     EXPECT_TRUE(dist_sqr_min_4[0] < 0 && dist_sqr_min_4[1] > 0);
+}
+
+TEST(BlastManip, GpuCpuCorrectness) {
+    using namespace blast;
+    const u32 points = 256;
+    const u32 joints = 7;
+    const u32 p = 5;
+    const u32 ncontrol = 24;
+
+    cuPvaBspline pva;
+    pva.init(points, joints, p, ncontrol);
+
+    // random task
+    real amp = 10;
+    Matrix task(joints, 6);
+    for (u32 i = 0; i < task.rows; i++)
+        for (u32 j = 0; j < task.cols; j++)
+            task(i, j) = amp * get_random();
+    // random optimization vector
+    Array x(joints*(ncontrol-6) + 1);
+    for (u32 i = 0; i < x.size; i++)
+        x[i] = amp * get_random();
+    x[x.size-1] = std::abs(x[x.size-1]);
+
+    pva.host->compute_trajectory(x, task); // compute trajectory on host
+    pva.compute_control_and_send(x, task); // prep for compute on device
+
+    Gen3_7DOF host_manip;
+    auto host_con = host_manip.validate(*pva.host);
+
+    cuGen3_7DOF device_manip;
+    device_manip.init(0, points);
+
+    test_kernel<<< 1, points >>>(pva);
+    device_manip.fetch_constraints(points);
+
+    // host_con should be the same (ish) as device_manip.host_constraints
+
+    for (int i = 55; i < 63; i++)
+        EXPECT_FLOAT_EQ((float)host_con[i], (float)device_manip.host_constraints[i]);
 }

@@ -10,7 +10,9 @@
 #include "blast_simd.hpp"
 #include "blast_error.hpp"
 
+#ifndef BLAST_USE_DOUBLES
 #define BLAST_USE_DOUBLES 0
+#endif
 
 #ifndef __host__
 #define __host__
@@ -312,7 +314,6 @@ struct Matrix {
 
 //------ MISC ---------------------
 
-__host__ __device__
 inline real wrap2pi(real r) {
     while (r < -pi)
         r += 2*pi;
@@ -321,7 +322,6 @@ inline real wrap2pi(real r) {
     return r;
 }
 
-__host__ __device__
 inline float wrap_to_180(float r) {
     while (r < -180)
         r += 360;
@@ -330,17 +330,14 @@ inline float wrap_to_180(float r) {
     return r;
 }
 
-__host__ __device__
 inline real deg2rad(real r) {
     return r * pi/180;
 }
 
-__host__ __device__
 inline real rad2deg(real r) {
     return r * 180/pi;
 }
 
-__host__ __device__
 inline Array rad2deg(const Array& a) {
     Array r(a.size);
     for (u32 i = 0; i < a.size; i++)
@@ -348,7 +345,6 @@ inline Array rad2deg(const Array& a) {
     return r;
 }
 
-__host__ __device__
 inline Array deg2rad(const Array& a) {
     Array r(a.size);
     for (u32 i = 0; i < a.size; i++)
