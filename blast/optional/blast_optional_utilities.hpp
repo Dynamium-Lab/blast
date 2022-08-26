@@ -12,22 +12,23 @@
 #include <random>
 #include <cmath>
 
+#include "blast_math.hpp"
 
 
 namespace blast {
 
 
 
-inline void print(Vec3 v) {
+blast_fn void print(Vec3 v) {
     printf("[% 0.4f, % 0.4f, % 0.4f]\n", v.x, v.y, v.z);
 }
 
-inline void print(Mat3 m) {
+blast_fn void print(Mat3 m) {
     printf("\n[% 0.4f, % 0.4f, % 0.4f]\n[% 0.4f, % 0.4f, % 0.4f]\n[% 0.4f, % 0.4f, % 0.4f]\n",
            m(0, 0), m(0, 1), m(0, 2), m(1, 0), m(1, 1), m(1, 2), m(2, 0), m(2, 1), m(2, 2));
 }
 
-inline void print(Array& a) {
+blast_fn void print(Array& a) {
     using namespace std;
     if(a.size == 0)
         return;
@@ -37,7 +38,7 @@ inline void print(Array& a) {
     printf("% 0.4f]\n", a[a.size-1]);
 }
 
-inline void print(Matrix& m) {
+blast_fn void print(Matrix& m) {
     if(m.size == 0)
         return;
     for (u32 i = 0; i < m.rows; i++) {
@@ -48,17 +49,28 @@ inline void print(Matrix& m) {
     }
 }
 
+blast_fn void print(double* data, unsigned rows, unsigned cols) {
+    for (u32 i = 0; i < rows; i++) {
+        printf("[");
+        for (u32 j = 0; j < cols-1; j++)
+            printf("% 0.4f, ", data[i + rows*j]);
+        printf("% 0.4f]\n", data[i + rows*(cols-1)]);
+    }
+}
+
 
 
 // return a random number between -1 and 1
-inline real get_random() {
+host_fn real get_random() {
     static thread_local std::random_device rd;
     static thread_local std::mt19937 e2(rd());
     static thread_local std::uniform_real_distribution<blast::real> dis(-1, 1);
     return dis(e2);
 }
 
-inline int64_t get_tick() {
+
+// get the time
+host_fn int64_t get_tick_us() {
 #if defined(_MSC_VER)
     LARGE_INTEGER start, frequency;
     QueryPerformanceFrequency(&frequency);
@@ -70,6 +82,37 @@ inline int64_t get_tick() {
     return (start.tv_sec * 1000000LLU) + (start.tv_nsec / 1000);
 #endif
 }
+
+
+
+
+
+//-- functions that are only visible to nvcc GPU compiler -----------------------
+#ifdef __NVCC__
+
+
+// print the properties of all connected GPUs
+host_fn void print_device_properties() {
+    int nDevices;
+    cudaGetDeviceCount(&nDevices);
+    for (int i = 0; i < nDevices; i++) {
+        cudaDeviceProp prop;
+        cudaGetDeviceProperties(&prop, i);
+        printf("Device Number: %d\n", i);
+        printf("  Device name: %s\n", prop.name);
+        printf("  Multiprocessors: %d\n", prop.multiProcessorCount);
+        printf("  Threads per multiprocessor: %d\n", prop.maxThreadsPerMultiProcessor);
+        printf("  Memory Clock Rate (KHz): %d\n", prop.memoryClockRate);
+        printf("  Clock Rate (KHz): %d\n", prop.clockRate);
+        printf("  Concurrent Kernels: %d\n", prop.concurrentKernels);
+        printf("  Memory Bus Width (bits): %d\n", prop.memoryBusWidth);
+        printf("  Peak Memory Bandwidth (GB/s): %f\n\n", 2.0*prop.memoryClockRate*(prop.memoryBusWidth/8)/1.0e6);
+    }
+}
+#endif
+
+
+
 
 } // namespace blast
 

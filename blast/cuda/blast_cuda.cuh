@@ -2,8 +2,6 @@
 
 #include <cuda_runtime.h>
 
-#include "cuda/blast_cu_math.cuh"
-#include "cuda/blast_cu_utils.cuh"
 #include "cuda/blast_cu_manipulator.cuh"
 #include "cuda/blast_cu_trajectory.cuh"
 
@@ -17,8 +15,7 @@ __global__ void no_object_kernel(
 
 
 
-__global__
-void test_kernel(cuPvaBspline pva) {
+__global__ void test_kernel(cuPvaBspline pva) {
     const u32 point = blockIdx.x * blockDim.x + threadIdx.x;
 
     blast::cuGen3_7DOF* manip = (blast::cuGen3_7DOF*)blast::manip_broadcast_arena;
@@ -62,8 +59,7 @@ void test_kernel(cuPvaBspline pva) {
 
 }
 
-__global__
-void no_object_kernel(
+__global__ void no_object_kernel(
     real dt, real one_over_T, real one_over_T2, unsigned joints, unsigned ncontrol,
     real* basis_p, real* basis_v, real* basis_a, real* control, real* device_pos, real* device_vel, real* device_acc, real* device_t
 ) {

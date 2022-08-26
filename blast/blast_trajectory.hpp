@@ -18,7 +18,7 @@ struct Pva {
     Pva& operator=(const Pva&);
 
     // compute the PVA using bsplines.
-    virtual void compute_trajectory(const Array&x, Matrix& task) {
+    virtual void compute_trajectory(const Array&x, const Matrix& task) {
         (void) x;
         (void) task;
     }
@@ -39,11 +39,11 @@ struct PvaBspline : public Pva {
 
     // Compute a trajectory from the given optimization vector
     //  - note: fastest when 'ncontrol' is a multiple of 4 (SIMD)
-    void compute_trajectory(const Array&x, Matrix& task) override;
+    void compute_trajectory(const Array&x, const Matrix& task) override;
     u32 xlen() override;
 
     void compute_basis();
-    void compute_control(const Array&x, Matrix& task);
+    void compute_control(const Array&x, const Matrix& task);
 };
 
 
@@ -142,19 +142,19 @@ inline void PvaBspline::compute_basis() {
     }
 }
 
-inline void PvaBspline::compute_control(const Array&x, Matrix& task) {
+inline void PvaBspline::compute_control(const Array&x, const Matrix& task) {
     const real T = x[x.size-1];
     const real du = 1.0f/(nctrl-p);
     const real T2 = T*T;
     const real one_over_T = 1/T;
     const real one_over_T2 = one_over_T*one_over_T;
 
-    const auto p0 = &task(0, 0);
-    const auto v0 = &task(0, 1);
-    const auto a0 = &task(0, 2);
-    const auto pf = &task(0, 3);
-    const auto vf = &task(0, 4);
-    const auto af = &task(0, 5);
+    const auto p0 = task.address(0, 0);
+    const auto v0 = task.address(0, 1);
+    const auto a0 = task.address(0, 2);
+    const auto pf = task.address(0, 3);
+    const auto vf = task.address(0, 4);
+    const auto af = task.address(0, 5);
 
     u32 ctr_i = 0;
     u32 x_i = 0;
@@ -186,7 +186,7 @@ inline u32 PvaBspline::xlen() {
     return joints*(nctrl-6)+1;
 }
 
-inline void PvaBspline::compute_trajectory(const Array& x, Matrix& task) {
+inline void PvaBspline::compute_trajectory(const Array& x, const Matrix& task) {
     Assert(x.size == xlen());
     Assert(task.rows == joints);
     Assert(task.cols == 6);

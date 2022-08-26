@@ -1,10 +1,9 @@
 #pragma once
 
-#include "cuda/blast_cuda.cuh"
-#include "cuda/blast_cu_math.cuh"
+#include "blast.hpp"
 
-#include "blast_math.hpp"
-#include "blast_trajectory.hpp"
+#include "cuda/blast_cuda.cuh"
+
 
 
 namespace blast {
@@ -19,10 +18,10 @@ struct cuPvaBspline {
 
     // data only for the device
     // note: not in __constant__ memory because each thread accesses a different slice (no broadcast benefit)
-    real* device_pos = nullptr;     // joints x points
-    real* device_vel = nullptr;     // joints x points
-    real* device_acc = nullptr;     // joints x points
-    real* device_t = nullptr;       // points
+    real* device_pos     = nullptr; // joints x points
+    real* device_vel     = nullptr; // joints x points
+    real* device_acc     = nullptr; // joints x points
+    real* device_t       = nullptr; // points
     real* device_basis_p = nullptr; // nccontrol x points
     real* device_basis_v = nullptr; // nccontrol x points
     real* device_basis_a = nullptr; // nccontrol x points
@@ -37,34 +36,33 @@ struct cuPvaBspline {
 
 
     // compute the basis functions
-    __host__ void init(u32 points, u32 joints, u32 p, u32 ncontrol);
+    host_fn void init(u32 points, u32 joints, u32 p, u32 ncontrol);
 
     // free all host and device memory
-    __host__ void clear();
+    host_fn void clear();
 
     // fetch the latest computed trajectory on the GPU to host_pva
-    __host__ void fetch_pva();
+    host_fn void fetch_pva();
 
     // compute the control points based on the optimization vector and the task
-    __host__ void compute_control(const Array&x, Matrix& task);
+    host_fn void compute_control(const Array&x, const Matrix& task);
 
     // send the last computed control points to device memory
-    __host__ void send_control();
+    host_fn void send_control();
 
     // compute control points on host and send to device
-    __host__ void compute_control_and_send(const Array&x, Matrix& task);
+    host_fn void compute_control_and_send(const Array&x, const Matrix& task);
 
 
     // compute the trajectory for the given point
-    __device__ void compute_trajectory(unsigned point);
+    dev_fn void compute_trajectory(unsigned point);
 };
 
 
 
 //------ HOST FUNCTIONS ------------------------------------------------------------------------------------
 
-__host__
-inline void cuPvaBspline::init(u32 _points, u32 _joints, u32 _p, u32 _ncontrol) {
+host_fn void cuPvaBspline::init(u32 _points, u32 _joints, u32 _p, u32 _ncontrol) {
     if (is_init)
         return;
     is_init = true;
@@ -93,8 +91,7 @@ inline void cuPvaBspline::init(u32 _points, u32 _joints, u32 _p, u32 _ncontrol) 
     cuda_check( cudaMalloc(&device_control, joints*ncontrol*sizeof(real)) );
 }
 
-__host__
-inline void cuPvaBspline::clear() {
+host_fn void cuPvaBspline::clear() {
     printf("Clearing memory\n");
     if (device_basis_p) {
         cuda_check( cudaFree(device_basis_p) );
@@ -126,17 +123,17 @@ inline void cuPvaBspline::clear() {
     }
     delete(host);
     host = nullptr;
+    is_init = false;
 }
 
-__host__
-inline void cuPvaBspline::fetch_pva() {
+host_fn void cuPvaBspline::fetch_pva() {
     cuda_check( cudaMemcpy(host->pos.data, device_pos, host->pos.size * sizeof(real), cudaMemcpyDeviceToHost) );
     cuda_check( cudaMemcpy(host->vel.data, device_vel, host->vel.size * sizeof(real), cudaMemcpyDeviceToHost) );
     cuda_check( cudaMemcpy(host->acc.data, device_acc, host->acc.size * sizeof(real), cudaMemcpyDeviceToHost) );
+    cuda_check( cudaMemcpy(host->t.data, device_t, host->t.size * sizeof(real), cudaMemcpyDeviceToHost) );
 }
 
-__host__
-inline void cuPvaBspline::compute_control(const Array&x, Matrix& task) {
+host_fn void cuPvaBspline::compute_control(const Array&x, const Matrix& task) {
     Assert(host);
     dt = x.back() / (real)(points-1);
     one_over_T = 1 / x.back();
@@ -144,13 +141,11 @@ inline void cuPvaBspline::compute_control(const Array&x, Matrix& task) {
     host->compute_control(x, task);
 }
 
-__host__
-inline void cuPvaBspline::send_control() {
+host_fn void cuPvaBspline::send_control() {
     cuda_check( cudaMemcpy(device_control, host->control.data, joints*ncontrol*sizeof(real), cudaMemcpyHostToDevice) );
 }
 
-__host__
-inline void cuPvaBspline::compute_control_and_send(const Array&x, Matrix& task) {
+host_fn void cuPvaBspline::compute_control_and_send(const Array&x, const Matrix& task) {
     compute_control(x, task);
     send_control();
 }
@@ -158,8 +153,7 @@ inline void cuPvaBspline::compute_control_and_send(const Array&x, Matrix& task) 
 
 
 //------ DEVICE FUNCTIONS ------------------------------------------------------------------------------------
-__device__
-inline void cuPvaBspline::compute_trajectory(unsigned point) {
+dev_fn void cuPvaBspline::compute_trajectory(unsigned point) {
     device_t[point] = dt * point;
     auto bp = device_basis_p + point*ncontrol;
     auto bv = device_basis_v + point*ncontrol;
@@ -170,12 +164,12 @@ inline void cuPvaBspline::compute_trajectory(unsigned point) {
         real velocity = 0;
         real acceleration = 0;
         for (int i = 0; i < ncontrol; i++) {
-            position += c[i*joints + joint] * bp[i];
-            velocity += c[i*joints + joint] * bv[i];
-            acceleration += c[i*joints + joint] * ba[i];
+            position     += c[i] * bp[i];
+            velocity     += c[i] * bv[i];
+            acceleration += c[i] * ba[i];
         }
         device_pos[point*joints + joint] = position;
-        device_vel[point*joints + joint] = velocity * one_over_T;
+        device_vel[point*joints + joint] = velocity     * one_over_T;
         device_acc[point*joints + joint] = acceleration * one_over_T2;
     }
 }

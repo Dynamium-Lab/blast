@@ -215,35 +215,48 @@ TEST(BlastManip, GpuCpuCorrectness) {
     const u32 p = 5;
     const u32 ncontrol = 24;
 
-    cuPvaBspline pva;
-    pva.init(points, joints, p, ncontrol);
+    cuPvaBspline device_pva;
+    cuGen3_7DOF device_manip;
+    PvaBspline host_pva(ncontrol, points, p, joints);
+    Gen3_7DOF host_manip;
 
-    // random task
-    real amp = 10;
+
+    // random task and input vector
     Matrix task(joints, 6);
+    real amp = 10;
     for (u32 i = 0; i < task.rows; i++)
         for (u32 j = 0; j < task.cols; j++)
             task(i, j) = amp * get_random();
-    // random optimization vector
     Array x(joints*(ncontrol-6) + 1);
     for (u32 i = 0; i < x.size; i++)
         x[i] = amp * get_random();
-    x[x.size-1] = std::abs(x[x.size-1]);
+    x.back() = abs(x.back());
 
-    pva.host->compute_trajectory(x, task); // compute trajectory on host
-    pva.compute_control_and_send(x, task); // prep for compute on device
+    // compute constraints on host
+    host_pva.compute_trajectory(x, task);
+    auto host_con = host_manip.validate(host_pva);
 
-    Gen3_7DOF host_manip;
-    auto host_con = host_manip.validate(*pva.host);
-
-    cuGen3_7DOF device_manip;
+    // compute constraints on GPU
+    device_pva.init(points, joints, p, ncontrol);
+    device_pva.compute_control_and_send(x, task);
     device_manip.init(0, points);
-
-    test_kernel<<< 1, points >>>(pva);
+    test_kernel<<< 1, points >>>(device_pva);
+    device_pva.fetch_pva();
     device_manip.fetch_constraints(points);
 
-    // host_con should be the same (ish) as device_manip.host_constraints
 
-    for (int i = 55; i < 63; i++)
+
+    // Test correctness of the trajectory
+    for (int i = 0; i < (int)points; i++) {
+        EXPECT_FLOAT_EQ((float)host_pva.pos(0, i), (float)device_pva.host->pos(0, i));
+        EXPECT_FLOAT_EQ((float)host_pva.pos(1, i), (float)device_pva.host->pos(1, i));
+        EXPECT_FLOAT_EQ((float)host_pva.pos(2, i), (float)device_pva.host->pos(2, i));
+        EXPECT_FLOAT_EQ((float)host_pva.pos(3, i), (float)device_pva.host->pos(3, i));
+        EXPECT_FLOAT_EQ((float)host_pva.pos(4, i), (float)device_pva.host->pos(4, i));
+        EXPECT_FLOAT_EQ((float)host_pva.pos(5, i), (float)device_pva.host->pos(5, i));
+    }
+
+    // host_con should be the same (ish) as device_manip.host_constraints
+    for (int i = 0; i < (int)host_con.size; i++)
         EXPECT_FLOAT_EQ((float)host_con[i], (float)device_manip.host_constraints[i]);
 }

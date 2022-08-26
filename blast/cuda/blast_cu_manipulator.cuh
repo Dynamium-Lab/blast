@@ -1,7 +1,7 @@
 #pragma once
 
+#include "blast.hpp"
 #include "cuda/blast_cuda.cuh"
-#include "blast_math.hpp"
 
 namespace blast {
 
@@ -44,8 +44,7 @@ struct cuGen3_7DOF {
 
 //------ Kinova Gen3 7DOF manipulator functions ---------------------------------------
 
-__host__
-inline void cuGen3_7DOF::init(real mass, u32 npoints) {
+host_fn void cuGen3_7DOF::init(real mass, u32 npoints) {
     // position of the first joint with respect to the table in the center of the base
     p_base = {0, 0, 0.1564f};
 
@@ -141,13 +140,11 @@ inline void cuGen3_7DOF::init(real mass, u32 npoints) {
     cuda_check( cudaMemcpyToSymbol(manip_broadcast_arena, this, sizeof(*this), 0) );
 }
 
-__host__
-inline void cuGen3_7DOF::fetch_constraints(u32 npoints) {
+host_fn void cuGen3_7DOF::fetch_constraints(u32 npoints) {
     cuda_check( cudaMemcpy(host_constraints, device_constraints, 21*npoints*sizeof(real), cudaMemcpyDeviceToHost) );
 }
 
-__device__
-inline void cuGen3_7DOF::compute_constraints(const real pos[7], const real vel[7], const real acc[7], real* con) {
+dev_fn void cuGen3_7DOF::compute_constraints(const real pos[7], const real vel[7], const real acc[7], real* con) {
 #if BLAST_USE_DOUBLES
     real s[7];
     real c[7];
@@ -229,14 +226,14 @@ inline void cuGen3_7DOF::compute_constraints(const real pos[7], const real vel[7
 
 
     //-- position constraints
-    con[5] = pmax[3] - abs(pos[3]);
-    con[6] = pmax[5] - abs(pos[5]);
+    con[5] = (pmax[3] - abs(pos[3])) / pmax[3];
+    con[6] = (pmax[5] - abs(pos[5])) / pmax[5];
 
 
     //-- velocity constraints
     auto current_result = &con[7];
     for (u32 i = 0; i < 7; i++)
-        current_result[i] = vmax[i] - abs(vel[i]);
+        current_result[i] = (vmax[i] - abs(vel[i])) / vmax[i];
     current_result += 7;
 
 
@@ -292,13 +289,13 @@ inline void cuGen3_7DOF::compute_constraints(const real pos[7], const real vel[7
     n1 = I[0]*wd1 + cross(w1, I[0]*w1) + Q2*n2 + cross(av[0], f1) + cross(sv[0], (Q2*f2));
 
     //-- extract torques (last element of each moment vector)
-    current_result[0] = n1.z;
-    current_result[1] = n2.z;
-    current_result[2] = n3.z;
-    current_result[3] = n4.z;
-    current_result[4] = n5.z;
-    current_result[5] = n6.z;
-    current_result[6] = n7.z;
+    current_result[0] = (tau_max[0] - abs(n1.z)) / tau_max[0];;
+    current_result[1] = (tau_max[1] - abs(n2.z)) / tau_max[1];;
+    current_result[2] = (tau_max[2] - abs(n3.z)) / tau_max[2];;
+    current_result[3] = (tau_max[3] - abs(n4.z)) / tau_max[3];;
+    current_result[4] = (tau_max[4] - abs(n5.z)) / tau_max[4];;
+    current_result[5] = (tau_max[5] - abs(n6.z)) / tau_max[5];;
+    current_result[6] = (tau_max[6] - abs(n7.z)) / tau_max[6];;
 }
 
 

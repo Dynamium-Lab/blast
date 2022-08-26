@@ -7,17 +7,11 @@
 #include <algorithm>
 #include <vector>
 
+#include "blast.hpp"
 #include "blast_simd.hpp"
 #include "blast_error.hpp"
 
-#ifndef BLAST_USE_DOUBLES
-#define BLAST_USE_DOUBLES 0
-#endif
 
-#ifndef __host__
-#define __host__
-#define __device__
-#endif
 
 namespace blast {
 
@@ -27,6 +21,7 @@ using u32   = uint32_t;
 using i8    = int8_t;
 using i16   = int16_t;
 using i32   = int32_t;
+using i64   = int64_t;
 
 #if BLAST_USE_DOUBLES
 using real  = double;
@@ -61,8 +56,7 @@ struct Vec3 {
 
     Vec3() = default;
 
-    __host__ __device__
-    Vec3(real x, real y, real z);
+    blast_fn Vec3(real x, real y, real z);
 };
 
 // 3x3 matrix
@@ -71,17 +65,10 @@ struct Mat3 {
 
     Mat3() = default;
 
-    __host__ __device__
-    Mat3(real x1, real y1, real z1, real x2, real y2, real z2, real x3, real y3, real z3);
-
-    __host__ __device__
-    real& operator()(u32 row, u32 col);
-
-    __host__ __device__
-    real& operator[](u32 i);
-
-    __host__ __device__
-    real operator[](u32 i) const ;
+    blast_fn Mat3(real x1, real y1, real z1, real x2, real y2, real z2, real x3, real y3, real z3);
+    blast_fn real& operator()(u32 row, u32 col);
+    blast_fn real& operator[](u32 i);
+    blast_fn real operator[](u32 i) const ;
 };
 
 // 4x4 matrix
@@ -95,65 +82,65 @@ struct alignas(32) Mat4 {
     Mat4() = default;
 
     // copy constructor
-    Mat4(const Mat4&);
+    blast_fn Mat4(const Mat4&);
 
     // create a diagonal matrix with the value
-    Mat4(real v);
+    blast_fn Mat4(real v);
 
     // copy list into the matrix
     //  - note: the rest are NOT initialized if the list does not have 16 elements
-    Mat4(const std::initializer_list<real>&);
+    blast_fn Mat4(const std::initializer_list<real>&);
 
     // set every value to 0
-    inline void zero();
+    blast_fn void zero();
 
     // copy assignment
-    Mat4& operator=(const Mat4&);
+    blast_fn Mat4& operator=(const Mat4&);
 
     // copy list into the matrix
     //  - note: the rest are NOT initialized if the list does not have 16 elements
-    Mat4& operator=(const std::initializer_list<real>&);
+    blast_fn Mat4& operator=(const std::initializer_list<real>&);
 
     // access the given element
-    real& operator()(u32 row, u32 col);
+    blast_fn real& operator()(u32 row, u32 col);
 
     // access the given element (value)
-    real operator()(u32 row, u32 col) const;
+    blast_fn real operator()(u32 row, u32 col) const;
 
     // access the element
     //  - note: does not check out of bounds
-    real& operator[](u32 i);
+    blast_fn real& operator[](u32 i);
 
     // access value of the element
     //  - note: does not check out of bounds
-    real operator[](u32 i) const;
+    blast_fn real operator[](u32 i) const;
 
     // unary minus
-    Mat4 operator-();
+    blast_fn Mat4 operator-();
 
     // matrix multiply inplace
-    Mat4& operator*=(Mat4&);
+    blast_fn Mat4& operator*=(Mat4&);
 
     // multiply each element by the value inplace
-    Mat4& operator*=(real);
+    blast_fn Mat4& operator*=(real);
 
     // matrix multiply inplace
-    Mat4& operator+=(Mat4&);
+    blast_fn Mat4& operator+=(Mat4&);
 
     // matrix multiply inplace
-    Mat4& operator-=(Mat4&);
+    blast_fn Mat4& operator-=(Mat4&);
 
     // check if all values of another array are the same
-    bool operator==(const Mat4&);
+    blast_fn bool operator==(const Mat4&);
 
     // return a 4D array pointing to the column
     //  - note: the resulting array is an alias
-    Array col(u32 c);
+    blast_fn Array col(u32 c);
 
     // return a 4D array copying the given colum
     //  - note: Copies data because we are const
     //  - note: resulting Array is NOT an alias
-    Array col(u32 c) const;
+    blast_fn Array col(u32 c) const;
 
     // // interpret as a Matrix
     // //  note: the resulting Matrix is an alias
@@ -175,74 +162,74 @@ struct Array {
     Array() = default;
 
     // construct and allocate memory for 'n' elements
-    Array(u32 n);
+    blast_fn Array(u32 n);
 
     // copy constructor
-    Array(const Array&);
+    blast_fn Array(const Array&);
 
     // move constructor
-    Array(Array&&);
+    blast_fn Array(Array&&);
 
     // create an Array from pre-existing data
     //  - note: becomes an alias
-    Array(real*, u32 n);
+    blast_fn Array(real*, u32 n);
 
     // create an Array from a const std::vector<real
     //  - note: copies data
-    Array(const svector&);
+    host_fn Array(const svector&);
 
     // free memory if not an alias
-    ~Array();
+    blast_fn ~Array();
 
     // copy assignment
-    Array& operator=(const Array&);
+    blast_fn Array& operator=(const Array&);
 
     // move assignment
-    Array& operator=(Array&&);
+    blast_fn Array& operator=(Array&&);
 
     // copy data from a list
     //  - note: must be the same size
-    Array& operator=(const std::initializer_list<real>& other);
+    blast_fn Array& operator=(const std::initializer_list<real>& other);
 
     // access the element
     //  - note: does not check out of bounds
-    real& operator[](u32 i);
+    blast_fn real& operator[](u32 i);
 
     // access value of the element
     //  - note: does not check out of bounds
-    real operator[](u32 i) const;
+    blast_fn real operator[](u32 i) const;
 
     // unary minus
-    Array operator-();
+    blast_fn Array operator-();
 
     // multiply with another vector (in place)
-    Array& operator*=(real);
+    blast_fn Array& operator*=(real);
 
     // check if all values of another array are very close the this one (1e-06)
-    bool operator==(Array&);
+    blast_fn bool operator==(Array&);
 
     // map the array to the data of the given std::vector<real>
     //  - note: becomes an alias
-    Array& alias(std::vector<real>&);
+    host_fn Array& alias(std::vector<real>&);
 
     // map the array to the data of the given matrix
     //  - note: interpret all the data of the matrix as one long array, becomes an alias)
-    Array& alias(Matrix& m);
+    blast_fn Array& alias(Matrix& m);
 
     // map the Array to the given data
     //  - note: becomes an alias
-    Array& alias(real*, u32);
+    blast_fn Array& alias(real*, u32);
 
     // resize the array
     //  - note: old pointers (aliases) to this data may be invalidated
     //  - note: fails if the array is an alias
-    void resize(u32 new_size);
+    blast_fn void resize(u32 new_size);
 
     // access the last element
-    real& back();
+    blast_fn real& back();
 
     // access the value of the last element
-    real back() const;
+    blast_fn real back() const;
 };
 
 // Matrix of real numbers
@@ -258,71 +245,74 @@ struct Matrix {
     Matrix() = default;
 
     // construct and allocate memory for 'r x c' elements
-    Matrix(u32 r, u32 c);
+    blast_fn Matrix(u32 r, u32 c);
 
     // copy constructor
-    Matrix(const Matrix&);
+    blast_fn Matrix(const Matrix&);
 
     // move constructor
-    Matrix(Matrix&&);
+    blast_fn Matrix(Matrix&&);
 
     // create a Matrix from pre-existing data
     //  - note: becomes an alias
-    Matrix(real*, u32 r, u32 c);
+    blast_fn Matrix(real*, u32 r, u32 c);
 
     // create an matrix of a single columns from an array
     //  - note: creates a copy
-    Matrix(const Array&);
+    blast_fn Matrix(const Array&);
 
     // free memory if not an alias
-    ~Matrix();
+    blast_fn ~Matrix();
 
     // copy assignment
-    Matrix& operator=(const Matrix&);
+    blast_fn Matrix& operator=(const Matrix&);
 
     // move assignment
-    Matrix& operator=(Matrix&&);
+    blast_fn Matrix& operator=(Matrix&&);
 
     // map the Matrix to the data of the given Array
     //  - note: interpret as a n x 1 matrix
     //  - note: becomes an alias
-    Matrix& alias(Array&);
+    blast_fn Matrix& alias(Array&);
 
     // map the Matrix to the data of the given std::vector<real>
     //  - note: interpret as a n x 1 matrix
     //  - note: becomes an alias
-    Matrix& alias(std::vector<real>&);
+    host_fn Matrix& alias(std::vector<real>&);
 
     // map the Matrix to the given data
     //  - note: becomes an alias
-    Matrix& alias(real*, u32 r, u32 c);
+    blast_fn Matrix& alias(real*, u32 r, u32 c);
 
     // access element
     //  - note: fails if the matrix is not big enough
-    real& operator()(u32 row, u32 col);
+    blast_fn real& operator()(u32 row, u32 col);
 
     // access value of element
     //  - note: fails if the matrix is not big enough
-    real operator()(u32 row, u32 col) const;
+    blast_fn real operator()(u32 row, u32 col) const;
+
+    // get the address of an element
+    blast_fn real* address(u32 row, u32 col) const;
 
     // return an array accessing the given colum
     //  - note: new Array is aliasing our data
-    Array col(u32 c);
+    blast_fn Array col(u32 c);
 };
 
 
 
 //------ MISC ---------------------
 
-inline real wrap2pi(real r) {
-    while (r < -pi)
-        r += 2*pi;
-    while (r > pi)
-        r-= 2*pi;
+blast_fn real wrap2pi(real r) {
+    while (r < -(real)3.1415)
+        r += 2*(real)3.1415;
+    while (r > (real)3.1415)
+        r-= 2*(real)3.1415;
     return r;
 }
 
-inline float wrap_to_180(float r) {
+blast_fn float wrap_to_180(float r) {
     while (r < -180)
         r += 360;
     while (r > 180)
@@ -330,83 +320,73 @@ inline float wrap_to_180(float r) {
     return r;
 }
 
-inline real deg2rad(real r) {
-    return r * pi/180;
+blast_fn real deg2rad(real r) {
+    return r * (real)3.1415/180;
 }
 
-inline real rad2deg(real r) {
-    return r * 180/pi;
+blast_fn real rad2deg(real r) {
+    return r * 180/(real)3.1415;
 }
 
-inline Array rad2deg(const Array& a) {
+blast_fn Array rad2deg(const Array& a) {
     Array r(a.size);
     for (u32 i = 0; i < a.size; i++)
-        r[i] = a[i] * 180/pi;
+        r[i] = a[i] * 180/(real)3.1415;
     return r;
 }
 
-inline Array deg2rad(const Array& a) {
+blast_fn Array deg2rad(const Array& a) {
     Array r(a.size);
     for (u32 i = 0; i < a.size; i++)
-        r[i] = a[i] * pi/180;
+        r[i] = a[i] * (real)3.1415/180;
     return r;
 }
 
-__host__ __device__
-inline void zero(Vec3& v) {
+blast_fn void zero(Vec3& v) {
     v.x = v.y = v.z = 0;
 }
 
-__host__ __device__
-inline void zero(Mat3& m) {
+blast_fn void zero(Mat3& m) {
     memset(m.data, 0, 9*sizeof(real));
 }
 
-__host__ __device__
-inline void zero(Array& a) {
+blast_fn void zero(Array& a) {
     if(a.data)
         memset(a.data, 0, a.size*sizeof(real));
 }
 
-__host__ __device__
-inline void zero(Matrix& m) {
+blast_fn void zero(Matrix& m) {
     if(m.data)
         memset(m.data, 0, m.size*sizeof(real));
 }
 
-__host__ __device__
-inline void constant(Vec3& v, real val) {
+blast_fn void constant(Vec3& v, real val) {
     v.x = val;
     v.y = val;
     v.z = val;
 }
 
-__host__ __device__
-inline void constant(Mat3& m, real val) {
+blast_fn void constant(Mat3& m, real val) {
     for (u32 i = 0; i < 9; i++)
         m.data[i] = val;
 }
 
-__host__ __device__
-inline void constant(Mat4& m, real val) {
+blast_fn void constant(Mat4& m, real val) {
     for (u32 i = 0; i < 16; i++)
         m.data[i] = val;
 }
 
-__host__ __device__
-inline void constant(Array& a, real val) {
+blast_fn void constant(Array& a, real val) {
     for (u32 i = 0; i < a.size; i++)
         a[i] = val;
 }
 
-__host__ __device__
-inline void constant(Matrix& m, real val) {
+blast_fn void constant(Matrix& m, real val) {
     for (u32 i = 0; i < m.size; i++)
         m.data[i] = val;
 }
 
-__host__ __device__
-inline void minus_insert(const Array& a, const Matrix& m, real* dst) {
+blast_fn void minus_insert(const Array& a, const Matrix& m, real* dst) {
     Assert(m.rows == a.size);
     auto m_data = m.data;
     for (u32 c = 0; c < m.cols; c++) {
@@ -418,8 +398,7 @@ inline void minus_insert(const Array& a, const Matrix& m, real* dst) {
     }
 }
 
-__host__ __device__
-inline void minus_insert(const Matrix& m, const Array& a, real* dst) {
+blast_fn void minus_insert(const Matrix& m, const Array& a, real* dst) {
     Assert(m.rows == a.size);
     auto m_data = m.data;
     for (u32 c = 0; c < m.cols; c++) {
@@ -431,24 +410,21 @@ inline void minus_insert(const Matrix& m, const Array& a, real* dst) {
     }
 }
 
-__host__ __device__
-inline real array_min(const Array& a) {
+blast_fn real array_min(const Array& a) {
     real result = inf;
     for(u32 i = 0; i < a.size; i++)
         result = a[i] < result ? a[i] : result;
     return result;
 }
 
-__host__ __device__
-inline real array_max(const Array& a) {
+blast_fn real array_max(const Array& a) {
     real result = -inf;
     for(u32 i = 0; i < a.size; i++)
         result = a[i] > result ? a[i] : result;
     return result;
 }
 
-__host__ __device__
-inline bool close(const Array& a1, const Array& a2, real eps = 1e-05) {
+blast_fn bool close(const Array& a1, const Array& a2, real eps = 1e-05) {
     Assert(a1.size == a2.size);
     for (u32 i =0; i < a1.size; i++)
         if(a1[i] - a2[i] > eps || a1[i] - a2[i] < -eps)
@@ -459,13 +435,11 @@ inline bool close(const Array& a1, const Array& a2, real eps = 1e-05) {
 
 //------ Vec3 ---------------------
 
-__host__ __device__
-inline Vec3::Vec3(real x, real y, real z)
+blast_fn Vec3::Vec3(real x, real y, real z)
     : x(x), y(y), z(z), _pad(0) {
 }
 
-__host__ __device__
-inline Vec3 cross(Vec3 a, Vec3 b) {
+blast_fn Vec3 cross(Vec3 a, Vec3 b) {
     Vec3 r;
     r.x = a.y*b.z - a.z*b.y;
     r.y = a.z*b.x - a.x*b.z;
@@ -473,13 +447,11 @@ inline Vec3 cross(Vec3 a, Vec3 b) {
     return r;
 }
 
-__host__ __device__
-inline real dot(Vec3 a, Vec3 b) {
+blast_fn real dot(Vec3 a, Vec3 b) {
     return a.x*b.x + a.y*b.y + a.z*b.z;
 }
 
-__host__ __device__
-inline Vec3 operator-(Vec3 a, Vec3 b) {
+blast_fn Vec3 operator-(Vec3 a, Vec3 b) {
     return Vec3{
         a.x - b.x,
         a.y - b.y,
@@ -487,8 +459,7 @@ inline Vec3 operator-(Vec3 a, Vec3 b) {
     };
 }
 
-__host__ __device__
-inline Vec3 operator+(Vec3 a, Vec3 b) {
+blast_fn Vec3 operator+(Vec3 a, Vec3 b) {
     return Vec3{
         a.x + b.x,
         a.y + b.y,
@@ -496,8 +467,7 @@ inline Vec3 operator+(Vec3 a, Vec3 b) {
     };
 }
 
-__host__ __device__
-inline Vec3 operator*(real a, Vec3 b) {
+blast_fn Vec3 operator*(real a, Vec3 b) {
     return Vec3{
         a * b.x,
         a * b.y,
@@ -505,8 +475,7 @@ inline Vec3 operator*(real a, Vec3 b) {
     };
 }
 
-__host__ __device__
-inline Vec3 operator*(Vec3 a, real b) {
+blast_fn Vec3 operator*(Vec3 a, real b) {
     return Vec3{
         a.x * b,
         a.y * b,
@@ -514,16 +483,14 @@ inline Vec3 operator*(Vec3 a, real b) {
     };
 }
 
-__host__ __device__
-inline Vec3& operator+=(Vec3& v1, Vec3& v2) {
+blast_fn Vec3& operator+=(Vec3& v1, Vec3& v2) {
     v1.x += v2.x;
     v1.y += v2.y;
     v1.z += v2.z;
     return v1;
 }
 
-__host__ __device__
-inline Vec3& operator*=(Vec3&v, real a) {
+blast_fn Vec3& operator*=(Vec3&v, real a) {
     v.x *= a;
     v.y *= a;
     v.z *= a;
@@ -533,8 +500,7 @@ inline Vec3& operator*=(Vec3&v, real a) {
 
 //------ Mat3 ---------------------
 
-__host__ __device__
-inline Mat3::Mat3(real x1, real y1, real z1, real x2, real y2, real z2, real x3, real y3, real z3) {
+blast_fn Mat3::Mat3(real x1, real y1, real z1, real x2, real y2, real z2, real x3, real y3, real z3) {
     data[0] = x1;
     data[1] = y1;
     data[2] = z1;
@@ -546,13 +512,11 @@ inline Mat3::Mat3(real x1, real y1, real z1, real x2, real y2, real z2, real x3,
     data[8] = z3;
 }
 
-__host__ __device__
-inline real& Mat3::operator()(u32 row, u32 col) {
+blast_fn real& Mat3::operator()(u32 row, u32 col) {
     return data[3*col + row];
 }
 
-__host__ __device__
-inline Mat3 operator*(const Mat3& m, const Mat3 rhs) {
+blast_fn Mat3 operator*(const Mat3& m, const Mat3 rhs) {
     Mat3 r;
     r.data[0] = m.data[0]*rhs.data[0] + m.data[3]*rhs.data[1] + m.data[6]*rhs.data[2];
     r.data[1] = m.data[1]*rhs.data[0] + m.data[4]*rhs.data[1] + m.data[7]*rhs.data[2];
@@ -566,28 +530,24 @@ inline Mat3 operator*(const Mat3& m, const Mat3 rhs) {
     return r;
 }
 
-__host__ __device__
-inline Mat3& operator*=(Mat3& lhs, const Mat3& rhs) {
+blast_fn Mat3& operator*=(Mat3& lhs, const Mat3& rhs) {
     lhs = lhs * rhs;
     return lhs;
 }
 
-__host__ __device__
-inline Mat3 operator+(Mat3& lhs, Mat3& rhs) {
+blast_fn Mat3 operator+(Mat3& lhs, Mat3& rhs) {
     Mat3 r;
     for (u32 i = 0; i < 9; i++)
         r.data[i] = lhs.data[i] + rhs.data[i];
     return r;
 }
 
-__host__ __device__
-inline Mat3& operator+=(Mat3& lhs, Mat3& rhs) {
+blast_fn Mat3& operator+=(Mat3& lhs, Mat3& rhs) {
     lhs = lhs + rhs;
     return lhs;
 }
 
-__host__ __device__
-inline Mat3 transpose(const Mat3& m) {
+blast_fn Mat3 transpose(const Mat3& m) {
     Mat3 result {
         m.data[0],
         m.data[3],
@@ -602,14 +562,12 @@ inline Mat3 transpose(const Mat3& m) {
     return result;
 }
 
-__host__ __device__
-inline real& Mat3::operator[](u32 i) {
+blast_fn real& Mat3::operator[](u32 i) {
     Assert(i < 9);
     return data[i];
 }
 
-__host__ __device__
-inline real Mat3::operator[](u32 i) const {
+blast_fn real Mat3::operator[](u32 i) const {
     Assert(i < 9);
     return data[i];
 }
@@ -617,11 +575,11 @@ inline real Mat3::operator[](u32 i) const {
 
 //------ Mat4 ---------------------
 
-inline Mat4::Mat4(const Mat4& m) {
+blast_fn Mat4::Mat4(const Mat4& m) {
     memcpy(data, m.data, 16*sizeof(real));
 }
 
-inline Mat4::Mat4(real v) {
+blast_fn Mat4::Mat4(real v) {
     zero();
     data[0] = v;
     data[4] = v;
@@ -629,23 +587,23 @@ inline Mat4::Mat4(real v) {
     data[12] = v;
 }
 
-inline void Mat4::zero() {
+blast_fn void Mat4::zero() {
     memset(data, 0, 16*sizeof(real));
 }
 
-inline Mat4::Mat4(const std::initializer_list<real>& l) {
+blast_fn Mat4::Mat4(const std::initializer_list<real>& l) {
     u32 i = 0;
     memset(data, 0, sizeof(*this));
     for (i = 0; i < l.size() && i < 16; i++)
         data[i] = l.begin()[i];
 }
 
-inline Mat4& Mat4::operator=(const Mat4& m) {
+blast_fn Mat4& Mat4::operator=(const Mat4& m) {
     memcpy(data, m.data, 16*sizeof(real));
     return *this;
 }
 
-inline Mat4& Mat4::operator=(const std::initializer_list<real>& l) {
+blast_fn Mat4& Mat4::operator=(const std::initializer_list<real>& l) {
     u32 i;
     for (i = 0; i < l.size() && i < 16; i++)
         data[i] = l.begin()[i];
@@ -654,43 +612,42 @@ inline Mat4& Mat4::operator=(const std::initializer_list<real>& l) {
     return *this;
 }
 
-inline real& Mat4::operator()(u32 row, u32 col) {
+blast_fn real& Mat4::operator()(u32 row, u32 col) {
     Assert(row<4 && col<4);
     return data[4*col + row];
 }
 
-inline real Mat4::operator()(u32 row, u32 col) const {
+blast_fn real Mat4::operator()(u32 row, u32 col) const {
     Assert(row<4 && col<4);
     return data[4*col + row];
 }
 
-inline real& Mat4::operator[](u32 i) {
+blast_fn real& Mat4::operator[](u32 i) {
     Assert(i < 16);
     return data[i];
 }
 
-inline real Mat4::operator[](u32 i) const {
+blast_fn real Mat4::operator[](u32 i) const {
     Assert(i < 16);
     return data[i];
 }
 
-inline Mat4 Mat4::operator-() {
+blast_fn Mat4 Mat4::operator-() {
     Mat4 r;
     for (u32 i = 0; i < 16; i++)
         r.data[i] = -data[i];
     return r;
 }
 
-inline Mat4& Mat4::operator*=(Mat4& rhs) {
-#if 0
-    // naive implementation (no SIMD)
+blast_fn Mat4& Mat4::operator*=(Mat4& rhs) {
+#if defined(__CUDA_ARCH__)
     Mat4 tmp = *this;
     for (u32 i = 0; i < 4; i++) {
         for (u32 j = 0; j < 4; j++) {
             (*this)(i, j) = tmp(i, 0)*rhs(0, j) + tmp(i, 1)*rhs(1, j) + tmp(i, 2)*rhs(2, j) + tmp(i, 3)*rhs(3, j);
         }
     }
-#elif BLAST_SIZEOF_REAL == 8
+#elif BLAST_USE_DOUBLES
     const auto a0 = ymm[0];
     const auto a1 = ymm[1];
     const auto a2 = ymm[2];
@@ -701,27 +658,25 @@ inline Mat4& Mat4::operator*=(Mat4& rhs) {
         const auto _b1 = _mm256_set1_pd(rhs(1, i));
         const auto _b2 = _mm256_set1_pd(rhs(2, i));
         const auto _b3 = _mm256_set1_pd(rhs(3, i));
-        ymm[i] = _mm256_fmadd_pd(a0, _b0,
-                                 _mm256_fmadd_pd(a1, _b1,
-                                         _mm256_fmadd_pd(a2, _b2,
-                                                 _mm256_mul_pd(a3, _b3))));
+        ymm[i] = _mm256_fmadd_pd(a0, _b0, _mm256_fmadd_pd(a1, _b1, _mm256_fmadd_pd(a2, _b2, _mm256_mul_pd(a3, _b3))));
     }
-
 #else
-// naive implementation (no SIMD)
+    // naive implementation (no SIMD)
     Mat4 tmp = *this;
     for (u32 i = 0; i < 4; i++) {
         for (u32 j = 0; j < 4; j++) {
             (*this)(i, j) = tmp(i, 0)*rhs(0, j) + tmp(i, 1)*rhs(1, j) + tmp(i, 2)*rhs(2, j) + tmp(i, 3)*rhs(3, j);
         }
     }
-    // todo: implement
 #endif
     return *this;
 }
 
-inline Mat4& Mat4::operator*=(real v) {
-#if BLAST_USE_DOUBLES
+blast_fn Mat4& Mat4::operator*=(real v) {
+#if defined(__CUDA_ARCH__)
+    for (int i = 0; i < 16; i++)
+        data[i] *= v;
+#elif BLAST_USE_DOUBLES
     const __m256d _v = _mm256_set1_pd(v);
     for (u32 i = 0; i < 4; i++)
         ymm[i] =_mm256_mul_pd(_v, ymm[i]);
@@ -733,8 +688,8 @@ inline Mat4& Mat4::operator*=(real v) {
     return *this;
 }
 
-inline Mat4& Mat4::operator+=(Mat4& rhs) {
-#if 0
+blast_fn Mat4& Mat4::operator+=(Mat4& rhs) {
+#if defined(__CUDA_ARCH__)
     for (u32 i = 0; i < 16; i++)
         data[i] += rhs[i];
 
@@ -749,8 +704,8 @@ inline Mat4& Mat4::operator+=(Mat4& rhs) {
     return *this;
 }
 
-inline Mat4& Mat4::operator-=(Mat4& rhs) {
-#if 0
+blast_fn Mat4& Mat4::operator-=(Mat4& rhs) {
+#if defined(__CUDA_ARCH__)
     for (u32 i = 0; i < 16; i++)
         data[i] -= rhs[i];
 
@@ -765,16 +720,16 @@ inline Mat4& Mat4::operator-=(Mat4& rhs) {
     return *this;
 }
 
-inline bool Mat4::operator==(const Mat4& rhs) {
+blast_fn bool Mat4::operator==(const Mat4& rhs) {
     for (u32 i = 0; i < 16; i++)
         if (data[i] != rhs.data[i])
             return false;
     return true;
 }
 
-inline Mat4 operator*(const Mat4& lhs, const Mat4& rhs) {
+blast_fn Mat4 operator*(const Mat4& lhs, const Mat4& rhs) {
     Mat4 result;
-#if 0
+#if defined(__CUDA_ARCH__)
     // naive implementation (no SIMD)
     //  note: order of for loops is important!
     for (u32 j = 0; j < 4; j++) {
@@ -794,13 +749,11 @@ inline Mat4 operator*(const Mat4& lhs, const Mat4& rhs) {
         const auto _b1 = _mm256_set1_pd(rhs(1, i));
         const auto _b2 = _mm256_set1_pd(rhs(2, i));
         const auto _b3 = _mm256_set1_pd(rhs(3, i));
-        result.ymm[i] = _mm256_fmadd_pd(a0, _b0,
-                                        _mm256_fmadd_pd(a1, _b1,
-                                                _mm256_fmadd_pd(a2, _b2,
-                                                        _mm256_mul_pd(a3, _b3))));
+        result.ymm[i] = _mm256_fmadd_pd(a0, _b0, _mm256_fmadd_pd(a1, _b1, _mm256_fmadd_pd(a2, _b2, _mm256_mul_pd(a3, _b3))));
     }
 
 #else
+    // todo: implement SIMD for floats
     // naive implementation (no SIMD)
     //  note: order of for loops is important!
     for (u32 j = 0; j < 4; j++) {
@@ -808,12 +761,11 @@ inline Mat4 operator*(const Mat4& lhs, const Mat4& rhs) {
             result(i, j) = lhs(i, 0)*rhs(0, j) + lhs(i, 1)*rhs(1, j) + lhs(i, 2)*rhs(2, j) + lhs(i, 3)*rhs(3, j);
         }
     }
-    // todo: implement
 #endif
     return result;
 }
 
-inline Array Mat4::col(u32 c) {
+blast_fn Array Mat4::col(u32 c) {
     Assert(c < 4);
     Array result;
     result.data = data + 4*c;
@@ -822,7 +774,7 @@ inline Array Mat4::col(u32 c) {
     return result;
 }
 
-inline Array Mat4::col(u32 c) const {
+blast_fn Array Mat4::col(u32 c) const {
     Assert(c < 4);
     Array result(4);
     memcpy(result.data, data + c*4, 4*sizeof(real));
@@ -833,30 +785,31 @@ inline Array Mat4::col(u32 c) const {
 
 //------ Array ---------------------
 
-inline Array::Array(u32 new_size) : size(new_size) {
-    if (new_size)
-        data = (real*)calloc(new_size, sizeof(real));
+blast_fn Array::Array(u32 new_size) : size(new_size) {
+    if (size) {
+        data = (real*)malloc(size * sizeof(real));
+        memset(data, 0, size * sizeof(real));
+    }
 }
 
-inline Array::Array(const Array& a) : size(a.size) {
+blast_fn Array::Array(const Array& a) : size(a.size) {
     if (size) {
-        data = (real*)calloc(size, sizeof(real));
+        data = (real*)malloc(size * sizeof(real));
         memcpy(data, a.data, size*sizeof(real));
     }
 }
 
-inline Array::Array(Array&& a) : data(a.data), size(a.size), is_alias(a.is_alias) {
-    a.data = nullptr;
-    a.size = 0;
+blast_fn Array::Array(Array&& a) : data(a.data), size(a.size), is_alias(a.is_alias) {
+    a.is_alias = true;
 }
 
-inline Array::Array(real* d, u32 n) {
+blast_fn Array::Array(real* d, u32 n) {
     data = d;
     size = n;
     is_alias = true;
 }
 
-inline Array::Array(const svector& v) {
+host_fn Array::Array(const svector& v) {
     size = (u32)v.size();
     if (size) {
         data = (real*)calloc(size, sizeof(real));
@@ -864,12 +817,12 @@ inline Array::Array(const svector& v) {
     }
 }
 
-inline Array::~Array() {
+blast_fn Array::~Array() {
     if (!is_alias && data)
         free(data);
 }
 
-inline Array& Array::operator=(const Array& a) {
+blast_fn Array& Array::operator=(const Array& a) {
     if (this != &a) {
         if (data && !is_alias)
             free(data);
@@ -883,7 +836,7 @@ inline Array& Array::operator=(const Array& a) {
     return *this;
 }
 
-inline Array& Array::operator=(Array&& a) {
+blast_fn Array& Array::operator=(Array&& a) {
     if (this != &a) {
         if (data && !is_alias)
             std::free(data);
@@ -896,41 +849,41 @@ inline Array& Array::operator=(Array&& a) {
     return *this;
 }
 
-inline Array& Array::operator=(const std::initializer_list<real>& other) {
+blast_fn Array& Array::operator=(const std::initializer_list<real>& other) {
     Assert(other.size() <= size);
-    std::copy_n(other.begin(), size, data);
+    memcpy(data, other.begin(), other.size() * sizeof(real));
     return *this;
 }
 
-inline Array Array::operator-() {
+blast_fn Array Array::operator-() {
     Array result(size);
     for (u32 i = 0; i < size; i++)
         result[i] = -data[i];
     return std::move(result);
 }
 
-inline bool Array::operator==(Array& a) {
+blast_fn bool Array::operator==(Array& a) {
     Assert(size == a.size);
     return close(*this, a);
 }
 
-inline Array& Array::operator*=(real n) {
+blast_fn Array& Array::operator*=(real n) {
     for (u32 i = 0; i < size; i++)
         data[i] *= n;
     return *this;
 }
 
-inline real& Array::operator[](u32 i) {
+blast_fn real& Array::operator[](u32 i) {
     Assert(i < size);
     return data[i];
 }
 
-inline real Array::operator[](u32 i) const {
+blast_fn real Array::operator[](u32 i) const {
     Assert(i < size);
     return data[i];
 }
 
-inline Array& Array::alias(svector& v) {
+host_fn Array& Array::alias(svector& v) {
     if (data && !is_alias)
         free(data);
     data = v.data();
@@ -939,7 +892,7 @@ inline Array& Array::alias(svector& v) {
     return *this;
 }
 
-inline Array& Array::alias(Matrix& m) {
+blast_fn Array& Array::alias(Matrix& m) {
     if (data && !is_alias)
         free(data);
     data = m.data;
@@ -948,7 +901,7 @@ inline Array& Array::alias(Matrix& m) {
     return *this;
 }
 
-inline Array& Array::alias(real* p, u32 n) {
+blast_fn Array& Array::alias(real* p, u32 n) {
     Assert(p);
     if (data && !is_alias)
         free(data);
@@ -958,7 +911,7 @@ inline Array& Array::alias(real* p, u32 n) {
     return *this;
 }
 
-inline void Array::resize(u32 new_size) {
+blast_fn void Array::resize(u32 new_size) {
     Assert(!is_alias);
     if (new_size > size) {
         data = (real*)realloc(data, new_size*sizeof(real));
@@ -967,18 +920,17 @@ inline void Array::resize(u32 new_size) {
     size = new_size;
 }
 
-inline real& Array::back() {
+blast_fn real& Array::back() {
     Assert(size);
     return data[size-1];
 }
 
-inline real Array::back() const {
+blast_fn real Array::back() const {
     Assert(size);
     return data[size-1];
 }
 
-__host__ __device__
-inline Vec3 operator*(const Mat3& m, const Vec3 v) {
+blast_fn Vec3 operator*(const Mat3& m, const Vec3 v) {
     Vec3 r;
     r.x = m.data[0]*v.x + m.data[3]*v.y + m.data[6]*v.z;
     r.y = m.data[1]*v.x + m.data[4]*v.y + m.data[7]*v.z;
@@ -986,20 +938,20 @@ inline Vec3 operator*(const Mat3& m, const Vec3 v) {
     return r;
 }
 
-inline Array operator-(const Array& v1, const Array& v2) {
+blast_fn Array operator-(const Array& v1, const Array& v2) {
     Array r = v1;
     for (u32 i = 0; i < v1.size; i++)
         r[i] -= v2[i];
     return r;
 }
 
-inline Array operator*(const Array& a, real b) {
+blast_fn Array operator*(const Array& a, real b) {
     Array r(a);
     r *= b;
     return r;
 }
 
-inline Array operator*(real b, const Array& a) {
+blast_fn Array operator*(real b, const Array& a) {
     Array r(a);
     r *= b;
     return r;
@@ -1007,16 +959,18 @@ inline Array operator*(real b, const Array& a) {
 
 // Compute the dot product of the given arrays
 //  - note: fastest when the number of elements are a factor of 4 or even 8
-inline real dot(const Array& a, const Array& b) {
+blast_fn real dot(const Array& a, const Array& b) {
     Assert(a.size == b.size);
-
-    real r = (real)0.0;
+    real r = 0;
+#if defined(__CUDA_ARCH__)
+    for (int i = 0; i < (int)a.size; i++)
+        r += a[i] * b[i];
+#else
     int i = 0;
-
-    // SIMD what you can
+// SIMD what you can
 #if BLAST_USE_DOUBLES
     auto accum = _mm256_setzero_pd();
-    for (; i < (int)a.size-3; i += 4) {
+    for (; i < (int)a.size - 3; i += 4) {
         const auto a_v = _mm256_loadu_pd(&a.data[i]);
         const auto b_v = _mm256_loadu_pd(&b.data[i]);
         accum = _mm256_fmadd_pd(a_v, b_v, accum);
@@ -1024,7 +978,7 @@ inline real dot(const Array& a, const Array& b) {
     r = simd_hadd(accum);
 #elif BLAST_SIZEOF_REAL == 4
     auto accum = _mm256_setzero_ps();
-    for (; i < (int)a.size-7; i += 8) {
+    for (; i < (int)a.size - 7; i += 8) {
         const auto a_v = _mm256_loadu_ps(&a.data[i]);
         const auto b_v = _mm256_loadu_ps(&b.data[i]);
         accum = _mm256_fmadd_ps(a_v, b_v, accum);
@@ -1034,18 +988,25 @@ inline real dot(const Array& a, const Array& b) {
     // serialize the rest
     for (; i < (int)a.size; i++)
         r += a[i] * b[i];
-
+#endif
     return r;
 }
 
 // Compute the sine and the cosine of every element
 //  - note: fastest when the number of elements are a factor of 4 (or even 8 if real is float)
 //  - note: doing this manually in your function is still faster by about 10%-20%
-inline void sincos(const Array& angles, Array& sines, Array& cosines) {
+blast_fn void sincos(const Array& angles, Array& sines, Array& cosines) {
     Assert(angles.size == sines.size && angles.size == cosines.size);
-    // SIMD what we can
     int i = 0;
-#if BLAST_USE_DOUBLES
+
+#if defined(__CUDA_ARCH__) && BLAST_USE_DOUBLES
+    for (int i = 0; i < angles.size; i++)
+        ::sincos(angles[i], &sines[i], &cosines[i]);
+#elif defined (__CUDA_ARCH__)
+    for (int i = 0; i < angles.size; i++)
+        sincosf(angles[i], &sines[i], &cosines[i]);
+#elif BLAST_USE_DOUBLES
+    // SIMD what we can
     for (; i < (int)angles.size-3; i += 4) {
         __m256d s_tmp;
         __m256d c_tmp;
@@ -1089,29 +1050,31 @@ inline void sincos(const Array& angles, Array& sines, Array& cosines) {
 
 //------ Matrix ---------------------
 
-inline Matrix::Matrix(u32 r, u32 c) {
+blast_fn Matrix::Matrix(u32 r, u32 c) {
     size = r * c;
     rows = r;
     cols = c;
-    if (size)
-        data = (real*)calloc(size, sizeof(real));
+    if (size) {
+        data = (real*)malloc(size * sizeof(real));
+        memset(data, 0, size * sizeof(real));
+    }
 }
 
-inline Matrix::Matrix(const Matrix& m) : size(m.size), cols(m.cols), rows(m.rows), is_alias(false) {
+blast_fn Matrix::Matrix(const Matrix& m) : size(m.size), cols(m.cols), rows(m.rows), is_alias(false) {
     if (size) {
         data = (real*)calloc(size, sizeof(real));
         memcpy(data, m.data, size*sizeof(real));
     }
 }
 
-inline Matrix::Matrix(Matrix&& m) : data(m.data), size(m.size), cols(m.cols), rows(m.rows), is_alias(m.is_alias) {
+blast_fn Matrix::Matrix(Matrix&& m) : data(m.data), size(m.size), cols(m.cols), rows(m.rows), is_alias(m.is_alias) {
     m.data = nullptr;
     m.size = 0;
     m.rows = 0;
     m.cols = 0;
 }
 
-inline Matrix::Matrix(real* d, u32 r, u32 c) {
+blast_fn Matrix::Matrix(real* d, u32 r, u32 c) {
     data = d;
     rows = r;
     cols = c;
@@ -1119,19 +1082,19 @@ inline Matrix::Matrix(real* d, u32 r, u32 c) {
     is_alias = true;
 }
 
-inline Matrix::Matrix(const Array& v) : size(v.size), cols(1), rows(v.size), is_alias(false) {
+blast_fn Matrix::Matrix(const Array& v) : size(v.size), cols(1), rows(v.size), is_alias(false) {
     if (size) {
         data = (real*)calloc(size, sizeof(real));
         memcpy(data, v.data, size*sizeof(real));
     }
 }
 
-inline Matrix::~Matrix() {
+blast_fn Matrix::~Matrix() {
     if (!is_alias && data)
         free(data);
 }
 
-inline Matrix& Matrix::operator=(const Matrix& m) {
+blast_fn Matrix& Matrix::operator=(const Matrix& m) {
     Assert(m.data);
     if (this != &m) {
         if (data == nullptr || is_alias) {
@@ -1150,7 +1113,7 @@ inline Matrix& Matrix::operator=(const Matrix& m) {
     return *this;
 }
 
-inline Matrix& Matrix::operator=(Matrix&& m) {
+blast_fn Matrix& Matrix::operator=(Matrix&& m) {
     if (this != &m) {
         if (data && !is_alias)
             free(data);
@@ -1164,7 +1127,7 @@ inline Matrix& Matrix::operator=(Matrix&& m) {
     return *this;
 }
 
-inline Matrix& Matrix::alias(Array& a) {
+blast_fn Matrix& Matrix::alias(Array& a) {
     Assert(a.data);
     if (data && !is_alias)
         free(data);
@@ -1176,7 +1139,7 @@ inline Matrix& Matrix::alias(Array& a) {
     return *this;
 }
 
-inline Matrix& Matrix::alias(std::vector<real>& v) {
+host_fn Matrix& Matrix::alias(std::vector<real>& v) {
     Assert(!v.empty());
     if (data && !is_alias)
         free(data);
@@ -1188,7 +1151,7 @@ inline Matrix& Matrix::alias(std::vector<real>& v) {
     return *this;
 }
 
-inline Matrix& Matrix::alias(real* p, u32 r, u32 c) {
+blast_fn Matrix& Matrix::alias(real* p, u32 r, u32 c) {
     Assert(p);
     if (data && !is_alias)
         free(data);
@@ -1200,17 +1163,22 @@ inline Matrix& Matrix::alias(real* p, u32 r, u32 c) {
     return *this;
 }
 
-inline real& Matrix::operator()(u32 row, u32 col) {
+blast_fn real& Matrix::operator()(u32 row, u32 col) {
     Assert(row < rows && col < cols);
     return data[row + rows*col];
 }
 
-inline real Matrix::operator()(u32 row, u32 col) const {
+blast_fn real Matrix::operator()(u32 row, u32 col) const {
     Assert(row < rows && col < cols);
     return data[row + rows*col];
 }
 
-inline Array Matrix::col(u32 c) {
+blast_fn real* Matrix::address(u32 row, u32 col) const {
+    Assert(row < rows && col < cols);
+    return &data[row + rows*col];
+}
+
+blast_fn Array Matrix::col(u32 c) {
     Assert(c < this->cols);
     Array result;
     result.data = data + rows*c;
@@ -1221,8 +1189,7 @@ inline Array Matrix::col(u32 c) {
 
 
 
-__host__ __device__
-inline real clamp(real val, real mini, real maxi) {
+blast_fn real clamp(real val, real mini, real maxi) {
     real r = val < mini ? mini : val;
     r = r > maxi ? maxi : r;
     return r;
@@ -1232,8 +1199,7 @@ inline real clamp(real val, real mini, real maxi) {
 
 //------ Collision ---------------------
 
-__host__ __device__
-inline real clamped_root(real slope, real h0, real h1) {
+blast_fn real clamped_root(real slope, real h0, real h1) {
 //note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
     real r;
     if (h0 < 0) {
@@ -1250,8 +1216,7 @@ inline real clamped_root(real slope, real h0, real h1) {
     return r;
 }
 
-__host__ __device__
-inline void compute_intersection(real* sValue, i32* classify, real b, real f00, real f10, i32* edge, real end[][2]) {
+blast_fn void compute_intersection(real* sValue, i32* classify, real b, real f00, real f10, i32* edge, real end[][2]) {
 // note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
     real const zero = 0;
     real const half = (real)0.5;
@@ -1320,8 +1285,7 @@ inline void compute_intersection(real* sValue, i32* classify, real b, real f00, 
     }
 }
 
-__host__ __device__
-inline void compute_minimum_parameters(i32* edge, real end[][2], real b, real c, real e, real g00, real g10, real g01, real g11, real* parameter) {
+blast_fn void compute_minimum_parameters(i32* edge, real end[][2], real b, real c, real e, real g00, real g10, real g01, real g11, real* parameter) {
 // note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
     real const zero = 0;
     real const one = 1;
@@ -1366,8 +1330,7 @@ inline void compute_minimum_parameters(i32* edge, real end[][2], real b, real c,
     }
 }
 
-__host__ __device__
-inline real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
+blast_fn real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
 // note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
     auto const P1mP0 = P1 - P0;
     auto const Q1mQ0 = Q1 - Q0;
