@@ -3,13 +3,11 @@
 
 #include <benchmark/benchmark.h>
 
-#ifdef __NVCC__
-#include "cuda/blast_cuda.cuh"
-#else
-#error "no NVCC"
+#ifndef __NVCC__
+#error "NVCC is required to run these benchmarks"
 #endif
 
-const blast::u32 npoints = 256*20;
+const blast::u32 npoints = 1000;
 
 // static void BM_Mat4(benchmark::State& state) {
 //     using namespace blast;
@@ -65,7 +63,7 @@ static void BM_Splines(benchmark::State& state) {
         x[x.size-1] = std::abs(x[x.size-1]);
         // compute trajectory
         pva.compute_trajectory(x, task);
-        benchmark::DoNotOptimize( manip.validate(pva) );
+        manip.validate(pva);
         benchmark::ClobberMemory();
     }
 }
