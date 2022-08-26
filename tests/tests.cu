@@ -3,7 +3,6 @@
 #define BLAST_USE_DOUBLES 1
 #include "blast.hpp"
 #include "blast_optional_utilities.hpp"
-#include "cuda/blast_cuda.cuh"
 
 #include <gtest/gtest.h>
 

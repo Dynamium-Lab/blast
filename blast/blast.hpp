@@ -26,3 +26,4 @@
 #include "blast_math.hpp"
 #include "blast_trajectory.hpp"
 #include "blast_manipulator.hpp"
+#include "blast_optimization.hpp"
