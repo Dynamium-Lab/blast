@@ -207,6 +207,8 @@ TEST(BlastManip, SelfCollision) {
     EXPECT_TRUE(dist_sqr_min_4[0] < 0 && dist_sqr_min_4[1] > 0);
 }
 
+//--- GPU Specific tests
+#ifdef __NVCC__
 TEST(BlastManip, GpuCpuCorrectness) {
     using namespace blast;
     const u32 points = 256;
@@ -259,3 +261,4 @@ TEST(BlastManip, GpuCpuCorrectness) {
     for (int i = 0; i < (int)host_con.size; i++)
         EXPECT_FLOAT_EQ((float)host_con[i], (float)device_manip.host_constraints[i]);
 }
+#endif
