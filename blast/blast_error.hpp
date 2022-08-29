@@ -50,5 +50,8 @@ void assert_size() {
     } \
 }
 
+#define cuda_check_kernel cuda_check( cudaPeekAtLastError() )
+
+
 
 #endif

@@ -1,3 +1,7 @@
+
+
+
+#define BLAST_USE_DOUBLES 0
 #include "blast.hpp"
 #include "blast_optional_utilities.hpp"
 
@@ -7,7 +11,7 @@
 #error "NVCC is required to run these benchmarks"
 #endif
 
-const blast::u32 npoints = 1000;
+const blast::u32 npoints = 512*20;
 
 // static void BM_Mat4(benchmark::State& state) {
 //     using namespace blast;
@@ -44,7 +48,7 @@ static void BM_Splines(benchmark::State& state) {
     using namespace blast;
     const auto npts = npoints;
     const auto njoints = 7;
-    const auto nctrl = 8*3;
+    const auto nctrl = 12;
     const auto p = 5;
     // Compute basis functions
     Gen3_7DOF manip;
@@ -69,11 +73,11 @@ static void BM_Splines(benchmark::State& state) {
 }
 BENCHMARK(BM_Splines)->Unit(benchmark::kMicrosecond);
 
-static void BM_Cuda_Splines(benchmark::State& state) {
+static void BM_Cuda_Constraints_PVA(benchmark::State& state) {
     using namespace blast;
     const auto npts = npoints;
     const auto njoints = 7;
-    const auto nctrl = 8*3;
+    const auto nctrl = 12;
     const auto p = 5;
 
     cuPvaBspline pva;
@@ -95,16 +99,55 @@ static void BM_Cuda_Splines(benchmark::State& state) {
         Array x(njoints*(nctrl-6) + 1);
         for (u32 i = 0; i < x.size; i++)
             x[i] = amp * get_random();
-        x[x.size-1] = std::abs(x[x.size-1]);
+        x.back() = std::abs(x.back());
 
         // compute trajectory
         pva.compute_control_and_send(x, task);
-        test_kernel<<< 20, npts/20 >>>(pva);
+        pva_constraints_kernel<<< 80, npts/80 >>>(pva);
+        cuda_check_kernel;
         manip.fetch_constraints(npts);
     }
     cudaDeviceSynchronize();
 }
-BENCHMARK(BM_Cuda_Splines)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_Cuda_Constraints_PVA)->Unit(benchmark::kMicrosecond);
+
+static void BM_Cuda_Constraints(benchmark::State& state) {
+    using namespace blast;
+    const auto npts = npoints;
+    const auto njoints = 7;
+    const auto nctrl = 12;
+    const auto p = 5;
+
+    cuPvaBspline pva;
+    cuGen3_7DOF manip;
+    pva.init(npts, njoints, p, nctrl);
+    manip.init(0, npts);
+
+    cuda_check( cudaDeviceSynchronize() );
+
+    for (auto _ : state) {
+        // random task
+        real amp = 10;
+        Matrix task(njoints, 6);
+        for (u32 i = 0; i < task.rows; i++)
+            for (u32 j = 0; j < task.cols; j++)
+                task(i, j) = amp * get_random();
+
+        // random optimization vector
+        Array x(njoints*(nctrl-6) + 1);
+        for (u32 i = 0; i < x.size; i++)
+            x[i] = amp * get_random();
+        x.back() = std::abs(x.back());
+
+        // compute trajectory
+        pva.compute_control_and_send(x, task);
+        constraints_no_pva_kernel<<< 80, npts/80 >>>(pva);
+        cuda_check_kernel;
+        manip.fetch_constraints(npts);
+    }
+    cudaDeviceSynchronize();
+}
+BENCHMARK(BM_Cuda_Constraints)->Unit(benchmark::kMicrosecond);
 
 // static void BM_Cuda_Splines_NoObjects(benchmark::State& state) {
 //     using namespace blast;

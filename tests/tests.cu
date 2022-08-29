@@ -241,7 +241,7 @@ TEST(BlastManip, GpuCpuCorrectness) {
     device_pva.init(points, joints, p, ncontrol);
     device_pva.compute_control_and_send(x, task);
     device_manip.init(0, points);
-    test_kernel<<< 1, points >>>(device_pva);
+    pva_constraints_kernel<<< 1, points >>>(device_pva);
     device_pva.fetch_pva();
     device_manip.fetch_constraints(points);
 

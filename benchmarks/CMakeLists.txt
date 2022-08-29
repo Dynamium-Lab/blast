@@ -21,6 +21,8 @@ find_package(benchmark REQUIRED)
 add_executable(bench benchmarks.cu)
 target_link_libraries(bench benchmark::benchmark benchmark::benchmark_main)
 set_target_properties(bench PROPERTIES CUDA_ARCHITECTURES "75;86")
+target_compile_options(bench PRIVATE $<$<COMPILE_LANGUAGE:CUDA>: -Xptxas -v>)
+# target_compile_options(bench PRIVATE $<$<COMPILE_LANGUAGE:CUDA>: -maxrregcount 64>)
 
 # target_link_options(bench "/NODEFAULTLIB:libcmt.lib /NODEFAULTLIB:libcmtd.lib /NODEFAULTLIB:msvcrtd.lib")
 # set_target_properties(bench PROPERTIES CUDA_SEPARABLE_COMPILATION ON)

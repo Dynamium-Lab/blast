@@ -415,13 +415,13 @@ host_fn void cuPvaBspline::compute_control_and_send(const Array&x, const Matrix&
 }
 
 //------ DEVICE FUNCTIONS ------------------------------------------------------------------------------------
-dev_fn void cuPvaBspline::compute_trajectory(unsigned point) {
+dev_fn void cuPvaBspline::compute_trajectory(const unsigned point) {
     device_t[point] = dt * point;
-    auto bp = device_basis_p + point*ncontrol;
-    auto bv = device_basis_v + point*ncontrol;
-    auto ba = device_basis_a + point*ncontrol;
+    const auto bp = device_basis_p + point*ncontrol;
+    const auto bv = device_basis_v + point*ncontrol;
+    const auto ba = device_basis_a + point*ncontrol;
     for (int joint = 0; joint < joints; joint++) {
-        auto c = device_control + joint*ncontrol;
+        const auto c = device_control + joint*ncontrol;
         real position = 0;
         real velocity = 0;
         real acceleration = 0;

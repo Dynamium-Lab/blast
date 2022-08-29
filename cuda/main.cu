@@ -1,6 +1,4 @@
 
-#include "cuda/blast_cuda.cuh"
-
 #include "blast.hpp"
 #include "optional/blast_optional_utilities.hpp"
 
@@ -8,14 +6,18 @@ int main() {
     using namespace blast;
     print_device_properties();
 
+    const u32 points = 256;
+    const u32 joints = 7;
+    const u32 p = 5;
+    const u32 ncontrol = 12;
+
     // prep manip
     cuGen3_7DOF manip;
-    manip.init(0);
-    manip.map_to_gpu();
+    manip.init(0, points);
 
     //-- prep trajectory
     cuPvaBspline pva;
-    pva.init(11, 7, 5, 8);
+    pva.init(points, joints, p, ncontrol);
 
     // optim vector
     Array x(pva.host->xlen());
@@ -32,15 +34,16 @@ int main() {
     pva.compute_control_and_send(x, task);
 
     // launch kernel
-    test_kernel<<< 1, pva.points >>>(pva);
+    pva_constraints_kernel<<< 1, pva.points >>>(pva);
+    cuda_check_kernel;
 
     // collect results
     pva.fetch_pva();
-    printf("GPU computed trajectory:\n");
-    print(pva.host->vel);
+    // printf("GPU computed trajectory:\n");
+    // print(pva.host->vel);
 
-    pva.host->compute_trajectory(x, task);
-    printf("CPU computed trajectory:\n");
-    print(pva.host->vel);
+    // pva.host->compute_trajectory(x, task);
+    // printf("CPU computed trajectory:\n");
+    // print(pva.host->vel);
     pva.clear();
 }
