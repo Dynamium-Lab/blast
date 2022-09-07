@@ -11,7 +11,9 @@
 #error "NVCC is required to run these benchmarks"
 #endif
 
-const blast::u32 npoints = 512*20;
+const blast::u32 npoints = 1024*80;
+const blast::u32 nblocks = 1024*4;
+static_assert(npoints % nblocks == 0);
 
 // static void BM_Mat4(benchmark::State& state) {
 //     using namespace blast;
@@ -44,7 +46,7 @@ const blast::u32 npoints = 512*20;
 // }
 // BENCHMARK(BM_Mat4)->Unit(benchmark::kMicrosecond);
 
-static void BM_Splines(benchmark::State& state) {
+static void BM_CPU_Constraints_PVA(benchmark::State& state) {
     using namespace blast;
     const auto npts = npoints;
     const auto njoints = 7;
@@ -71,7 +73,7 @@ static void BM_Splines(benchmark::State& state) {
         benchmark::ClobberMemory();
     }
 }
-BENCHMARK(BM_Splines)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_CPU_Constraints_PVA)->Unit(benchmark::kMicrosecond);
 
 static void BM_Cuda_Constraints_PVA(benchmark::State& state) {
     using namespace blast;
@@ -103,8 +105,9 @@ static void BM_Cuda_Constraints_PVA(benchmark::State& state) {
 
         // compute trajectory
         pva.compute_control_and_send(x, task);
-        pva_constraints_kernel<<< 80, npts/80 >>>(pva);
+        pva_constraints_kernel<<< nblocks, npts/nblocks >>>(pva);
         cuda_check_kernel;
+        pva.fetch_pva();
         manip.fetch_constraints(npts);
     }
     cudaDeviceSynchronize();
@@ -141,7 +144,7 @@ static void BM_Cuda_Constraints(benchmark::State& state) {
 
         // compute trajectory
         pva.compute_control_and_send(x, task);
-        constraints_no_pva_kernel<<< 80, npts/80 >>>(pva);
+        constraints_no_pva_kernel<<< nblocks, npts/nblocks >>>(pva);
         cuda_check_kernel;
         manip.fetch_constraints(npts);
     }
