@@ -68,6 +68,11 @@ host_fn real get_random() {
     return dis(e2);
 }
 
+// fill the given Array with random values between -A and A
+host_fn real fill_random(Array& v, real A) {
+    for (int i = 0; i < v.size; i++)
+        v[i] = A * get_random();
+}
 
 // get the time
 host_fn int64_t get_tick_us() {
@@ -102,6 +107,7 @@ host_fn void print_device_properties() {
         printf("  Device name: ............................... %s\n", prop.name);
         printf("  Multiprocessors: ........................... %d\n", prop.multiProcessorCount);
         printf("  Threads per multiprocessor: ................ %d\n", prop.maxThreadsPerMultiProcessor);
+        printf("  Threads per block: ......................... %d\n", prop.maxThreadsPerBlock);
         printf("  Async Engine Count: ........................ %d\n", prop.asyncEngineCount);
         printf("  Registers per block: ....................... %d\n", prop.regsPerBlock);
         printf("  Registers per multiprocessor: .............. %d\n", prop.regsPerMultiprocessor);
