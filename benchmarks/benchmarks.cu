@@ -91,16 +91,14 @@ static void BM_Cuda_Constraints_PVA(benchmark::State& state) {
 
     for (auto _ : state) {
         // random task
-        real amp = 10;
+        const real amp = 10;
         Matrix task(njoints, 6);
         for (u32 i = 0; i < task.rows; i++)
             for (u32 j = 0; j < task.cols; j++)
                 task(i, j) = amp * get_random();
 
         // random optimization vector
-        Array x(njoints*(nctrl-6) + 1);
-        for (u32 i = 0; i < x.size; i++)
-            x[i] = amp * get_random();
+        auto x = blast::random_array(pva.host->xlen(), amp);
         x.back() = std::abs(x.back());
 
         // compute trajectory
@@ -137,9 +135,7 @@ static void BM_Cuda_Constraints(benchmark::State& state) {
                 task(i, j) = amp * get_random();
 
         // random optimization vector
-        Array x(njoints*(nctrl-6) + 1);
-        for (u32 i = 0; i < x.size; i++)
-            x[i] = amp * get_random();
+        auto x = blast::random_array(pva.host->xlen(), amp);
         x.back() = std::abs(x.back());
 
         // compute trajectory

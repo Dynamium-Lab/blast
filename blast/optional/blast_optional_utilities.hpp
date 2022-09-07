@@ -69,9 +69,17 @@ host_fn real get_random() {
 }
 
 // fill the given Array with random values between -A and A
-host_fn real fill_random(Array& v, real A) {
-    for (int i = 0; i < v.size; i++)
+host_fn void fill_random(Array& v, real A) {
+    for (int i = 0; i < (int)v.size; i++)
         v[i] = A * get_random();
+}
+
+// Generate an Array of size 'n' with random values between -A and A
+host_fn Array random_array(u32 n, real A) {
+    Array result(n);
+    for (int i = 0; i < (int)n; i++)
+        result[i] = A * get_random();
+    return result;
 }
 
 // get the time
