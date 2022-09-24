@@ -1,7 +1,7 @@
 
 
 
-#define BLAST_USE_DOUBLES 0
+#define BLAST_USE_DOUBLES 1
 #include "blast.hpp"
 #include "blast_optional_utilities.hpp"
 
