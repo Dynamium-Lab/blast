@@ -1,10 +1,19 @@
-// todo: trigger breakpoint or something else
-#ifdef _DEBUG
+#pragma once
+
+
+#if defined(__CUDA_ARCH__) && defined(_DEBUG)
+#define Assert(expr) \
+    if (!(expr)){\
+    fprintf(stderr, "Assertion failed in function: %s. File: %s(%d).\n", __FUNCTION__, __FILE__, __LINE__); \
+    __trap(); \
+}\
+
+#elif defined(_DEBUG)
 #define Assert(expr) \
     if (!(expr)){\
         fprintf(stderr, "Assertion failed in function: %s. File: %s(%d).\n", __FUNCTION__, __FILE__, __LINE__); \
         abort(); \
-    }
+}
 #else
 #define Assert(expr) do{} while(0)
 #endif
@@ -18,3 +27,31 @@ template <typename type1, typename type2, std::size_t size1 = sizeof(type1), std
 void assert_size() {
     static_assert(size1 == size2, "Types to not have the same size!");
 }
+
+
+
+
+
+
+
+
+//-- functions that are only visible to nvcc GPU compiler -----------------------
+#ifdef __NVCC__
+
+
+
+// check the output of a cuda function call and abort if there was an error
+#define cuda_check(expr) \
+{ \
+    auto code = (expr); \
+    if (code != cudaSuccess){ \
+        fprintf(stderr, "Cuda error: %s. In file: %s (%d)\n", cudaGetErrorString(code), __FILE__,__LINE__);\
+        abort();\
+    } \
+}
+
+#define cuda_check_kernel cuda_check( cudaPeekAtLastError() )
+
+
+
+#endif

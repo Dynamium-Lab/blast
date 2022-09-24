@@ -1,5 +1,5 @@
 #pragma once
-#include "blast_math.hpp"
+#include "blast.hpp"
 
 namespace blast {
 
@@ -18,7 +18,7 @@ struct Pva {
     Pva& operator=(const Pva&);
 
     // compute the PVA using bsplines.
-    virtual void compute_trajectory(const Array&x, Matrix& task) {
+    virtual void compute_trajectory(const Array&x, const Matrix& task) {
         (void) x;
         (void) task;
     }
@@ -39,12 +39,67 @@ struct PvaBspline : public Pva {
 
     // Compute a trajectory from the given optimization vector
     //  - note: fastest when 'ncontrol' is a multiple of 4 (SIMD)
-    void compute_trajectory(const Array&x, Matrix& task) override;
+    void compute_trajectory(const Array&x, const Matrix& task) override;
     u32 xlen() override;
 
     void compute_basis();
-    void compute_control(const Array&x, Matrix& task);
+    void compute_control(const Array&x, const Matrix& task);
 };
+
+
+// the following structure is only usefull when using CUDA for Nvidia GPUs
+#ifdef __NVCC__
+struct cuPvaBspline {
+    bool is_init = false;
+    // data for both the host and the device
+    unsigned points;
+    unsigned joints;
+    unsigned p;
+    unsigned ncontrol;
+
+    // data only for the device
+    // note: not in __constant__ memory because each thread accesses a different slice (no broadcast benefit)
+    real* device_pos     = nullptr; // joints x points
+    real* device_vel     = nullptr; // joints x points
+    real* device_acc     = nullptr; // joints x points
+    real* device_t       = nullptr; // points
+    real* device_basis_p = nullptr; // nccontrol x points
+    real* device_basis_v = nullptr; // nccontrol x points
+    real* device_basis_a = nullptr; // nccontrol x points
+    real* device_control = nullptr; // nccontrol x joints todo: should this be in constant memory??
+    real  dt;
+    real  one_over_T;
+    real  one_over_T2;
+
+    // data only for the host
+    PvaBspline* host = nullptr;
+
+
+
+    // compute the basis functions
+    host_fn void init(u32 points, u32 joints, u32 p, u32 ncontrol);
+
+    // free all host and device memory
+    host_fn void clear();
+
+    // fetch the latest computed trajectory on the GPU to host_pva
+    host_fn void fetch_pva();
+
+    // compute the control points based on the optimization vector and the task
+    host_fn void compute_control(const Array&x, const Matrix& task);
+
+    // send the last computed control points to device memory
+    host_fn void send_control();
+
+    // compute control points on host and send to device
+    host_fn void compute_control_and_send(const Array&x, const Matrix& task);
+
+
+    // compute the trajectory for the given point
+    dev_fn void compute_trajectory(unsigned point);
+};
+#endif
+
 
 
 
@@ -93,6 +148,9 @@ inline void PvaBspline::compute_basis() {
 
     Array N(m*(p+1)); // triangle basis function
     const real du = 1.0f / (points-1);
+    zero(basis_p);
+    zero(basis_v);
+    zero(basis_a);
     real* basis_p_col = basis_p.data;
     real* basis_v_col = basis_v.data;
     real* basis_a_col = basis_a.data;
@@ -139,19 +197,19 @@ inline void PvaBspline::compute_basis() {
     }
 }
 
-inline void PvaBspline::compute_control(const Array&x, Matrix& task) {
+inline void PvaBspline::compute_control(const Array&x, const Matrix& task) {
     const real T = x[x.size-1];
     const real du = 1.0f/(nctrl-p);
     const real T2 = T*T;
     const real one_over_T = 1/T;
     const real one_over_T2 = one_over_T*one_over_T;
 
-    const auto p0 = &task(0, 0);
-    const auto v0 = &task(0, 1);
-    const auto a0 = &task(0, 2);
-    const auto pf = &task(0, 3);
-    const auto vf = &task(0, 4);
-    const auto af = &task(0, 5);
+    const auto p0 = task.address(0, 0);
+    const auto v0 = task.address(0, 1);
+    const auto a0 = task.address(0, 2);
+    const auto pf = task.address(0, 3);
+    const auto vf = task.address(0, 4);
+    const auto af = task.address(0, 5);
 
     u32 ctr_i = 0;
     u32 x_i = 0;
@@ -183,7 +241,7 @@ inline u32 PvaBspline::xlen() {
     return joints*(nctrl-6)+1;
 }
 
-inline void PvaBspline::compute_trajectory(const Array& x, Matrix& task) {
+inline void PvaBspline::compute_trajectory(const Array& x, const Matrix& task) {
     Assert(x.size == xlen());
     Assert(task.rows == joints);
     Assert(task.cols == 6);
@@ -196,9 +254,6 @@ inline void PvaBspline::compute_trajectory(const Array& x, Matrix& task) {
     const real one_over_T = 1/T;
     const real one_over_T2 = one_over_T*one_over_T;
 
-    // auto p = pos.data;
-    // auto v = vel.data;
-    // auto a = acc.data;
     for (u32 point = 0; point < points; point++) {
         t[point] = dt * point;
         auto bp = basis_p.col(point);
@@ -209,28 +264,6 @@ inline void PvaBspline::compute_trajectory(const Array& x, Matrix& task) {
             pos(joint, point) = dot(c, bp);
             vel(joint, point) = dot(c, bv) * one_over_T;
             acc(joint, point) = dot(c, ba) * one_over_T2;
-
-            // const auto c = &control(0, joint);
-
-            // // compute
-            // auto accum_p = _mm256_setzero_pd();
-            // auto accum_v = _mm256_setzero_pd();
-            // auto accum_a = _mm256_setzero_pd();
-            // for (u32 i = 0; i < nctrl-3; i += 4) {
-            //     const auto c_v  = _mm256_loadu_pd(&c[i]);
-            //     const auto bp_v = _mm256_loadu_pd(&bp[i]);
-            //     const auto bv_v = _mm256_loadu_pd(&bv[i]);
-            //     const auto ba_v = _mm256_loadu_pd(&ba[i]);
-            //     accum_p = _mm256_fmadd_pd(c_v, bp_v, accum_p);
-            //     accum_v = _mm256_fmadd_pd(c_v, bv_v, accum_v);
-            //     accum_a = _mm256_fmadd_pd(c_v, ba_v, accum_a);
-            // }
-            // *p = simd_hadd(accum_p);
-            // *v = simd_hadd(accum_v) * one_over_T;
-            // *a = simd_hadd(accum_a) * one_over_T2;
-            // p++;
-            // v++;
-            // a++;
         }
     }
 }
@@ -241,7 +274,7 @@ inline Pva compute_5order_trajectory(real T, Matrix& task) {
 
     Pva result(joints, points);
 
-    const real deltaT = 0.001;
+    const real deltaT = 0.001f;
     T = (points - 1) * deltaT;
 
     Matrix A(6, joints);
@@ -256,10 +289,10 @@ inline Pva compute_5order_trajectory(real T, Matrix& task) {
 
         A(0, j) = p0;
         A(1, j) = v0;
-        A(2, j) = a0*0.5;
-        A(3, j) = 0.5*af - 1.5*a0 - 10*(p0 - pf) - 6*v0 - 4*vf;
-        A(4, j) = 1.5*a0 - af + 15*(p0 - pf) + 8*v0 + 7*vf;
-        A(5, j) = 0.5*(af - a0) - 6*(p0 - pf) - 3*(v0 + vf);
+        A(2, j) = a0*0.5f;
+        A(3, j) = 0.5f*af - 1.5f*a0 - 10*(p0 - pf) - 6*v0 - 4*vf;
+        A(4, j) = 1.5f*a0 - af + 15*(p0 - pf) + 8*v0 + 7*vf;
+        A(5, j) = 0.5f*(af - a0) - 6*(p0 - pf) - 3*(v0 + vf);
     }
 
     for(u32 i=0; i < points; i++) {
@@ -285,6 +318,127 @@ inline Pva compute_5order_trajectory(real T, Matrix& task) {
 
     return result;
 }
+
+
+
+
+//------ FOR GPU COMPUTATION ONLY ------------------------------------------------------------------------------------
+#ifdef __NVCC__
+
+
+host_fn void cuPvaBspline::init(u32 _points, u32 _joints, u32 _p, u32 _ncontrol) {
+    if (is_init)
+        return;
+    is_init = true;
+
+    points   = _points;
+    joints   = _joints;
+    p        = _p;
+    ncontrol = _ncontrol;
+
+    host = new PvaBspline(ncontrol, points, p, joints);
+
+    // prepare and send basis function values
+    const u32 basis_bytes = points*ncontrol*sizeof(real);
+    cuda_check( cudaMalloc(&device_basis_p, basis_bytes) );
+    cuda_check( cudaMalloc(&device_basis_v, basis_bytes) );
+    cuda_check( cudaMalloc(&device_basis_a, basis_bytes) );
+    cuda_check( cudaMemcpy(device_basis_p, host->basis_p.data, basis_bytes, cudaMemcpyHostToDevice) );
+    cuda_check( cudaMemcpy(device_basis_v, host->basis_v.data, basis_bytes, cudaMemcpyHostToDevice) );
+    cuda_check( cudaMemcpy(device_basis_a, host->basis_a.data, basis_bytes, cudaMemcpyHostToDevice) );
+
+    // prepare pos, vel, and acc matrices and t array
+    cuda_check( cudaMalloc(&device_pos,     points*joints*sizeof(real)) );
+    cuda_check( cudaMalloc(&device_vel,     points*joints*sizeof(real)) );
+    cuda_check( cudaMalloc(&device_acc,     points*joints*sizeof(real)) );
+    cuda_check( cudaMalloc(&device_t,       points*sizeof(real)) );
+    cuda_check( cudaMalloc(&device_control, joints*ncontrol*sizeof(real)) );
+}
+
+host_fn void cuPvaBspline::clear() {
+    printf("Clearing memory\n");
+    if (device_basis_p) {
+        cuda_check( cudaFree(device_basis_p) );
+        device_basis_p = nullptr;
+    }
+    if (device_basis_v) {
+        cuda_check( cudaFree(device_basis_v) );
+        device_basis_v = nullptr;
+    }
+    if (device_basis_a) {
+        cuda_check( cudaFree(device_basis_a) );
+        device_basis_a = nullptr;
+    }
+    if (device_pos) {
+        cuda_check( cudaFree(device_pos) );
+        device_pos = nullptr;
+    }
+    if (device_vel) {
+        cuda_check( cudaFree(device_vel) );
+        device_vel = nullptr;
+    }
+    if (device_acc) {
+        cuda_check( cudaFree(device_acc) );
+        device_acc = nullptr;
+    }
+    if (device_t) {
+        cuda_check( cudaFree(device_t) );
+        device_t = nullptr;
+    }
+    delete(host);
+    host = nullptr;
+    is_init = false;
+}
+
+host_fn void cuPvaBspline::fetch_pva() {
+    cuda_check( cudaMemcpy(host->pos.data, device_pos, host->pos.size * sizeof(real), cudaMemcpyDeviceToHost) );
+    cuda_check( cudaMemcpy(host->vel.data, device_vel, host->vel.size * sizeof(real), cudaMemcpyDeviceToHost) );
+    cuda_check( cudaMemcpy(host->acc.data, device_acc, host->acc.size * sizeof(real), cudaMemcpyDeviceToHost) );
+    cuda_check( cudaMemcpy(host->t.data, device_t, host->t.size * sizeof(real), cudaMemcpyDeviceToHost) );
+}
+
+host_fn void cuPvaBspline::compute_control(const Array&x, const Matrix& task) {
+    Assert(host);
+    dt = x.back() / (real)(points-1);
+    one_over_T = 1 / x.back();
+    one_over_T2 = one_over_T * one_over_T;
+    host->compute_control(x, task);
+}
+
+host_fn void cuPvaBspline::send_control() {
+    cuda_check( cudaMemcpy(device_control, host->control.data, joints*ncontrol*sizeof(real), cudaMemcpyHostToDevice) );
+}
+
+host_fn void cuPvaBspline::compute_control_and_send(const Array&x, const Matrix& task) {
+    compute_control(x, task);
+    send_control();
+}
+
+//------ DEVICE FUNCTIONS ------------------------------------------------------------------------------------
+dev_fn void cuPvaBspline::compute_trajectory(const unsigned point) {
+    device_t[point] = dt * point;
+    const auto bp = device_basis_p + point*ncontrol;
+    const auto bv = device_basis_v + point*ncontrol;
+    const auto ba = device_basis_a + point*ncontrol;
+    for (int joint = 0; joint < joints; joint++) {
+        const auto c = device_control + joint*ncontrol;
+        real position = 0;
+        real velocity = 0;
+        real acceleration = 0;
+        for (int i = 0; i < ncontrol; i++) {
+            position     += c[i] * bp[i];
+            velocity     += c[i] * bv[i];
+            acceleration += c[i] * ba[i];
+        }
+        device_pos[point*joints + joint] = position;
+        device_vel[point*joints + joint] = velocity     * one_over_T;
+        device_acc[point*joints + joint] = acceleration * one_over_T2;
+    }
+}
+
+
+
+#endif
 
 
 } // namespace blast
