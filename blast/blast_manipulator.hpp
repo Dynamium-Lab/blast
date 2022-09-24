@@ -1068,7 +1068,7 @@ inline Matrix Gen3_7DOF::jacobian_matrix(const Array& joint_position) {
     real s[8];
     real c[8];
     auto p = joint_position.data;
-    Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
+    Mat3 Q2, Q3, Q4, Q5, Q6, Q7;
 
     __m256d s_tmp;
     __m256d c_tmp;
@@ -1080,7 +1080,7 @@ inline Matrix Gen3_7DOF::jacobian_matrix(const Array& joint_position) {
     }
 
     // note: these are stored column-wise
-    Q1 = {c[0], -s[0],  0,        -s[0], -c[0],   0,        0,  0, -1};
+    // Q1 = {c[0], -s[0],  0,        -s[0], -c[0],   0,        0,  0, -1};
     Q2 = {c[1],   0,   s[1],      -s[1],   0,    c[1],      0, -1,  0};
     Q3 = {c[2],   0,  -s[2],      -s[2],   0,   -c[2],      0,  1,  0};
     Q4 = {c[3],   0,   s[3],      -s[3],   0,    c[3],      0, -1,  0};
