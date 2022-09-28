@@ -93,7 +93,7 @@ struct Gen3_7DOF : public Manipulator {
     Matrix forward_kinematics(const Matrix& joint_positions);
 
     // compute jacobian matrix
-    Matrix Gen3_7DOF::jacobian_matrix(const Array& joint_position);
+    Matrix Gen3_7DOF::jacobian(const Array& joint_position);
 
     // check collision
     Array collision_dist_sqr(const Array& joint_position);
@@ -981,7 +981,7 @@ inline Matrix Gen3_7DOF::forward_kinematics(const Matrix& joint_positions) {
 
     for (u32 point = 0; point < joint_positions.cols; point++) {
 
-#if BLAST_SIZEOF_REAL == 8
+#if BLAST_USE_DOUBLES
         real s[8];
         real c[8];
         __m256d s_tmp;
@@ -1062,22 +1062,32 @@ inline Matrix Gen3_7DOF::forward_kinematics(const Matrix& joint_positions) {
     return pose;
 }
 
-inline Matrix Gen3_7DOF::jacobian_matrix(const Array& joint_position) {
+inline Matrix Gen3_7DOF::jacobian(const Array& joint_position) {
 
-    //  - note: manual SIMD (10% better performance than using sincos function on arrays like commented below)
-    real s[8];
-    real c[8];
     auto p = joint_position.data;
     Mat3 Q2, Q3, Q4, Q5, Q6, Q7;
 
-    __m256d s_tmp;
-    __m256d c_tmp;
-    for (u32 i = 0; i < 8; i += 4) {
-        __m256d angle_v = _mm256_load_pd(p + i);
-        s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-        _mm256_storeu_pd(s+i, s_tmp);
-        _mm256_storeu_pd(c+i, c_tmp);
-    }
+#if BLAST_USE_DOUBLES
+        real s[8];
+        real c[8];
+        __m256d s_tmp;
+        __m256d c_tmp;
+        for (u32 i = 0; i < 8; i += 4) {
+            __m256d angle_v = _mm256_load_pd(p + i);
+            s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+            _mm256_storeu_pd(s+i, s_tmp);
+            _mm256_storeu_pd(c+i, c_tmp);
+        }
+#else
+        real s[8];
+        real c[8];
+        __m256 s_tmp;
+        __m256 c_tmp;
+        __m256 angle_v = _mm256_load_ps(p);
+        s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
+        _mm256_storeu_ps(s, s_tmp);
+        _mm256_storeu_ps(c, c_tmp);
+#endif
 
     // note: these are stored column-wise
     // Q1 = {c[0], -s[0],  0,        -s[0], -c[0],   0,        0,  0, -1};
