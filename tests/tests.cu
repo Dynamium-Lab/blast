@@ -18,6 +18,25 @@ TEST(Math, ArrayOperations) {
     EXPECT_EQ(r, (real)10.0);
 }
 
+TEST(Math, ArrayAliasChecking) {
+    Array a(5) = {1, 2, 3, 4, 5};
+    {
+        Array b(a);
+        Array c(a.data, 4);
+
+        b[1] = 12;
+        EXPECT_FLOAT_EQ(float(a[1]), 2.0f);
+        c[1] = 14;
+        EXPECT_FLOAT_EQ(float(a[1]), 14.0f);
+
+        EXPECT_FALSE(a.is_alias);
+        EXPECT_FALSE(b.is_alias);
+        EXPECT_TRUE(c.is_alias);
+    }
+
+    
+}
+
 TEST(Math, Mat3Operations) {
     using namespace blast;
 

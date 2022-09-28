@@ -818,8 +818,9 @@ host_fn Array::Array(const svector& v) {
 }
 
 blast_fn Array::~Array() {
-    if (!is_alias && data)
+    if (!is_alias && data){
         free(data);
+    }
 }
 
 blast_fn Array& Array::operator=(const Array& a) {
