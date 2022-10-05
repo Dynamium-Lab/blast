@@ -9,25 +9,23 @@ int main() {
 
     // init
     const u32 njoints = 7;
-    const u32 npts = 4000;
-    const u32 nctrl = 8*3;
+    const u32 npts = 101;
+    const u32 nctrl = 8;
     const u32 p = 5;
     PvaBspline pva(nctrl, npts, p, njoints);
 
     // random task
     real amp = 2;
     Matrix task(njoints, 6);
-    for (u32 i = 0; i < task.rows; i++) {
-        for (u32 j = 0; j < task.cols; j++) {
+    for (u32 i = 0; i < task.rows; i++)
+        for (u32 j = 0; j < task.cols; j++)
             task(i, j) = amp * get_random();
-        }
-    }
 
     // random optimization vector
     Array x(pva.xlen());
     for (u32 i = 0; i < x.size; i++)
         x[i] = amp * get_random();
-    x[x.size-1] = 0.9f;
+    x[x.size-1] = 5;
 
     // Compute trajectory
     pva.compute_trajectory(x, task);
@@ -59,14 +57,13 @@ int main() {
         }
     }
 
-    printf("Normal:\n");
-    printf("\tMax initial position error: %f\n", init_max_pos_error);
-    printf("\tMax initial velocity error: %f\n", init_max_vel_error);
+    printf("\tMax initial position error: %f\n",     init_max_pos_error);
+    printf("\tMax initial velocity error: %f\n",     init_max_vel_error);
     printf("\tMax initial acceleration error: %f\n", init_max_acc_error);
-    printf("\tMax final position error: %f\n", final_max_pos_error);
-    printf("\tMax final velocity error: %f\n", final_max_vel_error);
-    printf("\tMax final acceleration error: %f\n", final_max_acc_error);
-    printf("\tMax derived velocity error: %f\n", max_vel_error);
+    printf("\tMax final position error: %f\n",       final_max_pos_error);
+    printf("\tMax final velocity error: %f\n",       final_max_vel_error);
+    printf("\tMax final acceleration error: %f\n",   final_max_acc_error);
+    printf("\tMax derived velocity error: %f\n",     max_vel_error);
     printf("\tMax derived acceleration error: %f\n", max_acc_error);
 
     return 0;

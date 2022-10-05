@@ -1,3 +1,6 @@
+
+
+#define BLAST_USE_DOUBLES 1
 #include "blast.hpp"
 #include "blast_optional_utilities.hpp"
 
@@ -13,6 +16,25 @@ TEST(Math, ArrayOperations) {
 
     auto r = dot(a, b);
     EXPECT_EQ(r, (real)10.0);
+}
+
+TEST(Math, ArrayAliasChecking) {
+    Array a(5) = {1, 2, 3, 4, 5};
+    {
+        Array b(a);
+        Array c(a.data, 4);
+
+        b[1] = 12;
+        EXPECT_FLOAT_EQ(float(a[1]), 2.0f);
+        c[1] = 14;
+        EXPECT_FLOAT_EQ(float(a[1]), 14.0f);
+
+        EXPECT_FALSE(a.is_alias);
+        EXPECT_FALSE(b.is_alias);
+        EXPECT_TRUE(c.is_alias);
+    }
+
+    
 }
 
 TEST(Math, Mat3Operations) {
@@ -104,10 +126,10 @@ TEST(Math, TwoSegmentDist) {
     auto dist_sqr_test3 = blast::two_segment_distance_sqr({1.5, 3, 2}, {7, 0, 4}, {8.2, 0, 5}, {2, 2, 0});
     auto dist_sqr_test4 = blast::two_segment_distance_sqr({1, 1, 1}, {2, 2, 2}, {3, 3, 3}, {4, 4, 4});
 
-    EXPECT_FLOAT_EQ((float)dist_sqr_test1, (float)(1.414213562373095*1.414213562373095));
-    EXPECT_FLOAT_EQ((float)dist_sqr_test2, (float)(0.408248290463863*0.408248290463863));
-    EXPECT_FLOAT_EQ((float)dist_sqr_test3, (float)(0.277660159805987*0.277660159805987));
-    EXPECT_FLOAT_EQ((float)dist_sqr_test4, (float)(1.732050807568877*1.732050807568877));
+    EXPECT_FLOAT_EQ((float)dist_sqr_test1, 1.414213562373095f*1.414213562373095f);
+    EXPECT_FLOAT_EQ((float)dist_sqr_test2, 0.408248290463863f*0.408248290463863f);
+    EXPECT_FLOAT_EQ((float)dist_sqr_test3, 0.277660159805987f*0.277660159805987f);
+    EXPECT_FLOAT_EQ((float)dist_sqr_test4, 1.732050807568877f*1.732050807568877f);
 }
 
 TEST(SplineTest, TrajectoryCorrectness) {
@@ -177,20 +199,19 @@ TEST(SplineTest, TrajectoryCorrectness) {
     EXPECT_TRUE(max_acc_error < 0.9);
 }
 
-
 TEST(BlastManip, SelfCollision) {
     using namespace blast;
-    blast::Gen3_7DOF manip;
-    blast::Array theta1(7);
+    Gen3_7DOF manip;
+    Array theta1(7);
     theta1 = {0, 15, 180, 230, 360, 55, 90};
     theta1 = deg2rad(theta1);
-    blast::Array theta2(7);
+    Array theta2(7);
     theta2 = {0, 0, 0, 0, 0, 0, 0};
     theta2 = deg2rad(theta2);
-    blast::Array theta3(7);
+    Array theta3(7);
     theta3 = {0, 16, 180, 221, 358, 284, 88};
     theta3 = deg2rad(theta3);
-    blast::Array theta4(7);
+    Array theta4(7);
     theta4 = {347, 47, 158, 212, 341, 300, 8};
     theta4 = deg2rad(theta4);
 
@@ -205,134 +226,58 @@ TEST(BlastManip, SelfCollision) {
     EXPECT_TRUE(dist_sqr_min_4[0] < 0 && dist_sqr_min_4[1] > 0);
 }
 
-
-TEST(BlastManip, Jacobienne) {
-    // This test ensures that the functions works as it should
-    // todo: Experimental validation is still pending...
+//--- GPU Specific tests
+#ifdef __NVCC__
+TEST(BlastManip, GpuCpuCorrectness) {
     using namespace blast;
-    Gen3_7DOF manip;
-    blast::Array theta2(7);
-    blast::Array theta1(7);
-    theta1 = {0, 15, 180, 230, 360, 55, 90};
-    theta1 = deg2rad(theta1);
-    blast::Array theta2(7);
-    theta2 = {0, 0, 0, 0, 0, 0, 0};
-    theta2 = deg2rad(theta2);
-    blast::Array theta3(7);
-    theta3 = {0, 16, 180, 221, 358, 284, 88};
-    theta3 = deg2rad(theta3);
-    blast::Array theta4(7);
-    theta4 = {347, 47, 158, 212, 341, 300, 8};
-    theta4 = deg2rad(theta4);
+    const u32 points = 256;
+    const u32 joints = 7;
+    const u32 p = 5;
+    const u32 ncontrol = 24;
 
-    // Test 1
-    auto J1 = manip.jacobian_matrix(theta1);
-    Matrix Jacob1(6, 7);
-    Jacob1(0, 0) = 0.0;
-    Jacob1(1, 0) = 0.0;
-    Jacob1(2, 0) = 1.0;
-    Jacob1(3, 0) = -0.01180000000000;
-    Jacob1(4, 0) = 0.620586128124275;
-    Jacob1(5, 0) = 0.0;
+    cuPvaBspline device_pva;
+    cuGen3_7DOF device_manip;
+    PvaBspline host_pva(ncontrol, points, p, joints);
+    Gen3_7DOF host_manip;
 
-    Jacob1(0, 1) = 0.0;
-    Jacob1(1, 1) = 0.0;
-    Jacob1(2, 1) = -1.0;
-    Jacob1(3, 1) = 0.304544485822496;
-    Jacob1(4, 1) = -0.560875587304492;
-    Jacob1(5, 1) = 0.0;
 
-    Jacob1(0, 2) = 0.0;
-    Jacob1(1, 2) = 1.0;
-    Jacob1(2, 2) = 0.0;
-    Jacob1(3, 2) = 0.145165283927464;
-    Jacob1(4, 2) = 0.0;
-    Jacob1(5, 2) = 0.541764215112458;
+    // random task and input vector
+    Matrix task(joints, 6);
+    real amp = 10;
+    for (u32 i = 0; i < task.rows; i++)
+        for (u32 j = 0; j < task.cols; j++)
+            task(i, j) = amp * get_random();
+    Array x(joints*(ncontrol-6) + 1);
+    for (u32 i = 0; i < x.size; i++)
+        x[i] = amp * get_random();
+    x.back() = abs(x.back());
 
-    Jacob1(0, 3) = -0.258819045102521;
-    Jacob1(1, 3) = 0.0;
-    Jacob1(2, 3) = -0.965925826289068;
-    Jacob1(3, 3) = -0.487196789176532;
-    Jacob1(4, 3) = 0.271466987477372;
-    Jacob1(5, 3) = 0.130543986214888;
+    // compute constraints on host
+    host_pva.compute_trajectory(x, task);
+    auto host_con = host_manip.validate(host_pva);
 
-    Jacob1(0, 4) = 0.0;
-    Jacob1(1, 4) = -1.0;
-    Jacob1(2, 4) = 0.0;
-    Jacob1(3, 4) = -0.155707067264225;
-    Jacob1(4, 4) = 0.0;
-    Jacob1(5, 4) = 0.222372737749063;
+    // compute constraints on GPU
+    device_pva.init(points, joints, p, ncontrol);
+    device_pva.compute_control_and_send(x, task);
+    device_manip.init(0, points);
+    pva_constraints_kernel<<< 1, points >>>(device_pva);
+    device_pva.fetch_pva();
+    device_manip.fetch_constraints(points);
 
-    Jacob1(0, 5) = -0.573576436351046;
-    Jacob1(1, 5) = 0.0;
-    Jacob1(2, 5) = 0.819152044288992;
-    Jacob1(3, 5) = 0.271466987477372;
-    Jacob1(4, 5) = 0.0;
-    Jacob1(5, 5) = 0.190083231006737;
 
-    Jacob1(0, 6) = 0.0;
-    Jacob1(1, 6) = 1.0;
-    Jacob1(2, 6) = 0.0;
-    Jacob1(3, 6) = 0.0;
-    Jacob1(4, 6) = 0.0;
-    Jacob1(5, 6) = 0.0;
 
-    // Test 2
-    auto J2 = manip.jacobian_matrix(theta2);
-    Matrix Jacob2(6, 7);
-    Jacob2(0, 0) = 0.0;
-    Jacob2(1, 0) = 0.0;
-    Jacob2(2, 0) = 1.0;
-    Jacob2(3, 0) = -0.011800000;
-    Jacob2(4, 0) = 0.0;
-    Jacob2(5, 0) = 0.0;
-
-    Jacob2(0, 1) = 0.0;
-    Jacob2(1, 1) = 0.0;
-    Jacob2(2, 1) = -1.0;
-    Jacob2(3, 1) = 1.066500000;
-    Jacob2(4, 1) = 0.0;
-    Jacob2(5, 1) = 0.0;
-
-    Jacob2(0, 2) = 0.0;
-    Jacob2(1, 2) = 1.0;
-    Jacob2(2, 2) = 0.0;
-    Jacob2(3, 2) = 0.0;
-    Jacob2(4, 2) = 0.0;
-    Jacob2(5, 2) = 0.0;
-
-    Jacob2(0, 3) = 0.0;
-    Jacob2(1, 3) = 0.0;
-    Jacob2(2, 3) = -1.0;
-    Jacob2(3, 3) = 0.654700000;
-    Jacob2(4, 3) = 0.0;
-    Jacob2(5, 3) = 0.0;
-
-    Jacob2(0, 4) = 0.0;
-    Jacob2(1, 4) = 1.0;
-    Jacob2(2, 4) = 0.0;
-    Jacob2(3, 4) = 0.0;
-    Jacob2(4, 4) = 0.0;
-    Jacob2(5, 4) = 0.0;
-
-    Jacob2(0, 5) = 0.0;
-    Jacob2(1, 5) = 0.0;
-    Jacob2(2, 5) = -1.0;
-    Jacob2(3, 5) = 0.33140000;
-    Jacob2(4, 5) = 0.0;
-    Jacob2(5, 5) = 0.0;
-
-    Jacob2(0, 6) = 0.0;
-    Jacob2(1, 6) = 1.0;
-    Jacob2(2, 6) = 0.0;
-    Jacob2(3, 6) = 0.0;
-    Jacob2(4, 6) = 0.0;
-    Jacob2(5, 6) = 0.0;
-
-    for (u32 i = 0; i < 7; i++) {
-        for (u32 j = 0; j < 6; j++) {
-            EXPECT_TRUE((real)J2(j, i) - (real)Jacob2(j, i) < 0.0000001); // Allow for errors in the Matlab code
-            EXPECT_TRUE((real)J1(j, i) - (real)Jacob1(j, i) < 0.0000001); // Allow for errors in the Matlab code
-        }
+    // Test correctness of the trajectory
+    for (int i = 0; i < (int)points; i++) {
+        EXPECT_FLOAT_EQ((float)host_pva.pos(0, i), (float)device_pva.host->pos(0, i));
+        EXPECT_FLOAT_EQ((float)host_pva.pos(1, i), (float)device_pva.host->pos(1, i));
+        EXPECT_FLOAT_EQ((float)host_pva.pos(2, i), (float)device_pva.host->pos(2, i));
+        EXPECT_FLOAT_EQ((float)host_pva.pos(3, i), (float)device_pva.host->pos(3, i));
+        EXPECT_FLOAT_EQ((float)host_pva.pos(4, i), (float)device_pva.host->pos(4, i));
+        EXPECT_FLOAT_EQ((float)host_pva.pos(5, i), (float)device_pva.host->pos(5, i));
     }
+
+    // host_con should be the same (ish) as device_manip.host_constraints
+    for (int i = 0; i < (int)host_con.size; i++)
+        EXPECT_FLOAT_EQ((float)host_con[i], (float)device_manip.host_constraints[i]);
 }
+#endif
