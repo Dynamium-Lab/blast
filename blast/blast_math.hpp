@@ -286,7 +286,7 @@ struct Matrix {
 
     // return an array accessing the given colum
     //  - note: new Array is aliasing our data
-    Array col(u32 c);
+    Array col(u32 c) const;
 };
 
 
@@ -1162,7 +1162,7 @@ inline real Matrix::operator()(u32 row, u32 col) const {
     return data[row + rows*col];
 }
 
-inline Array Matrix::col(u32 c) {
+inline Array Matrix::col(u32 c) const {
     Assert(c < this->cols);
     Array result;
     result.data = data + rows*c;
@@ -1307,7 +1307,7 @@ static void compute_minimum_parameters(i32* edge, real end[][2], real b, real c,
     }
 }
 
-inline real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
+inline real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) { // todo: Fix funcion to work with gradients
 // note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
     auto const P1mP0 = P1 - P0;
     auto const Q1mQ0 = Q1 - Q0;
@@ -1380,6 +1380,8 @@ inline real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
     Vec3 closest0 = P0 + parameter[0]*P1mP0;
     Vec3 closest1 = Q0 + parameter[1]*Q1mQ0;
     Vec3 diff = closest0 - closest1;
+
+    // auto result = sqrt(dot(diff, diff));
     return dot(diff, diff);
 }
 

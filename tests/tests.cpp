@@ -194,10 +194,10 @@ TEST(BlastManip, SelfCollision) {
     theta4 = {347, 47, 158, 212, 341, 300, 8};
     theta4 = deg2rad(theta4);
 
-    auto dist_sqr_min_1 = manip.collision_dist_sqr(theta1);
-    auto dist_sqr_min_2 = manip.collision_dist_sqr(theta2);
-    auto dist_sqr_min_3 = manip.collision_dist_sqr(theta3);
-    auto dist_sqr_min_4 = manip.collision_dist_sqr(theta4);
+    auto dist_sqr_min_1 = manip.collision_check(theta1);
+    auto dist_sqr_min_2 = manip.collision_check(theta2);
+    auto dist_sqr_min_3 = manip.collision_check(theta3);
+    auto dist_sqr_min_4 = manip.collision_check(theta4);
 
     EXPECT_TRUE(dist_sqr_min_1[0] > 0 && dist_sqr_min_1[1] > 0);
     EXPECT_TRUE(dist_sqr_min_2[0] > 0 && dist_sqr_min_2[1] > 0);

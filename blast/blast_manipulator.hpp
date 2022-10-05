@@ -96,7 +96,7 @@ struct Gen3_7DOF : public Manipulator {
     Matrix Gen3_7DOF::jacobian_matrix(const Array& joint_position);
 
     // check collision
-    Array collision_dist_sqr(const Array& joint_position);
+    Array collision_check(const Array& joint_position);
 
     // check all constraints on the manipulator for 1 point
     Array validate(const Array& pos, const Array& vel, const Array& acc);
@@ -677,7 +677,7 @@ inline Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
     dv[3] = { 0.0, -0.2084, -0.0064};
     dv[4] = { 0.0,  0.0,    -0.1059};
     dv[5] = { 0.0, -0.1059,  0.0};
-    dv[6] = { 0.0,  0.0,    -0.0615-0.164};
+    dv[6] = { 0.0,  0.0,    -0.0615-0.164}; // todo: add option to know if tool is closed or opened (difference of 0.0135 in z)
 
     // center of mass (from next joint)
     sv[0] = dv[0] - av[0];
@@ -1071,7 +1071,7 @@ inline Matrix Gen3_7DOF::jacobian_matrix(const Array& joint_position) {
     return J;
 }
 
-inline Array Gen3_7DOF::collision_dist_sqr(const Array& joint_position) {
+inline Array Gen3_7DOF::collision_check(const Array& joint_position) {
     //  - note: manual SIMD
     // real s[8];
     // real c[8];
@@ -1097,12 +1097,19 @@ inline Array Gen3_7DOF::collision_dist_sqr(const Array& joint_position) {
     // }
 
     // create aliases instead of actual arrays to allocate the memory on the stack (performance)
-    real s_data[8]; // nearest factor of 4
-    real c_data[8]; // nearest factor of 4
-    Array s(s_data, 8);
-    Array c(c_data, 8);
+    real s[8];
+    real c[8];
+    auto p = joint_position.data;
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
-    sincos(joint_position, s, c);
+
+    __m256d s_tmp;
+    __m256d c_tmp;
+    for (u32 i = 0; i < 8; i += 4) {
+        __m256d angle_v = _mm256_load_pd(p + i);
+        s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+        _mm256_storeu_pd(s+i, s_tmp);
+        _mm256_storeu_pd(c+i, c_tmp);
+    }
 
     // note: these are stored column-wise
     Q1 = {c[0], -s[0],  0,        -s[0], -c[0],   0,        0,  0, -1};
@@ -1135,30 +1142,27 @@ inline Array Gen3_7DOF::collision_dist_sqr(const Array& joint_position) {
     p_tmp += (Q_tmp*=Q7)*dv[6];
     p_ee = p_tmp;
 
-    const real r1_sqr = 0.09*0.09;
-    const real r2_sqr = 0.09*0.09;
+    const real r1sqr = 0.09*0.09;
+    const real r2sqr = 0.09*0.09;
 
     // Self collisions sqr
-    real dist1sqr = two_segment_distance_sqr(p_orig, p_j2, p_j6, p_ee) - r1_sqr;
-    real dist2sqr = two_segment_distance_sqr(p_j2, p_j3, p_j6, p_ee) - r2_sqr;
+    real dist1sqr = two_segment_distance_sqr(p_orig, p_j2, p_j6, p_ee) - r1sqr;
+    real dist2sqr = two_segment_distance_sqr(p_j2, p_j3, p_j6, p_ee) - r2sqr;
 
     // Collision with table sqr
-    const real r4table_sqr = 0.05*0.05;
-    const real r6table_sqr = 0.04*0.04;
+    const real r4table = 0.05;
+    const real r6table = 0.04;
 
     const Vec3 p_table(0, 0, -0.0025); // todo: Correct coords (z or y) ??
-    real distTJ4sqr = p_j4.z - p_table.z;
-    distTJ4sqr *= distTJ4sqr;
-    real distTJ6sqr = p_j6.z - p_table.z;
-    distTJ6sqr *= distTJ6sqr;
-    real distTEEsqr = p_ee.z - p_table.z;
-    distTEEsqr *= distTEEsqr;
+    real distTJ4 = p_j4.z - p_table.z - r4table;
+    real distTJ6 = p_j6.z - p_table.z - r6table;
+    real distTEE = p_ee.z - p_table.z - r6table;
 
     // Array of distance min sqr and distance from table sqr
-    Array distSqrMin(5);
-    distSqrMin = {dist1sqr, dist2sqr, distTJ4sqr-r4table_sqr, distTJ6sqr-r6table_sqr, distTEEsqr-r6table_sqr};
+    Array distMin(5);
+    distMin = {dist1sqr, dist2sqr, distTJ4, distTJ6, distTEE};
 
-    return distSqrMin;
+    return distMin;
 }
 
 inline Array Gen3_7DOF::validate(const Array& pos, const Array& vel, const Array& acc) {
@@ -1173,7 +1177,7 @@ inline Array Gen3_7DOF::validate(const Array& pos, const Array& vel, const Array
     Array result(5 + 2 + 7*2);
 
     // distance to collision >= 0
-    auto tmp_coll = collision_dist_sqr(pos);
+    auto tmp_coll = collision_check(pos);
     result[0] = tmp_coll[0]; // dist1sqr
     result[1] = tmp_coll[1]; // dist2sqr
     result[2] = tmp_coll[2]; // distTJ4sqr - r1_sqr
@@ -1214,15 +1218,16 @@ inline Array Gen3_7DOF::validate(const Matrix& pos, const Matrix& vel, const Mat
 
     for (u32 i = 0; i < points; i++) {
 
-        Array p(&pos.data[i * joints], joints);
+        Array p = pos.col(i);
         Assert(p.is_alias);
 
-        auto tmp_coll = collision_dist_sqr(p);
+        // todo: add collision distance validation
+        auto tmp_coll = collision_check(p);
         current_result[0] = tmp_coll[0]; // dist1sqr
         current_result[1] = tmp_coll[1]; // dist2sqr
-        current_result[2] = tmp_coll[2]; // distTJ4sqr - r1_sqr
-        current_result[3] = tmp_coll[3]; // distTJ6sqr - r1_sqr
-        current_result[4] = tmp_coll[4]; // distTEEsqr - r1_sqr
+        current_result[2] = tmp_coll[2]; // distTJ4
+        current_result[3] = tmp_coll[3]; // distTJ6
+        current_result[4] = tmp_coll[4]; // distTEE
         current_result += 5;
 
         current_result[0] = (pmax[3] - abs(pos(3, i))) / pmax[3];
