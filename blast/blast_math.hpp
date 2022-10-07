@@ -1396,6 +1396,8 @@ blast_fn real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
     Vec3 closest0 = P0 + parameter[0]*P1mP0;
     Vec3 closest1 = Q0 + parameter[1]*Q1mQ0;
     Vec3 diff = closest0 - closest1;
+
+    // auto result = sqrt(dot(diff, diff));
     return dot(diff, diff);
 }
 
