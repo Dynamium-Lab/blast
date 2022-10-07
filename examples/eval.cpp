@@ -10,8 +10,8 @@ int main() {
     Gen3_7DOF manip;
 
     // setup trajectory
-    const u32 npts = 256;
-    const u32 nctrl = 8*3;
+    const u32 npts = 50;
+    const u32 nctrl = 8;
     const u32 p = 5;
     PvaBspline pva(nctrl, npts, p, manip.joints);
 
@@ -36,18 +36,21 @@ int main() {
 
     // setup optimization vector
     Array x(pva.xlen());
+    x[0] = 1;
+    x[1] = 2;
+    x[2] = 3;
+    x[3] = 4;
     x.back() = 2;
 
-    auto objective = [](Array& x, Matrix& task, Pva& pva, Gen3_7DOF& manip) {
-        return x.back();
-    };
-    auto constraints = [](Array& x, Matrix& task, Pva& pva, Gen3_7DOF& manip) {
-        pva.compute_trajectory(x, task);
-        return manip.validate(pva);
-    };
+    Optimisation optim;
+    optim.manip = &manip;
+    optim.pva = &pva;
+    optim.task = &task;
 
-    printf("obj: %f\n", objective(x, task, pva, manip));
-    printf("constraints: \n");
-    print(constraints(x, task, pva, manip));
+    const u32 nconstraints = (5 + 2 + 7*2)*npts;
+    Array c(nconstraints);
+    Array g(nconstraints*x.size);
+    constraints(nconstraints, c.data, x.size, x.data, g.data, &optim);
+
     return 0;
 }
