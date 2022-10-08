@@ -34,7 +34,7 @@ TEST(Math, ArrayAliasChecking) {
         EXPECT_TRUE(c.is_alias);
     }
 
-    
+
 }
 
 TEST(Math, Mat3Operations) {
@@ -254,7 +254,7 @@ TEST(BlastManip, GpuCpuCorrectness) {
 
     // compute constraints on host
     host_pva.compute_trajectory(x, task);
-    auto host_con = host_manip.validate(host_pva);
+    auto host_con = host_manip.constraints(host_pva);
 
     // compute constraints on GPU
     device_pva.init(points, joints, p, ncontrol);

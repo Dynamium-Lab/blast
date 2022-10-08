@@ -21,11 +21,11 @@ struct Manipulator {
 
     Manipulator(u32 njoints) : joints(njoints), vmax(njoints), vmin(njoints), pmax(njoints), pmin(njoints), amax(njoints), amin(njoints), tau_max(njoints), tau_min(njoints) {}
 
-    virtual void dynamics(const Pva& pva, Matrix& efforts) = 0;
-    virtual void dynamics(const Matrix& pos, const Matrix& vel, const Matrix& acc, Matrix& efforts) = 0;
-
-    virtual Array validate(const Pva& pva) {
+    virtual Array constraints(const Pva& pva) {
         return Array();
+    }
+    virtual bool validate_task(const Matrix& task) {
+        return false;
     }
 };
 
@@ -47,8 +47,8 @@ struct ManipulatorUR5 : public Manipulator {
 
     ManipulatorUR5() : Manipulator(6) {}
 
-    virtual void dynamics(const Pva& pva, Matrix& efforts) override;
-    virtual void dynamics(const Matrix& pos, const Matrix& vel, const Matrix& acc, Matrix& efforts) override;
+    void dynamics(const Pva& pva, Matrix& efforts);
+    void dynamics(const Matrix& pos, const Matrix& vel, const Matrix& acc, Matrix& efforts);
     void init_dynamics(real mass=0);
 };
 
@@ -65,8 +65,8 @@ struct Gen3Lite : public Manipulator {
     Gen3Lite();
 
     // compute joint torque as a function of trajector (pva)
-    virtual void dynamics(const Pva& pva, Matrix& efforts) override;
-    virtual void dynamics(const Matrix& pos, const Matrix& vel, const Matrix& acc, Matrix& efforts) override;
+    void dynamics(const Pva& pva, Matrix& efforts);
+    void dynamics(const Matrix& pos, const Matrix& vel, const Matrix& acc, Matrix& efforts);
 
     // compute forward kinematics for 1 point
     Array forward_kinematics(Array& joint_position);
@@ -85,8 +85,8 @@ struct Gen3_7DOF : public Manipulator {
     Gen3_7DOF();
 
     // compute joint torque as a function of trajector (pva)
-    virtual void dynamics(const Pva& pva, Matrix& efforts) override;
-    virtual void dynamics(const Matrix& pos, const Matrix& vel, const Matrix& acc, Matrix& efforts) override;
+    void dynamics(const Pva& pva, Matrix& efforts);
+    void dynamics(const Matrix& pos, const Matrix& vel, const Matrix& acc, Matrix& efforts);
 
     // compute forward kinematics for 1 point
     Array forward_kinematics(const Array& joint_position);
@@ -99,13 +99,17 @@ struct Gen3_7DOF : public Manipulator {
     Array collision_check(const Array& joint_position);
 
     // check all constraints on the manipulator for 1 point
-    Array validate(const Array& pos, const Array& vel, const Array& acc);
+    Array constraints(const Array& pos, const Array& vel, const Array& acc);
 
     // check all constraints on the manipulator for a trajectory
-    Array validate(const Matrix& pos, const Matrix& vel, const Matrix& acc);
+    Array constraints(const Matrix& pos, const Matrix& vel, const Matrix& acc);
 
-    // check all constraints on the manipulator for a trajectory
-    virtual Array validate(const Pva& pva) override;
+    // check all constraints on the manipulator for a trajectory.
+    // - note: any contraint that is positive is not respected.
+    virtual Array constraints(const Pva& pva) override;
+
+    // check that the task given is feasible (initial position, velocity and acceleration are in the limits of the manipulator)
+    virtual bool validate_task(const Matrix& task) override;
 };
 
 
@@ -135,13 +139,13 @@ struct cuGen3_7DOF {
     real* host_constraints; // 21 * npoints
 
     // compute the parameters according to the mass
-    __host__ void init(real mass, u32 npoints);
+    host_fn void init(real mass, u32 npoints);
 
     // fetch the latest computed constraints from the device to the host
-    __host__ void fetch_constraints(u32 npoints);
+    host_fn void fetch_constraints(u32 npoints);
 
     // compute the constraints based on the current trajectory point
-    __device__ void compute_constraints(const real pos[7], const real vel[7], const real acc[7], real* con);
+    dev_fn void compute_constraints(const real pos[7], const real vel[7], const real acc[7], real* con);
 };
 #endif
 
@@ -1068,25 +1072,25 @@ inline Matrix Gen3_7DOF::jacobian(const Array& joint_position) {
     Mat3 Q2, Q3, Q4, Q5, Q6, Q7;
 
 #if BLAST_USE_DOUBLES
-        real s[8];
-        real c[8];
-        __m256d s_tmp;
-        __m256d c_tmp;
-        for (u32 i = 0; i < 8; i += 4) {
-            __m256d angle_v = _mm256_load_pd(p + i);
-            s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-            _mm256_storeu_pd(s+i, s_tmp);
-            _mm256_storeu_pd(c+i, c_tmp);
-        }
+    real s[8];
+    real c[8];
+    __m256d s_tmp;
+    __m256d c_tmp;
+    for (u32 i = 0; i < 8; i += 4) {
+        __m256d angle_v = _mm256_load_pd(p + i);
+        s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+        _mm256_storeu_pd(s+i, s_tmp);
+        _mm256_storeu_pd(c+i, c_tmp);
+    }
 #else
-        real s[8];
-        real c[8];
-        __m256 s_tmp;
-        __m256 c_tmp;
-        __m256 angle_v = _mm256_load_ps(p);
-        s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
-        _mm256_storeu_ps(s, s_tmp);
-        _mm256_storeu_ps(c, c_tmp);
+    real s[8];
+    real c[8];
+    __m256 s_tmp;
+    __m256 c_tmp;
+    __m256 angle_v = _mm256_load_ps(p);
+    s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
+    _mm256_storeu_ps(s, s_tmp);
+    _mm256_storeu_ps(c, c_tmp);
 #endif
 
     // note: these are stored column-wise
@@ -1185,36 +1189,12 @@ inline Matrix Gen3_7DOF::jacobian(const Array& joint_position) {
 }
 
 inline Array Gen3_7DOF::collision_check(const Array& joint_position) {
-    //  - note: manual SIMD
-    // real s[8];
-    // real c[8];
-    // auto p = joint_position.data;
-    // Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
-    // // first 4
-    // {
-    //     __m256d s_tmp;
-    //     __m256d c_tmp;
-    //     __m256d angle_v = _mm256_load_pd(p);
-    //     s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-    //     _mm256_storeu_pd(s, s_tmp);
-    //     _mm256_storeu_pd(c, c_tmp);
-    // }
-    // // 5, 6 and 7 (note: 8 is computed but never used)
-    // {
-    //     __m256d s_tmp;
-    //     __m256d c_tmp;
-    //     __m256d angle_v = _mm256_load_pd(p+4);
-    //     s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-    //     _mm256_storeu_pd(s+4, s_tmp);
-    //     _mm256_storeu_pd(c+4, c_tmp);
-    // }
-
-    // create aliases instead of actual arrays to allocate the memory on the stack (performance)
     real s[8];
     real c[8];
     auto p = joint_position.data;
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
 
+    // todo: make it work with floats!
     __m256d s_tmp;
     __m256d c_tmp;
     for (u32 i = 0; i < 8; i += 4) {
@@ -1278,7 +1258,7 @@ inline Array Gen3_7DOF::collision_check(const Array& joint_position) {
     return distMin;
 }
 
-inline Array Gen3_7DOF::validate(const Array& pos, const Array& vel, const Array& acc) {
+inline Array Gen3_7DOF::constraints(const Array& pos, const Array& vel, const Array& acc) {
     Matrix p(pos);
     Matrix v(vel);
     Matrix a(acc);
@@ -1316,17 +1296,17 @@ inline Array Gen3_7DOF::validate(const Array& pos, const Array& vel, const Array
     return result;
 }
 
-inline Array Gen3_7DOF::validate(const Matrix& pos, const Matrix& vel, const Matrix& acc) {
+inline Array Gen3_7DOF::constraints(const Matrix& pos, const Matrix& vel, const Matrix& acc) {
     const auto points = pos.cols;
     // 5 collision results
     // 2 position constraints
     // 7 velocity constraints
     // 7 torque constraints
     //** (for each point in the trajectory) **
-    Array result((5 + 2 + 7*2)*points);
+    Array result((5 + 2 + 7*2)*points); // todo: perf hit by constructing every time.
 
     auto current_result = result.data;
-    Matrix efforts(joints, pos.cols); // todo: perf hit by constructing every time?
+    Matrix efforts(joints, pos.cols); // todo: perf hit by constructing every time.
     dynamics(pos, vel, acc, efforts);
 
     for (u32 i = 0; i < points; i++) {
@@ -1336,25 +1316,25 @@ inline Array Gen3_7DOF::validate(const Matrix& pos, const Matrix& vel, const Mat
 
         // todo: add collision distance validation
         auto tmp_coll = collision_check(p);
-        current_result[0] = tmp_coll[0]; // dist1sqr
-        current_result[1] = tmp_coll[1]; // dist2sqr
-        current_result[2] = tmp_coll[2]; // distTJ4
-        current_result[3] = tmp_coll[3]; // distTJ6
-        current_result[4] = tmp_coll[4]; // distTEE
+        current_result[0] = -tmp_coll[0]; // dist1sqr
+        current_result[1] = -tmp_coll[1]; // dist2sqr
+        current_result[2] = -tmp_coll[2]; // distTJ4
+        current_result[3] = -tmp_coll[3]; // distTJ6
+        current_result[4] = -tmp_coll[4]; // distTEE
         current_result += 5;
 
-        current_result[0] = (pmax[3] - abs(pos(3, i))) / pmax[3];
-        current_result[1] = (pmax[5] - abs(pos(5, i))) / pmax[5];
+        current_result[0] = (abs(pos(3, i)) - pmax[3]) / pmax[3];
+        current_result[1] = (abs(pos(5, i)) - pmax[5]) / pmax[5];
         current_result += 2;
 
         for (int j = 0; j < 7; j++) { // todo: check performance impact of loop
-            current_result[j] = (vmax[j] - abs(vel(j, i))) / vmax[j];
+            current_result[j] = (abs(vel(j, i)) - vmax[j]) / vmax[j];
         }
         current_result += 7;
 
         auto f = efforts.col(i); // note: alias
         for (int j = 0; j < 7; j++) { // todo: check performance impact of loop
-            current_result[j] = (tau_max[j] - abs(f[j])) / tau_max[j];
+            current_result[j] = (abs(f[j]) - tau_max[j]) / tau_max[j];
         }
         current_result += 7;
     }
@@ -1362,9 +1342,30 @@ inline Array Gen3_7DOF::validate(const Matrix& pos, const Matrix& vel, const Mat
     return result;
 }
 
-inline Array Gen3_7DOF::validate(const Pva& pva) {
-    return validate(pva.pos, pva.vel, pva.acc);
+inline Array Gen3_7DOF::constraints(const Pva& pva) {
+    return constraints(pva.pos, pva.vel, pva.acc);
 }
+
+inline bool Gen3_7DOF::validate_task(const Matrix& task) {
+    for (int joint = 0; joint < joints; joint++) {
+        if (abs(task(joint, 0)) > pmax[joint])
+            return false;
+        if (abs(task(joint, 1)) > vmax[joint])
+            return false;
+        if (abs(task(joint, 2)) > amax[joint])
+            return false;
+        if (abs(task(joint, 3)) > pmax[joint])
+            return false;
+        if (abs(task(joint, 4)) > vmax[joint])
+            return false;
+        if (abs(task(joint, 5)) > amax[joint])
+            return false;
+    }
+    auto coll = collision_check(task.col(0));
+    auto coll_min = array_min(coll);
+    return coll_min > 0;
+}
+
 
 
 

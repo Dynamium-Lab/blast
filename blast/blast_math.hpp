@@ -10,19 +10,13 @@
 #include "blast.hpp"
 #include "blast_simd.hpp"
 #include "blast_error.hpp"
+#include <math_constants.h>
 
 
 
 namespace blast {
 
-using u8    = uint8_t;
-using u16   = uint16_t;
-using u32   = uint32_t;
-using i8    = int8_t;
-using i16   = int16_t;
-using i32   = int32_t;
-using i64   = int64_t;
-
+// uses doubles by default unless BLAST_USE_DOUBLES is set to 0
 #if BLAST_USE_DOUBLES
 using real  = double;
 #define BLAST_SIZEOF_REAL 8
@@ -30,9 +24,16 @@ using real  = double;
 using real  = float;
 #define BLAST_SIZEOF_REAL 4
 #endif
-
 static_assert(sizeof(real) == BLAST_SIZEOF_REAL);
 
+// various type aliases
+using u8    = uint8_t;
+using u16   = uint16_t;
+using u32   = uint32_t;
+using i8    = int8_t;
+using i16   = int16_t;
+using i32   = int32_t;
+using i64   = int64_t;
 using svector = std::vector<real>;
 
 // forward declarations
@@ -43,8 +44,18 @@ struct Array;
 struct Matrix;
 
 // useful constants
+#ifdef __CUDA_ARCH__
+#if BLAST_USE_DOUBLES
+static const real nan = CUDART_NAN;
+static const real inf = CUDART_INF;
+#else
+static const real nan = CUDART_NAN_F;
+static const real inf = CUDART_INF_F;
+#endif
+#else
 static const real inf = std::numeric_limits<real>::infinity();
 static const real nan = std::numeric_limits<real>::quiet_NaN();
+#endif
 static const real pi  = (real)3.1415;
 
 // 3D vector
@@ -163,6 +174,9 @@ struct Array {
 
     // construct and allocate memory for 'n' elements
     blast_fn Array(u32 n);
+
+    // construct and fill with value
+    blast_fn Array(u32 n, real value);
 
     // copy constructor
     blast_fn Array(const Array&);
@@ -297,7 +311,7 @@ struct Matrix {
 
     // return an array accessing the given colum
     //  - note: new Array is aliasing our data
-    blast_fn Array col(u32 c);
+    blast_fn Array col(u32 c) const;
 };
 
 
@@ -410,14 +424,14 @@ blast_fn void minus_insert(const Matrix& m, const Array& a, real* dst) {
     }
 }
 
-blast_fn real array_min(const Array& a) {
+host_fn real array_min(const Array& a) {
     real result = inf;
     for(u32 i = 0; i < a.size; i++)
         result = a[i] < result ? a[i] : result;
     return result;
 }
 
-blast_fn real array_max(const Array& a) {
+host_fn real array_max(const Array& a) {
     real result = -inf;
     for(u32 i = 0; i < a.size; i++)
         result = a[i] > result ? a[i] : result;
@@ -431,6 +445,7 @@ blast_fn bool close(const Array& a1, const Array& a2, real eps = 1e-05) {
             return false;
     return true;
 }
+
 
 
 //------ Vec3 ---------------------
@@ -792,6 +807,14 @@ blast_fn Array::Array(u32 new_size) : size(new_size) {
     }
 }
 
+blast_fn Array::Array(u32 n, real value) : size(n) {
+    if (n) {
+        data = (real*)malloc(size * sizeof(real));
+        for (u32 i = 0; i < n; i++)
+            data[i] = value;
+    }
+}
+
 blast_fn Array::Array(const Array& a) : size(a.size) {
     if (size) {
         data = (real*)malloc(size * sizeof(real));
@@ -818,7 +841,7 @@ host_fn Array::Array(const svector& v) {
 }
 
 blast_fn Array::~Array() {
-    if (!is_alias && data){
+    if (!is_alias && data) {
         free(data);
     }
 }
@@ -1179,7 +1202,7 @@ blast_fn real* Matrix::address(u32 row, u32 col) const {
     return &data[row + rows*col];
 }
 
-blast_fn Array Matrix::col(u32 c) {
+blast_fn Array Matrix::col(u32 c) const {
     Assert(c < this->cols);
     Array result;
     result.data = data + rows*c;

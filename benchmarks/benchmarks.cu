@@ -69,7 +69,7 @@ static void BM_CPU_Constraints_PVA(benchmark::State& state) {
         x[x.size-1] = std::abs(x[x.size-1]);
         // compute trajectory
         pva.compute_trajectory(x, task);
-        manip.validate(pva);
+        manip.constraints(pva);
         benchmark::ClobberMemory();
     }
 }
