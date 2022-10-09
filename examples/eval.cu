@@ -36,13 +36,14 @@ void constraints(unsigned m, double *result, unsigned n, const double* x, double
     Array xv(n);
     std::copy_n(x, n, xv.data);
 
-    // compute
-    // todo: do this without allocating and copying so much data
+    // compute trajectory
     opt->pva->compute_trajectory(xv, *opt->task);
-    Array con = opt->manip->constraints(*opt->pva);
-    memcpy(result, con.data, con.size * sizeof(real));
+
+    // compute constraints
+    opt->manip->constraints(*opt->pva, result);
 
     if (grad) {
+        Array con(opt->manip->ncon(opt->pva->points));
         const real eps = 1e-5;
         Array x_plus(n);
 
@@ -52,10 +53,10 @@ void constraints(unsigned m, double *result, unsigned n, const double* x, double
             x_plus[j] += eps;
 
             opt->pva->compute_trajectory(x_plus, *opt->task);
-            auto constraints_plus = opt->manip->constraints(*opt->pva);
+            opt->manip->constraints(*opt->pva, con.data);
 
             for (u32 i = 0; i < m; i++)
-                grad[i*n + j] = (constraints_plus[i]-result[i])/eps;
+                grad[i*n + j] = (con[i]-result[i])/eps;
         }
     }
 }

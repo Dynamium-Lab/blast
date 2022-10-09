@@ -46,17 +46,17 @@ struct Matrix;
 // useful constants
 #ifdef __CUDA_ARCH__
 #if BLAST_USE_DOUBLES
-static const real nan = CUDART_NAN;
-static const real inf = CUDART_INF;
+#define NAN_REAL CUDART_NAN
+#define INF_REAL CUDART_INF
 #else
-static const real nan = CUDART_NAN_F;
-static const real inf = CUDART_INF_F;
+#define NAN_REAL CUDART_NAN_F
+#define INF_REAL CUDART_INF_F
 #endif
 #else
-static const real inf = std::numeric_limits<real>::infinity();
-static const real nan = std::numeric_limits<real>::quiet_NaN();
+#define NAN_REAL std::numeric_limits<real>::quiet_NaN()
+#define INF_REAL std::numeric_limits<real>::infinity()
 #endif
-static const real pi  = (real)3.1415;
+#define PI (real)3.1415
 
 // 3D vector
 struct Vec3 {
@@ -278,6 +278,9 @@ struct Matrix {
     // free memory if not an alias
     blast_fn ~Matrix();
 
+    // resize the matrix
+    host_fn void resize(u32 r, u32 c);
+
     // copy assignment
     blast_fn Matrix& operator=(const Matrix&);
 
@@ -424,15 +427,15 @@ blast_fn void minus_insert(const Matrix& m, const Array& a, real* dst) {
     }
 }
 
-host_fn real array_min(const Array& a) {
-    real result = inf;
+blast_fn real array_min(const Array& a) {
+    real result = INF_REAL;
     for(u32 i = 0; i < a.size; i++)
         result = a[i] < result ? a[i] : result;
     return result;
 }
 
-host_fn real array_max(const Array& a) {
-    real result = -inf;
+blast_fn real array_max(const Array& a) {
+    real result = -INF_REAL;
     for(u32 i = 0; i < a.size; i++)
         result = a[i] > result ? a[i] : result;
     return result;
@@ -1116,6 +1119,19 @@ blast_fn Matrix::Matrix(const Array& v) : size(v.size), cols(1), rows(v.size), i
 blast_fn Matrix::~Matrix() {
     if (!is_alias && data)
         free(data);
+}
+
+host_fn void Matrix::resize(u32 r, u32 c) {
+    Assert(!is_alias);
+
+    if (data == nullptr)
+        data = (real*)malloc(r*c * sizeof(real));
+    else if (size < r*c)
+        data = (real*)realloc(data, r*c * sizeof(real));
+    size = r*c;
+    rows = r;
+    cols = c;
+    Assert(data);
 }
 
 blast_fn Matrix& Matrix::operator=(const Matrix& m) {

@@ -24,9 +24,17 @@ struct Manipulator {
     virtual Array constraints(const Pva& pva) {
         return Array();
     }
+
+    virtual void constraints(const Pva& pva, real* dst) {}
+
     virtual bool validate_task(const Matrix& task) {
         return false;
     }
+
+    virtual u32 ncon(u32 npoints) {
+        return 0;
+    }
+
 };
 
 struct ManipulatorUR5 : public Manipulator {
@@ -81,12 +89,15 @@ struct Gen3_7DOF : public Manipulator {
     Vec3 sv[7];
     Vec3 ev[7];
 
+    Matrix _efforts; // put the efforts temporarily when computing the constraints
+
     // default constructor
     Gen3_7DOF();
 
     // compute joint torque as a function of trajector (pva)
     void dynamics(const Pva& pva, Matrix& efforts);
     void dynamics(const Matrix& pos, const Matrix& vel, const Matrix& acc, Matrix& efforts);
+    void dynamics(const Matrix& pos, const Matrix& vel, const Matrix& acc); // note: cache the results internally
 
     // compute forward kinematics for 1 point
     Array forward_kinematics(const Array& joint_position);
@@ -104,12 +115,29 @@ struct Gen3_7DOF : public Manipulator {
     // check all constraints on the manipulator for a trajectory
     Array constraints(const Matrix& pos, const Matrix& vel, const Matrix& acc);
 
+    // check all constraints and put the result in 'dst'
+    void constraints(const Matrix& pos, const Matrix& vel, const Matrix& acc, real* dst);
+
     // check all constraints on the manipulator for a trajectory.
     // - note: any contraint that is positive is not respected.
     virtual Array constraints(const Pva& pva) override;
 
-    // check that the task given is feasible (initial position, velocity and acceleration are in the limits of the manipulator)
+    // check all constraints and put the result in 'dst'
+    // - note: any contraint that is positive is not respected.
+    virtual void constraints(const Pva& pva, real* dst) override;
+
+    // check that the task given is feasible (collision and joint limits)
     virtual bool validate_task(const Matrix& task) override;
+
+    virtual u32 ncon(u32 npoints) override {
+        // 5 collision results
+        // 2 position constraints
+        // 7 velocity constraints
+        // 7 torque constraints
+        //** (for each point in the trajectory) **
+        return (5 + 2 + 7*2)*npoints;
+    }
+
 };
 
 
@@ -776,7 +804,7 @@ inline Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
     ev[6] = { 0,  0,  1};
 
     // kinematic and dynamic constraints
-    pmax = {inf, inf, inf, 2.58f, inf, 2.1f, inf}; // rad
+    pmax = {INF_REAL, INF_REAL, INF_REAL, 2.58f, INF_REAL, 2.1f, INF_REAL}; // rad
     // pmin = -pmax;
     vmax = {1.745f, 1.745f, 1.745f, 1.745f, 2.443f, 2.443f, 2.443f};  // rad/s
     // vmin = -vmax;
@@ -913,6 +941,15 @@ inline void Gen3_7DOF::dynamics(const Matrix& pos, const Matrix& vel, const Matr
         efforts(5, i) = n6.z;
         efforts(6, i) = n7.z;
     }
+}
+
+inline void Gen3_7DOF::dynamics(const Matrix& pos, const Matrix& vel, const Matrix& acc) {
+    const auto points = pos.cols;
+    const auto joints = pos.rows;
+    if (_efforts.cols != points || _efforts.rows != joints)
+        _efforts.resize(joints, points);
+
+    dynamics(pos, vel, acc, _efforts);
 }
 
 inline Array Gen3_7DOF::forward_kinematics(const Array& joint_position) {
@@ -1298,52 +1335,55 @@ inline Array Gen3_7DOF::constraints(const Array& pos, const Array& vel, const Ar
 
 inline Array Gen3_7DOF::constraints(const Matrix& pos, const Matrix& vel, const Matrix& acc) {
     const auto points = pos.cols;
-    // 5 collision results
-    // 2 position constraints
-    // 7 velocity constraints
-    // 7 torque constraints
-    //** (for each point in the trajectory) **
-    Array result((5 + 2 + 7*2)*points); // todo: perf hit by constructing every time.
-
-    auto current_result = result.data;
-    Matrix efforts(joints, pos.cols); // todo: perf hit by constructing every time.
-    dynamics(pos, vel, acc, efforts);
-
-    for (u32 i = 0; i < points; i++) {
-
-        Array p = pos.col(i);
-        Assert(p.is_alias);
-
-        // todo: add collision distance validation
-        auto tmp_coll = collision_check(p);
-        current_result[0] = -tmp_coll[0]; // dist1sqr
-        current_result[1] = -tmp_coll[1]; // dist2sqr
-        current_result[2] = -tmp_coll[2]; // distTJ4
-        current_result[3] = -tmp_coll[3]; // distTJ6
-        current_result[4] = -tmp_coll[4]; // distTEE
-        current_result += 5;
-
-        current_result[0] = (abs(pos(3, i)) - pmax[3]) / pmax[3];
-        current_result[1] = (abs(pos(5, i)) - pmax[5]) / pmax[5];
-        current_result += 2;
-
-        for (int j = 0; j < 7; j++) { // todo: check performance impact of loop
-            current_result[j] = (abs(vel(j, i)) - vmax[j]) / vmax[j];
-        }
-        current_result += 7;
-
-        auto f = efforts.col(i); // note: alias
-        for (int j = 0; j < 7; j++) { // todo: check performance impact of loop
-            current_result[j] = (abs(f[j]) - tau_max[j]) / tau_max[j];
-        }
-        current_result += 7;
-    }
-
+    Array result(ncon(points));
+    constraints(pos, vel, acc, result.data);
     return result;
 }
 
 inline Array Gen3_7DOF::constraints(const Pva& pva) {
-    return constraints(pva.pos, pva.vel, pva.acc);
+    Array result(ncon(pva.points));
+    constraints(pva.pos, pva.vel, pva.acc, result.data);
+    return result;
+}
+
+inline void Gen3_7DOF::constraints(const Pva& pva, real* dst) {
+    constraints(pva.pos, pva.vel, pva.acc, dst);
+}
+
+inline void Gen3_7DOF::constraints(const Matrix& pos, const Matrix& vel, const Matrix& acc, real* dst) {
+    const auto points = pos.cols;
+
+    dynamics(pos, vel, acc);
+
+    for (u32 i = 0; i < points; i++) {
+        // collision
+        Array p = pos.col(i);
+        Assert(p.is_alias);
+        auto tmp_coll = collision_check(p);
+        dst[0] = -tmp_coll[0]; // dist1sqr
+        dst[1] = -tmp_coll[1]; // dist2sqr
+        dst[2] = -tmp_coll[2]; // distTJ4
+        dst[3] = -tmp_coll[3]; // distTJ6
+        dst[4] = -tmp_coll[4]; // distTEE
+        dst += 5;
+
+        // position
+        dst[0] = (abs(pos(3, i)) - pmax[3]) / pmax[3];
+        dst[1] = (abs(pos(5, i)) - pmax[5]) / pmax[5];
+        dst += 2;
+
+        // velocity
+        for (int j = 0; j < 7; j++)
+            dst[j] = (abs(vel(j, i)) - vmax[j]) / vmax[j];
+        dst += 7;
+
+        // torque
+        auto f = _efforts.col(i);
+        Assert(f.is_alias);
+        for (int j = 0; j < 7; j++)
+            dst[j] = (abs(f[j]) - tau_max[j]) / tau_max[j];
+        dst += 7;
+    }
 }
 
 inline bool Gen3_7DOF::validate_task(const Matrix& task) {
@@ -1436,13 +1476,13 @@ host_fn void cuGen3_7DOF::init(real mass, u32 npoints) {
 
     // kinematic and dynamic constraints
     // position (rad)
-    pmax[0] = inf;
-    pmax[1] = inf;
-    pmax[2] = inf;
+    pmax[0] = INF_REAL;
+    pmax[1] = INF_REAL;
+    pmax[2] = INF_REAL;
     pmax[3] = 2.58f;
-    pmax[4] = inf;
+    pmax[4] = INF_REAL;
     pmax[5] = 2.1f;
-    pmax[6] = inf;
+    pmax[6] = INF_REAL;
 
     // velocity (rad/s)
     vmax[0] = 1.745f;
