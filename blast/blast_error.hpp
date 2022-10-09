@@ -1,14 +1,14 @@
 #pragma once
 
 
-#if defined(__CUDA_ARCH__) && defined(_DEBUG)
+#if defined(__CUDA_ARCH__) && (defined(BLAST_DEBUG) || defined(_DEBUG))
 #define Assert(expr) \
     if (!(expr)){\
-    fprintf(stderr, "Assertion failed in function: %s. File: %s(%d).\n", __FUNCTION__, __FILE__, __LINE__); \
+    printf("Assertion failed in function: %s. File: %s(%d).\n", __FUNCTION__, __FILE__, __LINE__); \
     __trap(); \
 }\
 
-#elif defined(_DEBUG)
+#elif (defined(BLAST_DEBUG) || defined(_DEBUG))
 #define Assert(expr) \
     if (!(expr)){\
         fprintf(stderr, "Assertion failed in function: %s. File: %s(%d).\n", __FUNCTION__, __FILE__, __LINE__); \
