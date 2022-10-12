@@ -10,8 +10,9 @@
 #include "blast.hpp"
 #include "blast_simd.hpp"
 #include "blast_error.hpp"
+#ifdef __CUDA_ARCH__
 #include <math_constants.h>
-
+#endif
 
 
 namespace blast {

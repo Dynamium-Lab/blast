@@ -1387,7 +1387,7 @@ inline void Gen3_7DOF::constraints(const Matrix& pos, const Matrix& vel, const M
 }
 
 inline bool Gen3_7DOF::validate_task(const Matrix& task) {
-    for (int joint = 0; joint < joints; joint++) {
+    for (u32 joint = 0; joint < joints; joint++) {
         if (abs(task(joint, 0)) > pmax[joint])
             return false;
         if (abs(task(joint, 1)) > vmax[joint])
