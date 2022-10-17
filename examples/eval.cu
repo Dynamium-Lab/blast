@@ -31,32 +31,27 @@ double objective(unsigned n, const double* x, double* grad, void*) {
 // n = number of optim var (xlen)
 void constraints(unsigned m, double *result, unsigned n, const double* x, double* grad, void* f_data) {
     using namespace blast;
-
     Optimisation* opt = (Optimisation*)f_data;
     Array xv(n);
     std::copy_n(x, n, xv.data);
 
-    // compute trajectory
+    // compute
     opt->pva->compute_trajectory(xv, *opt->task);
-
-    // compute constraints
     opt->manip->constraints(*opt->pva, result);
 
     if (grad) {
-        Array con(opt->manip->ncon(opt->pva->points));
         const real eps = 1e-5;
         Array x_plus(n);
-
+        Array r_plus(m);
         for (u32 j = 0; j < n; j++) {
-            for (u32 i = 0; i < n; i++)
-                x_plus[i] = x[i];
+            memcpy(x_plus.data, x, n * sizeof(real));
             x_plus[j] += eps;
 
             opt->pva->compute_trajectory(x_plus, *opt->task);
-            opt->manip->constraints(*opt->pva, con.data);
+            opt->manip->constraints(*opt->pva, r_plus.data);
 
             for (u32 i = 0; i < m; i++)
-                grad[i*n + j] = (con[i]-result[i])/eps;
+                grad[i*n + j] = (r_plus[i]-result[i])/eps;
         }
     }
 }
@@ -64,7 +59,7 @@ void constraints(unsigned m, double *result, unsigned n, const double* x, double
 
 int main() {
     using namespace blast;
-    const u32 npts = 256;
+    const u32 npts = 100;
     const u32 nctrl = 8;
     const u32 p = 5;
     const u32 noptim = 50;
@@ -81,11 +76,11 @@ int main() {
         // init position
         auto tmp = task.col(0);
         Assert(tmp.is_alias);
-        tmp = {-0.3665, 0.705585, 2.56563, -1.8675023, 0.628319, -0.698131701, 1.5708};
+        tmp = {1.0, -2.13274122871835, 3.07081139897158, -1.32741228718346, 0.0, -0.159265358979322, 2.03540569948580};
         // final position
         tmp = task.col(3);
         Assert(tmp.is_alias);
-        tmp = {0.279253, 0.174533, -2.26892803, -1.29154365, 1.51844, -1.74532925, 0};
+        tmp = {-2.28318530717959, -0.849555921538759, 1.23895832717571, 1.10621709845737, 0.0354056994857963, -0.309709437440564, 2.03540569948580};
         // validate
         if (!manip.validate_task(task)) {
             printf("The required task is NOT valid\n");
@@ -131,39 +126,33 @@ int main() {
         // max time
         result = nlopt_set_maxtime(o, 5.0);
         Assert(result ==NLOPT_SUCCESS);
+        // max eval
+        result = nlopt_set_maxeval(o, 10000);
+        Assert(result ==NLOPT_SUCCESS);
     }
 
-    auto T1 = get_tick_us();
     for (int iter = 0; iter < noptim; iter++) {
+        auto T1 = get_tick_us();
 
         // random optimization vector
         Array x(pva.xlen());
         {
-            fill_random(x, 3);
-            x.back() = abs(x.back());
-            x.back() = max(x.back(), 0.2);
+            fill_random(x, 1);
+            x.back() = abs(x.back()) * 5 + 0.1;
         }
 
         // launch optimization
         double f;
         result = nlopt_optimize(o, x.data, &f);
-        printf("Completed with code: %d and result: %f.\n", result, x.back());
+        auto T2 = get_tick_us();
+        double time = (T2-T1) / 1000.0;
 
         // check solution
         pva.compute_trajectory(x, task);
         auto max_con = array_max(manip.constraints(pva));
         bool is_valid = max_con < 0.01;
-        printf("x = ");
-        print(x);
-        printf("Solution found is ");
-        if (!is_valid)
-            printf("NOT ");
-        printf("valid.\n\n");
+        printf("code: %d, result: %f, time: %fms, %s.\n", result, x.back(), time, is_valid? "valid" : "not valid");
     }
-    auto T2 = get_tick_us();
-    double time = (T2-T1) / 1000.0;
-
-    printf("total time: %f ms (avg: %f)\n", time, time/noptim);
 
     return 0;
 }
