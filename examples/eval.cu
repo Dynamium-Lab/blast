@@ -3,10 +3,11 @@
 #include "blast.hpp"
 #include "blast_optional_utilities.hpp"
 #include "nlopt.h"
+#include <thread>
 
 
 
-
+std::thread t[11];
 
 // todo: move out of GUI
 struct Optimisation {
@@ -26,35 +27,85 @@ double objective(unsigned n, const double* x, double* grad, void*) {
     return result;
 }
 
+
+inline void constraints_single(unsigned m, double* result, unsigned n, const double* x, Optimisation* opt) {
+    using namespace blast;
+
+    // todo: use aliases?
+    Array xv;
+    xv.alias(x, n);
+    // memcpy(xv.data, x, n * sizeof(real));
+    opt->pva->compute_trajectory(xv, *opt->task);
+    opt->manip->constraints(*opt->pva, result);
+}
+
 // Constraints function
 // m = number of constraints
 // n = number of optim var (xlen)
 void constraints(unsigned m, double *result, unsigned n, const double* x, double* grad, void* f_data) {
     using namespace blast;
     Optimisation* opt = (Optimisation*)f_data;
-    Array xv(n);
-    std::copy_n(x, n, xv.data);
 
     // compute
-    opt->pva->compute_trajectory(xv, *opt->task);
-    opt->manip->constraints(*opt->pva, result);
+    constraints_single(m, result, n, x, opt);
 
     if (grad) {
         const real eps = 1e-5;
         Array x_plus(n);
         Array r_plus(m);
+        // todo: parallel?
         for (u32 j = 0; j < n; j++) {
             memcpy(x_plus.data, x, n * sizeof(real));
             x_plus[j] += eps;
 
-            opt->pva->compute_trajectory(x_plus, *opt->task);
-            opt->manip->constraints(*opt->pva, r_plus.data);
+            constraints_single(m, r_plus.data, n, x_plus.data, opt);
 
             for (u32 i = 0; i < m; i++)
                 grad[i*n + j] = (r_plus[i]-result[i])/eps;
         }
     }
 }
+
+
+// class thread_pool {
+//     std::atomic_bool done;
+//     threadsafe_queue<std::function<void()>> work_queue;
+//     std::vector<std::thread> threads;
+//     join_threads joiner;
+//     void worker_thread() {
+//         while(!done) {
+//             std::function<void()> task;
+//             if(work_queue.try_pop(task)) {
+//                 task();
+//             }
+//             else {
+//                 std::this_thread::yield();
+//             }
+//         }
+//     }
+// public:
+//     thread_pool(): done(false), joiner(threads) {
+//         unsigned const thread_count=std::thread::hardware_concurrency();
+//         try {
+//             for(unsigned i=0; i<thread_count; ++i) {
+//                 threads.push_back(std::thread(&thread_pool::worker_thread, this));
+//             }
+//         }
+//         catch(...) {
+//             done=true;
+//             throw;
+//         }
+//     }
+//     ~thread_pool() {
+//         done=true;
+//     }
+
+//     template<typename FunctionType>
+//     void submit(FunctionType f) {
+//         work_queue.push(std::function<void()>(f));
+//     }
+// };
+
 
 
 int main() {
@@ -131,6 +182,7 @@ int main() {
         Assert(result ==NLOPT_SUCCESS);
     }
 
+    auto start_time = get_tick_us();
     for (int iter = 0; iter < noptim; iter++) {
         auto T1 = get_tick_us();
 
@@ -153,6 +205,8 @@ int main() {
         bool is_valid = max_con < 0.01;
         printf("code: %d, result: %f, time: %fms, %s.\n", result, x.back(), time, is_valid? "valid" : "not valid");
     }
+    auto total_time = (get_tick_us() - start_time) / 1000.0;
+    printf("total time: %f\n", total_time);
 
     return 0;
 }
