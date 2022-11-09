@@ -234,6 +234,7 @@ struct Array {
     // map the Array to the given data
     //  - note: becomes an alias
     blast_fn Array& alias(real*, u32);
+    blast_fn Array& alias(const real*, u32);
 
     // resize the array
     //  - note: old pointers (aliases) to this data may be invalidated
@@ -938,6 +939,17 @@ blast_fn Array& Array::alias(real* p, u32 n) {
     is_alias = true;
     return *this;
 }
+
+blast_fn Array& Array::alias(const real* p, u32 n) {
+    Assert(p);
+    Assert(data == nullptr);
+
+    data = const_cast<real*>(p);
+    size = n;
+    is_alias = true;
+    return *this;
+}
+
 
 blast_fn void Array::resize(u32 new_size) {
     Assert(!is_alias);
