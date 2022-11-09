@@ -8,7 +8,6 @@
 
 
 
-// todo: move out of GUI
 struct Optimisation {
     blast::Manipulator*    manip;
     blast::Matrix*         task;
