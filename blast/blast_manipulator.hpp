@@ -3,6 +3,7 @@
 #include "blast_math.hpp"
 #include <vector>
 #include <cmath>
+#include "blast_optional_utilities.hpp"
 
 namespace blast {
 using std::vector;
@@ -62,12 +63,12 @@ struct ManipulatorUR5 : public Manipulator {
 
 struct Gen3Lite : public Manipulator {
     Vec3 p_base;
-    real m[6];
-    Mat3 I[6];
-    Vec3 av[6];
-    Vec3 dv[6];
-    Vec3 sv[6];
-    Vec3 ev[6];
+    real m[7];
+    Mat3 I[7];
+    Vec3 av[7];
+    Vec3 dv[7];
+    Vec3 sv[7];
+    Vec3 ev[7];
 
     // default constructor
     Gen3Lite();
@@ -78,6 +79,7 @@ struct Gen3Lite : public Manipulator {
 
     // compute forward kinematics for 1 point
     Array forward_kinematics(Array& joint_position);
+    Matrix jacobian(const Array& joint_position);
 };
 
 struct Gen3_7DOF : public Manipulator {
@@ -497,13 +499,13 @@ inline Gen3Lite::Gen3Lite() : Manipulator(6) {
     av[5] = {0.009930f,  0.009950f, 0.061360f};
 
     // vector to next joint
-    dv[0] = {0.000f,   -0.030f,   0.115f};
-    dv[1] = {0.000f,    0.280f,   0.000f};
-    dv[2] = {0.000f,   -0.140f,   0.020f};
-    dv[3] = {0.0285f,   0.000f,   0.105f};
-    dv[4] = {-0.105f,   0.000f,   0.0285f};
-    dv[5] = {0.000f,    0.000f,   0.130f};
-
+    dv[0] = {0.000f,   0.000f,   0.1283f};
+    dv[1] = {0.000f,    -0.030f,   0.115f};
+    dv[2] = {0.000f,    0.280f,   0.000f};
+    dv[3] = {0.000f,   -0.140f,   0.020f};
+    dv[4] = {0.0285f,   0.000f,   0.105f};
+    dv[5] = {-0.105f,    0.000f,   0.0285f};
+    dv[6] = {0.000f,     0.000f,  0.1300f};
     // center of mass (from next joint)
     sv[0] = dv[0] - av[0];
     sv[1] = dv[1] - av[1];
@@ -514,11 +516,13 @@ inline Gen3Lite::Gen3Lite() : Manipulator(6) {
 
     // unit joint direction
     ev[0] = { 0,  0,  1};
-    ev[1] = { 0, -1,  0};
-    ev[2] = { 0,  0, -1};
-    ev[3] = { 0, -1,  0};
-    ev[4] = { 1,  0,  0};
-    ev[5] = {-1,  0,  0};
+    ev[1] = { 0, 0,  1};
+    ev[2] = { 0,  0, 1};
+    ev[3] = { 0, 0,  1};
+    ev[4] = { 0,  0,  1};
+    ev[5] = {0,  0,  1};
+    ev[6] = { 0,  0,  1};
+
 
     // kinematic and dynamic constraints
     pmax = {2.69f, 2.69f, 2.69f, 2.59f, 2.57f, 2.59f}; // rad
@@ -536,7 +540,7 @@ inline void Gen3Lite::dynamics(const Pva& pva, Matrix& efforts) {
 inline void Gen3Lite::dynamics(const Matrix& pos, const Matrix& vel, const Matrix& acc, Matrix& efforts) {
 
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
-    Mat3 Q1t, Q2t, Q3t, Q4t, Q5t, Q6t;
+    Mat3 Q1t, Q2t, Q3t, Q4t, Q5t, Q6t,Q7t;
     Vec3 w12, w23, w34, w45, w56, w67;
     Vec3 wd12, wd23, wd34, wd45, wd56, wd67;
     Vec3 cdd01, cdd12, cdd23, cdd34, cdd45, cdd56, cdd67;
@@ -584,13 +588,13 @@ inline void Gen3Lite::dynamics(const Matrix& pos, const Matrix& vel, const Matri
         _mm256_storeu_ps(s, s_tmp);
         _mm256_storeu_ps(c, c_tmp);
 #endif
-
-        Q1 = {c[0],  s[0],  0,        -s[0],  c[0],  0,         0,  0,  1};
-        Q2 = {c[1],  0,     s[1],     -s[1],  0,     c[1],      0, -1,  0};
-        Q3 = {c[2], -s[2],  0,        -s[2], -c[2],  0,         0,  0, -1};
-        Q4 = {c[3],  0,     s[3],     -s[3],  0,     c[3],      0, -1,  0};
-        Q5 = {0,     s[4], -c[4],      0,     c[4],  s[4],      1,  0,  0};
-        Q6 = {0,     s[5],  c[5],      0,     c[5], -s[5],     -1,  0,  0};
+ 
+        Q1 = {c[0],   s[0],     0,        -s[0],     c[0],      0,              0,      0,    1};
+        Q2 = {c[1],      0,  s[1],        -s[1],        0,   c[1],              0,     -1,    0};
+        Q3 = {c[2],  -s[2],     0,        -s[2],    -c[2],      0,              0,      0,   -1};
+        Q4 = {c[3],      0,  s[3],        -s[3],        0,   c[3],              0,     -1,    0};
+        Q5 = {   0,   s[4], -c[4],           0,      c[4],     s[4],            1,      0,    0};
+        Q6 = {   0,   s[5],  c[5],            0,     c[5],  -s[5],             -1,      0,    0};
         Q1t = transpose(Q1);
         Q2t = transpose(Q2);
         Q3t = transpose(Q3);
@@ -713,21 +717,28 @@ inline Array Gen3Lite::forward_kinematics(Array& joint_position) {
 #endif
 
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
-    Q1 = {c[0],  s[0],  0,        -s[0],  c[0],  0,         0,  0,  1};
-    Q2 = {c[1],  0,     s[1],     -s[1],  0,     c[1],      0, -1,  0};
-    Q3 = {c[2], -s[2],  0,        -s[2], -c[2],  0,         0,  0, -1};
-    Q4 = {c[3],  0,     s[3],     -s[3],  0,     c[3],      0, -1,  0};
-    Q5 = {0,     s[4], -c[4],      0,     c[4],  s[4],      1,  0,  0};
-    Q6 = {0,     s[5],  c[5],      0,     c[5], -s[5],     -1,  0,  0};
+    Q1 = {c[0],   s[0],     0,        -s[0],     c[0],      0,              0,      0,    1};
+    Q2 = {c[1],      0,  s[1],        -s[1],        0,   c[1],              0,     -1,    0};
+    Q3 = {c[2],  -s[2],     0,        -s[2],    -c[2],      0,              0,      0,   -1};
+    Q4 = {c[3],      0,  s[3],        -s[3],        0,   c[3],              0,     -1,    0};
+    Q5 = {   0,   s[4], -c[4],           0,      c[4],     s[4],            1,      0,    0};
+    Q6 = {   0,   s[5],  c[5],            0,     c[5],  -s[5],             -1,      0,    0};
+
+    // print(Q1);
+    // print(Q2);
+    // print(Q3);
+    // print(Q4);
+    // print(Q5);
+    // print(Q6);
 
     auto Q_tmp = Q1;
-    auto p_tmp = Q_tmp*dv[0];
-    p_tmp += (Q_tmp*=Q2)*dv[1];
-    p_tmp += (Q_tmp*=Q3)*dv[2];
-    p_tmp += (Q_tmp*=Q4)*dv[3];
-    p_tmp += (Q_tmp*=Q5)*dv[4];
-    p_tmp += (Q_tmp*=Q6)*dv[5];
-    p_tmp += p_base;
+    auto p_tmp = dv[0];
+    p_tmp += (Q_tmp)*dv[1];
+    p_tmp += (Q_tmp*=Q2)*dv[2];
+    p_tmp += (Q_tmp*=Q3)*dv[3];
+    p_tmp += (Q_tmp*=Q4)*dv[4];
+    p_tmp += (Q_tmp*=Q5)*dv[5];
+    p_tmp += (Q_tmp*=Q6)*dv[6];
 
     Array pose(6);
     pose[0] = p_tmp.x;
@@ -740,6 +751,128 @@ inline Array Gen3Lite::forward_kinematics(Array& joint_position) {
     return pose;
 }
 
+inline Matrix Gen3Lite::jacobian(const Array& joint_position) {
+
+    auto p = joint_position.data;
+    Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
+
+#if BLAST_USE_DOUBLES
+    real s[8];
+    real c[8];
+    __m256d s_tmp;
+    __m256d c_tmp;
+    for (u32 i = 0; i < 8; i += 4) {
+        __m256d angle_v = _mm256_load_pd(p + i);
+        s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+        _mm256_storeu_pd(s+i, s_tmp);
+        _mm256_storeu_pd(c+i, c_tmp);
+    }
+#else
+    real s[8];
+    real c[8];
+    __m256 s_tmp;
+    __m256 c_tmp;
+    __m256 angle_v = _mm256_load_ps(p);
+    s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
+    _mm256_storeu_ps(s, s_tmp);
+    _mm256_storeu_ps(c, c_tmp);
+#endif
+
+    // note: these are stored column-wise
+   
+    Q1 = {c[0],   s[0],     0,        -s[0],     c[0],      0,              0,      0,    1};
+    Q2 = {c[1],      0,  s[1],        -s[1],        0,   c[1],              0,     -1,    0};
+    Q3 = {c[2],  -s[2],     0,        -s[2],    -c[2],      0,              0,      0,   -1};
+    Q4 = {c[3],      0,  s[3],        -s[3],        0,   c[3],              0,     -1,    0};
+    Q5 = {   0,   s[4], -c[4],           0,      c[4],     s[4],            1,      0,    0};
+    Q6 = {   0,   s[5],  c[5],            0,     c[5],  -s[5],             -1,      0,    0};
+
+
+    // unit vectors in 1st reference
+    Vec3 e_1[7];
+    e_1[0] = ev[0];
+    auto Q_tmp = Q1;
+    e_1[1] = Q_tmp*ev[1];
+    e_1[2] = (Q_tmp*=Q2)*ev[2];
+    e_1[3] = (Q_tmp*=Q3)*ev[3];
+    e_1[4] = (Q_tmp*=Q4)*ev[4];
+    e_1[5] = (Q_tmp*=Q5)*ev[5];
+    e_1[6] = (Q_tmp*=Q6)*ev[6];
+    
+   
+
+    Vec3 r[7];
+    r[6] = dv[6];
+    r[5] = dv[5]+ Q6*r[6];
+    r[4] = dv[4] + Q5*r[5];
+    r[3] = dv[3] + Q4*r[4];
+    r[2] = dv[2] + Q3*r[3];
+    r[1] = dv[1] + Q2*r[2];
+    r[0] = dv[0] + Q1*r[1];
+
+    Q_tmp = Q1;
+    r[1] = (Q_tmp)*r[1];
+    r[2] = (Q_tmp*=Q2)*r[2];
+    r[3] = (Q_tmp*=Q3)*r[3];
+    r[4] = (Q_tmp*=Q4)*r[4];
+    r[5] = (Q_tmp*=Q5)*r[5];
+    r[6] = (Q_tmp*=Q6)*r[6];
+  
+    
+
+    auto cr0 = cross(e_1[0], r[0]);
+    auto cr1 = cross(e_1[1], r[1]);
+    auto cr2 = cross(e_1[2], r[2]);
+    auto cr3 = cross(e_1[3], r[3]);
+    auto cr4 = cross(e_1[4], r[4]);
+    auto cr5 = cross(e_1[5], r[5]);
+    auto cr6 = cross(e_1[6], r[6]);
+    
+    // jacobian matrix
+    Matrix J(6, 6);
+    J(0, 0) = e_1[1].x;
+    J(1, 0) = e_1[1].y;
+    J(2, 0) = e_1[1].z;
+    J(0, 1) = e_1[2].x;
+    J(1, 1) = e_1[2].y;
+    J(2, 1) = e_1[2].z;
+    J(0, 2) = e_1[3].x;
+    J(1, 2) = e_1[3].y;
+    J(2, 2) = e_1[3].z;
+    J(0, 3) = e_1[4].x;
+    J(1, 3) = e_1[4].y;
+    J(2, 3) = e_1[4].z;
+    J(0, 4) = e_1[5].x;
+    J(1, 4) = e_1[5].y;
+    J(2, 4) = e_1[5].z;
+    J(0, 5) = e_1[6].x;
+    J(1, 5) = e_1[6].y;
+    J(2, 5) = e_1[6].z;
+    
+
+    J(3, 0) = cr1.x;
+    J(4, 0) = cr1.y;
+    J(5, 0) = cr1.z;
+    J(3, 1) = cr2.x;
+    J(4, 1) = cr2.y;
+    J(5, 1) = cr2.z;
+    J(3, 2) = cr3.x;
+    J(4, 2) = cr3.y;
+    J(5, 2) = cr3.z;
+    J(3, 3) = cr4.x;
+    J(4, 3) = cr4.y;
+    J(5, 3) = cr4.z;
+    J(3, 4) = cr5.x;
+    J(4, 4) = cr5.y;
+    J(5, 4) = cr5.z;
+    J(3, 5) = cr6.x;
+    J(4, 5) = cr6.y;
+    J(5, 5) = cr6.z;
+
+
+
+    return J;
+}
 
 //------ Kinova Gen3 7DOF manipulator functions ---------------------------------------
 
