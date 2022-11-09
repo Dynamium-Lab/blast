@@ -3,7 +3,7 @@
 #include "blast_math.hpp"
 #include <vector>
 #include <cmath>
-#include "blast_optional_utilities.hpp"
+#include "optional/blast_optional_utilities.hpp"
 
 namespace blast {
 using std::vector;
@@ -512,7 +512,7 @@ inline void Gen3Lite::dynamics(const Pva &pva, Matrix &efforts) {
 inline void Gen3Lite::dynamics(const Matrix &pos, const Matrix &vel, const Matrix &acc, Matrix &efforts) {
 
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
-    Mat3 Q1t, Q2t, Q3t, Q4t, Q5t, Q6t,Q7t;
+    Mat3 Q1t, Q2t, Q3t, Q4t, Q5t, Q6t;
     Vec3 w12, w23, w34, w45, w56, w67;
     Vec3 wd12, wd23, wd34, wd45, wd56, wd67;
     Vec3 cdd01, cdd12, cdd23, cdd34, cdd45, cdd56, cdd67;
@@ -560,7 +560,7 @@ inline void Gen3Lite::dynamics(const Matrix &pos, const Matrix &vel, const Matri
         _mm256_storeu_ps(s, s_tmp);
         _mm256_storeu_ps(c, c_tmp);
 #endif
- 
+
         Q1 = {c[0],   s[0],     0,        -s[0],     c[0],      0,              0,      0,    1};
         Q2 = {c[1],      0,  s[1],        -s[1],        0,   c[1],              0,     -1,    0};
         Q3 = {c[2],  -s[2],     0,        -s[2],    -c[2],      0,              0,      0,   -1};
@@ -728,7 +728,7 @@ inline Matrix Gen3Lite::jacobian(const Array& joint_position) {
 #endif
 
     // note: these are stored column-wise
-   
+
     Q1 = {c[0],   s[0],     0,        -s[0],     c[0],      0,              0,      0,    1};
     Q2 = {c[1],      0,  s[1],        -s[1],        0,   c[1],              0,     -1,    0};
     Q3 = {c[2],  -s[2],     0,        -s[2],    -c[2],      0,              0,      0,   -1};
@@ -747,8 +747,8 @@ inline Matrix Gen3Lite::jacobian(const Array& joint_position) {
     e_1[4] = (Q_tmp*=Q4)*ev[4];
     e_1[5] = (Q_tmp*=Q5)*ev[5];
     e_1[6] = (Q_tmp*=Q6)*ev[6];
-    
-   
+
+
 
     Vec3 r[7];
     r[6] = dv[6];
@@ -766,8 +766,8 @@ inline Matrix Gen3Lite::jacobian(const Array& joint_position) {
     r[4] = (Q_tmp*=Q4)*r[4];
     r[5] = (Q_tmp*=Q5)*r[5];
     r[6] = (Q_tmp*=Q6)*r[6];
-  
-    
+
+
 
     auto cr0 = cross(e_1[0], r[0]);
     auto cr1 = cross(e_1[1], r[1]);
@@ -776,7 +776,7 @@ inline Matrix Gen3Lite::jacobian(const Array& joint_position) {
     auto cr4 = cross(e_1[4], r[4]);
     auto cr5 = cross(e_1[5], r[5]);
     auto cr6 = cross(e_1[6], r[6]);
-    
+
     // jacobian matrix
     Matrix J(6, 6);
     J(0, 0) = e_1[1].x;
@@ -797,7 +797,7 @@ inline Matrix Gen3Lite::jacobian(const Array& joint_position) {
     J(0, 5) = e_1[6].x;
     J(1, 5) = e_1[6].y;
     J(2, 5) = e_1[6].z;
-    
+
 
     J(3, 0) = cr1.x;
     J(4, 0) = cr1.y;
