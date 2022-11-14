@@ -454,7 +454,9 @@ blast_fn bool close(const Array& a1, const Array& a2, real eps = 1e-05) {
     return true;
 }
 
-
+blast_fn real sign(real v) {
+    return v > 0 ? 1: v == 0 ? 0: -1;
+}
 
 //------ Vec3 ---------------------
 
@@ -472,6 +474,10 @@ blast_fn Vec3 cross(Vec3 a, Vec3 b) {
 
 blast_fn real dot(Vec3 a, Vec3 b) {
     return a.x*b.x + a.y*b.y + a.z*b.z;
+}
+
+blast_fn real norm(Vec3 a) {
+    return sqrt(a.x*a.x + a.y*a.y + a.z*a.z);
 }
 
 blast_fn Vec3 operator-(Vec3 a, Vec3 b) {
