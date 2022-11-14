@@ -20,18 +20,12 @@ int main() {
     Matrix task(manip.joints, 6);
     {
         // init position
-        auto tmp = task.col(0);
-        Assert(tmp.is_alias);
-        tmp = {1.0, -2.13274122871835, 3.07081139897158, -1.32741228718346, 0.0, -0.159265358979322, 2.03540569948580};
+        auto tmp = task.col(0); Assert(tmp.is_alias);
+        tmp = {1.0, -2.13274122, 3.07081139, -1.32741228, 0.0, -0.159265358, 2.03540569};
         // final position
-        tmp = task.col(3);
-        Assert(tmp.is_alias);
-        tmp = {-2.28318530717959, -0.849555921538759, 1.23895832717571, 1.10621709845737, 0.0354056994857963, -0.309709437440564, 2.03540569948580};
-        // validate
-        if (!manip.validate_task(task)) {
-            printf("The required task is NOT valid\n");
-            return -1;
-        }
+        tmp = task.col(3); Assert(tmp.is_alias);
+        tmp = {-2.28318530, -0.8495559, 1.238958, 1.106217098, 0.0354056994, -0.3097094374, 2.03540569};
+        Assert(manip.validate_task(task));
     }
 
     // prep optimization
@@ -57,7 +51,9 @@ int main() {
         auto T1 = get_tick_us();
 
         // random optimization vector
-        auto x = guess_shot_sum(manip, pva, task, 50);
+        // auto x = guess_shot_max(manip, pva, task, 50);
+        // auto x = guess_shot_sum(manip, pva, task, 50);
+        auto x = guess_random(manip, pva);
 
         // launch optimization
         double f;
