@@ -909,7 +909,6 @@ inline void Gen3_7DOF::set_payload(const real mass) {
 
     // Modify payload
     auto svEE_old = sv[6];
-    auto avEE_old = av[6];
     Vec3 av_payload = {0.0f, 0.0f, -0.15f}; // todo: modify to real center of mass length (design prototype)
     auto mEE_old = m[6];
     m[6] += mass;
