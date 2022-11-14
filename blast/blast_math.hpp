@@ -6,6 +6,7 @@
 #include <utility>
 #include <algorithm>
 #include <vector>
+#include <random>
 
 #include "blast.hpp"
 #include "blast_simd.hpp"
@@ -16,6 +17,8 @@
 
 
 namespace blast {
+
+
 
 // uses doubles by default unless BLAST_USE_DOUBLES is set to 0
 #if BLAST_USE_DOUBLES
@@ -858,7 +861,7 @@ blast_fn Array& Array::operator=(const Array& a) {
         size = a.size;
         if (size) {
             data = (real*)malloc(a.size * sizeof(real));
-            std::copy_n(a.data, size, data);
+            memcpy(data, a.data, size*sizeof(real));
         }
         is_alias = false;
     }
@@ -1453,4 +1456,64 @@ blast_fn real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
     return dot(diff, diff);
 }
 
+
+
+// return a random number between -1 and 1
+host_fn real get_random() {
+    static thread_local std::random_device rd;
+    static thread_local std::mt19937 e2(rd());
+    static thread_local std::uniform_real_distribution<blast::real> dis(-1, 1);
+    return dis(e2);
+}
+
+// fill the given Array with random values between -A and A
+host_fn void fill_random(Array& v, real A) {
+    for (int i = 0; i < (int)v.size; i++)
+        v[i] = A * get_random();
+}
+
+// Generate an Array of size 'n' with random values between -A and A
+host_fn Array random_array(u32 n, real A) {
+    Array result(n);
+    for (int i = 0; i < (int)n; i++)
+        result[i] = A * get_random();
+    return result;
+}
+
+
+
+
 } // namespace blast
+
+
+
+#ifdef BLAST_ENABLE_TESTS
+TEST_CASE("Math", "[Arrays]") {
+    using namespace blast;
+    SECTION("") {
+        Array a(8);
+        a = { 1, 1, 1, 1, 1, 1, 1, 1 };
+        Array b(8);
+        b = { 1, 1, 1, 1, 1, 1, 2, 2 };
+        auto r = dot(a, b);
+        REQUIRE(r == (real)10.0);
+    }
+
+    SECTION("Correct aliasing functionnality") {
+        Array a({1, 2, 3, 4, 5});
+        {
+            Array b(a);
+            Array c(a.data, 4);
+            b[1] = 12;
+            REQUIRE(float(a[1]) == 2.0f);
+            c[1] = 14;
+            REQUIRE(float(a[1]) == 14.0f);
+            REQUIRE_FALSE(a.is_alias);
+            REQUIRE_FALSE(b.is_alias);
+            REQUIRE(c.is_alias);
+        }
+    }
+}
+
+#endif
+

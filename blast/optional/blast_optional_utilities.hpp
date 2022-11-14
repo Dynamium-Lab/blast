@@ -9,7 +9,6 @@
 #else
 #include <time.h>
 #endif
-#include <random>
 #include <cmath>
 
 #include "blast_math.hpp"
@@ -59,28 +58,6 @@ blast_fn void print(double* data, unsigned rows, unsigned cols) {
 }
 
 
-
-// return a random number between -1 and 1
-host_fn real get_random() {
-    static thread_local std::random_device rd;
-    static thread_local std::mt19937 e2(rd());
-    static thread_local std::uniform_real_distribution<blast::real> dis(-1, 1);
-    return dis(e2);
-}
-
-// fill the given Array with random values between -A and A
-host_fn void fill_random(Array& v, real A) {
-    for (int i = 0; i < (int)v.size; i++)
-        v[i] = A * get_random();
-}
-
-// Generate an Array of size 'n' with random values between -A and A
-host_fn Array random_array(u32 n, real A) {
-    Array result(n);
-    for (int i = 0; i < (int)n; i++)
-        result[i] = A * get_random();
-    return result;
-}
 
 // get the time
 host_fn int64_t get_tick_us() {
