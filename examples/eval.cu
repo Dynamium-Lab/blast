@@ -15,13 +15,8 @@ int main() {
     const u32 p = 5;
     const u32 noptim = 50;
 
-    // setup manipulator
     Gen3_7DOF manip;
-
-    // setup trajectory
     PvaBspline pva(nctrl, npts, p, manip.joints);
-
-    //--- setup task
     Matrix task(manip.joints, 6);
     {
         // init position
@@ -39,47 +34,22 @@ int main() {
         }
     }
 
-    // prep optimization data
-    Optimisation optim;
-    {
-        optim.manip = &manip;
-        optim.pva = &pva;
-        optim.task = &task;
-    }
-
     // prep optimization
+    Optimisation optim {&manip, &task, &pva};
     nlopt_result result;
-    // nlopt_opt o = nlopt_create(nlopt_algorithm::NLOPT_LN_COBYLA, pva.xlen());
     nlopt_opt o = nlopt_create(nlopt_algorithm::NLOPT_LD_SLSQP, pva.xlen());
     {
-        // objective function
-        result = nlopt_set_min_objective(o, obj_time, &optim);
-        Assert(result ==NLOPT_SUCCESS);
-        // nonlinear constraints
         const u32 ncon = (5 + 2 + 7*2)*npts;
-        Array con_tol(ncon);
-        constant(con_tol, 0.001);
-        result = nlopt_add_inequality_mconstraint(o, ncon, cstr_manip, &optim, con_tol.data);
-        Assert(result ==NLOPT_SUCCESS);
-        // lower bounds
-        result = nlopt_set_lower_bound(o, pva.xlen()-1, 0.1);
-        Assert(result ==NLOPT_SUCCESS);
-        // upper bounds
-        result = nlopt_set_upper_bound(o, pva.xlen()-1, 10.0);
-        Assert(result ==NLOPT_SUCCESS);
-        // ftol
-        result = nlopt_set_ftol_abs(o, 0.001);
-        Assert(result ==NLOPT_SUCCESS);
-        // xtol
+        Array con_tol(ncon, 0.001);
         Array xtol(pva.xlen(), 0.000001);
-        result = nlopt_set_xtol_abs(o, xtol.data);
-        Assert(result ==NLOPT_SUCCESS);
-        // max time
-        result = nlopt_set_maxtime(o, 5.0);
-        Assert(result ==NLOPT_SUCCESS);
-        // max eval
-        result = nlopt_set_maxeval(o, 10000);
-        Assert(result ==NLOPT_SUCCESS);
+        result = nlopt_add_inequality_mconstraint(o, ncon, cstr_manip, &optim, con_tol.data); Assert(result ==NLOPT_SUCCESS);
+        result = nlopt_set_min_objective(o, obj_time, &optim); Assert(result ==NLOPT_SUCCESS);
+        result = nlopt_set_lower_bound(o, pva.xlen()-1, 0.1);  Assert(result ==NLOPT_SUCCESS);
+        result = nlopt_set_upper_bound(o, pva.xlen()-1, 10.0); Assert(result ==NLOPT_SUCCESS);
+        result = nlopt_set_ftol_abs(o, 0.001);                 Assert(result ==NLOPT_SUCCESS);
+        result = nlopt_set_xtol_abs(o, xtol.data);             Assert(result ==NLOPT_SUCCESS);
+        result = nlopt_set_maxtime(o, 5.0);                    Assert(result ==NLOPT_SUCCESS);
+        result = nlopt_set_maxeval(o, 10000);                  Assert(result ==NLOPT_SUCCESS);
     }
 
     auto start_time = get_tick_us();
@@ -87,7 +57,7 @@ int main() {
         auto T1 = get_tick_us();
 
         // random optimization vector
-        auto x = guess_shot_mean(manip, pva, task, 50);
+        auto x = guess_shot_sum(manip, pva, task, 50);
 
         // launch optimization
         double f;
