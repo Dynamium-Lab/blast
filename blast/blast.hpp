@@ -2,6 +2,12 @@
 #include <stdint.h>
 #include <iostream>
 
+#ifdef BLAST_ENABLE_TESTS
+#define CATCH_CONFIG_MAIN
+#define CATCH_CONFIG_ENABLE_BENCHMARKING
+#include "catch.hpp"
+#endif
+
 //--- pre-processor directives to hand SIMD, CUDA, Etc
 
 // use doubles by default
