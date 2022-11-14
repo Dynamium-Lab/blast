@@ -5,9 +5,72 @@
 namespace blast {
 
 
+struct Optimisation {
+    blast::Manipulator*    manip;
+    blast::Matrix*         task;
+    blast::Pva*            pva;
+};
 
+
+//--------- OBJECTIVES AND CONSTRAINTS ----------------------------------------------------------
+
+// Simple objective function of total trajectory time.
+//
+//  n      = number of elements in optimization vector
+//  x      = optimization vector
+//  grad   = if not NULL, gradient is inserted here
+//
+// Returns the objective value
+host_fn double obj_time(unsigned n, const double* x, double* grad, void*);
+
+// Simple manipulator defined constraints function.
+//  The given manipulator's constraints function is called and no additionnal constraints are added.
+//
+//  m      = number of constraints
+//  result = constraints are inserted here
+//  n      = number of elements in optimization vector
+//  x      = optimization vector
+//  grad   = if not NULL, gradient is inserted here
+//  data   = is cast to Optimization struct
+//
+// Returns nothing
+host_fn void cstr_manip(unsigned m, double *result, unsigned n, const double* x, double* grad, void* data);
+
+
+//--------- INITIAL GUESS GENERATION ----------------------------------------------------------
+
+// Fill an optimization vector with random values
+// Returns the filled array
+host_fn Array guess_random(Gen3_7DOF& manip, Pva& pva);
+
+// Fill an optimization vector by trying 'nshotgun' random vectors
+//  The best optimzation vector is determined by the max (worst) value of the manip.contraints
+//
+//    manip     = manipulator
+//    pva       = trajectory generator
+//    task      = initial and final conditions of the task
+//    nshotgun  = number of tries to determine the best
+//
+// Return the best vector
+host_fn Array guess_shot_max(Gen3_7DOF& manip, Pva& pva, Matrix& task, int nshotgun);
+
+// Fill an optimization vector by trying 'nshotgun' random vectors.
+//  The best optimzation vector is determined by the mean value of the manip.contraints (only the violated constraints are considered in the sum).
+//
+//    manip     = manipulator
+//    pva       = trajectory generator
+//    task      = initial and final conditions of the task
+//    nshotgun  = number of tries to determine the best
+//
+// Return the best vector
+host_fn Array guess_shot_mean(Gen3_7DOF& manip, Pva& pva, Matrix& task, int nshotgun);
+
+
+
+
+
+//--------- CUDA GPU ONLY: OBJECTIVES AND CONSTRAINTS ----------------------------------------------------------
 #ifdef __NVCC__
-
 // compute the trajectory and the constraints (slower, but access to trajectory)
 __global__ void pva_constraints_kernel(cuPvaBspline pva);
 
@@ -17,14 +80,95 @@ __global__ void constraints_no_pva_kernel(cuPvaBspline pva);
 
 
 
+//--------- OBJECTIVES AND CONSTRAINTS ----------------------------------------------------------
+host_fn double obj_time(unsigned n, const double* x, double* grad, void*) {
+    using namespace blast;
+    double result = x[n-1];
+    if (grad) {
+        for(u32 i = 0; i < n-1; i++)
+            grad[i] = 0;
+        grad[n-1] = 1;
+    }
+    return result;
+}
+
+host_fn void internal_cstr_manip_single(unsigned m, double* result, unsigned n, const double* x, blast::Optimisation* opt) {
+    Array xv;
+    xv.alias(x, n);
+    opt->pva->compute_trajectory(xv, *opt->task);
+    opt->manip->constraints(*opt->pva, result);
+}
+
+host_fn void cstr_manip(unsigned m, double *result, unsigned n, const double* x, double* grad, void* f_data) {
+    Optimisation* opt = (Optimisation*)f_data;
+
+    internal_cstr_manip_single(m, result, n, x, opt);
+
+    if (grad) {
+        const real eps = 1e-5;
+        Array x_plus(n);
+        Array r_plus(m);
+        // todo: parallel?
+        for (u32 j = 0; j < n; j++) {
+            memcpy(x_plus.data, x, n * sizeof(real));
+            x_plus[j] += eps;
+            internal_cstr_manip_single(m, r_plus.data, n, x_plus.data, opt);
+            for (u32 i = 0; i < m; i++)
+                grad[i*n + j] = (r_plus[i]-result[i])/eps;
+        }
+    }
+}
+
+
+
+//--------- INITIAL GUESS GENERATION ----------------------------------------------------------
+host_fn Array guess_random(Gen3_7DOF& manip, Pva& pva) {
+    Array x(pva.xlen());
+    fill_random(x, 1);
+    x.back() = abs(x.back()) * 5 + 0.1;
+    return x;
+}
+
+host_fn Array guess_shot_max(Gen3_7DOF& manip, Pva& pva, Matrix& task, int nshotgun) {
+    Array best_x(pva.xlen());
+    real best_val = INF_REAL;
+    for (int i = 0; i < nshotgun; i++) {
+        auto x = guess_random(manip, pva);
+        pva.compute_trajectory(x, task);
+        auto c = manip.constraints(pva);
+        auto r = array_max(c);
+        if (r < best_val) {
+            best_x = x;
+            best_val = r;
+        }
+    }
+    return best_x;
+}
+
+host_fn Array guess_shot_mean(Gen3_7DOF& manip, Pva& pva, Matrix& task, int nshotgun) {
+    Array best_x(pva.xlen());
+    real best_val = INF_REAL;
+    for (int i = 0; i < nshotgun; i++) {
+        auto x = guess_random(manip, pva);
+        pva.compute_trajectory(x, task);
+        auto c = manip.constraints(pva);
+        real r = 0;
+        for (int i = 0; i < c.size; i++)
+            r += c[i] > 0 ? c[i] : 0;
+        Assert( ! isnan(r));
+        if (r < best_val) {
+            best_x = x;
+            best_val = r;
+        }
+    }
+    return best_x;
+}
+
 
 #ifdef __NVCC__
-
-
 __global__ void pva_constraints_kernel(cuPvaBspline pva) {
     const u32 point = blockIdx.x * blockDim.x + threadIdx.x;
     pva.compute_trajectory(point);
-
     blast::cuGen3_7DOF* manip = (blast::cuGen3_7DOF*)blast::manip_broadcast_arena;
     const u32 pva_offset = point * 7;
     const u32 constraints_offset = point * 21;
@@ -41,11 +185,9 @@ __global__ void constraints_no_pva_kernel(cuPvaBspline pva) {
     const u32 nctrl = pva.ncontrol;
     const real one_over_T = pva.one_over_T;
     const real one_over_T2 = pva.one_over_T2;
-
     if (point == 0)
         pva.device_t[point] = pva.dt * point;
     __syncthreads();
-
     real pos[7];
     real vel[7];
     real acc[7];
@@ -66,7 +208,6 @@ __global__ void constraints_no_pva_kernel(cuPvaBspline pva) {
         vel[joint] = velocity     * one_over_T;
         acc[joint] = acceleration * one_over_T2;
     }
-
     blast::cuGen3_7DOF* manip = (blast::cuGen3_7DOF*)blast::manip_broadcast_arena;
     const u32 constraints_offset = point * 21;
     manip->compute_constraints(pos, vel, acc, manip->device_constraints + constraints_offset);
@@ -112,8 +253,6 @@ __global__ void constraints_shared_kernel(cuPvaBspline pva) {
     const u32 constraints_offset = point * 21;
     manip->compute_constraints(pos, vel, acc, manip->device_constraints + constraints_offset);
 }
-
-
 #endif
 
 
