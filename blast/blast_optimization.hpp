@@ -63,7 +63,7 @@ host_fn Array guess_shot_max(Gen3_7DOF& manip, Pva& pva, Matrix& task, int nshot
 //    nshotgun  = number of tries to determine the best
 //
 // Return the best vector
-host_fn Array guess_shot_sum(Gen3_7DOF& manip, Pva& pva, Matrix& task, int nshotgun);
+host_fn Array guess_shot_mean(Gen3_7DOF& manip, Pva& pva, Matrix& task, int nshotgun);
 
 
 
@@ -145,7 +145,7 @@ host_fn Array guess_shot_max(Gen3_7DOF& manip, Pva& pva, Matrix& task, int nshot
     return best_x;
 }
 
-host_fn Array guess_shot_sum(Gen3_7DOF& manip, Pva& pva, Matrix& task, int nshotgun) {
+host_fn Array guess_shot_mean(Gen3_7DOF& manip, Pva& pva, Matrix& task, int nshotgun) {
     Array best_x(pva.xlen());
     real best_val = INF_REAL;
     for (int i = 0; i < nshotgun; i++) {

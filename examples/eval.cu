@@ -25,6 +25,7 @@ int main() {
         // final position
         tmp = task.col(3); Assert(tmp.is_alias);
         tmp = {-2.28318530, -0.8495559, 1.238958, 1.106217098, 0.0354056994, -0.3097094374, 2.03540569};
+
         Assert(manip.validate_task(task));
     }
 
@@ -52,7 +53,7 @@ int main() {
 
         // random optimization vector
         // auto x = guess_shot_max(manip, pva, task, 50);
-        // auto x = guess_shot_sum(manip, pva, task, 50);
+        // auto x = guess_shot_mean(manip, pva, task, 50);
         auto x = guess_random(manip, pva);
 
         // launch optimization
