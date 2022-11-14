@@ -7,105 +7,6 @@
 
 
 
-std::thread t[11];
-
-struct Optimisation {
-    blast::Manipulator*    manip;
-    blast::Matrix*         task;
-    blast::Pva*            pva;
-};
-
-double objective(unsigned n, const double* x, double* grad, void*) {
-    using namespace blast;
-    double result = x[n-1];
-    if (grad) {
-        for(u32 i = 0; i < n-1; i++)
-            grad[i] = 0;
-        grad[n-1] = 1;
-    }
-    return result;
-}
-
-
-inline void constraints_single(unsigned m, double* result, unsigned n, const double* x, Optimisation* opt) {
-    using namespace blast;
-
-    // todo: use aliases?
-    Array xv;
-    xv.alias(x, n);
-    // memcpy(xv.data, x, n * sizeof(real));
-    opt->pva->compute_trajectory(xv, *opt->task);
-    opt->manip->constraints(*opt->pva, result);
-}
-
-// Constraints function
-// m = number of constraints
-// n = number of optim var (xlen)
-void constraints(unsigned m, double *result, unsigned n, const double* x, double* grad, void* f_data) {
-    using namespace blast;
-    Optimisation* opt = (Optimisation*)f_data;
-
-    // compute
-    constraints_single(m, result, n, x, opt);
-
-    if (grad) {
-        const real eps = 1e-5;
-        Array x_plus(n);
-        Array r_plus(m);
-        // todo: parallel?
-        for (u32 j = 0; j < n; j++) {
-            memcpy(x_plus.data, x, n * sizeof(real));
-            x_plus[j] += eps;
-
-            constraints_single(m, r_plus.data, n, x_plus.data, opt);
-
-            for (u32 i = 0; i < m; i++)
-                grad[i*n + j] = (r_plus[i]-result[i])/eps;
-        }
-    }
-}
-
-
-// class thread_pool {
-//     std::atomic_bool done;
-//     threadsafe_queue<std::function<void()>> work_queue;
-//     std::vector<std::thread> threads;
-//     join_threads joiner;
-//     void worker_thread() {
-//         while(!done) {
-//             std::function<void()> task;
-//             if(work_queue.try_pop(task)) {
-//                 task();
-//             }
-//             else {
-//                 std::this_thread::yield();
-//             }
-//         }
-//     }
-// public:
-//     thread_pool(): done(false), joiner(threads) {
-//         unsigned const thread_count=std::thread::hardware_concurrency();
-//         try {
-//             for(unsigned i=0; i<thread_count; ++i) {
-//                 threads.push_back(std::thread(&thread_pool::worker_thread, this));
-//             }
-//         }
-//         catch(...) {
-//             done=true;
-//             throw;
-//         }
-//     }
-//     ~thread_pool() {
-//         done=true;
-//     }
-
-//     template<typename FunctionType>
-//     void submit(FunctionType f) {
-//         work_queue.push(std::function<void()>(f));
-//     }
-// };
-
-
 
 int main() {
     using namespace blast;
@@ -152,13 +53,13 @@ int main() {
     nlopt_opt o = nlopt_create(nlopt_algorithm::NLOPT_LD_SLSQP, pva.xlen());
     {
         // objective function
-        result = nlopt_set_min_objective(o, objective, &optim);
+        result = nlopt_set_min_objective(o, obj_time, &optim);
         Assert(result ==NLOPT_SUCCESS);
         // nonlinear constraints
         const u32 ncon = (5 + 2 + 7*2)*npts;
         Array con_tol(ncon);
         constant(con_tol, 0.001);
-        result = nlopt_add_inequality_mconstraint(o, ncon, constraints, &optim, con_tol.data);
+        result = nlopt_add_inequality_mconstraint(o, ncon, cstr_manip, &optim, con_tol.data);
         Assert(result ==NLOPT_SUCCESS);
         // lower bounds
         result = nlopt_set_lower_bound(o, pva.xlen()-1, 0.1);
@@ -186,11 +87,7 @@ int main() {
         auto T1 = get_tick_us();
 
         // random optimization vector
-        Array x(pva.xlen());
-        {
-            fill_random(x, 1);
-            x.back() = abs(x.back()) * 5 + 0.1;
-        }
+        auto x = guess_shot_mean(manip, pva, task, 50);
 
         // launch optimization
         double f;

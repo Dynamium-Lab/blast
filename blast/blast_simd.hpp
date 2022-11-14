@@ -3,9 +3,7 @@
 #include <xmmintrin.h>
 #include <immintrin.h>
 
-
-
-// Horizontal sum of 4 lanes of the vector
+// Horizontal sum of 4 lanes of a vector of singles
 inline float simd_hadd( __m128 r4 ) {
     // Add 4 values into 2
     const __m128 r2 = _mm_add_ps( r4, _mm_movehl_ps( r4, r4 ) );
@@ -16,13 +14,14 @@ inline float simd_hadd( __m128 r4 ) {
     return _mm_cvtss_f32( r1 );
 }
 
-// Horizontal sum of 8 lanes of the vector
+// Horizontal sum of 8 lanes of a vector of singles
 inline float simd_hadd( __m256 r8 ) {
     const __m128 low = _mm256_castps256_ps128( r8 );
     const __m128 high = _mm256_extractf128_ps( r8, 1 );
     return simd_hadd( _mm_add_ps( low, high ) );
 }
 
+// Horizontal sum of 4 lanes of a vector of doubles
 inline double simd_hadd(__m256d v) {
 #if defined(__MINGW64__) || defined(__MINGW64__) || defined(__MINGW32__)
     return v[0] + v[1] + v[2] + v[3];

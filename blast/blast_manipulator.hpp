@@ -3,7 +3,6 @@
 #include "blast_math.hpp"
 #include <vector>
 #include <cmath>
-#include "optional/blast_optional_utilities.hpp"
 
 namespace blast {
 using std::vector;
@@ -31,6 +30,7 @@ struct Manipulator {
         return false;
     }
 
+    // return the number of constraints with the given 'npoints'
     virtual u32 ncon(u32 npoints) {
         return 0;
     }
@@ -1517,6 +1517,7 @@ inline bool Gen3_7DOF::validate_task(const Matrix &task) {
 }
 
 //------ FOR GPU COMPUTATION ONLY ------------------------------------------------------------------------------------
+
 #ifdef __NVCC__
 host_fn void cuGen3_7DOF::init(real mass, u32 npoints) {
     // position of the first joint with respect to the table in the center of the base
