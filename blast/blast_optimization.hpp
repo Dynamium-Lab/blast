@@ -153,7 +153,7 @@ host_fn Array guess_shot_mean(Gen3_7DOF& manip, Pva& pva, Matrix& task, int nsho
         pva.compute_trajectory(x, task);
         auto c = manip.constraints(pva);
         real r = 0;
-        for (int i = 0; i < c.size; i++)
+        for (u32 i = 0; i < c.size; i++)
             r += c[i] > 0 ? c[i] : 0;
         Assert( ! isnan(r));
         if (r < best_val) {
