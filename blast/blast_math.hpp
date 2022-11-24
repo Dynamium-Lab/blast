@@ -1509,7 +1509,7 @@ blast_fn real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
 #ifdef BLAST_ENABLE_TESTS
 TEST_CASE("Arrays", "[Math]") {
     using namespace blast;
-    SECTION("") {
+    SECTION("Basic operations") {
         Array a(8);
         a = { 1, 1, 1, 1, 1, 1, 1, 1 };
         Array b(8);
@@ -1583,6 +1583,33 @@ TEST_CASE("Mat3", "[Math]") {
             REQUIRE((float)m1[i] == (float)m3[i]);
             REQUIRE((float)m1[i] == (float)m4[i]);
         }
+    }
+}
+
+TEST_CASE("Mat4Operations", "[Math]") {
+    using namespace blast;
+
+    Mat4 m1;
+    Mat4 m2;
+    for (u32 i = 0; i < 16; i++) {
+        m1[i] = 10*get_random();
+        m2[i] = 5*get_random();
+    }
+
+    Mat4 m3;
+    for (u32 i = 0; i < 4; i++) {
+        for (u32 j = 0; j < 4; j++) {
+            m3(i, j) = m1(i, 0)*m2(0, j) + m1(i, 1)*m2(1, j) + m1(i, 2)*m2(2, j) + m1(i, 3)*m2(3, j);
+        }
+    }
+
+    Mat4 m4 = m1 * m2;
+    m1 *= m2;
+
+    // m1, m3 and m4 should now all be the same
+    for (u32 i = 0; i < 16; i++) {
+        REQUIRE((float)m1[i] == (float)m3[i]);
+        REQUIRE((float)m1[i] == (float)m4[i]);
     }
 }
 

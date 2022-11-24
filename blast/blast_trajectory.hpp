@@ -444,7 +444,7 @@ dev_fn void cuPvaBspline::compute_trajectory(const unsigned point) {
 } // namespace blast
 
 #ifdef BLAST_ENABLE_TESTS
-TEST_CASE ("SplineTest") {
+TEST_CASE ("SplineTest", "[Trajectory]") {
     using namespace blast;
 
     const u32 nctrl = 8*3;

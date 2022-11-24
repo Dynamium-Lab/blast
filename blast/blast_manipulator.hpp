@@ -1660,29 +1660,27 @@ dev_fn void cuGen3_7DOF::compute_constraints(const real pos[7], const real vel[7
     real dist1sqr = two_segment_distance_sqr(p_orig, p_j2, p_j6, p_ee) - r1_sqr;
     real dist2sqr = two_segment_distance_sqr(p_j2, p_j3, p_j6, p_ee) - r2_sqr;
     // Collision with table sqr
-    const real r4table_sqr = 0.05f * 0.05f;
-    const real r6table_sqr = 0.04f * 0.04f;
+    const real r4table = 0.05f;
+    const real r6table = 0.04f;
     const Vec3 p_table(0, 0, -0.0025f);
-    real distTJ4sqr = p_j4.z - p_table.z;
-    distTJ4sqr *= distTJ4sqr;
-    real distTJ6sqr = p_j6.z - p_table.z;
-    distTJ6sqr *= distTJ6sqr;
-    real distTEEsqr = p_ee.z - p_table.z;
-    distTEEsqr *= distTEEsqr;
-    con[0] = dist1sqr;
-    con[1] = dist2sqr;
-    con[2] = distTJ4sqr - r4table_sqr;
-    con[3] = distTJ6sqr - r6table_sqr;
-    con[4] = distTEEsqr - r6table_sqr;
+    real distTJ4 = p_j4.z - p_table.z - r4table;
+    real distTJ6 = p_j6.z - p_table.z - r6table;
+    real distTEE = p_ee.z - p_table.z - r6table;
+    
+    con[0] = -dist1sqr;
+    con[1] = -dist2sqr;
+    con[2] = -distTJ4;
+    con[3] = -distTJ6;
+    con[4] = -distTEE;
 
     //-- position constraints
-    con[5] = (pmax[3] - abs(pos[3])) / pmax[3];
-    con[6] = (pmax[5] - abs(pos[5])) / pmax[5];
+    con[5] = (abs(pos[3]) - pmax[3]) / pmax[3];
+    con[6] = (abs(pos[5]) - pmax[5]) / pmax[5];
 
     //-- velocity constraints
     auto current_result = &con[7];
     for (u32 i = 0; i < 7; i++)
-        current_result[i] = (vmax[i] - abs(vel[i])) / vmax[i];
+        current_result[i] = (abs(vel[i]) - vmax[i]) / vmax[i];
     current_result += 7;
 
     //-- Dynamic constraints
@@ -1737,21 +1735,47 @@ dev_fn void cuGen3_7DOF::compute_constraints(const real pos[7], const real vel[7
     n1 = I[0] * wd1 + cross(w1, I[0] * w1) + Q2 * n2 + cross(av[0], f1) + cross(sv[0], (Q2 * f2));
 
     //-- extract torques (last element of each moment vector)
-    current_result[0] = (tau_max[0] - abs(n1.z)) / tau_max[0];
-    ;
-    current_result[1] = (tau_max[1] - abs(n2.z)) / tau_max[1];
-    ;
-    current_result[2] = (tau_max[2] - abs(n3.z)) / tau_max[2];
-    ;
-    current_result[3] = (tau_max[3] - abs(n4.z)) / tau_max[3];
-    ;
-    current_result[4] = (tau_max[4] - abs(n5.z)) / tau_max[4];
-    ;
-    current_result[5] = (tau_max[5] - abs(n6.z)) / tau_max[5];
-    ;
-    current_result[6] = (tau_max[6] - abs(n7.z)) / tau_max[6];
-    ;
+    current_result[0] = (abs(n1.z) - tau_max[0]) / tau_max[0];
+    current_result[1] = (abs(n2.z) - tau_max[1]) / tau_max[1];
+    current_result[2] = (abs(n3.z) - tau_max[2]) / tau_max[2];
+    current_result[3] = (abs(n4.z) - tau_max[3]) / tau_max[3];
+    current_result[4] = (abs(n5.z) - tau_max[4]) / tau_max[4];
+    current_result[5] = (abs(n6.z) - tau_max[5]) / tau_max[5];
+    current_result[6] = (abs(n7.z) - tau_max[6]) / tau_max[6];
 }
 #endif
 
+#ifdef BLAST_ENABLE_TESTS
+TEST_CASE("SelfCollision", "Manipulator") {
+    using namespace blast;
+    Gen3_7DOF manip;
+    Array theta1(7);
+    theta1 = {0, 15, 180, 230, 360, 55, 90};
+    theta1 = deg2rad(theta1);
+    Array theta2(7);
+    theta2 = {0, 0, 0, 0, 0, 0, 0};
+    theta2 = deg2rad(theta2);
+    Array theta3(7);
+    theta3 = {0, 16, 180, 221, 358, 284, 88};
+    theta3 = deg2rad(theta3);
+    Array theta4(7);
+    theta4 = {347, 47, 158, 212, 341, 300, 8};
+    theta4 = deg2rad(theta4);
+
+    auto dist_sqr_min_1 = manip.collision_check(theta1);
+    auto dist_sqr_min_2 = manip.collision_check(theta2);
+    auto dist_sqr_min_3 = manip.collision_check(theta3);
+    auto dist_sqr_min_4 = manip.collision_check(theta4);
+
+    REQUIRE(dist_sqr_min_1[0] > 0);
+    REQUIRE(dist_sqr_min_1[1] > 0);
+    REQUIRE(dist_sqr_min_2[0] > 0);
+    REQUIRE(dist_sqr_min_2[1] > 0);
+    REQUIRE(dist_sqr_min_3[0] < 0);
+    REQUIRE(dist_sqr_min_3[1] < 0);
+    REQUIRE(dist_sqr_min_4[0] < 0);
+    REQUIRE(dist_sqr_min_4[1] > 0);
+}
+
+#endif // tests
 } // namespace blast

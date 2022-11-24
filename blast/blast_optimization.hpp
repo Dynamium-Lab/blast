@@ -257,3 +257,58 @@ __global__ void constraints_shared_kernel(cuPvaBspline pva) {
 
 
 } // namespace blast
+
+#ifdef BLAST_ENABLE_TESTS
+#ifdef __NVCC__
+TEST_CASE("GpuCpuCorrectness", "Manipulator") {
+    using namespace blast;
+    
+    const u32 points = 256;
+    const u32 joints = 7;
+    const u32 p = 5;
+    const u32 ncontrol = 24;
+
+    cuPvaBspline device_pva;
+    cuGen3_7DOF device_manip;
+    PvaBspline host_pva(ncontrol, points, p, joints);
+    Gen3_7DOF host_manip;
+
+    // random task and input vector
+    Matrix task(joints, 6);
+    real amp = 10;
+    for (u32 i = 0; i < task.rows; i++)
+        for (u32 j = 0; j < task.cols; j++)
+            task(i, j) = amp * get_random();
+    Array x(joints*(ncontrol-6) + 1);
+    for (u32 i = 0; i < x.size; i++)
+        x[i] = amp * get_random();
+    x.back() = abs(x.back());
+
+    // compute constraints on host
+    host_pva.compute_trajectory(x, task);
+    auto host_con = host_manip.constraints(host_pva);
+
+    // compute constraints on GPU
+    device_pva.init(points, joints, p, ncontrol);
+    device_pva.compute_control_and_send(x, task);
+    device_manip.init(0, points);
+    pva_constraints_kernel<<< 1, points >>>(device_pva);
+    device_pva.fetch_pva();
+    device_manip.fetch_constraints(points);
+
+    // Test correctness of the trajectory
+    for (int i = 0; i < (int)points; i++) {
+        REQUIRE((float)host_pva.pos(0, i) == (float)device_pva.host->pos(0, i));
+        REQUIRE((float)host_pva.pos(1, i) == (float)device_pva.host->pos(1, i));
+        REQUIRE((float)host_pva.pos(2, i) == (float)device_pva.host->pos(2, i));
+        REQUIRE((float)host_pva.pos(3, i) == (float)device_pva.host->pos(3, i));
+        REQUIRE((float)host_pva.pos(4, i) == (float)device_pva.host->pos(4, i));
+        REQUIRE((float)host_pva.pos(5, i) == (float)device_pva.host->pos(5, i));
+    }
+
+    // host_con should be the same (ish) as device_manip.host_constraints
+    for (int i = 0; i < (int)host_con.size; i++)
+        REQUIRE(abs(host_con[i] - device_manip.host_constraints[i]) < 1e-5);
+}
+#endif // nvcc
+#endif // tests
