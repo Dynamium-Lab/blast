@@ -488,11 +488,11 @@ inline Gen3Lite::Gen3Lite() : Manipulator(6) {
 
     // unit joint direction
     ev[0] = { 0,  0,  1};
-    ev[1] = { 0, 0,  1};
-    ev[2] = { 0,  0, 1};
-    ev[3] = { 0, 0,  1};
+    ev[1] = { 0,  0,  1};
+    ev[2] = { 0,  0,  1};
+    ev[3] = { 0,  0,  1};
     ev[4] = { 0,  0,  1};
-    ev[5] = {0,  0,  1};
+    ev[5] = { 0,  0,  1};
     ev[6] = { 0,  0,  1};
 
 
@@ -502,7 +502,7 @@ inline Gen3Lite::Gen3Lite() : Manipulator(6) {
     tau_max = {10, 14, 10, 7, 7, 7};                   // Nm
     vmin = -vmax;
     pmin = -pmax;
-    tau_min = -tau_max;
+    tau_min = -tau_max;// ??
 }
 
 inline void Gen3Lite::dynamics(const Pva &pva, Matrix &efforts) {
@@ -512,7 +512,7 @@ inline void Gen3Lite::dynamics(const Pva &pva, Matrix &efforts) {
 inline void Gen3Lite::dynamics(const Matrix &pos, const Matrix &vel, const Matrix &acc, Matrix &efforts) {
 
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
-    Mat3 Q1t, Q2t, Q3t, Q4t, Q5t, Q6t,Q7t;
+    Mat3 Q1t, Q2t, Q3t, Q4t, Q5t, Q6t;
     Vec3 w12, w23, w34, w45, w56, w67;
     Vec3 wd12, wd23, wd34, wd45, wd56, wd67;
     Vec3 cdd01, cdd12, cdd23, cdd34, cdd45, cdd56, cdd67;
@@ -576,7 +576,8 @@ inline void Gen3Lite::dynamics(const Matrix &pos, const Matrix &vel, const Matri
 
         // note: this is the Newton algorithm in 'Element de robotique' course notes.
         //-- kinematics
-        w12 = v[0] * ev[0];
+
+        w12 =  v[0] * ev[0];
         w23 = Q2t * w12 + v[1] * ev[1];
         w34 = Q3t * w23 + v[2] * ev[2];
         w45 = Q4t * w34 + v[3] * ev[3];
