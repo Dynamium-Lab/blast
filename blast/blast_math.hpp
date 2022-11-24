@@ -6,6 +6,7 @@
 #include <utility>
 #include <algorithm>
 #include <vector>
+#include <random>
 
 #include "blast.hpp"
 #include "blast_simd.hpp"
@@ -16,6 +17,8 @@
 
 
 namespace blast {
+
+
 
 // uses doubles by default unless BLAST_USE_DOUBLES is set to 0
 #if BLAST_USE_DOUBLES
@@ -451,7 +454,36 @@ blast_fn bool close(const Array& a1, const Array& a2, real eps = 1e-05) {
     return true;
 }
 
+blast_fn real sign(real v) {
+    return v > 0 ? 1: v == 0 ? 0: -1;
+}
 
+// return a random number between -1 and 1
+host_fn real get_random() {
+    static thread_local std::random_device rd;
+    static thread_local std::mt19937 e2(rd());
+    static thread_local std::uniform_real_distribution<blast::real> dis(-1, 1);
+    return dis(e2);
+}
+
+// fill the given Array with random values between -A and A
+host_fn void fill_random(Array& v, real A) {
+    for (int i = 0; i < (int)v.size; i++)
+        v[i] = A * get_random();
+}
+
+host_fn void fill_random(Mat3& m, real A) {
+    for (int i = 0; i < 9; i++)
+        m[i] = A * get_random();
+}
+
+// Generate an Array of size 'n' with random values between -A and A
+host_fn Array random_array(u32 n, real A) {
+    Array result(n);
+    for (int i = 0; i < (int)n; i++)
+        result[i] = A * get_random();
+    return result;
+}
 
 //------ Vec3 ---------------------
 
@@ -469,6 +501,10 @@ blast_fn Vec3 cross(Vec3 a, Vec3 b) {
 
 blast_fn real dot(Vec3 a, Vec3 b) {
     return a.x*b.x + a.y*b.y + a.z*b.z;
+}
+
+blast_fn real norm(Vec3 a) {
+    return sqrt(a.x*a.x + a.y*a.y + a.z*a.z);
 }
 
 blast_fn Vec3 operator-(Vec3 a, Vec3 b) {
@@ -858,7 +894,7 @@ blast_fn Array& Array::operator=(const Array& a) {
         size = a.size;
         if (size) {
             data = (real*)malloc(a.size * sizeof(real));
-            std::copy_n(a.data, size, data);
+            memcpy(data, a.data, size*sizeof(real));
         }
         is_alias = false;
     }
@@ -949,7 +985,6 @@ blast_fn Array& Array::alias(const real* p, u32 n) {
     is_alias = true;
     return *this;
 }
-
 
 blast_fn void Array::resize(u32 new_size) {
     Assert(!is_alias);
@@ -1102,7 +1137,7 @@ blast_fn Matrix::Matrix(u32 r, u32 c) {
 
 blast_fn Matrix::Matrix(const Matrix& m) : size(m.size), cols(m.cols), rows(m.rows), is_alias(false) {
     if (size) {
-        data = (real*)calloc(size, sizeof(real));
+        data = (real*)malloc(size * sizeof(real));
         memcpy(data, m.data, size*sizeof(real));
     }
 }
@@ -1124,7 +1159,7 @@ blast_fn Matrix::Matrix(real* d, u32 r, u32 c) {
 
 blast_fn Matrix::Matrix(const Array& v) : size(v.size), cols(1), rows(v.size), is_alias(false) {
     if (size) {
-        data = (real*)calloc(size, sizeof(real));
+        data = (real*)malloc(size * sizeof(real));
         memcpy(data, v.data, size*sizeof(real));
     }
 }
@@ -1148,13 +1183,22 @@ host_fn void Matrix::resize(u32 r, u32 c) {
 }
 
 blast_fn Matrix& Matrix::operator=(const Matrix& m) {
-    Assert(m.data);
     if (this != &m) {
-        if (data == nullptr || is_alias) {
+        if (m.size == 0) {
+            size = 0;
+            rows = 0;
+            cols = 0;
+            if (data)
+                free(data);
+            data = nullptr;
+            return *this;
+        }
+        else if (data == nullptr || is_alias) {
             data = (real*)malloc(m.size * sizeof(real));
         }
         else {
-            data = (real*)realloc(data, m.size * sizeof(real));
+            free(data);
+            data = (real*)malloc(m.size * sizeof(real));
         }
         Assert(data);
         size = m.size;
@@ -1453,4 +1497,107 @@ blast_fn real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
     return dot(diff, diff);
 }
 
+
+
+
+
+
 } // namespace blast
+
+
+
+#ifdef BLAST_ENABLE_TESTS
+TEST_CASE("Arrays", "[Math]") {
+    using namespace blast;
+    SECTION("") {
+        Array a(8);
+        a = { 1, 1, 1, 1, 1, 1, 1, 1 };
+        Array b(8);
+        b = { 1, 1, 1, 1, 1, 1, 2, 2 };
+        auto r = dot(a, b);
+        REQUIRE(r == (real)10.0);
+    }
+
+    SECTION("Correct aliasing functionnality") {
+        Array a({1, 2, 3, 4, 5});
+        {
+            Array b(a);
+            Array c(a.data, 4);
+            b[1] = 12;
+            REQUIRE(float(a[1]) == 2.0f);
+            c[1] = 14;
+            REQUIRE(float(a[1]) == 14.0f);
+            REQUIRE_FALSE(a.is_alias);
+            REQUIRE_FALSE(b.is_alias);
+            REQUIRE(c.is_alias);
+        }
+    }
+}
+
+TEST_CASE("Mat3", "[Math]") {
+    using namespace blast;
+
+    // mult
+    {
+        Mat3 m1;  fill_random(m1, 10);
+        Mat3 m2;  fill_random(m2, 5);
+
+        Mat3 m3;
+        for (u32 i = 0; i < 3; i++) {
+            for (u32 j = 0; j < 3; j++) {
+                m3(i, j) = m1(i, 0)*m2(0, j) + m1(i, 1)*m2(1, j) + m1(i, 2)*m2(2, j);
+            }
+        }
+
+        Mat3 m4 = m1 * m2;
+        m1 *= m2;
+
+        // m1, m3 and m4 should now all be the same
+        for (u32 i = 0; i < 9; i++) {
+            REQUIRE((float)m1[i] == (float)m3[i]);
+            REQUIRE((float)m1[i] == (float)m4[i]);
+        }
+    }
+
+    // add
+    {
+        Mat3 m1;
+        Mat3 m2;
+        for (u32 i = 0; i < 9; i++) {
+            m1[i] = 10*get_random();
+            m2[i] = 5*get_random();
+        }
+
+        Mat3 m3;
+        for (u32 i = 0; i < 3; i++) {
+            for (u32 j = 0; j < 3; j++) {
+                m3(i, j) = m1(i, j) + m2(i, j);
+            }
+        }
+
+        Mat3 m4 = m1 + m2;
+        m1 += m2;
+
+        // m1, m3 and m4 should now all be the same
+        for (u32 i = 0; i < 9; i++) {
+            REQUIRE((float)m1[i] == (float)m3[i]);
+            REQUIRE((float)m1[i] == (float)m4[i]);
+        }
+    }
+}
+
+TEST_CASE("TwoSegmentDist", "[Math]") {
+    auto dist_sqr_test1 = blast::two_segment_distance_sqr({1, 1, 1}, {2, 2, 2}, {1, 0, 0}, {2, 0, 0});
+    auto dist_sqr_test2 = blast::two_segment_distance_sqr({1, 1, 1}, {2, 2, 2}, {1, 0, 0}, {2, 3, 2});
+    auto dist_sqr_test3 = blast::two_segment_distance_sqr({1.5, 3, 2}, {7, 0, 4}, {8.2, 0, 5}, {2, 2, 0});
+    auto dist_sqr_test4 = blast::two_segment_distance_sqr({1, 1, 1}, {2, 2, 2}, {3, 3, 3}, {4, 4, 4});
+
+    REQUIRE((float)dist_sqr_test1 == 2.f);
+    REQUIRE((float)dist_sqr_test2 == 0.16666666666f);
+    REQUIRE((float)dist_sqr_test3 == 0.07709516434f);
+    REQUIRE((float)dist_sqr_test4 == 3.f);
+}
+
+
+#endif
+

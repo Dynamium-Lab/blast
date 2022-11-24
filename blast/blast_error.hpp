@@ -37,9 +37,6 @@ void assert_size() {
 
 //-- functions that are only visible to nvcc GPU compiler -----------------------
 #ifdef __NVCC__
-
-
-
 // check the output of a cuda function call and abort if there was an error
 #define cuda_check(expr) \
 { \

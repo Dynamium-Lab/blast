@@ -3,209 +3,167 @@
 #include "blast.hpp"
 #include "blast_optional_utilities.hpp"
 #include "nlopt.h"
+#include "json.hpp"
+#include <fstream>
 #include <thread>
+#include <mutex>
+
+const int thread_count = 4;
 
 
-
-std::thread t[11];
-
-struct Optimisation {
-    blast::Manipulator*    manip;
-    blast::Matrix*         task;
-    blast::Pva*            pva;
+struct OptimConfig {
+    blast::u32     npts;
+    blast::u32     nctrl;
+    blast::u32     p;
+    blast::u32     noptim;
+    blast::u32     nshot;
+    blast::real    m;
+    blast::Matrix  task;
 };
 
-double objective(unsigned n, const double* x, double* grad, void*) {
-    using namespace blast;
-    double result = x[n-1];
-    if (grad) {
-        for(u32 i = 0; i < n-1; i++)
-            grad[i] = 0;
-        grad[n-1] = 1;
-    }
-    return result;
-}
+struct Result {
+    blast::real     compute_time;
+    OptimConfig     config;
+    blast::Array    x;
+};
 
+std::vector<OptimConfig> config_list;
+int config_index = 0;
+std::mutex mut;
 
-inline void constraints_single(unsigned m, double* result, unsigned n, const double* x, Optimisation* opt) {
+void eval_function() {
     using namespace blast;
 
-    // todo: use aliases?
-    Array xv;
-    xv.alias(x, n);
-    // memcpy(xv.data, x, n * sizeof(real));
-    opt->pva->compute_trajectory(xv, *opt->task);
-    opt->manip->constraints(*opt->pva, result);
-}
-
-// Constraints function
-// m = number of constraints
-// n = number of optim var (xlen)
-void constraints(unsigned m, double *result, unsigned n, const double* x, double* grad, void* f_data) {
-    using namespace blast;
-    Optimisation* opt = (Optimisation*)f_data;
-
-    // compute
-    constraints_single(m, result, n, x, opt);
-
-    if (grad) {
-        const real eps = 1e-5;
-        Array x_plus(n);
-        Array r_plus(m);
-        // todo: parallel?
-        for (u32 j = 0; j < n; j++) {
-            memcpy(x_plus.data, x, n * sizeof(real));
-            x_plus[j] += eps;
-
-            constraints_single(m, r_plus.data, n, x_plus.data, opt);
-
-            for (u32 i = 0; i < m; i++)
-                grad[i*n + j] = (r_plus[i]-result[i])/eps;
+    for(;;) {
+        mut.lock();
+        printf("hello from thread %d\n", std::this_thread::get_id());
+        if (config_index >= config_list.size()) {
+            mut.unlock();
+            break;
         }
+        auto config = config_list[config_index];
+        config_index++;
+        mut.unlock();
+
+        const u32 npts      = config.npts;
+        const u32 nctrl     = config.nctrl;
+        const u32 p         = config.p;
+        const u32 noptim    = config.noptim;
+
+        Gen3_7DOF manip;
+        manip.set_payload(config.m);
+        PvaBspline pva(nctrl, npts, p, manip.joints);
+
+        // prep optimization
+        Optimisation optim {&manip, &config.task, &pva};
+        u32     ncon = manip.ncon(npts);
+        Array   con_tol(ncon, 0.001);
+        Array   xtol(pva.xlen(), 0.000001);
+
+        nlopt_opt o = nlopt_create(nlopt_algorithm::NLOPT_LD_SLSQP, pva.xlen());
+        nlopt_result result;
+        result = nlopt_add_inequality_mconstraint(o, ncon, cstr_manip, &optim, con_tol.data); Assert(result ==NLOPT_SUCCESS);
+        result = nlopt_set_min_objective(o, obj_time, &optim); Assert(result ==NLOPT_SUCCESS);
+        result = nlopt_set_lower_bound(o, pva.xlen()-1, 0.1);  Assert(result ==NLOPT_SUCCESS);
+        result = nlopt_set_upper_bound(o, pva.xlen()-1, 10.0); Assert(result ==NLOPT_SUCCESS);
+        result = nlopt_set_ftol_abs(o, 0.001);                 Assert(result ==NLOPT_SUCCESS);
+        result = nlopt_set_xtol_abs(o, xtol.data);             Assert(result ==NLOPT_SUCCESS);
+        result = nlopt_set_maxtime(o, 5.0);                    Assert(result ==NLOPT_SUCCESS);
+        result = nlopt_set_maxeval(o, 10000);                  Assert(result ==NLOPT_SUCCESS);
+
+        auto start_time = get_tick_us();
+        for (int iter = 0; iter < noptim; iter++) {
+            auto T1 = get_tick_us();
+
+            // random optimization vector
+            auto x = config.nshot == 1 ?
+                     guess_random(manip, pva) :
+                     guess_shot_mean(manip, pva, config.task, config.nshot);
+
+            // launch optimization
+            double f;
+            result = nlopt_optimize(o, x.data, &f);
+            auto T2 = get_tick_us();
+            double time = (T2-T1) / 1000.0;
+
+            // check solution
+            pva.compute_trajectory(x, config.task);
+            auto max_con = array_max(manip.constraints(pva));
+            bool is_valid = max_con < 0.01;
+
+
+            // printf("code: %d, result: %f, time: %fms, %s.\n", result, x.back(), time, is_valid? "valid" : "not valid");
+        }
+        auto total_time = (get_tick_us() - start_time) / 1000.0;
+        // printf("total time: %f\n", total_time);
     }
 }
-
-
-// class thread_pool {
-//     std::atomic_bool done;
-//     threadsafe_queue<std::function<void()>> work_queue;
-//     std::vector<std::thread> threads;
-//     join_threads joiner;
-//     void worker_thread() {
-//         while(!done) {
-//             std::function<void()> task;
-//             if(work_queue.try_pop(task)) {
-//                 task();
-//             }
-//             else {
-//                 std::this_thread::yield();
-//             }
-//         }
-//     }
-// public:
-//     thread_pool(): done(false), joiner(threads) {
-//         unsigned const thread_count=std::thread::hardware_concurrency();
-//         try {
-//             for(unsigned i=0; i<thread_count; ++i) {
-//                 threads.push_back(std::thread(&thread_pool::worker_thread, this));
-//             }
-//         }
-//         catch(...) {
-//             done=true;
-//             throw;
-//         }
-//     }
-//     ~thread_pool() {
-//         done=true;
-//     }
-
-//     template<typename FunctionType>
-//     void submit(FunctionType f) {
-//         work_queue.push(std::function<void()>(f));
-//     }
-// };
-
-
 
 int main() {
     using namespace blast;
-    const u32 npts = 100;
-    const u32 nctrl = 8;
-    const u32 p = 5;
-    const u32 noptim = 50;
 
-    // setup manipulator
-    Gen3_7DOF manip;
+    const u32   nctrl_list[] {8, 10, 12, 14, 16};
+    const u32   npts_list[]  {100, 128, 256, 512};
+    const real  m_list[]     {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    const u32   nshot_list[] {25, 50, 100, 200};
+    Matrix      task_list[9];
 
-    // setup trajectory
-    PvaBspline pva(nctrl, npts, p, manip.joints);
-
-    //--- setup task
-    Matrix task(manip.joints, 6);
-    {
-        // init position
-        auto tmp = task.col(0);
-        Assert(tmp.is_alias);
-        tmp = {1.0, -2.13274122871835, 3.07081139897158, -1.32741228718346, 0.0, -0.159265358979322, 2.03540569948580};
-        // final position
-        tmp = task.col(3);
-        Assert(tmp.is_alias);
-        tmp = {-2.28318530717959, -0.849555921538759, 1.23895832717571, 1.10621709845737, 0.0354056994857963, -0.309709437440564, 2.03540569948580};
-        // validate
-        if (!manip.validate_task(task)) {
-            printf("The required task is NOT valid\n");
-            return -1;
+    nlohmann::json j_file;
+    std::ifstream file_handle("task_binpick.json");
+    file_handle >> j_file;
+    u32 i = 0;
+    for (auto& task : task_list) {
+        task.resize(7, 6);
+        auto task_tmp = j_file["task"][i++];
+        auto& pi = task_tmp["pi"];
+        auto& vi = task_tmp["vi"];
+        auto& ai = task_tmp["ai"];
+        auto& pf = task_tmp["pf"];
+        auto& vf = task_tmp["vf"];
+        auto& af = task_tmp["af"];
+        for (u32 j = 0; j < 7; j++) {
+            task(j, 0) = pi[j];
+            task(j, 1) = vi[j];
+            task(j, 2) = ai[j];
+            task(j, 3) = pf[j];
+            task(j, 4) = vf[j];
+            task(j, 5) = af[j];
         }
     }
 
-    // prep optimization data
-    Optimisation optim;
-    {
-        optim.manip = &manip;
-        optim.pva = &pva;
-        optim.task = &task;
-    }
-
-    // prep optimization
-    nlopt_result result;
-    // nlopt_opt o = nlopt_create(nlopt_algorithm::NLOPT_LN_COBYLA, pva.xlen());
-    nlopt_opt o = nlopt_create(nlopt_algorithm::NLOPT_LD_SLSQP, pva.xlen());
-    {
-        // objective function
-        result = nlopt_set_min_objective(o, objective, &optim);
-        Assert(result ==NLOPT_SUCCESS);
-        // nonlinear constraints
-        const u32 ncon = (5 + 2 + 7*2)*npts;
-        Array con_tol(ncon);
-        constant(con_tol, 0.001);
-        result = nlopt_add_inequality_mconstraint(o, ncon, constraints, &optim, con_tol.data);
-        Assert(result ==NLOPT_SUCCESS);
-        // lower bounds
-        result = nlopt_set_lower_bound(o, pva.xlen()-1, 0.1);
-        Assert(result ==NLOPT_SUCCESS);
-        // upper bounds
-        result = nlopt_set_upper_bound(o, pva.xlen()-1, 10.0);
-        Assert(result ==NLOPT_SUCCESS);
-        // ftol
-        result = nlopt_set_ftol_abs(o, 0.001);
-        Assert(result ==NLOPT_SUCCESS);
-        // xtol
-        Array xtol(pva.xlen(), 0.000001);
-        result = nlopt_set_xtol_abs(o, xtol.data);
-        Assert(result ==NLOPT_SUCCESS);
-        // max time
-        result = nlopt_set_maxtime(o, 5.0);
-        Assert(result ==NLOPT_SUCCESS);
-        // max eval
-        result = nlopt_set_maxeval(o, 10000);
-        Assert(result ==NLOPT_SUCCESS);
-    }
-
-    auto start_time = get_tick_us();
-    for (int iter = 0; iter < noptim; iter++) {
-        auto T1 = get_tick_us();
-
-        // random optimization vector
-        Array x(pva.xlen());
-        {
-            fill_random(x, 1);
-            x.back() = abs(x.back()) * 5 + 0.1;
+    for (auto npts : npts_list) {
+        for (auto nctrl : nctrl_list) {
+            for (auto m : m_list) {
+                for (auto nshot : nshot_list) {
+                    for (auto task : task_list) {
+                        OptimConfig c;
+                        c.npts = npts;
+                        c.nctrl = nctrl;
+                        c.p = 5;
+                        c.m = m;
+                        c.nshot = nshot;
+                        c.noptim = 50;
+                        c.task = task;
+                        config_list.push_back(c);
+                    }
+                }
+            }
         }
-
-        // launch optimization
-        double f;
-        result = nlopt_optimize(o, x.data, &f);
-        auto T2 = get_tick_us();
-        double time = (T2-T1) / 1000.0;
-
-        // check solution
-        pva.compute_trajectory(x, task);
-        auto max_con = array_max(manip.constraints(pva));
-        bool is_valid = max_con < 0.01;
-        printf("code: %d, result: %f, time: %fms, %s.\n", result, x.back(), time, is_valid? "valid" : "not valid");
     }
-    auto total_time = (get_tick_us() - start_time) / 1000.0;
-    printf("total time: %f\n", total_time);
+
+
+    std::vector<std::thread> workers;
+
+    for (int i =0; i < thread_count; i++) {
+        workers.push_back(std::thread(eval_function));
+    }
+
+
+    for (auto& t : workers)
+        t.join();
+
+
+
 
     return 0;
 }

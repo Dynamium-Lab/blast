@@ -3,7 +3,6 @@
 #include "blast_math.hpp"
 #include <vector>
 #include <cmath>
-#include "blast_optional_utilities.hpp"
 
 namespace blast {
 using std::vector;
@@ -31,6 +30,7 @@ struct Manipulator {
         return false;
     }
 
+    // return the number of constraints with the given 'npoints'
     virtual u32 ncon(u32 npoints) {
         return 0;
     }
@@ -560,7 +560,7 @@ inline void Gen3Lite::dynamics(const Matrix &pos, const Matrix &vel, const Matri
         _mm256_storeu_ps(s, s_tmp);
         _mm256_storeu_ps(c, c_tmp);
 #endif
- 
+
         Q1 = {c[0],   s[0],     0,        -s[0],     c[0],      0,              0,      0,    1};
         Q2 = {c[1],      0,  s[1],        -s[1],        0,   c[1],              0,     -1,    0};
         Q3 = {c[2],  -s[2],     0,        -s[2],    -c[2],      0,              0,      0,   -1};
@@ -729,7 +729,7 @@ inline Matrix Gen3Lite::jacobian(const Array& joint_position) {
 #endif
 
     // note: these are stored column-wise
-   
+
     Q1 = {c[0],   s[0],     0,        -s[0],     c[0],      0,              0,      0,    1};
     Q2 = {c[1],      0,  s[1],        -s[1],        0,   c[1],              0,     -1,    0};
     Q3 = {c[2],  -s[2],     0,        -s[2],    -c[2],      0,              0,      0,   -1};
@@ -748,8 +748,8 @@ inline Matrix Gen3Lite::jacobian(const Array& joint_position) {
     e_1[4] = (Q_tmp*=Q4)*ev[4];
     e_1[5] = (Q_tmp*=Q5)*ev[5];
     e_1[6] = (Q_tmp*=Q6)*ev[6];
-    
-   
+
+
 
     Vec3 r[7];
     r[6] = dv[6];
@@ -767,8 +767,8 @@ inline Matrix Gen3Lite::jacobian(const Array& joint_position) {
     r[4] = (Q_tmp*=Q4)*r[4];
     r[5] = (Q_tmp*=Q5)*r[5];
     r[6] = (Q_tmp*=Q6)*r[6];
-  
-    
+
+
 
     auto cr0 = cross(e_1[0], r[0]);
     auto cr1 = cross(e_1[1], r[1]);
@@ -777,7 +777,7 @@ inline Matrix Gen3Lite::jacobian(const Array& joint_position) {
     auto cr4 = cross(e_1[4], r[4]);
     auto cr5 = cross(e_1[5], r[5]);
     auto cr6 = cross(e_1[6], r[6]);
-    
+
     // jacobian matrix
     Matrix J(6, 6);
     J(0, 0) = e_1[1].x;
@@ -798,7 +798,7 @@ inline Matrix Gen3Lite::jacobian(const Array& joint_position) {
     J(0, 5) = e_1[6].x;
     J(1, 5) = e_1[6].y;
     J(2, 5) = e_1[6].z;
-    
+
 
     J(3, 0) = cr1.x;
     J(4, 0) = cr1.y;
@@ -887,7 +887,6 @@ inline Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
     ev[4] = {0, 0, 1};
     ev[5] = {0, 0, 1};
     ev[6] = {0, 0, 1};
-    ev[7] = {0, 0, 1};
 
 
     // kinematic and dynamic constraints
@@ -910,7 +909,6 @@ inline void Gen3_7DOF::set_payload(const real mass) {
 
     // Modify payload
     auto svEE_old = sv[6];
-    auto avEE_old = av[6];
     Vec3 av_payload = {0.0f, 0.0f, -0.15f}; // todo: modify to real center of mass length (design prototype)
     auto mEE_old = m[6];
     m[6] += mass;
@@ -1249,68 +1247,65 @@ inline Matrix Gen3_7DOF::jacobian(const Array &joint_position) {
     Q7 = {c[6], 0, -s[6], -s[6], 0, -c[6], 0, 1, 0};
 
     // unit vectors in 1st reference
-    Vec3 e_1[8];
-    e_1[0] = ev[0];
+    Vec3 e_1[7];
     auto Q_tmp = Q1;
-    e_1[1] = Q_tmp * ev[1];
-    e_1[2] = (Q_tmp *= Q2) * ev[2];
-    e_1[3] = (Q_tmp *= Q3) * ev[3];
-    e_1[4] = (Q_tmp *= Q4) * ev[4];
-    e_1[5] = (Q_tmp *= Q5) * ev[5];
-    e_1[6] = (Q_tmp *= Q6) * ev[6];
-    e_1[7] = (Q_tmp *= Q7) * ev[7];
+    e_1[0] = Q_tmp * ev[0];
+    e_1[1] = (Q_tmp *= Q2) * ev[1];
+    e_1[2] = (Q_tmp *= Q3) * ev[2];
+    e_1[3] = (Q_tmp *= Q4) * ev[3];
+    e_1[4] = (Q_tmp *= Q5) * ev[4];
+    e_1[5] = (Q_tmp *= Q6) * ev[5];
+    e_1[6] = (Q_tmp *= Q7) * ev[6];
 
-    Vec3 r[8];
-    r[7] = dv[6];
-    r[6] = dv[5] + Q7 * r[7];
-    r[5] = dv[4] + Q6 * r[6];
-    r[4] = dv[3] + Q5 * r[5];
-    r[3] = dv[2] + Q4 * r[4];
-    r[2] = dv[1] + Q3 * r[3];
-    r[1] = dv[0] + Q2 * r[2];
-    r[0] = p_base + Q1 * r[1];
+    Vec3 r[7];
+    r[6] = dv[6];
+    r[5] = dv[5] + Q7 * r[7];
+    r[4] = dv[4] + Q6 * r[6];
+    r[3] = dv[3] + Q5 * r[5];
+    r[2] = dv[2] + Q4 * r[4];
+    r[1] = dv[1] + Q3 * r[3];
+    r[0] = dv[0] + Q2 * r[2];
 
     Q_tmp = Q1;
-    r[1] = (Q_tmp) * r[1];
-    r[2] = (Q_tmp *= Q2) * r[2];
-    r[3] = (Q_tmp *= Q3) * r[3];
-    r[4] = (Q_tmp *= Q4) * r[4];
-    r[5] = (Q_tmp *= Q5) * r[5];
-    r[6] = (Q_tmp *= Q6) * r[6];
-    r[7] = (Q_tmp *= Q7) * r[7];
+    r[0] = (Q_tmp) * r[1];
+    r[1] = (Q_tmp *= Q2) * r[2];
+    r[2] = (Q_tmp *= Q3) * r[3];
+    r[3] = (Q_tmp *= Q4) * r[4];
+    r[4] = (Q_tmp *= Q5) * r[5];
+    r[5] = (Q_tmp *= Q6) * r[6];
+    r[6] = (Q_tmp *= Q7) * r[7];
 
-    // auto cr0 = cross(e_1[0], r[0]);
-    auto cr0 = cross(e_1[1], r[1]);
-    auto cr1 = cross(e_1[2], r[2]);
-    auto cr2 = cross(e_1[3], r[3]);
-    auto cr3 = cross(e_1[4], r[4]);
-    auto cr4 = cross(e_1[5], r[5]);
-    auto cr5 = cross(e_1[6], r[6]);
-    auto cr6 = cross(e_1[7], r[7]);
+    auto cr0 = cross(e_1[0], r[0]);
+    auto cr1 = cross(e_1[1], r[1]);
+    auto cr2 = cross(e_1[2], r[2]);
+    auto cr3 = cross(e_1[3], r[3]);
+    auto cr4 = cross(e_1[4], r[4]);
+    auto cr5 = cross(e_1[5], r[5]);
+    auto cr6 = cross(e_1[6], r[6]);
 
     // jacobian matrix
     Matrix J(6, 7);
-    J(0, 0) = e_1[1].x;
-    J(1, 0) = e_1[1].y;
-    J(2, 0) = e_1[1].z;
-    J(0, 1) = e_1[2].x;
-    J(1, 1) = e_1[2].y;
-    J(2, 1) = e_1[2].z;
-    J(0, 2) = e_1[3].x;
-    J(1, 2) = e_1[3].y;
-    J(2, 2) = e_1[3].z;
-    J(0, 3) = e_1[4].x;
-    J(1, 3) = e_1[4].y;
-    J(2, 3) = e_1[4].z;
-    J(0, 4) = e_1[5].x;
-    J(1, 4) = e_1[5].y;
-    J(2, 4) = e_1[5].z;
-    J(0, 5) = e_1[6].x;
-    J(1, 5) = e_1[6].y;
-    J(2, 5) = e_1[6].z;
-    J(0, 6) = e_1[7].x;
-    J(1, 6) = e_1[7].y;
-    J(2, 6) = e_1[7].z;
+    J(0, 0) = e_1[0].x;
+    J(1, 0) = e_1[0].y;
+    J(2, 0) = e_1[0].z;
+    J(0, 1) = e_1[1].x;
+    J(1, 1) = e_1[1].y;
+    J(2, 1) = e_1[1].z;
+    J(0, 2) = e_1[2].x;
+    J(1, 2) = e_1[2].y;
+    J(2, 2) = e_1[2].z;
+    J(0, 3) = e_1[3].x;
+    J(1, 3) = e_1[3].y;
+    J(2, 3) = e_1[3].z;
+    J(0, 4) = e_1[4].x;
+    J(1, 4) = e_1[4].y;
+    J(2, 4) = e_1[4].z;
+    J(0, 5) = e_1[5].x;
+    J(1, 5) = e_1[5].y;
+    J(2, 5) = e_1[5].z;
+    J(0, 6) = e_1[6].x;
+    J(1, 6) = e_1[6].y;
+    J(2, 6) = e_1[6].z;
 
     J(3, 0) = cr0.x;
     J(4, 0) = cr0.y;
@@ -1412,6 +1407,7 @@ inline Array Gen3_7DOF::constraints(const Array &pos, const Array &vel, const Ar
     Matrix v(vel);
     Matrix a(acc);
 
+    dynamics(p, v, a);
     // 5 collision results
     // 2 position constraints
     // 7 velocity constraints
@@ -1420,28 +1416,24 @@ inline Array Gen3_7DOF::constraints(const Array &pos, const Array &vel, const Ar
 
     // distance to collision >= 0
     auto tmp_coll = collision_check(pos);
-    result[0] = tmp_coll[0]; // dist1sqr
-    result[1] = tmp_coll[1]; // dist2sqr
-    result[2] = tmp_coll[2]; // distTJ4sqr - r1_sqr
-    result[3] = tmp_coll[3]; // distTJ6sqr - r1_sqr
-    result[4] = tmp_coll[4]; // distTEEsqr - r1_sqr
+    result[0] = -tmp_coll[0]; // dist1sqr
+    result[1] = -tmp_coll[1]; // dist2sqr
+    result[2] = -tmp_coll[2]; // distTJ4
+    result[3] = -tmp_coll[3]; // distTJ6
+    result[4] = -tmp_coll[4]; // distTEE
 
-    Matrix efforts(joints, 1);
-    dynamics(p, v, a, efforts);
+    // position
+    result[5] = (abs(pos[3]) - pmax[3]) / pmax[3];
+    result[6] = (abs(pos[5]) - pmax[5]) / pmax[5];
 
-    // position constraints for joints 4 and 6
-    result[5] = pmax[3] - abs(pos[3]);
-    result[6] = pmax[5] - abs(pos[5]);
+    // velocity
+    for (int j = 0; j < 7; j++)
+        result[j+7] = (abs(vel[j]) - vmax[j]) / vmax[j];
 
-    // velocity constraints for all joints
-    auto current_result = &result[7];
-    for (u32 i = 0; i < 7; i++)
-        current_result[i] = vmax[i] - abs(vel[i]);
+    auto f = _efforts.col(0); Assert(f.is_alias);
+    for (int j = 0; j < 7; j++)
+        result[j+14] = (abs(f[j]) - tau_max[j]) / tau_max[j];
 
-    // torque constraints for all joints
-    current_result += 7;
-    for (u32 i = 0; i < 7; i++)
-        current_result[i] = tau_max[i] - abs(efforts(i, 0));
     return result;
 }
 
@@ -1469,8 +1461,7 @@ inline void Gen3_7DOF::constraints(const Matrix &pos, const Matrix &vel, const M
 
     for (u32 i = 0; i < points; i++) {
         // collision
-        Array p = pos.col(i);
-        Assert(p.is_alias);
+        Array p = pos.col(i); Assert(p.is_alias);
         auto tmp_coll = collision_check(p);
         dst[0] = -tmp_coll[0]; // dist1sqr
         dst[1] = -tmp_coll[1]; // dist2sqr
@@ -1489,9 +1480,7 @@ inline void Gen3_7DOF::constraints(const Matrix &pos, const Matrix &vel, const M
             dst[j] = (abs(vel(j, i)) - vmax[j]) / vmax[j];
         dst += 7;
 
-        // torque
-        auto f = _efforts.col(i);
-        Assert(f.is_alias);
+        auto f = _efforts.col(i); Assert(f.is_alias);
         for (int j = 0; j < 7; j++)
             dst[j] = (abs(f[j]) - tau_max[j]) / tau_max[j];
         dst += 7;
@@ -1499,26 +1488,12 @@ inline void Gen3_7DOF::constraints(const Matrix &pos, const Matrix &vel, const M
 }
 
 inline bool Gen3_7DOF::validate_task(const Matrix &task) {
-    for (u32 joint = 0; joint < joints; joint++) {
-        if (abs(task(joint, 0)) > pmax[joint])
-            return false;
-        if (abs(task(joint, 1)) > vmax[joint])
-            return false;
-        if (abs(task(joint, 2)) > amax[joint])
-            return false;
-        if (abs(task(joint, 3)) > pmax[joint])
-            return false;
-        if (abs(task(joint, 4)) > vmax[joint])
-            return false;
-        if (abs(task(joint, 5)) > amax[joint])
-            return false;
-    }
-    auto coll = collision_check(task.col(0));
-    auto coll_min = array_min(coll);
-    return coll_min > 0;
+    auto c = constraints(task.col(0), task.col(1), task.col(2));
+    return array_max(c) > 0 ? false: true;
 }
 
 //------ FOR GPU COMPUTATION ONLY ------------------------------------------------------------------------------------
+
 #ifdef __NVCC__
 host_fn void cuGen3_7DOF::init(real mass, u32 npoints) {
     // position of the first joint with respect to the table in the center of the base
