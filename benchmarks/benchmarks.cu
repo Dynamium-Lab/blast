@@ -11,8 +11,8 @@
 #error "NVCC is required to run these benchmarks"
 #endif
 
-const blast::u32 npoints = 1024*80;
-const blast::u32 nblocks = 1024*4;
+const blast::u32 npoints = 256;
+const blast::u32 nblocks = 4;
 static_assert(npoints % nblocks == 0);
 
 // static void BM_Mat4(benchmark::State& state) {
@@ -50,7 +50,7 @@ static void BM_CPU_Constraints_PVA(benchmark::State& state) {
     using namespace blast;
     const auto npts = npoints;
     const auto njoints = 7;
-    const auto nctrl = 12;
+    const auto nctrl = 24;
     const auto p = 5;
     // Compute basis functions
     Gen3_7DOF manip;
@@ -79,7 +79,7 @@ static void BM_Cuda_Constraints_PVA(benchmark::State& state) {
     using namespace blast;
     const auto npts = npoints;
     const auto njoints = 7;
-    const auto nctrl = 12;
+    const auto nctrl = 24;
     const auto p = 5;
 
     cuPvaBspline pva;
@@ -116,7 +116,7 @@ static void BM_Cuda_Constraints(benchmark::State& state) {
     using namespace blast;
     const auto npts = npoints;
     const auto njoints = 7;
-    const auto nctrl = 12;
+    const auto nctrl = 24;
     const auto p = 5;
 
     cuPvaBspline pva;

@@ -108,6 +108,8 @@ int main() {
     const u32   nshot_list[] {25, 50, 100, 200};
     Matrix      task_list[9];
 
+    auto start_time = get_tick_us();
+
     nlohmann::json j_file;
     std::ifstream file_handle("task_binpick.json");
     file_handle >> j_file;
@@ -162,7 +164,10 @@ int main() {
     for (auto& t : workers)
         t.join();
 
+    auto end_time = get_tick_us();
+    auto total_time = (end_time - start_time) / 1000.0;
 
+    printf("Total computation time: %fms\n", total_time);
 
 
     return 0;

@@ -260,13 +260,14 @@ __global__ void constraints_shared_kernel(cuPvaBspline pva) {
 
 #ifdef BLAST_ENABLE_TESTS
 #ifdef __NVCC__
-TEST_CASE("GpuCpuCorrectness", "Manipulator") {
+TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
     using namespace blast;
-    
     const u32 points = 256;
     const u32 joints = 7;
     const u32 p = 5;
     const u32 ncontrol = 24;
+    const u32 nblocks = 4;
+    static_assert(points % nblocks == 0);
 
     cuPvaBspline device_pva;
     cuGen3_7DOF device_manip;
@@ -279,6 +280,7 @@ TEST_CASE("GpuCpuCorrectness", "Manipulator") {
     for (u32 i = 0; i < task.rows; i++)
         for (u32 j = 0; j < task.cols; j++)
             task(i, j) = amp * get_random();
+
     Array x(joints*(ncontrol-6) + 1);
     for (u32 i = 0; i < x.size; i++)
         x[i] = amp * get_random();
@@ -309,6 +311,41 @@ TEST_CASE("GpuCpuCorrectness", "Manipulator") {
     // host_con should be the same (ish) as device_manip.host_constraints
     for (int i = 0; i < (int)host_con.size; i++)
         REQUIRE(abs(host_con[i] - device_manip.host_constraints[i]) < 1e-5);
+
+    BENCHMARK("Objective function and constraints - CPU only") {
+        // random optimization vector
+        auto x = blast::random_array(device_pva.host->xlen(), amp);
+        x.back() = std::abs(x.back());
+        // compute trajectory
+        host_pva.compute_trajectory(x, task);
+        host_manip.constraints(host_pva);
+    };
+
+    BENCHMARK("Objective function and constraints - GPU contraints and trajectory") {
+        // random optimization vector
+        auto x = blast::random_array(device_pva.host->xlen(), amp);
+        x.back() = std::abs(x.back());
+        // compute trajectory
+        device_pva.compute_control_and_send(x, task);
+        pva_constraints_kernel<<< nblocks, points/nblocks >>>(device_pva);
+        cuda_check_kernel;
+        device_pva.fetch_pva();
+        device_manip.fetch_constraints(points);
+        cudaDeviceSynchronize();
+    };
+
+    BENCHMARK("Objective function and constraints - GPU contraints only") {
+        // random optimization vector
+        auto x = blast::random_array(device_pva.host->xlen(), amp);
+        x.back() = std::abs(x.back());
+        // compute trajectory
+        device_pva.compute_control_and_send(x, task);
+        pva_constraints_kernel<<< nblocks, points/nblocks >>>(device_pva);
+        cuda_check_kernel;
+        device_manip.fetch_constraints(points);
+        cudaDeviceSynchronize();
+    };
+
 }
 #endif // nvcc
 #endif // tests
