@@ -22,7 +22,7 @@ int main() {
             task(i, j) = amp * get_random();
 
     // random optimization vector
-    Array x(pva.xlen());
+    Array x(pva.xlen(task));
     for (u32 i = 0; i < x.size; i++)
         x[i] = amp * get_random();
     x[x.size-1] = 5;

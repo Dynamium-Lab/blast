@@ -314,7 +314,7 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
 
     BENCHMARK("Objective function and constraints - CPU only") {
         // random optimization vector
-        auto x = blast::random_array(device_pva.host->xlen(), amp);
+        auto x = blast::random_array(device_pva.host->xlen(task), amp);
         x.back() = std::abs(x.back());
         // compute trajectory
         host_pva.compute_trajectory(x, task);
@@ -323,7 +323,7 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
 
     BENCHMARK("Objective function and constraints - GPU contraints and trajectory") {
         // random optimization vector
-        auto x = blast::random_array(device_pva.host->xlen(), amp);
+        auto x = blast::random_array(device_pva.host->xlen(task), amp);
         x.back() = std::abs(x.back());
         // compute trajectory
         device_pva.compute_control_and_send(x, task);
@@ -336,7 +336,7 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
 
     BENCHMARK("Objective function and constraints - GPU contraints only") {
         // random optimization vector
-        auto x = blast::random_array(device_pva.host->xlen(), amp);
+        auto x = blast::random_array(device_pva.host->xlen(task), amp);
         x.back() = std::abs(x.back());
         // compute trajectory
         device_pva.compute_control_and_send(x, task);

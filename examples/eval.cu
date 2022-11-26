@@ -10,8 +10,7 @@
 
 const int thread_count = 4;
 
-struct OptimConfig
-{
+struct OptimConfig {
     blast::u32 npts;
     blast::u32 nctrl;
     blast::u32 p;
@@ -21,8 +20,7 @@ struct OptimConfig
     blast::Matrix task;
 };
 
-struct Result
-{
+struct Result {
     blast::real compute_time;
     OptimConfig config;
     blast::Array x;
@@ -32,16 +30,13 @@ std::vector<OptimConfig> config_list;
 int config_index = 0;
 std::mutex mut;
 
-void eval_function()
-{
+void eval_function() {
     using namespace blast;
 
-    for (;;)
-    {
+    for (;;) {
         mut.lock();
         printf("hello from thread %d\n", std::this_thread::get_id());
-        if (config_index >= config_list.size())
-        {
+        if (config_index >= config_list.size()) {
             mut.unlock();
             break;
         }
@@ -84,8 +79,7 @@ void eval_function()
         Assert(result == NLOPT_SUCCESS);
 
         auto start_time = get_tick_us();
-        for (int iter = 0; iter < noptim; iter++)
-        {
+        for (int iter = 0; iter < noptim; iter++) {
             auto T1 = get_tick_us();
 
             // random optimization vector
@@ -109,14 +103,13 @@ void eval_function()
     }
 }
 
-int main()
-{
+int main() {
     using namespace blast;
 
-    const u32 nctrl_list[]{8, 10, 12, 14, 16};
-    const u32 npts_list[]{100, 128, 256, 512};
-    const real m_list[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-    const u32 nshot_list[]{25, 50, 100, 200};
+    const u32 nctrl_list[] {8, 10, 12, 14, 16};
+    const u32 npts_list[] {100, 128, 256, 512};
+    const real m_list[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    const u32 nshot_list[] {25, 50, 100, 200};
     Matrix task_list[9];
 
     auto start_time = get_tick_us();
@@ -125,8 +118,7 @@ int main()
     std::ifstream file_handle("task_binpick.json");
     file_handle >> j_file;
     u32 i = 0;
-    for (auto &task : task_list)
-    {
+    for (auto &task : task_list) {
         task.resize(7, 6);
         auto task_tmp = j_file["task"][i++];
         auto &pi = task_tmp["pi"];
@@ -135,8 +127,7 @@ int main()
         auto &pf = task_tmp["pf"];
         auto &vf = task_tmp["vf"];
         // auto &af = task_tmp["af"];
-        for (u32 j = 0; j < 7; j++)
-        {
+        for (u32 j = 0; j < 7; j++) {
             task(j, 0) = pi[j];
             task(j, 1) = vi[j];
             task(j, 2) = ai[i];
@@ -146,16 +137,11 @@ int main()
         }
     }
 
-    for (auto npts : npts_list)
-    {
-        for (auto nctrl : nctrl_list)
-        {
-            for (auto m : m_list)
-            {
-                for (auto nshot : nshot_list)
-                {
-                    for (auto task : task_list)
-                    {
+    for (auto npts : npts_list) {
+        for (auto nctrl : nctrl_list) {
+            for (auto m : m_list) {
+                for (auto nshot : nshot_list) {
+                    for (auto task : task_list) {
                         OptimConfig c;
                         c.npts = npts;
                         c.nctrl = nctrl;
@@ -173,8 +159,7 @@ int main()
 
     std::vector<std::thread> workers;
 
-    for (int i = 0; i < thread_count; i++)
-    {
+    for (int i = 0; i < thread_count; i++) {
         workers.push_back(std::thread(eval_function));
     }
 

@@ -45,8 +45,7 @@ static_assert(npoints % nblocks == 0);
 // }
 // BENCHMARK(BM_Mat4)->Unit(benchmark::kMicrosecond);
 
-static void BM_CPU_Constraints_PVA(benchmark::State &state)
-{
+static void BM_CPU_Constraints_PVA(benchmark::State &state) {
     using namespace blast;
     const auto npts = npoints;
     const auto njoints = 7;
@@ -55,8 +54,7 @@ static void BM_CPU_Constraints_PVA(benchmark::State &state)
     // Compute basis functions
     Gen3_7DOF manip;
     PvaBspline pva(nctrl, npts, p, njoints);
-    for (auto _ : state)
-    {
+    for (auto _ : state) {
         // random task
         real amp = 10;
         Matrix task(njoints, 6);
@@ -76,8 +74,7 @@ static void BM_CPU_Constraints_PVA(benchmark::State &state)
 }
 BENCHMARK(BM_CPU_Constraints_PVA)->Unit(benchmark::kMicrosecond);
 
-static void BM_Cuda_Constraints_PVA(benchmark::State &state)
-{
+static void BM_Cuda_Constraints_PVA(benchmark::State &state) {
     using namespace blast;
     const auto npts = npoints;
     const auto njoints = 7;
@@ -91,8 +88,7 @@ static void BM_Cuda_Constraints_PVA(benchmark::State &state)
 
     cuda_check(cudaDeviceSynchronize());
 
-    for (auto _ : state)
-    {
+    for (auto _ : state) {
         // random task
         const real amp = 10;
         Matrix task(njoints, 6);
@@ -115,8 +111,7 @@ static void BM_Cuda_Constraints_PVA(benchmark::State &state)
 }
 BENCHMARK(BM_Cuda_Constraints_PVA)->Unit(benchmark::kMicrosecond);
 
-static void BM_Cuda_Constraints(benchmark::State &state)
-{
+static void BM_Cuda_Constraints(benchmark::State &state) {
     using namespace blast;
     const auto npts = npoints;
     const auto njoints = 7;
@@ -130,8 +125,7 @@ static void BM_Cuda_Constraints(benchmark::State &state)
 
     cuda_check(cudaDeviceSynchronize());
 
-    for (auto _ : state)
-    {
+    for (auto _ : state) {
         // random task
         real amp = 10;
         Matrix task(njoints, 6);
