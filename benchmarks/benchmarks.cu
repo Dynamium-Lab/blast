@@ -1,6 +1,5 @@
 
 
-
 #define BLAST_USE_DOUBLES 1
 #include "blast.hpp"
 #include "blast_optional_utilities.hpp"
@@ -46,7 +45,8 @@ static_assert(npoints % nblocks == 0);
 // }
 // BENCHMARK(BM_Mat4)->Unit(benchmark::kMicrosecond);
 
-static void BM_CPU_Constraints_PVA(benchmark::State& state) {
+static void BM_CPU_Constraints_PVA(benchmark::State &state)
+{
     using namespace blast;
     const auto npts = npoints;
     const auto njoints = 7;
@@ -55,7 +55,8 @@ static void BM_CPU_Constraints_PVA(benchmark::State& state) {
     // Compute basis functions
     Gen3_7DOF manip;
     PvaBspline pva(nctrl, npts, p, njoints);
-    for (auto _ : state) {
+    for (auto _ : state)
+    {
         // random task
         real amp = 10;
         Matrix task(njoints, 6);
@@ -63,10 +64,10 @@ static void BM_CPU_Constraints_PVA(benchmark::State& state) {
             for (u32 j = 0; j < task.cols; j++)
                 task(i, j) = amp * get_random();
         // random optimization vector
-        Array x(njoints*(nctrl-6) + 1);
+        Array x(njoints * (nctrl - 6) + 1);
         for (u32 i = 0; i < x.size; i++)
             x[i] = amp * get_random();
-        x[x.size-1] = std::abs(x[x.size-1]);
+        x[x.size - 1] = std::abs(x[x.size - 1]);
         // compute trajectory
         pva.compute_trajectory(x, task);
         manip.constraints(pva);
@@ -75,7 +76,8 @@ static void BM_CPU_Constraints_PVA(benchmark::State& state) {
 }
 BENCHMARK(BM_CPU_Constraints_PVA)->Unit(benchmark::kMicrosecond);
 
-static void BM_Cuda_Constraints_PVA(benchmark::State& state) {
+static void BM_Cuda_Constraints_PVA(benchmark::State &state)
+{
     using namespace blast;
     const auto npts = npoints;
     const auto njoints = 7;
@@ -87,9 +89,10 @@ static void BM_Cuda_Constraints_PVA(benchmark::State& state) {
     pva.init(npts, njoints, p, nctrl);
     manip.init(0, npts);
 
-    cuda_check( cudaDeviceSynchronize() );
+    cuda_check(cudaDeviceSynchronize());
 
-    for (auto _ : state) {
+    for (auto _ : state)
+    {
         // random task
         const real amp = 10;
         Matrix task(njoints, 6);
@@ -98,12 +101,12 @@ static void BM_Cuda_Constraints_PVA(benchmark::State& state) {
                 task(i, j) = amp * get_random();
 
         // random optimization vector
-        auto x = blast::random_array(pva.host->xlen(), amp);
+        auto x = blast::random_array(pva.host->xlen(task), amp);
         x.back() = std::abs(x.back());
 
         // compute trajectory
         pva.compute_control_and_send(x, task);
-        pva_constraints_kernel<<< nblocks, npts/nblocks >>>(pva);
+        pva_constraints_kernel<<<nblocks, npts / nblocks>>>(pva);
         cuda_check_kernel;
         pva.fetch_pva();
         manip.fetch_constraints(npts);
@@ -112,7 +115,8 @@ static void BM_Cuda_Constraints_PVA(benchmark::State& state) {
 }
 BENCHMARK(BM_Cuda_Constraints_PVA)->Unit(benchmark::kMicrosecond);
 
-static void BM_Cuda_Constraints(benchmark::State& state) {
+static void BM_Cuda_Constraints(benchmark::State &state)
+{
     using namespace blast;
     const auto npts = npoints;
     const auto njoints = 7;
@@ -124,9 +128,10 @@ static void BM_Cuda_Constraints(benchmark::State& state) {
     pva.init(npts, njoints, p, nctrl);
     manip.init(0, npts);
 
-    cuda_check( cudaDeviceSynchronize() );
+    cuda_check(cudaDeviceSynchronize());
 
-    for (auto _ : state) {
+    for (auto _ : state)
+    {
         // random task
         real amp = 10;
         Matrix task(njoints, 6);
@@ -135,12 +140,12 @@ static void BM_Cuda_Constraints(benchmark::State& state) {
                 task(i, j) = amp * get_random();
 
         // random optimization vector
-        auto x = blast::random_array(pva.host->xlen(), amp);
+        auto x = blast::random_array(pva.host->xlen(task), amp);
         x.back() = std::abs(x.back());
 
         // compute trajectory
         pva.compute_control_and_send(x, task);
-        constraints_no_pva_kernel<<< nblocks, npts/nblocks >>>(pva);
+        constraints_no_pva_kernel<<<nblocks, npts / nblocks>>>(pva);
         cuda_check_kernel;
         manip.fetch_constraints(npts);
     }
@@ -194,7 +199,7 @@ BENCHMARK(BM_Cuda_Constraints)->Unit(benchmark::kMicrosecond);
 //         for (u32 j = 0; j < task.cols; j++)
 //             task(i, j) = amp * get_random();
 //     // random optimization vector
-//     Array x(pva.xlen());
+//     Array x(pva.xlen(task));
 //     for (u32 i = 0; i < x.size; i++)
 //         x[i] = amp * get_random();
 //     x[x.size-1] = std::abs(x[x.size-1]);

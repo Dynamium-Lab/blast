@@ -41,7 +41,7 @@ host_fn void cstr_manip(unsigned m, double *result, unsigned n, const double* x,
 
 // Fill an optimization vector with random values
 // Returns the filled array
-host_fn Array guess_random(Gen3_7DOF& manip, Pva& pva);
+host_fn Array guess_random(Gen3_7DOF& manip, Pva& pva, Matrix& task);
 
 // Fill an optimization vector by trying 'nshotgun' random vectors
 //  The best optimzation vector is determined by the max (worst) value of the manip.contraints
@@ -122,18 +122,18 @@ host_fn void cstr_manip(unsigned m, double *result, unsigned n, const double* x,
 
 
 //--------- INITIAL GUESS GENERATION ----------------------------------------------------------
-host_fn Array guess_random(Gen3_7DOF& manip, Pva& pva) {
-    Array x(pva.xlen());
+host_fn Array guess_random(Gen3_7DOF& manip, Pva& pva, Matrix& task) {
+    Array x(pva.xlen(task));
     fill_random(x, 1);
     x.back() = abs(x.back()) * 5 + 0.1;
     return x;
 }
 
 host_fn Array guess_shot_max(Gen3_7DOF& manip, Pva& pva, Matrix& task, int nshotgun) {
-    Array best_x(pva.xlen());
+    Array best_x(pva.xlen(task));
     real best_val = INF_REAL;
     for (int i = 0; i < nshotgun; i++) {
-        auto x = guess_random(manip, pva);
+        auto x = guess_random(manip, pva, task);
         pva.compute_trajectory(x, task);
         auto c = manip.constraints(pva);
         auto r = array_max(c);
@@ -146,10 +146,10 @@ host_fn Array guess_shot_max(Gen3_7DOF& manip, Pva& pva, Matrix& task, int nshot
 }
 
 host_fn Array guess_shot_mean(Gen3_7DOF& manip, Pva& pva, Matrix& task, int nshotgun) {
-    Array best_x(pva.xlen());
+    Array best_x(pva.xlen(task));
     real best_val = INF_REAL;
     for (int i = 0; i < nshotgun; i++) {
-        auto x = guess_random(manip, pva);
+        auto x = guess_random(manip, pva, task);
         pva.compute_trajectory(x, task);
         auto c = manip.constraints(pva);
         real r = 0;

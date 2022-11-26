@@ -96,6 +96,7 @@ struct Gen3_7DOF : public Manipulator {
 
     // compute new center of mass and robot mass with payload
     void set_payload(const real mass);
+    void set_payload_without_gripper(const real mass);
 
     // compute joint torque as a function of trajector (pva)
     void dynamics(const Pva &pva, Matrix &efforts);
@@ -920,6 +921,33 @@ inline void Gen3_7DOF::set_payload(const real mass) {
     I[6](2, 2) += mEE_old*(sv[6].z - svEE_old.z)*(sv[6].z - svEE_old.z) + mass*sv[6].z*sv[6].z;
 }
 
+inline void Gen3_7DOF::set_payload_without_gripper(const real mass) {
+    // Set to default
+    m[6] = 0.364f;
+    av[6] = {-0.000093f, 0.000132f, -0.022905f};
+    sv[6] = dv[6] - av[6];
+    I[6] = {0.000214f, 0.000000f, 0.000001f, 0.000000f, 0.000223f, 0.000002f, 0.000001f, 0.000002f, 0.000240f};
+
+    // Modify payload
+    Vec3 av_payload = {0.0f, 0.0f, -0.115f}; // todo: modify to real center of mass length (design prototype)
+
+    auto av_old = av[6];
+    auto m_old = m[6];
+
+    auto m_new = m_old + mass;
+    auto av_new = (m_old*av_old + mass*av_payload) * (1/m_new);
+    auto sv_new = dv[6] - av_new;
+    auto delta_av = av_new - av_old; // shift in center of mass
+    auto av_to_mass = av_payload - av_new; // vector from payload to new center of mass
+
+    av[6] = av_new;
+    sv[6] = sv_new;
+    m[6] = m_new;
+    I[6](0, 0) += m_old*delta_av.x*delta_av.x + mass*av_to_mass.x*av_to_mass.x; // todo: Validate
+    I[6](1, 1) += m_old*delta_av.y*delta_av.y + mass*av_to_mass.y*av_to_mass.y;
+    I[6](2, 2) += m_old*delta_av.z*delta_av.z + mass*av_to_mass.z*av_to_mass.z;
+}
+
 inline void Gen3_7DOF::dynamics(const Pva &pva, Matrix &efforts) {
     dynamics(pva.pos, pva.vel, pva.acc, efforts);
 }
@@ -1488,8 +1516,9 @@ inline void Gen3_7DOF::constraints(const Matrix &pos, const Matrix &vel, const M
 }
 
 inline bool Gen3_7DOF::validate_task(const Matrix &task) {
-    auto c = constraints(task.col(0), task.col(1), task.col(2));
-    return array_max(c) > 0 ? false: true;
+    auto ci = constraints(task.col(0), task.col(1), task.col(2));
+    auto cf = constraints(task.col(3), task.col(4), task.col(5));
+    return array_max(ci) > 0 && array_max(cf) > 0 ? false: true;
 }
 
 //------ FOR GPU COMPUTATION ONLY ------------------------------------------------------------------------------------
@@ -1666,7 +1695,7 @@ dev_fn void cuGen3_7DOF::compute_constraints(const real pos[7], const real vel[7
     real distTJ4 = p_j4.z - p_table.z - r4table;
     real distTJ6 = p_j6.z - p_table.z - r6table;
     real distTEE = p_ee.z - p_table.z - r6table;
-    
+
     con[0] = -dist1sqr;
     con[1] = -dist2sqr;
     con[2] = -distTJ4;
