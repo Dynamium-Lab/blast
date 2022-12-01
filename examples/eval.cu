@@ -19,35 +19,39 @@ struct OptimConfig {
     blast::real m;
     blast::Matrix task;
 };
+std::vector<OptimConfig> config_list;
+int config_index = 0;
+std::mutex mut_config;
 
 struct Result {
     blast::real compute_time;
     OptimConfig config;
     blast::Array x;
+    blast::Array x0;
 };
-
-std::vector<OptimConfig> config_list;
-int config_index = 0;
-std::mutex mut;
+std::vector<Result> result_list;
+int result_index = 0;
+std::mutex mut_result;
 
 void eval_function() {
     using namespace blast;
 
     for (;;) {
-        mut.lock();
+        mut_config.lock();
         printf("hello from thread %d\n", std::this_thread::get_id());
         if (config_index >= config_list.size()) {
-            mut.unlock();
+            mut_config.unlock();
             break;
         }
         auto config = config_list[config_index];
         config_index++;
-        mut.unlock();
+        mut_config.unlock();
 
         const u32 npts = config.npts;
         const u32 nctrl = config.nctrl;
         const u32 p = config.p;
         const u32 noptim = config.noptim;
+        std::vector<Result> tmp_result_list(noptim);
 
         Gen3_7DOF manip;
         manip.set_payload_without_gripper(config.m);
@@ -84,6 +88,7 @@ void eval_function() {
 
             // random optimization vector
             auto x = config.nshot == 1 ? guess_random(manip, pva, config.task) : guess_shot_mean(manip, pva, config.task, config.nshot);
+            tmp_result_list[iter].x0 = x;
 
             // launch optimization
             double f;
@@ -97,7 +102,15 @@ void eval_function() {
             bool is_valid = max_con < 0.01;
 
             // printf("code: %d, result: %f, time: %fms, %s.\n", result, x.back(), time, is_valid? "valid" : "not valid");
+            tmp_result_list[iter].compute_time = time;
+            tmp_result_list[iter].config = config;
+            tmp_result_list[iter].x = x;
+
         }
+        mut_result.lock();
+        result_list.insert(result_list.end(), tmp_result_list.begin(), tmp_result_list.end());
+        mut_result.unlock();
+
         auto total_time = (get_tick_us() - start_time) / 1000.0;
         // printf("total time: %f\n", total_time);
     }
@@ -106,11 +119,16 @@ void eval_function() {
 int main() {
     using namespace blast;
 
-    const u32 nctrl_list[] {8, 10, 12, 14, 16};
-    const u32 npts_list[] {100, 128, 256, 512};
-    const real m_list[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-    const u32 nshot_list[] {25, 50, 100, 200};
-    Matrix task_list[9];
+    // const u32 nctrl_list[] {8, 10, 12, 14, 16};
+    // const u32 npts_list[] {100, 128, 256, 512};
+    // const real m_list[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    // const u32 nshot_list[] {25, 50, 100, 200};
+    // Matrix task_list[9];
+    const u32 nctrl_list[] {8};
+    const u32 npts_list[] {100};
+    const real m_list[] {2};
+    const u32 nshot_list[] {50};
+    Matrix task_list[3];
 
     auto start_time = get_tick_us();
 
@@ -157,6 +175,8 @@ int main() {
         }
     }
 
+    result_list.reserve(config_list.size() * config_list[0].noptim);
+
     std::vector<std::thread> workers;
 
     for (int i = 0; i < thread_count; i++) {
@@ -170,6 +190,33 @@ int main() {
     auto total_time = (end_time - start_time) / 1000.0;
 
     printf("Total computation time: %fms\n", total_time);
+
+    nlohmann::json j_result;
+    for(u32 i = 0; i < result_list.size(); i++) {
+        auto& j_current = j_result["results"][i];
+        j_current["compute time"] = result_list[i].compute_time;
+        auto& j_config = j_current["config"];
+        auto& result_config = result_list[i].config;
+        j_config["npts"] = result_config.npts;
+        j_config["nctrl"] = result_config.nctrl;
+        j_config["p"] = result_config.p;
+        j_config["noptim"] = result_config.noptim;
+        j_config["nshot"] = result_config.nshot;
+        j_config["m"] = result_config.m;
+        j_config["task"]["rows"] = result_config.task.rows;
+        j_config["task"]["cols"] = result_config.task.cols;
+        j_config["task"]["size"] = result_config.task.size;
+        for(u32 j = 0; j < result_config.task.size; j++)
+            j_config["task"]["data"][j] = result_config.task.data[j];
+        for(u32 j = 0; j < result_list[i].x.size; j++)
+            j_current["x"][j] = result_list[i].x[j];
+        for(u32 j = 0; j < result_list[i].x0.size; j++)
+            j_current["x0"][j] = result_list[i].x0[j];
+    }
+
+    std::ofstream file_handle_result("result_list.json");
+    file_handle_result << j_result;
+
 
     return 0;
 }
