@@ -1,6 +1,8 @@
 #pragma once
 #include "blast.hpp"
 
+#include "blast_optional_utilities.hpp"
+
 namespace blast {
 
 // Container for the position, velocity, and acceleration matrices and the time vector.
@@ -41,8 +43,6 @@ struct PvaBspline : public Pva {
     //  - note: fastest when 'ncontrol' is a multiple of 4 (SIMD)
     void compute_trajectory(const Array &x, Matrix &task) override;
     u32 xlen(Matrix &task) override;
-
-    double get_boundary_value(u32 n, u32 joint, u32 boundary, Matrix &task, Array &x);
 
     void compute_basis();
     void compute_control(const Array &x, const Matrix &task);
@@ -137,6 +137,7 @@ inline void PvaBspline::compute_basis() {
         for (u32 i = p + 1; i < m - p; i++)
             knots[i] = knots[i - 1] + du;
     }
+    print(knots);
 
     Array N(m * (p + 1)); // triangle basis function
     const real du = 1.0f / (points - 1);
@@ -238,101 +239,6 @@ inline u32 PvaBspline::xlen(Matrix &task) {
         if (isnan(task.data[i]))
             results++;
     return results;
-}
-
-inline double PvaBspline::get_boundary_value(u32 n, u32 joint, u32 boundary, Matrix &task, Array &x) {
-    // boundary:
-    //      pi -> boundary = 1
-    //      vi -> boundary = 2;
-    //      ai -> boundary = 3;
-    //      pf -> boundary = 4;
-    //      vf -> boundary = 5;
-    //      af -> boundary = 6;
-
-    double result = NAN_REAL;
-    bool isSet = false;
-
-    if (boundary == 1 && isnan(task(joint, 0)) == false) {
-        result = task(joint, 0);
-        isSet = true;
-    }
-    else if (boundary == 2 && isnan(task(joint, 1)) == false) {
-        result = task(joint, 1);
-        isSet = true;
-    }
-    else if (boundary == 3 && isnan(task(joint, 2)) == false) {
-        result = task(joint, 2);
-        isSet = true;
-    }
-    else if (boundary == 4 && isnan(task(joint, 3)) == false) {
-        result = task(joint, 3);
-        isSet = true;
-    }
-    else if (boundary == 5 && isnan(task(joint, 4)) == false) {
-        result = task(joint, 4);
-        isSet = true;
-    }
-    else if (boundary == 6 && isnan(task(joint, 5)) == false) {
-        result = task(joint, 5);
-        isSet = true;
-    }
-
-    if (isSet == false) {
-        u32 xIndex = joint * (n - 1);
-        for (u32 i = 0; i < joint; i++) {
-            if (isnan(task(joint, 0)))
-                xIndex++;
-            if (isnan(task(joint, 1)))
-                xIndex++;
-            if (isnan(task(joint, 2)))
-                xIndex++;
-            if (isnan(task(joint, 4)))
-                xIndex++;
-            if (isnan(task(joint, 5)))
-                xIndex++;
-            if (isnan(task(joint, 6)))
-                xIndex++;
-        }
-        if (boundary == 1) {
-            result = x[xIndex];
-        }
-        else if (isnan(task(joint, 0))) {
-            xIndex++;
-        }
-
-        if (boundary == 2) {
-            result = x[xIndex];
-        }
-        else if (isnan(task(joint, 1))) {
-            xIndex++;
-        }
-
-        if (boundary == 3) {
-            result = x[xIndex + (n - 1)];
-        }
-        else if (isnan(task(joint, 2))) {
-            xIndex++;
-        }
-
-        if (boundary == 4) {
-            result = x[xIndex + (n - 1)];
-        }
-        else if (isnan(task(joint, 3))) {
-            xIndex++;
-        }
-
-        if (boundary == 5) {
-            result = x[xIndex + (n - 2)];
-        }
-        else if (isnan(task(joint, 4))) {
-            xIndex++;
-        }
-
-        if (boundary == 6) {
-            result = x[xIndex + (n - 2)];
-        }
-    }
-    return result;
 }
 
 inline void PvaBspline::compute_trajectory(const Array &x, Matrix &task) {

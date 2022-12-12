@@ -1,12 +1,6 @@
 {
     "header": {
         "definition": "task list",
-        "pi": true,
-        "vi": true,
-        "ai": true,
-        "pf": true,
-        "vf": true,
-        "af": false,
         "robot": "gen3",
         "version": "1.0"
     },
@@ -31,13 +25,13 @@
                 0
             ],
             "ai": [
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
             ],
             "pf": [
                 -0.574,
@@ -58,13 +52,13 @@
                 0
             ],
             "af": [
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
             ]
         },
         {
@@ -87,13 +81,13 @@
                 0
             ],
             "ai": [
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
             ],
             "pf": [
                 -0.574,
@@ -114,13 +108,13 @@
                 0
             ],
             "af": [
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
             ]
         },
         {
@@ -143,13 +137,13 @@
                 0
             ],
             "ai": [
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
             ],
             "pf": [
                 -0.574,
@@ -170,13 +164,13 @@
                 0
             ],
             "af": [
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
             ]
         },
         {
@@ -199,13 +193,13 @@
                 0
             ],
             "ai": [
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
             ],
             "pf": [
                 -0.574,
@@ -226,13 +220,13 @@
                 0
             ],
             "af": [
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
             ]
         },
         {
@@ -255,13 +249,13 @@
                 0
             ],
             "ai": [
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
             ],
             "pf": [
                 -0.574,
@@ -282,13 +276,13 @@
                 0
             ],
             "af": [
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
             ]
         },
         {
@@ -311,13 +305,13 @@
                 0
             ],
             "ai": [
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
             ],
             "pf": [
                 -0.57421332390613422,
@@ -338,13 +332,13 @@
                 0
             ],
             "af": [
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
             ]
         }
     ]

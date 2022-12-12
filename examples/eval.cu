@@ -8,7 +8,7 @@
 #include <thread>
 #include <mutex>
 
-const int thread_count = 4;
+const int thread_count = 8;
 
 struct OptimConfig {
     blast::u32 npts;
@@ -17,6 +17,7 @@ struct OptimConfig {
     blast::u32 noptim;
     blast::u32 nshot;
     blast::real m;
+    blast::u32 task_id;
     blast::Matrix task;
 };
 std::vector<OptimConfig> config_list;
@@ -24,6 +25,8 @@ int config_index = 0;
 std::mutex mut_config;
 
 struct Result {
+    bool success;
+    bool success_false;
     blast::real compute_time;
     OptimConfig config;
     blast::Array x;
@@ -38,12 +41,12 @@ void eval_function() {
 
     for (;;) {
         mut_config.lock();
-        printf("hello from thread %d\n", std::this_thread::get_id());
         if (config_index >= config_list.size()) {
             mut_config.unlock();
             break;
         }
         auto config = config_list[config_index];
+        printf("Worker %5lld, working on unit %4d of %4d\n", std::this_thread::get_id(), config_index, (int)config_list.size());
         config_index++;
         mut_config.unlock();
 
@@ -56,6 +59,10 @@ void eval_function() {
         Gen3_7DOF manip;
         manip.set_payload_without_gripper(config.m);
         PvaBspline pva(nctrl, npts, p, manip.joints);
+
+        Gen3_7DOF manip_more_points;
+        manip_more_points.set_payload_without_gripper(config.m);
+        PvaBspline pva_more_points(nctrl, 10000, p, manip_more_points.joints);
 
         // prep optimization
         Optimisation optim{&manip, &config.task, &pva};
@@ -71,7 +78,7 @@ void eval_function() {
         Assert(result == NLOPT_SUCCESS);
         result = nlopt_set_lower_bound(o, pva.xlen(config.task) - 1, 0.1);
         Assert(result == NLOPT_SUCCESS);
-        result = nlopt_set_upper_bound(o, pva.xlen(config.task) - 1, 10.0);
+        result = nlopt_set_upper_bound(o, pva.xlen(config.task) - 1, 60.0);
         Assert(result == NLOPT_SUCCESS);
         result = nlopt_set_ftol_abs(o, 0.001);
         Assert(result == NLOPT_SUCCESS);
@@ -101,7 +108,13 @@ void eval_function() {
             auto max_con = array_max(manip.constraints(pva));
             bool is_valid = max_con < 0.01;
 
-            // printf("code: %d, result: %f, time: %fms, %s.\n", result, x.back(), time, is_valid? "valid" : "not valid");
+            pva_more_points.compute_trajectory(x, config.task);
+            auto max_con_more_points = array_max(manip_more_points.constraints(pva_more_points));
+            bool is_valid_more_points = max_con_more_points < 0.05;
+
+
+            tmp_result_list[iter].success = is_valid && is_valid_more_points;
+            tmp_result_list[iter].success_false = is_valid && !is_valid_more_points;
             tmp_result_list[iter].compute_time = time;
             tmp_result_list[iter].config = config;
             tmp_result_list[iter].x = x;
@@ -119,19 +132,16 @@ void eval_function() {
 int main() {
     using namespace blast;
 
-    // const u32 nctrl_list[] {8, 10, 12, 14, 16};
-    // const u32 npts_list[] {100, 128, 256, 512};
-    // const real m_list[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-    // const u32 nshot_list[] {25, 50, 100, 200};
-    // Matrix task_list[9];
-    const u32 nctrl_list[] {8};
-    const u32 npts_list[] {100};
-    const real m_list[] {2};
+    // const real m_list[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+    const real m_list[] {5};
+    const u32 nctrl_list[] {8, 10, 12, 14, 16};
+    const u32 npts_list[] {25, 50, 75, 100, 128, 256};
     const u32 nshot_list[] {50};
-    Matrix task_list[3];
+    Matrix task_list[6];
 
     auto start_time = get_tick_us();
 
+    // read tasks
     nlohmann::json j_file;
     std::ifstream file_handle("task_binpick.json");
     file_handle >> j_file;
@@ -144,14 +154,14 @@ int main() {
         auto &ai = task_tmp["ai"];
         auto &pf = task_tmp["pf"];
         auto &vf = task_tmp["vf"];
-        // auto &af = task_tmp["af"];
+        auto &af = task_tmp["af"];
         for (u32 j = 0; j < 7; j++) {
-            task(j, 0) = pi[j];
-            task(j, 1) = vi[j];
-            task(j, 2) = ai[i];
-            task(j, 3) = pf[j];
-            task(j, 4) = vf[j];
-            task(j, 5) = NAN_REAL;
+            task(j, 0) = pi[j].is_null() ? NAN_REAL : pi[j];
+            task(j, 1) = vi[j].is_null() ? NAN_REAL : vi[j];
+            task(j, 2) = ai[i].is_null() ? NAN_REAL : ai[j];
+            task(j, 3) = pf[j].is_null() ? NAN_REAL : pf[j];
+            task(j, 4) = vf[j].is_null() ? NAN_REAL : vf[j];
+            task(j, 5) = af[i].is_null() ? NAN_REAL : af[j];
         }
     }
 
@@ -159,7 +169,7 @@ int main() {
         for (auto nctrl : nctrl_list) {
             for (auto m : m_list) {
                 for (auto nshot : nshot_list) {
-                    for (auto task : task_list) {
+                    for (int i = 0; i < sizeof(task_list)/sizeof(Matrix); i++) {
                         OptimConfig c;
                         c.npts = npts;
                         c.nctrl = nctrl;
@@ -167,7 +177,8 @@ int main() {
                         c.m = m;
                         c.nshot = nshot;
                         c.noptim = 50;
-                        c.task = task;
+                        c.task = task_list[i];
+                        c.task_id = i;
                         config_list.push_back(c);
                     }
                 }
@@ -194,6 +205,8 @@ int main() {
     nlohmann::json j_result;
     for(u32 i = 0; i < result_list.size(); i++) {
         auto& j_current = j_result["results"][i];
+        j_current["success"] = result_list[i].success;
+        j_current["success_false"] = result_list[i].success_false;
         j_current["compute time"] = result_list[i].compute_time;
         auto& j_config = j_current["config"];
         auto& result_config = result_list[i].config;
@@ -203,6 +216,7 @@ int main() {
         j_config["noptim"] = result_config.noptim;
         j_config["nshot"] = result_config.nshot;
         j_config["m"] = result_config.m;
+        j_config["task_id"] = result_config.task_id;
         j_config["task"]["rows"] = result_config.task.rows;
         j_config["task"]["cols"] = result_config.task.cols;
         j_config["task"]["size"] = result_config.task.size;
