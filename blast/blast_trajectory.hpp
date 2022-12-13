@@ -137,7 +137,6 @@ inline void PvaBspline::compute_basis() {
         for (u32 i = p + 1; i < m - p; i++)
             knots[i] = knots[i - 1] + du;
     }
-    print(knots);
 
     Array N(m * (p + 1)); // triangle basis function
     const real du = 1.0f / (points - 1);
