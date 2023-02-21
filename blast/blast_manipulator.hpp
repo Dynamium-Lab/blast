@@ -61,12 +61,12 @@ struct ManipulatorUR5 : public Manipulator {
 
 struct Gen3Lite : public Manipulator {
     Vec3 p_base;
-    real m[7];
-    Mat3 I[7];
-    Vec3 av[7];
-    Vec3 dv[7];
-    Vec3 sv[7];
-    Vec3 ev[7];
+    real m[6];
+    Mat3 I[6];
+    Vec3 av[6];
+    Vec3 dv[6];
+    Vec3 sv[6];
+    Vec3 ev[6];
 
     // default constructor
     Gen3Lite();
@@ -472,13 +472,14 @@ inline Gen3Lite::Gen3Lite() : Manipulator(6) {
     av[5] = {0.009930f, 0.009950f, 0.061360f};
 
     // vector to next joint
-    dv[0] = {0.000f,   0.000f,   0.1283f};
-    dv[1] = {0.000f,    -0.030f,   0.115f};
-    dv[2] = {0.000f,    0.280f,   0.000f};
-    dv[3] = {0.000f,   -0.140f,   0.020f};
-    dv[4] = {0.0285f,   0.000f,   0.105f};
-    dv[5] = {-0.105f,    0.000f,   0.0285f};
-    dv[6] = {0.000f,     0.000f,  0.1300f};
+    // dv[0] = {0.000f,   0.000f,   0.1283f}; // todo: remove and add 0.1300f to dv[5].z
+    dv[0] = {0.000f,    -0.030f,   0.115f};
+    dv[1] = {0.000f,    0.280f,   0.000f};
+    dv[2] = {0.000f,   -0.140f,   0.020f};
+    dv[3] = {0.0285f,   0.000f,   0.105f};
+    dv[4] = {-0.105f,    0.000f,   0.0285f};
+    dv[5] = {0.000f,     0.000f,  0.1300f};
+
     // center of mass (from next joint)
     sv[0] = dv[0] - av[0];
     sv[1] = dv[1] - av[1];
@@ -494,16 +495,14 @@ inline Gen3Lite::Gen3Lite() : Manipulator(6) {
     ev[3] = { 0,  0,  1};
     ev[4] = { 0,  0,  1};
     ev[5] = { 0,  0,  1};
-    ev[6] = { 0,  0,  1};
-
 
     // kinematic and dynamic constraints
     pmax = {2.69f, 2.69f, 2.69f, 2.59f, 2.57f, 2.59f}; // rad
     vmax = {1.6f, 1.6f, 1.6f, 1.6f, 1.6f, 3.2f};       // rad/s
     tau_max = {10, 14, 10, 7, 7, 7};                   // Nm
-    vmin = -vmax;
-    pmin = -pmax;
-    tau_min = -tau_max;// ??
+    // vmin = -vmax;
+    // pmin = -pmax;
+    // tau_min = -tau_max; todo: commented out ?
 }
 
 inline void Gen3Lite::dynamics(const Pva &pva, Matrix &efforts) {
@@ -634,11 +633,12 @@ inline void Gen3Lite::dynamics(const Matrix &pos, const Matrix &vel, const Matri
 
 inline Array Gen3Lite::forward_kinematics(Array &joint_position) {
     auto p = joint_position.data;
+    Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
 
 #if BLAST_SIZEOF_REAL == 8 // double precision
-    real s[6];
-    real c[6];
     // first 4
+        real s[6];
+        real c[6];
     {
         __m256d s_tmp;
         __m256d c_tmp;
@@ -667,38 +667,31 @@ inline Array Gen3Lite::forward_kinematics(Array &joint_position) {
     _mm256_storeu_ps(c, c_tmp);
 #endif
 
-    Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
-    Q1 = {c[0],   s[0],     0,        -s[0],     c[0],      0,              0,      0,    1};
-    Q2 = {c[1],      0,  s[1],        -s[1],        0,   c[1],              0,     -1,    0};
-    Q3 = {c[2],  -s[2],     0,        -s[2],    -c[2],      0,              0,      0,   -1};
-    Q4 = {c[3],      0,  s[3],        -s[3],        0,   c[3],              0,     -1,    0};
-    Q5 = {   0,   s[4], -c[4],           0,      c[4],     s[4],            1,      0,    0};
-    Q6 = {   0,   s[5],  c[5],            0,     c[5],  -s[5],             -1,      0,    0};
+    // note: these are stored column-wise
+    Q1 = {c[0], s[0], 0, -s[0], c[0], 0, 0, 0, 1};
+    Q2 = {c[1], 0, s[1], -s[1], 0, c[1], 0, -1, 0};
+    Q3 = {c[2], -s[2], 0, -s[2], -c[2], 0, 0, 0, -1};
+    Q4 = {c[3], 0, s[3], -s[3], 0, c[3], 0, -1, 0};
+    Q5 = {0, s[4], -c[4], 0, c[4], s[4], 1, 0, 0};
+    Q6 = {0, s[5], c[5], 0, c[5], -s[5], -1, 0, 0};
 
-    // print(Q1);
-    // print(Q2);
-    // print(Q3);
-    // print(Q4);
-    // print(Q5);
-    // print(Q6);
-
+    auto p_tmp = p_base;
     auto Q_tmp = Q1;
-    auto p_tmp = dv[0];
-    p_tmp += (Q_tmp)*dv[1];
-    p_tmp += (Q_tmp*=Q2)*dv[2];
-    p_tmp += (Q_tmp*=Q3)*dv[3];
-    p_tmp += (Q_tmp*=Q4)*dv[4];
-    p_tmp += (Q_tmp*=Q5)*dv[5];
-    p_tmp += (Q_tmp*=Q6)*dv[6];
+    p_tmp += Q_tmp * dv[0];
+    p_tmp += (Q_tmp *= Q2) * dv[1];
+    p_tmp += (Q_tmp *= Q3) * dv[2];
+    p_tmp += (Q_tmp *= Q4) * dv[3];
+    p_tmp += (Q_tmp *= Q5) * dv[4];
+    p_tmp += (Q_tmp *= Q6) * dv[5];
 
     Array pose(6);
     pose[0] = p_tmp.x;
     pose[1] = p_tmp.y;
     pose[2] = p_tmp.z;
     // todo: Q_tmp(0, 0) and Q_tmp(2, 2) must not be zero!!
-    pose[3] = atan2(Q_tmp(1, 0), Q_tmp(0, 0));
-    pose[4] = atan2(-Q_tmp(2, 0), sqrt(Q_tmp(2, 1) * Q_tmp(2, 1) + Q_tmp(2, 2) * Q_tmp(2, 2)));
-    pose[5] = atan2(Q_tmp(2, 1), Q_tmp(2, 2));
+    // pose[3] = atan2(Q_tmp(1, 0), Q_tmp(0, 0));
+    // pose[4] = atan2(-Q_tmp(2, 0), sqrt(Q_tmp(2, 1) * Q_tmp(2, 1) + Q_tmp(2, 2) * Q_tmp(2, 2)));
+    // pose[5] = atan2(Q_tmp(2, 1), Q_tmp(2, 2));
     return pose;
 }
 
@@ -730,46 +723,38 @@ inline Matrix Gen3Lite::jacobian(const Array& joint_position) {
 #endif
 
     // note: these are stored column-wise
-
-    Q1 = {c[0],   s[0],     0,        -s[0],     c[0],      0,              0,      0,    1};
-    Q2 = {c[1],      0,  s[1],        -s[1],        0,   c[1],              0,     -1,    0};
-    Q3 = {c[2],  -s[2],     0,        -s[2],    -c[2],      0,              0,      0,   -1};
-    Q4 = {c[3],      0,  s[3],        -s[3],        0,   c[3],              0,     -1,    0};
-    Q5 = {   0,   s[4], -c[4],           0,      c[4],     s[4],            1,      0,    0};
-    Q6 = {   0,   s[5],  c[5],            0,     c[5],  -s[5],             -1,      0,    0};
-
+    Q1 = {c[0], s[0], 0, -s[0], c[0], 0, 0, 0, 1};
+    Q2 = {c[1], 0, s[1], -s[1], 0, c[1], 0, -1, 0};
+    Q3 = {c[2], -s[2], 0, -s[2], -c[2], 0, 0, 0, -1};
+    Q4 = {c[3], 0, s[3], -s[3], 0, c[3], 0, -1, 0};
+    Q5 = {0, s[4], -c[4], 0, c[4], s[4], 1, 0, 0};
+    Q6 = {0, s[5], c[5], 0, c[5], -s[5], -1, 0, 0};
 
     // unit vectors in 1st reference
-    Vec3 e_1[7];
-    e_1[0] = ev[0];
+    Vec3 e_1[6];
     auto Q_tmp = Q1;
-    e_1[1] = Q_tmp*ev[1];
-    e_1[2] = (Q_tmp*=Q2)*ev[2];
-    e_1[3] = (Q_tmp*=Q3)*ev[3];
-    e_1[4] = (Q_tmp*=Q4)*ev[4];
-    e_1[5] = (Q_tmp*=Q5)*ev[5];
-    e_1[6] = (Q_tmp*=Q6)*ev[6];
+    e_1[0] = Q_tmp * ev[0];
+    e_1[1] = (Q_tmp *= Q2) * ev[1];
+    e_1[2] = (Q_tmp *= Q3) * ev[2];
+    e_1[3] = (Q_tmp *= Q4) * ev[3];
+    e_1[4] = (Q_tmp *= Q5) * ev[4];
+    e_1[5] = (Q_tmp *= Q6) * ev[5];
 
-
-
-    Vec3 r[7];
-    r[6] = dv[6];
-    r[5] = dv[5]+ Q6*r[6];
-    r[4] = dv[4] + Q5*r[5];
-    r[3] = dv[3] + Q4*r[4];
-    r[2] = dv[2] + Q3*r[3];
-    r[1] = dv[1] + Q2*r[2];
-    r[0] = dv[0] + Q1*r[1];
+    Vec3 r[6];
+    r[5] = dv[5];
+    r[4] = dv[4] + Q6 * r[6];
+    r[3] = dv[3] + Q5 * r[5];
+    r[2] = dv[2] + Q4 * r[4];
+    r[1] = dv[1] + Q3 * r[3];
+    r[0] = dv[0] + Q2 * r[2];
 
     Q_tmp = Q1;
-    r[1] = (Q_tmp)*r[1];
-    r[2] = (Q_tmp*=Q2)*r[2];
-    r[3] = (Q_tmp*=Q3)*r[3];
-    r[4] = (Q_tmp*=Q4)*r[4];
-    r[5] = (Q_tmp*=Q5)*r[5];
-    r[6] = (Q_tmp*=Q6)*r[6];
-
-
+    r[0] = (Q_tmp) * r[1];
+    r[1] = (Q_tmp *= Q2) * r[2];
+    r[2] = (Q_tmp *= Q3) * r[3];
+    r[3] = (Q_tmp *= Q4) * r[4];
+    r[4] = (Q_tmp *= Q5) * r[5];
+    r[5] = (Q_tmp *= Q6) * r[6];
 
     auto cr0 = cross(e_1[0], r[0]);
     auto cr1 = cross(e_1[1], r[1]);
@@ -777,50 +762,46 @@ inline Matrix Gen3Lite::jacobian(const Array& joint_position) {
     auto cr3 = cross(e_1[3], r[3]);
     auto cr4 = cross(e_1[4], r[4]);
     auto cr5 = cross(e_1[5], r[5]);
-    auto cr6 = cross(e_1[6], r[6]);
 
     // jacobian matrix
     Matrix J(6, 6);
-    J(0, 0) = e_1[1].x;
-    J(1, 0) = e_1[1].y;
-    J(2, 0) = e_1[1].z;
-    J(0, 1) = e_1[2].x;
-    J(1, 1) = e_1[2].y;
-    J(2, 1) = e_1[2].z;
-    J(0, 2) = e_1[3].x;
-    J(1, 2) = e_1[3].y;
-    J(2, 2) = e_1[3].z;
-    J(0, 3) = e_1[4].x;
-    J(1, 3) = e_1[4].y;
-    J(2, 3) = e_1[4].z;
-    J(0, 4) = e_1[5].x;
-    J(1, 4) = e_1[5].y;
-    J(2, 4) = e_1[5].z;
-    J(0, 5) = e_1[6].x;
-    J(1, 5) = e_1[6].y;
-    J(2, 5) = e_1[6].z;
+    J(0, 0) = e_1[0].x;
+    J(1, 0) = e_1[0].y;
+    J(2, 0) = e_1[0].z;
+    J(0, 1) = e_1[1].x;
+    J(1, 1) = e_1[1].y;
+    J(2, 1) = e_1[1].z;
+    J(0, 2) = e_1[2].x;
+    J(1, 2) = e_1[2].y;
+    J(2, 2) = e_1[2].z;
+    J(0, 3) = e_1[3].x;
+    J(1, 3) = e_1[3].y;
+    J(2, 3) = e_1[3].z;
+    J(0, 4) = e_1[4].x;
+    J(1, 4) = e_1[4].y;
+    J(2, 4) = e_1[4].z;
+    J(0, 5) = e_1[5].x;
+    J(1, 5) = e_1[5].y;
+    J(2, 5) = e_1[5].z;
 
-
-    J(3, 0) = cr1.x;
-    J(4, 0) = cr1.y;
-    J(5, 0) = cr1.z;
-    J(3, 1) = cr2.x;
-    J(4, 1) = cr2.y;
-    J(5, 1) = cr2.z;
-    J(3, 2) = cr3.x;
-    J(4, 2) = cr3.y;
-    J(5, 2) = cr3.z;
-    J(3, 3) = cr4.x;
-    J(4, 3) = cr4.y;
-    J(5, 3) = cr4.z;
-    J(3, 4) = cr5.x;
-    J(4, 4) = cr5.y;
-    J(5, 4) = cr5.z;
-    J(3, 5) = cr6.x;
-    J(4, 5) = cr6.y;
-    J(5, 5) = cr6.z;
-
-
+    J(3, 0) = cr0.x;
+    J(4, 0) = cr0.y;
+    J(5, 0) = cr0.z;
+    J(3, 1) = cr1.x;
+    J(4, 1) = cr1.y;
+    J(5, 1) = cr1.z;
+    J(3, 2) = cr2.x;
+    J(4, 2) = cr2.y;
+    J(5, 2) = cr2.z;
+    J(3, 3) = cr3.x;
+    J(4, 3) = cr3.y;
+    J(5, 3) = cr3.z;
+    J(3, 4) = cr4.x;
+    J(4, 4) = cr4.y;
+    J(5, 4) = cr4.z;
+    J(3, 5) = cr5.x;
+    J(4, 5) = cr5.y;
+    J(5, 5) = cr5.z;
 
     return J;
 }
@@ -838,7 +819,7 @@ inline Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
     m[3] = 0.93f;
     m[4] = 0.678f;
     m[5] = 0.678f;
-    m[6] = 0.364f + 0.921f;
+    m[6] = 0.364f + 0.921f; // todo: modify with/without gripper ?
 
     // inertial tensor
     I[0] = {0.004570f, 0.000001f, 0.000002f, 0.000001f, 0.004831f, 0.000448f, 0.000002f, 0.000448f, 0.001409f};
@@ -857,7 +838,7 @@ inline Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
     av[4] = {0.000001f, -0.009432f, -0.063883f};
     av[5] = {0.000001f, -0.045483f, -0.009650f};
     av[6] = {-0.000093f, 0.000132f, -0.022905f};
-    Vec3 av_tool(0, 0, -0.06f - 0.0615f);
+    Vec3 av_tool(0, 0, -0.06f - 0.0615f); // todo: modify with/without gripper ?
     av[6] = (0.364f * av[6] + 0.921f * av_tool) * (1 / (0.364f + 0.921f));
 
     // vector to next joint
@@ -889,7 +870,6 @@ inline Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
     ev[5] = {0, 0, 1};
     ev[6] = {0, 0, 1};
 
-
     // kinematic and dynamic constraints
     pmax = {INF_REAL, INF_REAL, INF_REAL, 2.58f, INF_REAL, 2.1f, INF_REAL}; // rad
     // pmin = -pmax;
@@ -903,22 +883,28 @@ inline void Gen3_7DOF::set_payload(const real mass) {
     // Set to default
     m[6] = 0.364f + 0.921f;
     av[6] = {-0.000093f, 0.000132f, -0.022905f};
-    Vec3 av_tool(0, 0, -0.06f - 0.0615f);
+    Vec3 av_tool(0, 0, -0.06f - 0.0615f); // todo: add as global in manip Gen3_7DOF?
     av[6] = (0.364f * av[6] + 0.921f * av_tool) * (1 / (0.364f + 0.921f));
     sv[6] = dv[6] - av[6];
     I[6] = {0.000214f, 0.000000f, 0.000001f, 0.000000f, 0.000223f, 0.000002f, 0.000001f, 0.000002f, 0.000240f};
 
     // Modify payload
-    auto svEE_old = sv[6];
-    Vec3 av_payload = {0.0f, 0.0f, -0.15f}; // todo: modify to real center of mass length (design prototype)
-    auto mEE_old = m[6];
-    m[6] += mass;
+    Vec3 av_payload = {0.0f, 0.0f, -0.115f}; // todo: modify to real center of mass length (design prototype) todo: add to manip ?
+    auto av_old = av[6];
+    auto m_old = m[6];
 
-    av[6] = (mEE_old*av[6] + mass*av_payload) * (1/m[6]);
-    sv[6] = dv[6] - av[6];
-    I[6](0, 0) += mEE_old*(sv[6].x - svEE_old.x)*(sv[6].x - svEE_old.x) + mass*sv[6].x*sv[6].x; // todo: Validate
-    I[6](1, 1) += mEE_old*(sv[6].y - svEE_old.y)*(sv[6].y - svEE_old.y) + mass*sv[6].y*sv[6].y;
-    I[6](2, 2) += mEE_old*(sv[6].z - svEE_old.z)*(sv[6].z - svEE_old.z) + mass*sv[6].z*sv[6].z;
+    auto m_new = m_old + mass;
+    auto av_new = (m_old*av_old + mass*av_payload) * (1/m_new);
+    auto sv_new = dv[6] - av_new;
+    auto delta_av = av_new - av_old; // shift in center of mass
+    auto av_to_mass = av_payload - av_new; // vector from payload to new center of mass
+
+    av[6] = av_new;
+    sv[6] = sv_new;
+    m[6] = m_new;
+    I[6](0, 0) += m_old*delta_av.x*delta_av.x + mass*av_to_mass.x*av_to_mass.x; // todo: Validate
+    I[6](1, 1) += m_old*delta_av.y*delta_av.y + mass*av_to_mass.y*av_to_mass.y;
+    I[6](2, 2) += m_old*delta_av.z*delta_av.z + mass*av_to_mass.z*av_to_mass.z;
 }
 
 inline void Gen3_7DOF::set_payload_without_gripper(const real mass) {
@@ -929,8 +915,7 @@ inline void Gen3_7DOF::set_payload_without_gripper(const real mass) {
     I[6] = {0.000214f, 0.000000f, 0.000001f, 0.000000f, 0.000223f, 0.000002f, 0.000001f, 0.000002f, 0.000240f};
 
     // Modify payload
-    Vec3 av_payload = {0.0f, 0.0f, -0.115f}; // todo: modify to real center of mass length (design prototype)
-
+    Vec3 av_payload = {0.0f, 0.0f, -0.115f}; // todo: modify to real center of mass length (design prototype) todo: add to manip ?
     auto av_old = av[6];
     auto m_old = m[6];
 
@@ -1114,6 +1099,7 @@ inline Array Gen3_7DOF::forward_kinematics(const Array &joint_position) {
     _mm256_storeu_ps(c, c_tmp);
 #endif
 
+    // todo: cleanup
     // create aliases instead of actual arrays to allocate the memory on the stack (1.7x performance)
     // real s_data[8]; // nearest factor of 4
     // real c_data[8]; // nearest factor of 4
@@ -1407,16 +1393,16 @@ inline Array Gen3_7DOF::collision_check(const Array &joint_position) {
     p_tmp += (Q_tmp *= Q7) * dv[6];
     p_ee = p_tmp;
 
-    const real r1sqr = 0.09 * 0.09;
-    const real r2sqr = 0.09 * 0.09;
+    const real r1sqr = 0.09 * 0.09; // todo: validate dimensions
+    const real r2sqr = 0.09 * 0.09; // todo: validate dimensions
 
     // Self collisions sqr
     real dist1sqr = two_segment_distance_sqr(p_orig, p_j2, p_j6, p_ee) - r1sqr;
     real dist2sqr = two_segment_distance_sqr(p_j2, p_j3, p_j6, p_ee) - r2sqr;
 
     // Collision with table sqr
-    const real r4table = 0.05;
-    const real r6table = 0.04;
+    const real r4table = 0.05; // todo: validate dimensions
+    const real r6table = 0.04; // todo: validate dimensions
 
     const Vec3 p_table(0, 0, -0.0025); // todo: Correct coords (z or y) ??
     real distTJ4 = p_j4.z - p_table.z - r4table;
@@ -1424,8 +1410,9 @@ inline Array Gen3_7DOF::collision_check(const Array &joint_position) {
     real distTEE = p_ee.z - p_table.z - r6table;
 
     // Array of distance min sqr and distance from table sqr
-    Array distMin(5);
+    Array distMin(5); 
     distMin = {dist1sqr, dist2sqr, distTJ4, distTJ6, distTEE};
+    // todo: Add collision_check function for more obstacles; Array distMin(5) hard coded size
 
     return distMin;
 }

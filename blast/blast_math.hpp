@@ -364,6 +364,8 @@ blast_fn Array deg2rad(const Array& a) {
     return r;
 }
 
+// todo: Add deg2rad + rad2deg Matrix, Vec3 ??
+
 blast_fn void zero(Vec3& v) {
     v.x = v.y = v.z = 0;
 }
@@ -634,6 +636,7 @@ blast_fn real Mat3::operator[](u32 i) const {
 blast_fn Mat4::Mat4(const Mat4& m) {
     memcpy(data, m.data, 16*sizeof(real));
 }
+// todo: Add memcopy to others ?
 
 blast_fn Mat4::Mat4(real v) {
     zero();
@@ -646,6 +649,7 @@ blast_fn Mat4::Mat4(real v) {
 blast_fn void Mat4::zero() {
     memset(data, 0, 16*sizeof(real));
 }
+// todo: other zeros in misc ?
 
 blast_fn Mat4::Mat4(const std::initializer_list<real>& l) {
     u32 i = 0;
