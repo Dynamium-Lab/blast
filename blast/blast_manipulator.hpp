@@ -1393,12 +1393,15 @@ inline Array Gen3_7DOF::collision_check(const Array &joint_position) {
     p_tmp += (Q_tmp *= Q7) * dv[6];
     p_ee = p_tmp;
 
-    const real r1sqr = 0.09 * 0.09; // todo: validate dimensions
-    const real r2sqr = 0.09 * 0.09; // todo: validate dimensions
+    const real r1sqr = 0.087 * 0.087;
+    const real r2sqr = 0.11 * 0.11;
 
     // Self collisions sqr
     real dist1sqr = two_segment_distance_sqr(p_orig, p_j2, p_j6, p_ee) - r1sqr;
-    real dist2sqr = two_segment_distance_sqr(p_j2, p_j3, p_j6, p_ee) - r2sqr;
+    // real dist2J2sqr = ((p_ee.x - p_j2.x) + (p_j6.x - p_j2.x)) * ((p_ee.x - p_j2.x) + (p_j6.x - p_j2.x)) + ((p_ee.y - p_j2.y) + (p_j6.y - p_j2.y)) * ((p_ee.y - p_j2.y) + (p_j6.y - p_j2.y)) + ((p_ee.z - p_j2.z) + (p_j6.z - p_j2.z)) * ((p_ee.z - p_j2.z) + (p_j6.z - p_j2.z)) - r2sqr;
+    real dist2J2sqr = two_segment_distance_sqr(p_j2, p_j2, p_j6, p_ee) - r2sqr; // distance sqr from J2 to J6 EE line (sphere)
+    real dist2Msqr = two_segment_distance_sqr(p_j2, p_j3, p_j6, p_ee) - r1sqr;  // distance sqr from J2 J3 line to J6 EE line (capsule)
+    real dist2sqr = dist2J2sqr <= dist2Msqr ? dist2J2sqr : dist2Msqr;
 
     // Collision with table sqr
     const real r4table = 0.05; // todo: validate dimensions
