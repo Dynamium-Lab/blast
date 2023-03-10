@@ -500,9 +500,9 @@ inline Gen3Lite::Gen3Lite() : Manipulator(6) {
     pmax = {2.69f, 2.69f, 2.69f, 2.59f, 2.57f, 2.59f}; // rad
     vmax = {1.6f, 1.6f, 1.6f, 1.6f, 1.6f, 3.2f};       // rad/s
     tau_max = {10, 14, 10, 7, 7, 7};                   // Nm
-    // vmin = -vmax;
-    // pmin = -pmax;
-    // tau_min = -tau_max; todo: commented out ?
+    vmin = -vmax;
+    pmin = -pmax;
+    tau_min = -tau_max;
 }
 
 inline void Gen3Lite::dynamics(const Pva &pva, Matrix &efforts) {
@@ -636,9 +636,9 @@ inline Array Gen3Lite::forward_kinematics(Array &joint_position) {
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
 
 #if BLAST_SIZEOF_REAL == 8 // double precision
+    real s[6];
+    real c[6];
     // first 4
-        real s[6];
-        real c[6];
     {
         __m256d s_tmp;
         __m256d c_tmp;
@@ -1413,7 +1413,7 @@ inline Array Gen3_7DOF::collision_check(const Array &joint_position) {
     real distTEE = p_ee.z - p_table.z - r6table;
 
     // Array of distance min sqr and distance from table sqr
-    Array distMin(5); 
+    Array distMin(5);
     distMin = {dist1sqr, dist2sqr, distTJ4, distTJ6, distTEE};
     // todo: Add collision_check function for more obstacles; Array distMin(5) hard coded size
 

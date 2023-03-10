@@ -79,8 +79,9 @@ struct Mat3 {
     real data[9];
 
     Mat3() = default;
-
+    blast_fn Mat3(const Mat3& m);
     blast_fn Mat3(real x1, real y1, real z1, real x2, real y2, real z2, real x3, real y3, real z3);
+
     blast_fn real& operator()(u32 row, u32 col);
     blast_fn real& operator[](u32 i);
     blast_fn real operator[](u32 i) const ;
@@ -364,8 +365,6 @@ blast_fn Array deg2rad(const Array& a) {
     return r;
 }
 
-// todo: Add deg2rad + rad2deg Matrix, Vec3 ??
-
 blast_fn void zero(Vec3& v) {
     v.x = v.y = v.z = 0;
 }
@@ -468,10 +467,10 @@ host_fn real get_random() {
     return dis(e2);
 }
 
-// fill the given Array with random values between -A and A
 host_fn void fill_random(Array& v, real A) {
     for (int i = 0; i < (int)v.size; i++)
         v[i] = A * get_random();
+    // todo: performance
 }
 
 host_fn void fill_random(Mat3& m, real A) {
@@ -479,13 +478,19 @@ host_fn void fill_random(Mat3& m, real A) {
         m[i] = A * get_random();
 }
 
-// Generate an Array of size 'n' with random values between -A and A
 host_fn Array random_array(u32 n, real A) {
     Array result(n);
     for (int i = 0; i < (int)n; i++)
         result[i] = A * get_random();
     return result;
 }
+
+blast_fn real clamp(real val, real mini, real maxi) {
+    real r = val < mini ? mini : val;
+    r = r > maxi ? maxi : r;
+    return r;
+}
+
 
 //------ Vec3 ---------------------
 
@@ -557,6 +562,10 @@ blast_fn Vec3& operator*=(Vec3&v, real a) {
 
 
 //------ Mat3 ---------------------
+
+blast_fn Mat3::Mat3(const Mat3& m) {
+    memcpy(data, m.data, 9*sizeof(real));
+}
 
 blast_fn Mat3::Mat3(real x1, real y1, real z1, real x2, real y2, real z2, real x3, real y3, real z3) {
     data[0] = x1;
@@ -636,7 +645,6 @@ blast_fn real Mat3::operator[](u32 i) const {
 blast_fn Mat4::Mat4(const Mat4& m) {
     memcpy(data, m.data, 16*sizeof(real));
 }
-// todo: Add memcopy to others ?
 
 blast_fn Mat4::Mat4(real v) {
     zero();
@@ -1289,12 +1297,6 @@ blast_fn Array Matrix::col(u32 c) const {
 }
 
 
-
-blast_fn real clamp(real val, real mini, real maxi) {
-    real r = val < mini ? mini : val;
-    r = r > maxi ? maxi : r;
-    return r;
-}
 
 
 
