@@ -143,7 +143,10 @@ struct Gen3_7DOF : public Manipulator {
     }
 };
 
-// NOTE: the following structure is only usefull when using CUDA for Nvidia GPUs
+
+
+
+// note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
 // note: must be a global variable because it is __constant__
 // note: much faster if it's __constant__ because all threads access the same location (heavy use of broadcast operations)
@@ -178,6 +181,8 @@ struct cuGen3_7DOF {
     dev_fn void compute_constraints(const real pos[7], const real vel[7], const real acc[7], real *con);
 };
 #endif
+
+
 
 //------ Universal Robots UR5e manipulator functions ---------------------------------
 
@@ -1511,8 +1516,12 @@ inline bool Gen3_7DOF::validate_task(const Matrix &task) {
     return array_max(ci) > 0 && array_max(cf) > 0 ? false: true;
 }
 
-//------ FOR GPU COMPUTATION ONLY ------------------------------------------------------------------------------------
 
+
+
+
+
+// note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
 host_fn void cuGen3_7DOF::init(real mass, u32 npoints) {
     // position of the first joint with respect to the table in the center of the base

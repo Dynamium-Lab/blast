@@ -77,7 +77,8 @@ host_fn int64_t get_tick_us() {
 
 
 
-//-- functions that are only visible to nvcc GPU compiler -----------------------
+
+// note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
 
 

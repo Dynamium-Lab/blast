@@ -69,7 +69,8 @@ host_fn Array guess_shot_mean(Gen3_7DOF& manip, Pva& pva, Matrix& task, int nsho
 
 
 
-//--------- CUDA GPU ONLY: OBJECTIVES AND CONSTRAINTS ----------------------------------------------------------
+
+// note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
 // compute the trajectory and the constraints (slower, but access to trajectory)
 __global__ void pva_constraints_kernel(cuPvaBspline pva);
@@ -165,6 +166,9 @@ host_fn Array guess_shot_mean(Gen3_7DOF& manip, Pva& pva, Matrix& task, int nsho
 }
 
 
+
+
+// note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
 __global__ void pva_constraints_kernel(cuPvaBspline pva) {
     const u32 point = blockIdx.x * blockDim.x + threadIdx.x;
