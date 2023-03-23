@@ -15,9 +15,9 @@ struct Pva {
     u32 points = 0;
 
     Pva() = default;
-    Pva(u32 njoints, u32 npoints);
+    host_fn Pva(u32 njoints, u32 npoints);
 
-    Pva &operator=(const Pva &);
+    host_fn Pva &operator=(const Pva &);
 
     // compute the PVA using bsplines.
     virtual void compute_trajectory(const Array &x, Matrix &task) {
@@ -37,18 +37,22 @@ struct PvaBspline : public Pva {
     u32 nctrl;
     u32 p;
 
-    PvaBspline(u32 ncontrol, u32 npoints, u32 P, u32 dof);
+    host_fn PvaBspline(u32 ncontrol, u32 npoints, u32 P, u32 dof);
 
     // Compute a trajectory from the given optimization vector
     //  - note: fastest when 'ncontrol' is a multiple of 4 (SIMD)
-    void compute_trajectory(const Array &x, Matrix &task) override;
-    u32 xlen(Matrix &task) override;
+    host_fn void compute_trajectory(const Array &x, Matrix &task) override;
+    host_fn u32 xlen(Matrix &task) override;
 
-    void compute_basis();
-    void compute_control(const Array &x, const Matrix &task);
+    host_fn void compute_basis();
+    host_fn void compute_control(const Array &x, const Matrix &task);
 };
 
-// the following structure is only usefull when using CUDA for Nvidia GPUs
+
+
+
+
+// note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
 struct cuPvaBspline {
     bool is_init = false;
@@ -99,7 +103,7 @@ struct cuPvaBspline {
 #endif
 
 //------ FUNCTIONS ------------------------------------------------------------------------------------
-inline Pva::Pva(u32 njoints, u32 npoints) : pos(njoints, npoints),
+host_fn Pva::Pva(u32 njoints, u32 npoints) : pos(njoints, npoints),
     vel(njoints, npoints),
     acc(njoints, npoints),
     t(npoints),
@@ -107,7 +111,7 @@ inline Pva::Pva(u32 njoints, u32 npoints) : pos(njoints, npoints),
     points(npoints) {
 }
 
-inline Pva &Pva::operator=(const Pva &rhs) {
+host_fn Pva &Pva::operator=(const Pva &rhs) {
     pos = rhs.pos;
     vel = rhs.vel;
     acc = rhs.acc;
@@ -117,7 +121,7 @@ inline Pva &Pva::operator=(const Pva &rhs) {
     return *this;
 }
 
-inline PvaBspline::PvaBspline(u32 ncontrol, u32 npoints, u32 P, u32 dof) : Pva(dof, npoints),
+host_fn PvaBspline::PvaBspline(u32 ncontrol, u32 npoints, u32 P, u32 dof) : Pva(dof, npoints),
     nctrl(ncontrol),
     p(P),
     control(ncontrol, dof),
@@ -127,7 +131,7 @@ inline PvaBspline::PvaBspline(u32 ncontrol, u32 npoints, u32 P, u32 dof) : Pva(d
     compute_basis();
 }
 
-inline void PvaBspline::compute_basis() {
+host_fn void PvaBspline::compute_basis() {
     u32 m = nctrl + p;
     Array knots(m + 1);
     {
@@ -189,7 +193,7 @@ inline void PvaBspline::compute_basis() {
     }
 }
 
-inline void PvaBspline::compute_control(const Array &x, const Matrix &task) {
+host_fn void PvaBspline::compute_control(const Array &x, const Matrix &task) {
     Assert(nctrl >= 6);
     const real T = x[x.size - 1];
     const real du = 1.0f / (nctrl - p);
@@ -230,7 +234,7 @@ inline void PvaBspline::compute_control(const Array &x, const Matrix &task) {
     }
 }
 
-inline u32 PvaBspline::xlen(Matrix &task) {
+host_fn u32 PvaBspline::xlen(Matrix &task) {
     Assert(task.rows == joints);
     Assert(task.cols == 6);
     auto results = joints * (nctrl - 6) + 1;
@@ -240,7 +244,7 @@ inline u32 PvaBspline::xlen(Matrix &task) {
     return results;
 }
 
-inline void PvaBspline::compute_trajectory(const Array &x, Matrix &task) {
+host_fn void PvaBspline::compute_trajectory(const Array &x, Matrix &task) {
     Assert(x.size == xlen(task));
     Assert(task.rows == joints);
     Assert(task.cols == 6);
@@ -266,7 +270,7 @@ inline void PvaBspline::compute_trajectory(const Array &x, Matrix &task) {
     }
 }
 
-inline Pva compute_5order_trajectory(real T, Matrix &task) {
+host_fn Pva compute_5order_trajectory(real T, Matrix &task) {
     const u32 joints = task.rows;
     const u32 points = (u32)ceil(T * 1000 + 1);
 
@@ -317,7 +321,8 @@ inline Pva compute_5order_trajectory(real T, Matrix &task) {
     return result;
 }
 
-//------ FOR GPU COMPUTATION ONLY ------------------------------------------------------------------------------------
+
+// note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
 
 host_fn void cuPvaBspline::init(u32 _points, u32 _joints, u32 _p, u32 _ncontrol) {
@@ -432,6 +437,8 @@ dev_fn void cuPvaBspline::compute_trajectory(const unsigned point) {
 }
 
 #endif
+
+
 
 } // namespace blast
 
