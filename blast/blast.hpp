@@ -18,7 +18,7 @@
 // determine if the compilation enables building for nvidia GPUs
 #ifdef __NVCC__
 #define blast_fn __host__ __device__ inline
-#define host_fn inline
+#define host_fn __host__ inline
 #define dev_fn __device__ inline
 #else
 #pragma message("WARN, Not compiling with 'nvcc', the Nvidia GPU will not be used to speed up computation")
