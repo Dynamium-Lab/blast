@@ -1795,14 +1795,14 @@ TEST_CASE("SelfCollision", "Manipulator") {
     auto dist_sqr_min_3 = manip.collision_check(theta3);
     auto dist_sqr_min_4 = manip.collision_check(theta4);
 
-    REQUIRE(dist_sqr_min_1[0] > 0);
-    REQUIRE(dist_sqr_min_1[1] > 0);
-    REQUIRE(dist_sqr_min_2[0] > 0);
-    REQUIRE(dist_sqr_min_2[1] > 0);
-    REQUIRE(dist_sqr_min_3[0] < 0);
-    REQUIRE(dist_sqr_min_3[1] < 0);
-    REQUIRE(dist_sqr_min_4[0] < 0);
-    REQUIRE(dist_sqr_min_4[1] > 0);
+    CHECK(dist_sqr_min_1[0] > 0);
+    CHECK(dist_sqr_min_1[1] > 0);
+    CHECK(dist_sqr_min_2[0] > 0);
+    CHECK(dist_sqr_min_2[1] > 0);
+    CHECK(dist_sqr_min_3[0] < 0);
+    CHECK(dist_sqr_min_3[1] < 0);
+    CHECK(dist_sqr_min_4[0] < 0);
+    CHECK(dist_sqr_min_4[1] > 0);
 }
 
 #endif // tests

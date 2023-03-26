@@ -165,10 +165,10 @@ int main() {
         }
     }
 
-    for (auto npts : npts_list) {
-        for (auto nctrl : nctrl_list) {
-            for (auto m : m_list) {
-                for (auto nshot : nshot_list) {
+    for (auto npts : npts_list)
+        for (auto nctrl : nctrl_list)
+            for (auto m : m_list)
+                for (auto nshot : nshot_list)
                     for (int i = 0; i < sizeof(task_list)/sizeof(Matrix); i++) {
                         OptimConfig c;
                         c.npts = npts;
@@ -181,18 +181,13 @@ int main() {
                         c.task_id = i;
                         config_list.push_back(c);
                     }
-                }
-            }
-        }
-    }
 
     result_list.reserve(config_list.size() * config_list[0].noptim);
 
     std::vector<std::thread> workers;
 
-    for (int i = 0; i < thread_count; i++) {
+    for (int i = 0; i < thread_count; i++)
         workers.push_back(std::thread(eval_function));
-    }
 
     for (auto &t : workers)
         t.join();

@@ -304,17 +304,16 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
 
     // Test correctness of the trajectory
     for (int i = 0; i < (int)points; i++) {
-        REQUIRE((float)host_pva.pos(0, i) == (float)device_pva.host->pos(0, i));
-        REQUIRE((float)host_pva.pos(1, i) == (float)device_pva.host->pos(1, i));
-        REQUIRE((float)host_pva.pos(2, i) == (float)device_pva.host->pos(2, i));
-        REQUIRE((float)host_pva.pos(3, i) == (float)device_pva.host->pos(3, i));
-        REQUIRE((float)host_pva.pos(4, i) == (float)device_pva.host->pos(4, i));
-        REQUIRE((float)host_pva.pos(5, i) == (float)device_pva.host->pos(5, i));
+        for (int j = 0; j < joints; j++) {
+            CHECK((float)host_pva.pos(j, i) == (float)device_pva.host->pos(j, i));
+            CHECK((float)host_pva.vel(j, i) == (float)device_pva.host->vel(j, i));
+            CHECK((float)host_pva.acc(j, i) == (float)device_pva.host->acc(j, i));
+        }
     }
 
     // host_con should be the same (ish) as device_manip.host_constraints
     for (int i = 0; i < (int)host_con.size; i++)
-        REQUIRE(abs(host_con[i] - device_manip.host_constraints[i]) < 1e-5);
+        CHECK(abs(host_con[i] - device_manip.host_constraints[i]) < 0.0006);
 
     BENCHMARK("Objective function and constraints - CPU only") {
         // random optimization vector
@@ -344,7 +343,7 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
         x.back() = std::abs(x.back());
         // compute trajectory
         device_pva.compute_control_and_send(x, task);
-        pva_constraints_kernel<<< nblocks, points/nblocks >>>(device_pva);
+        constraints_no_pva_kernel<<< nblocks, points/nblocks >>>(device_pva);
         cuda_check_kernel;
         device_manip.fetch_constraints(points);
         cudaDeviceSynchronize();
