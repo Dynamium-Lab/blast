@@ -48,7 +48,30 @@ blast_fn void print(Matrix& m) {
     }
 }
 
+blast_fn void print(double* data, unsigned size) {
+    printf("[");
+    for (u32 i = 0; i < size-1; i++)
+        printf("% 0.4f, ", data[i]);
+    printf("% 0.4f]\n", data[size-1]);
+}
+
+blast_fn void print(float* data, unsigned size) {
+    printf("[");
+    for (u32 i = 0; i < size-1; i++)
+        printf("% 0.4f, ", data[i]);
+    printf("% 0.4f]\n", data[size-1]);
+}
+
 blast_fn void print(double* data, unsigned rows, unsigned cols) {
+    for (u32 i = 0; i < rows; i++) {
+        printf("[");
+        for (u32 j = 0; j < cols-1; j++)
+            printf("% 0.4f, ", data[i + rows*j]);
+        printf("% 0.4f]\n", data[i + rows*(cols-1)]);
+    }
+}
+
+blast_fn void print(float* data, unsigned rows, unsigned cols) {
     for (u32 i = 0; i < rows; i++) {
         printf("[");
         for (u32 j = 0; j < cols-1; j++)

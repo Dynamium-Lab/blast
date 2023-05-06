@@ -244,6 +244,20 @@ host_fn u32 PvaBspline::xlen(Matrix &task) {
     return results;
 }
 
+/**
+ * @brief Computes the trajectory of a B-spline curve.
+ *
+ * @param x An array of real numbers representing the knots of the B-spline curve.
+ * @param task A matrix representing the control points of the B-spline curve.
+ *
+ * This function computes the trajectory of a B-spline curve given its knots and control points.
+ * The knots are passed as an array `x` and the control points are passed as a matrix `task`.
+ * The function first checks that the size of `x` is equal to the length of `task` along the x-axis,
+ * and that the number of rows and columns in `task` are equal to the number of joints and 6, respectively.
+ * Then, it calls the `compute_control` function to compute the control points of the B-spline curve.
+ * Finally, it computes the position, velocity, and acceleration of each joint at each point along the trajectory
+ * using the computed control points and the basis functions for position, velocity, and acceleration.
+ */
 host_fn void PvaBspline::compute_trajectory(const Array &x, Matrix &task) {
     Assert(x.size == xlen(task));
     Assert(task.rows == joints);
