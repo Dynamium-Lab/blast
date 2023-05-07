@@ -1,5 +1,6 @@
 #pragma once
 #include "blast.hpp"
+#include "blast_math.hpp"
 
 
 namespace blast {
@@ -217,6 +218,8 @@ __global__ void constraints_no_pva_kernel(cuPvaBspline pva) {
     manip->compute_constraints(pos, vel, acc, manip->device_constraints + constraints_offset);
 }
 
+
+// kernel that uses shared memory to speed up constraint computation
 __global__ void constraints_shared_kernel(cuPvaBspline pva) {
     const u32 point = blockIdx.x * blockDim.x + threadIdx.x;
     const u32 nctrl = pva.ncontrol;
@@ -263,9 +266,14 @@ __global__ void constraints_shared_kernel(cuPvaBspline pva) {
 } // namespace blast
 
 #ifdef BLAST_ENABLE_TESTS
+#include "optional/blast_optional_utilities.hpp"
 #ifdef __NVCC__
 TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
     using namespace blast;
+
+    printf("Testing on GPU with the following properties:\n");
+    print_device_properties();
+
     const u32 points = 256;
     const u32 joints = 7;
     const u32 p = 5;
