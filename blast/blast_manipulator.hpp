@@ -1398,8 +1398,8 @@ host_fn Array Gen3_7DOF::collision_check(const Array &joint_position) {
     p_tmp += (Q_tmp *= Q7) * dv[6];
     p_ee = p_tmp;
 
-    const real r1sqr = 0.087 * 0.087;
-    const real r2sqr = 0.11 * 0.11;
+    const real r1sqr = 0.0875 * 0.0875;
+    const real r2sqr = 0.0875 * 0.0875;
 
     // Self collisions sqr
     real dist1sqr = two_segment_distance_sqr(p_orig, p_j2, p_j6, p_ee) - r1sqr;
