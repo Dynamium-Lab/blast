@@ -1278,21 +1278,21 @@ host_fn Matrix Gen3_7DOF::jacobian(const Array &joint_position) {
 
     Vec3 r[7];
     r[6] = dv[6];
-    r[5] = dv[5] + Q7 * r[7];
-    r[4] = dv[4] + Q6 * r[6];
-    r[3] = dv[3] + Q5 * r[5];
-    r[2] = dv[2] + Q4 * r[4];
-    r[1] = dv[1] + Q3 * r[3];
-    r[0] = dv[0] + Q2 * r[2];
+    r[5] = dv[5] + Q7 * r[6];
+    r[4] = dv[4] + Q6 * r[5];
+    r[3] = dv[3] + Q5 * r[4];
+    r[2] = dv[2] + Q4 * r[3];
+    r[1] = dv[1] + Q3 * r[2];
+    r[0] = dv[0] + Q2 * r[1];
 
     Q_tmp = Q1;
-    r[0] = (Q_tmp) * r[1];
-    r[1] = (Q_tmp *= Q2) * r[2];
-    r[2] = (Q_tmp *= Q3) * r[3];
-    r[3] = (Q_tmp *= Q4) * r[4];
-    r[4] = (Q_tmp *= Q5) * r[5];
-    r[5] = (Q_tmp *= Q6) * r[6];
-    r[6] = (Q_tmp *= Q7) * r[7];
+    r[0] = (Q_tmp) * r[0];
+    r[1] = (Q_tmp *= Q2) * r[1];
+    r[2] = (Q_tmp *= Q3) * r[2];
+    r[3] = (Q_tmp *= Q4) * r[3];
+    r[4] = (Q_tmp *= Q5) * r[4];
+    r[5] = (Q_tmp *= Q6) * r[5];
+    r[6] = (Q_tmp *= Q7) * r[6];
 
     auto cr0 = cross(e_1[0], r[0]);
     auto cr1 = cross(e_1[1], r[1]);
