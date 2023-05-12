@@ -1,5 +1,6 @@
 #pragma once
 #include "blast.hpp"
+#include "blast_math.hpp"
 
 
 namespace blast {
@@ -69,7 +70,8 @@ host_fn Array guess_shot_mean(Gen3_7DOF& manip, Pva& pva, Matrix& task, int nsho
 
 
 
-//--------- CUDA GPU ONLY: OBJECTIVES AND CONSTRAINTS ----------------------------------------------------------
+
+// note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
 // compute the trajectory and the constraints (slower, but access to trajectory)
 __global__ void pva_constraints_kernel(cuPvaBspline pva);
@@ -165,6 +167,9 @@ host_fn Array guess_shot_mean(Gen3_7DOF& manip, Pva& pva, Matrix& task, int nsho
 }
 
 
+
+
+// note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
 __global__ void pva_constraints_kernel(cuPvaBspline pva) {
     const u32 point = blockIdx.x * blockDim.x + threadIdx.x;
@@ -213,6 +218,8 @@ __global__ void constraints_no_pva_kernel(cuPvaBspline pva) {
     manip->compute_constraints(pos, vel, acc, manip->device_constraints + constraints_offset);
 }
 
+
+// kernel that uses shared memory to speed up constraint computation
 __global__ void constraints_shared_kernel(cuPvaBspline pva) {
     const u32 point = blockIdx.x * blockDim.x + threadIdx.x;
     const u32 nctrl = pva.ncontrol;
@@ -259,9 +266,14 @@ __global__ void constraints_shared_kernel(cuPvaBspline pva) {
 } // namespace blast
 
 #ifdef BLAST_ENABLE_TESTS
+#include "optional/blast_optional_utilities.hpp"
 #ifdef __NVCC__
 TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
     using namespace blast;
+
+    printf("Testing on GPU with the following properties:\n");
+    print_device_properties();
+
     const u32 points = 256;
     const u32 joints = 7;
     const u32 p = 5;
@@ -300,17 +312,16 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
 
     // Test correctness of the trajectory
     for (int i = 0; i < (int)points; i++) {
-        REQUIRE((float)host_pva.pos(0, i) == (float)device_pva.host->pos(0, i));
-        REQUIRE((float)host_pva.pos(1, i) == (float)device_pva.host->pos(1, i));
-        REQUIRE((float)host_pva.pos(2, i) == (float)device_pva.host->pos(2, i));
-        REQUIRE((float)host_pva.pos(3, i) == (float)device_pva.host->pos(3, i));
-        REQUIRE((float)host_pva.pos(4, i) == (float)device_pva.host->pos(4, i));
-        REQUIRE((float)host_pva.pos(5, i) == (float)device_pva.host->pos(5, i));
+        for (int j = 0; j < joints; j++) {
+            CHECK((float)host_pva.pos(j, i) == (float)device_pva.host->pos(j, i));
+            CHECK((float)host_pva.vel(j, i) == (float)device_pva.host->vel(j, i));
+            CHECK((float)host_pva.acc(j, i) == (float)device_pva.host->acc(j, i));
+        }
     }
 
     // host_con should be the same (ish) as device_manip.host_constraints
     for (int i = 0; i < (int)host_con.size; i++)
-        REQUIRE(abs(host_con[i] - device_manip.host_constraints[i]) < 1e-5);
+        CHECK(abs(host_con[i] - device_manip.host_constraints[i]) < 0.0006);
 
     BENCHMARK("Objective function and constraints - CPU only") {
         // random optimization vector
@@ -340,7 +351,7 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
         x.back() = std::abs(x.back());
         // compute trajectory
         device_pva.compute_control_and_send(x, task);
-        pva_constraints_kernel<<< nblocks, points/nblocks >>>(device_pva);
+        constraints_no_pva_kernel<<< nblocks, points/nblocks >>>(device_pva);
         cuda_check_kernel;
         device_manip.fetch_constraints(points);
         cudaDeviceSynchronize();

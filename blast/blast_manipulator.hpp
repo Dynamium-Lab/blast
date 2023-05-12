@@ -143,7 +143,10 @@ struct Gen3_7DOF : public Manipulator {
     }
 };
 
-// NOTE: the following structure is only usefull when using CUDA for Nvidia GPUs
+
+
+
+// note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
 // note: must be a global variable because it is __constant__
 // note: much faster if it's __constant__ because all threads access the same location (heavy use of broadcast operations)
@@ -179,9 +182,11 @@ struct cuGen3_7DOF {
 };
 #endif
 
+
+
 //------ Universal Robots UR5e manipulator functions ---------------------------------
 
-inline void ManipulatorUR5::dynamics(const Pva &pva, Matrix &efforts) {
+host_fn void ManipulatorUR5::dynamics(const Pva &pva, Matrix &efforts) {
     Assert(is_init);
 
     real vel1, vel2, vel3, vel4, vel5, vel6;
@@ -345,7 +350,7 @@ inline void ManipulatorUR5::dynamics(const Pva &pva, Matrix &efforts) {
     }
 }
 
-inline void ManipulatorUR5::init_dynamics(real mass) {
+host_fn void ManipulatorUR5::init_dynamics(real mass) {
     is_init = true;
 
     base_p.z = 0.089159f;
@@ -443,7 +448,7 @@ inline void ManipulatorUR5::init_dynamics(real mass) {
 
 //------ Kinova Gen3 Lite manipulator functions --------------------------------------
 
-inline Gen3Lite::Gen3Lite() : Manipulator(6) {
+host_fn Gen3Lite::Gen3Lite() : Manipulator(6) {
     // position of the first joint with respect to the table in the center of the base
     p_base = {0, 0, 0.1283f};
 
@@ -500,16 +505,16 @@ inline Gen3Lite::Gen3Lite() : Manipulator(6) {
     pmax = {2.69f, 2.69f, 2.69f, 2.59f, 2.57f, 2.59f}; // rad
     vmax = {1.6f, 1.6f, 1.6f, 1.6f, 1.6f, 3.2f};       // rad/s
     tau_max = {10, 14, 10, 7, 7, 7};                   // Nm
-    // vmin = -vmax;
-    // pmin = -pmax;
-    // tau_min = -tau_max; todo: commented out ?
+    vmin = -vmax;
+    pmin = -pmax;
+    tau_min = -tau_max;
 }
 
-inline void Gen3Lite::dynamics(const Pva &pva, Matrix &efforts) {
+host_fn void Gen3Lite::dynamics(const Pva &pva, Matrix &efforts) {
     dynamics(pva.pos, pva.vel, pva.acc, efforts);
 }
 
-inline void Gen3Lite::dynamics(const Matrix &pos, const Matrix &vel, const Matrix &acc, Matrix &efforts) {
+host_fn void Gen3Lite::dynamics(const Matrix &pos, const Matrix &vel, const Matrix &acc, Matrix &efforts) {
 
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
     Mat3 Q1t, Q2t, Q3t, Q4t, Q5t, Q6t;
@@ -631,14 +636,14 @@ inline void Gen3Lite::dynamics(const Matrix &pos, const Matrix &vel, const Matri
     }
 }
 
-inline Array Gen3Lite::forward_kinematics(Array &joint_position) {
+host_fn Array Gen3Lite::forward_kinematics(Array &joint_position) {
     auto p = joint_position.data;
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
 
 #if BLAST_SIZEOF_REAL == 8 // double precision
+    real s[6];
+    real c[6];
     // first 4
-        real s[6];
-        real c[6];
     {
         __m256d s_tmp;
         __m256d c_tmp;
@@ -695,7 +700,7 @@ inline Array Gen3Lite::forward_kinematics(Array &joint_position) {
     return pose;
 }
 
-inline Matrix Gen3Lite::jacobian(const Array& joint_position) {
+host_fn Matrix Gen3Lite::jacobian(const Array& joint_position) {
 
     auto p = joint_position.data;
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
@@ -808,7 +813,7 @@ inline Matrix Gen3Lite::jacobian(const Array& joint_position) {
 
 //------ Kinova Gen3 7DOF manipulator functions ---------------------------------------
 
-inline Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
+host_fn Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
     // position of the first joint with respect to the table in the center of the base
     p_base = {0, 0, 0.1564f};
 
@@ -879,7 +884,7 @@ inline Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
     // tau_min = -tau_max;
 }
 
-inline void Gen3_7DOF::set_payload(const real mass) {
+host_fn void Gen3_7DOF::set_payload(const real mass) {
     // Set to default
     m[6] = 0.364f + 0.921f;
     av[6] = {-0.000093f, 0.000132f, -0.022905f};
@@ -907,7 +912,7 @@ inline void Gen3_7DOF::set_payload(const real mass) {
     I[6](2, 2) += m_old*delta_av.z*delta_av.z + mass*av_to_mass.z*av_to_mass.z;
 }
 
-inline void Gen3_7DOF::set_payload_without_gripper(const real mass) {
+host_fn void Gen3_7DOF::set_payload_without_gripper(const real mass) {
     // Set to default
     m[6] = 0.364f;
     av[6] = {-0.000093f, 0.000132f, -0.022905f};
@@ -933,11 +938,11 @@ inline void Gen3_7DOF::set_payload_without_gripper(const real mass) {
     I[6](2, 2) += m_old*delta_av.z*delta_av.z + mass*av_to_mass.z*av_to_mass.z;
 }
 
-inline void Gen3_7DOF::dynamics(const Pva &pva, Matrix &efforts) {
+host_fn void Gen3_7DOF::dynamics(const Pva &pva, Matrix &efforts) {
     dynamics(pva.pos, pva.vel, pva.acc, efforts);
 }
 
-inline void Gen3_7DOF::dynamics(const Matrix &pos, const Matrix &vel, const Matrix &acc, Matrix &efforts) {
+host_fn void Gen3_7DOF::dynamics(const Matrix &pos, const Matrix &vel, const Matrix &acc, Matrix &efforts) {
 
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
     Mat3 Q1t, Q2t, Q3t, Q4t, Q5t, Q6t, Q7t;
@@ -1064,7 +1069,7 @@ inline void Gen3_7DOF::dynamics(const Matrix &pos, const Matrix &vel, const Matr
     }
 }
 
-inline void Gen3_7DOF::dynamics(const Matrix &pos, const Matrix &vel, const Matrix &acc) {
+host_fn void Gen3_7DOF::dynamics(const Matrix &pos, const Matrix &vel, const Matrix &acc) {
     const auto points = pos.cols;
     const auto joints = pos.rows;
     if (_efforts.cols != points || _efforts.rows != joints)
@@ -1073,7 +1078,7 @@ inline void Gen3_7DOF::dynamics(const Matrix &pos, const Matrix &vel, const Matr
     dynamics(pos, vel, acc, _efforts);
 }
 
-inline Array Gen3_7DOF::forward_kinematics(const Array &joint_position) {
+host_fn Array Gen3_7DOF::forward_kinematics(const Array &joint_position) {
 
     //  - note: manual SIMD (10% better performance than using sincos function on arrays like commented below)
     real s[8];
@@ -1138,7 +1143,7 @@ inline Array Gen3_7DOF::forward_kinematics(const Array &joint_position) {
     return pose;
 }
 
-inline Matrix Gen3_7DOF::forward_kinematics(const Matrix &joint_positions) {
+host_fn Matrix Gen3_7DOF::forward_kinematics(const Matrix &joint_positions) {
     auto p = joint_positions.data;
     Matrix pose(12, joint_positions.cols);
 
@@ -1224,7 +1229,7 @@ inline Matrix Gen3_7DOF::forward_kinematics(const Matrix &joint_positions) {
     return pose;
 }
 
-inline Matrix Gen3_7DOF::jacobian(const Array &joint_position) {
+host_fn Matrix Gen3_7DOF::jacobian(const Array &joint_position) {
 
     auto p = joint_position.data;
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
@@ -1273,21 +1278,21 @@ inline Matrix Gen3_7DOF::jacobian(const Array &joint_position) {
 
     Vec3 r[7];
     r[6] = dv[6];
-    r[5] = dv[5] + Q7 * r[7];
-    r[4] = dv[4] + Q6 * r[6];
-    r[3] = dv[3] + Q5 * r[5];
-    r[2] = dv[2] + Q4 * r[4];
-    r[1] = dv[1] + Q3 * r[3];
-    r[0] = dv[0] + Q2 * r[2];
+    r[5] = dv[5] + Q7 * r[6];
+    r[4] = dv[4] + Q6 * r[5];
+    r[3] = dv[3] + Q5 * r[4];
+    r[2] = dv[2] + Q4 * r[3];
+    r[1] = dv[1] + Q3 * r[2];
+    r[0] = dv[0] + Q2 * r[1];
 
     Q_tmp = Q1;
-    r[0] = (Q_tmp) * r[1];
-    r[1] = (Q_tmp *= Q2) * r[2];
-    r[2] = (Q_tmp *= Q3) * r[3];
-    r[3] = (Q_tmp *= Q4) * r[4];
-    r[4] = (Q_tmp *= Q5) * r[5];
-    r[5] = (Q_tmp *= Q6) * r[6];
-    r[6] = (Q_tmp *= Q7) * r[7];
+    r[0] = (Q_tmp) * r[0];
+    r[1] = (Q_tmp *= Q2) * r[1];
+    r[2] = (Q_tmp *= Q3) * r[2];
+    r[3] = (Q_tmp *= Q4) * r[3];
+    r[4] = (Q_tmp *= Q5) * r[4];
+    r[5] = (Q_tmp *= Q6) * r[5];
+    r[6] = (Q_tmp *= Q7) * r[6];
 
     auto cr0 = cross(e_1[0], r[0]);
     auto cr1 = cross(e_1[1], r[1]);
@@ -1346,7 +1351,7 @@ inline Matrix Gen3_7DOF::jacobian(const Array &joint_position) {
     return J;
 }
 
-inline Array Gen3_7DOF::collision_check(const Array &joint_position) {
+host_fn Array Gen3_7DOF::collision_check(const Array &joint_position) {
     real s[8];
     real c[8];
     auto p = joint_position.data;
@@ -1393,8 +1398,8 @@ inline Array Gen3_7DOF::collision_check(const Array &joint_position) {
     p_tmp += (Q_tmp *= Q7) * dv[6];
     p_ee = p_tmp;
 
-    const real r1sqr = 0.087 * 0.087;
-    const real r2sqr = 0.11 * 0.11;
+    const real r1sqr = 0.0875 * 0.0875;
+    const real r2sqr = 0.0875 * 0.0875;
 
     // Self collisions sqr
     real dist1sqr = two_segment_distance_sqr(p_orig, p_j2, p_j6, p_ee) - r1sqr;
@@ -1413,14 +1418,14 @@ inline Array Gen3_7DOF::collision_check(const Array &joint_position) {
     real distTEE = p_ee.z - p_table.z - r6table;
 
     // Array of distance min sqr and distance from table sqr
-    Array distMin(5); 
+    Array distMin(5);
     distMin = {dist1sqr, dist2sqr, distTJ4, distTJ6, distTEE};
     // todo: Add collision_check function for more obstacles; Array distMin(5) hard coded size
 
     return distMin;
 }
 
-inline Array Gen3_7DOF::constraints(const Array &pos, const Array &vel, const Array &acc) {
+host_fn Array Gen3_7DOF::constraints(const Array &pos, const Array &vel, const Array &acc) {
     Matrix p(pos);
     Matrix v(vel);
     Matrix a(acc);
@@ -1455,24 +1460,24 @@ inline Array Gen3_7DOF::constraints(const Array &pos, const Array &vel, const Ar
     return result;
 }
 
-inline Array Gen3_7DOF::constraints(const Matrix &pos, const Matrix &vel, const Matrix &acc) {
+host_fn Array Gen3_7DOF::constraints(const Matrix &pos, const Matrix &vel, const Matrix &acc) {
     const auto points = pos.cols;
     Array result(ncon(points));
     constraints(pos, vel, acc, result.data);
     return result;
 }
 
-inline Array Gen3_7DOF::constraints(const Pva &pva) {
+host_fn Array Gen3_7DOF::constraints(const Pva &pva) {
     Array result(ncon(pva.points));
     constraints(pva.pos, pva.vel, pva.acc, result.data);
     return result;
 }
 
-inline void Gen3_7DOF::constraints(const Pva &pva, real *dst) {
+host_fn void Gen3_7DOF::constraints(const Pva &pva, real *dst) {
     constraints(pva.pos, pva.vel, pva.acc, dst);
 }
 
-inline void Gen3_7DOF::constraints(const Matrix &pos, const Matrix &vel, const Matrix &acc, real *dst) {
+host_fn void Gen3_7DOF::constraints(const Matrix &pos, const Matrix &vel, const Matrix &acc, real *dst) {
     const auto points = pos.cols;
 
     dynamics(pos, vel, acc);
@@ -1505,14 +1510,18 @@ inline void Gen3_7DOF::constraints(const Matrix &pos, const Matrix &vel, const M
     }
 }
 
-inline bool Gen3_7DOF::validate_task(const Matrix &task) {
+host_fn bool Gen3_7DOF::validate_task(const Matrix &task) {
     auto ci = constraints(task.col(0), task.col(1), task.col(2));
     auto cf = constraints(task.col(3), task.col(4), task.col(5));
     return array_max(ci) > 0 && array_max(cf) > 0 ? false: true;
 }
 
-//------ FOR GPU COMPUTATION ONLY ------------------------------------------------------------------------------------
 
+
+
+
+
+// note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
 host_fn void cuGen3_7DOF::init(real mass, u32 npoints) {
     // position of the first joint with respect to the table in the center of the base
@@ -1786,14 +1795,14 @@ TEST_CASE("SelfCollision", "Manipulator") {
     auto dist_sqr_min_3 = manip.collision_check(theta3);
     auto dist_sqr_min_4 = manip.collision_check(theta4);
 
-    REQUIRE(dist_sqr_min_1[0] > 0);
-    REQUIRE(dist_sqr_min_1[1] > 0);
-    REQUIRE(dist_sqr_min_2[0] > 0);
-    REQUIRE(dist_sqr_min_2[1] > 0);
-    REQUIRE(dist_sqr_min_3[0] < 0);
-    REQUIRE(dist_sqr_min_3[1] < 0);
-    REQUIRE(dist_sqr_min_4[0] < 0);
-    REQUIRE(dist_sqr_min_4[1] > 0);
+    CHECK(dist_sqr_min_1[0] > 0);
+    CHECK(dist_sqr_min_1[1] > 0);
+    CHECK(dist_sqr_min_2[0] > 0);
+    CHECK(dist_sqr_min_2[1] > 0);
+    CHECK(dist_sqr_min_3[0] < 0);
+    CHECK(dist_sqr_min_3[1] < 0);
+    CHECK(dist_sqr_min_4[0] < 0);
+    CHECK(dist_sqr_min_4[1] > 0);
 }
 
 #endif // tests
