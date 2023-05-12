@@ -1,8 +1,6 @@
 #pragma once
 #include "blast.hpp"
 
-#include "blast_optional_utilities.hpp"
-
 namespace blast {
 
 // Container for the position, velocity, and acceleration matrices and the time vector.
