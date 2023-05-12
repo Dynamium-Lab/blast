@@ -71,6 +71,7 @@ struct Vec3 {
 
     Vec3() = default;
 
+    blast_fn real& operator[](u32 i);
     blast_fn Vec3(real x, real y, real z);
 };
 
@@ -85,6 +86,8 @@ struct Mat3 {
     blast_fn real& operator()(u32 row, u32 col);
     blast_fn real& operator[](u32 i);
     blast_fn real operator[](u32 i) const ;
+
+    blast_fn Vec3 col(u32 c);
 };
 
 // 4x4 matrix
@@ -493,6 +496,10 @@ blast_fn real clamp(real val, real mini, real maxi) {
 
 
 //------ Vec3 ---------------------
+blast_fn real& Vec3::operator[](u32 i) {
+    Assert(i < 3);
+    return *(&x + i); //note: Don't try this at home
+}
 
 blast_fn Vec3::Vec3(real x, real y, real z)
     : x(x), y(y), z(z), _pad(0) {
@@ -637,6 +644,11 @@ blast_fn real& Mat3::operator[](u32 i) {
 blast_fn real Mat3::operator[](u32 i) const {
     Assert(i < 9);
     return data[i];
+}
+
+blast_fn Vec3 Mat3::col(u32 c) {
+    Assert(c < 3);
+    return Vec3(data[c*3+0], data[c*3+1], data[c*3+2]);
 }
 
 
@@ -1538,6 +1550,16 @@ TEST_CASE("Arrays", "[Math]") {
             REQUIRE(c.is_alias);
         }
     }
+
+    SECTION("Correct Vec3 addressing") {
+        Vec3 a = {1, 2, 3};
+        REQUIRE(a.x == a[0]);
+        REQUIRE(a.y == a[1]);
+        REQUIRE(a.z == a[2]);
+        REQUIRE(a.x == 1);
+        REQUIRE(a.y == 2);
+        REQUIRE(a.z == 3);
+    }
 }
 
 TEST_CASE("Mat3", "[Math]") {
@@ -1588,6 +1610,25 @@ TEST_CASE("Mat3", "[Math]") {
         for (u32 i = 0; i < 9; i++) {
             REQUIRE((float)m1[i] == (float)m3[i]);
             REQUIRE((float)m1[i] == (float)m4[i]);
+        }
+    }
+
+    // col
+    {
+        Mat3 m;
+        for (u32 i = 0; i < 9; i++) {
+            m[i] = 10*get_random();
+        }
+
+        Vec3 v[3];
+        v[0] = m.col(0);
+        v[1] = m.col(1);
+        v[2] = m.col(2);
+
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                REQUIRE(m(i, j) == v[j][i]);
+            }
         }
     }
 }
