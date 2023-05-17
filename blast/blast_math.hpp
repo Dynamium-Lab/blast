@@ -1308,6 +1308,15 @@ blast_fn Array Matrix::col(u32 c) const {
     return result;
 }
 
+blast_fn Matrix transpose(const Matrix& m) {
+    Matrix result(m.cols, m.rows);
+    for (int i = 0; i < m.cols; i++) {
+        for (int j = 0; j < m.rows; j++) {
+            result(i, j) = m(j, i);
+        }
+    }
+    return result;
+}
 
 
 
@@ -1672,6 +1681,19 @@ TEST_CASE("TwoSegmentDist", "[Math]") {
     REQUIRE((float)dist_sqr_test4 == 3.f);
 }
 
+TEST_CASE("MatrixOperations", "[Math]") {
+    blast::Matrix m(3, 2);
+    for (int i = 0; i < m.size; i++)
+        m.data[i] = i;
+    auto mT = transpose(m);
+
+    REQUIRE(mT(0,0) == m(0,0));
+    REQUIRE(mT(0,1) == m(1,0));
+    REQUIRE(mT(0,2) == m(2,0));
+    REQUIRE(mT(1,0) == m(0,1));
+    REQUIRE(mT(1,1) == m(1,1));
+    REQUIRE(mT(1,2) == m(2,1));
+}
 
 #endif
 
