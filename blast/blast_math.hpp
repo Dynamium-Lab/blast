@@ -553,7 +553,7 @@ blast_fn Vec3 operator*(Vec3 a, real b) {
     };
 }
 
-blast_fn Vec3& operator+=(Vec3& v1, Vec3& v2) {
+blast_fn Vec3& operator+=(Vec3& v1, const Vec3& v2) {
     v1.x += v2.x;
     v1.y += v2.y;
     v1.z += v2.z;
@@ -609,14 +609,14 @@ blast_fn Mat3& operator*=(Mat3& lhs, const Mat3& rhs) {
     return lhs;
 }
 
-blast_fn Mat3 operator+(Mat3& lhs, Mat3& rhs) {
+blast_fn Mat3 operator+(const Mat3& lhs, const Mat3& rhs) {
     Mat3 r;
     for (u32 i = 0; i < 9; i++)
         r.data[i] = lhs.data[i] + rhs.data[i];
     return r;
 }
 
-blast_fn Mat3& operator+=(Mat3& lhs, Mat3& rhs) {
+blast_fn Mat3& operator+=(Mat3& lhs, const Mat3& rhs) {
     lhs = lhs + rhs;
     return lhs;
 }
