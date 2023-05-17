@@ -1319,6 +1319,29 @@ blast_fn Matrix transpose(const Matrix& m) {
 }
 
 
+blast_fn real determinant(const Matrix & m) {
+    int n = m.rows;
+    Matrix LU = m;
+
+    for (int k = 0; k < n; k++) {
+        for (int i = k + 1; i < n; i++) {
+            LU(i,k) /= LU(k,k);
+            for (int j = k + 1; j < n; j++) {
+                LU(i,j) -= LU(i,k) * LU(k,j);
+            }
+        }
+    }
+
+    real det = 1.0;
+    for (int i = 0; i < n; i++) {
+        det *= LU(i,i);
+    }
+
+    return det;
+}
+
+   
+
 
 
 //------ Collision ---------------------
