@@ -1339,6 +1339,91 @@ blast_fn real determinant(const Matrix & m) {
 
     return det;
 }
+blast_fn Matrix LU_decomp(const Matrix& m) {
+    int n = m.rows;
+    Matrix LU = m;
+
+    for (int k = 0; k < n; k++) {
+        for (int i = k + 1; i < n; i++) {
+            LU(i, k) /= LU(k, k);
+            for (int j = k + 1; j < n; j++) {
+                LU(i, j) -= LU(i, k) * LU(k, j);
+            }
+        }
+    }
+    return LU; 
+}
+Matrix solveLU(const Matrix& LU, const Matrix& b) {
+    int n = LU.rows;
+    Matrix x(n, 1);
+
+    // Résolution de Ly = b (étape de substitution avant)
+    for (int i = 0; i < n; i++) {
+        real sum = 0.0;
+        for (int j = 0; j < i; j++) {
+            // Somme des termes L(i, j) * y(j)
+            sum += LU(i, j) * x(j, 0);
+        }
+        // Calcul de y(i) = b(i) - sum
+        x(i, 0) = b(i, 0) - sum;
+    }
+
+    // Résolution de Ux = y (étape de substitution arrière)
+    for (int i = n - 1; i >= 0; i--) {
+        real sum = 0.0;
+        for (int j = i + 1; j < n; j++) {
+            // Somme des termes U(i, j) * x(j)
+            sum += LU(i, j) * x(j, 0);
+        }
+        // Calcul de x(i) = (y(i) - sum) / U(i, i)
+        x(i, 0) = (x(i, 0) - sum) / LU(i, i);
+    }
+
+    return x;
+}
+
+void setMatrixColumn(Matrix& m, const Matrix& column, int col) {
+    int numRows = m.rows;
+
+    for (int i = 0; i < numRows; i++) {
+        // Copie des éléments de la colonne 'column' dans la colonne 'col' de la matrice 'm'
+        m(i, col) = column(i, 0);
+    }
+}
+
+blast_fn Matrix inverse(const Matrix& m) {
+    int n = m.rows;
+    Matrix LU = LU_decomp(m); // Effectue la décomposition LU de la matrice d'origine
+    Matrix inv(n, n); // Crée une matrice inverse vide de même taille que la matrice d'origine
+
+    for (int i = 0; i < n; i++) {
+        Matrix identity(n, 1); // Crée un vecteur colonne identité
+        identity(i, 0) = 1.0; // Modifie la valeur correspondant à la ligne courante pour obtenir une colonne de l'identité
+
+        Matrix column = solveLU(LU, identity); // Résout le système linéaire LU * column = identity pour obtenir la colonne de l'inverse
+
+        setMatrixColumn(inv, column, i); // Place la colonne calculée dans la matrice inverse
+    }
+
+    return inv; // Retourne la matrice inverse
+}
+
+blast_fn Matrix pinv(const Matrix& m) {
+    
+    Matrix res(m.cols, m.rows);
+    if (m.cols >= m.rows) {
+        res = transpose(m) * inverse(m * transpose(m));
+    }
+    else { 
+        res = inverse(transpose(m) * m) * transpose(m); 
+    }
+    return res;
+
+}
+
+
+
+
 
    
 
