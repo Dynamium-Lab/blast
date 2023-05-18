@@ -1411,12 +1411,12 @@ blast_fn Matrix inverse(const Matrix& m) {
 blast_fn Matrix pinv(const Matrix& m) {
     
     Matrix res(m.cols, m.rows);
-    if (m.cols >= m.rows) {
+    /*if (m.cols >= m.rows) {
         res = transpose(m) * inverse(m * transpose(m));
     }
     else { 
         res = inverse(transpose(m) * m) * transpose(m); 
-    }
+    }*/
     return res;
 
 }
