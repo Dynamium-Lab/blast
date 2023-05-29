@@ -1231,7 +1231,7 @@ host_fn Matrix Gen3_7DOF::forward_kinematics(const Matrix &joint_positions) {
     return pose;
 }
 
-blast_fn Array Gen3_7DOF::inverse_kinematics(const Array& pose, const Array& initial_joint_position) {
+host_fn Array Gen3_7DOF::inverse_kinematics(const Array& pose, const Array& initial_joint_position) {
 
 
     const double tolerance = 0.001; // Tolerance for convergence
