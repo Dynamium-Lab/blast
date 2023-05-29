@@ -1308,6 +1308,34 @@ blast_fn Array Matrix::col(u32 c) const {
     return result;
 }
 
+blast_fn Matrix operator*(const Matrix& lhs, const Matrix& rhs) {
+    Assert(lhs.cols == rhs.rows);
+    Matrix result(lhs.rows, rhs.cols);
+    for (u32 i = 0; i < lhs.rows; i++) {
+        for (u32 j = 0; j < rhs.cols; j++) {
+            real sum = 0;
+            for (u32 k = 0; k < lhs.cols; k++) {
+                sum += lhs(i, k) * rhs(k, j);
+            }
+            result(i, j) = sum;
+        }
+    }
+    return result;
+}
+
+blast_fn Array operator*(const Matrix& m, const Array& v) {
+    Assert(m.cols == v.size);
+    Array result(m.rows);
+    for (u32 i = 0; i < m.rows; i++) {
+        real sum = 0;
+        for (u32 j = 0; j < m.cols; j++) {
+            sum += m(i, j) * v[j];
+        }
+        result[i] = sum;
+    }
+    return result;
+}
+
 blast_fn Matrix transpose(const Matrix& m) {
     Matrix result(m.cols, m.rows);
     for (int i = 0; i < m.cols; i++) {
@@ -1318,27 +1346,27 @@ blast_fn Matrix transpose(const Matrix& m) {
     return result;
 }
 
-
 blast_fn real determinant(const Matrix & m) {
     int n = m.rows;
     Matrix LU = m;
 
     for (int k = 0; k < n; k++) {
         for (int i = k + 1; i < n; i++) {
-            LU(i,k) /= LU(k,k);
+            LU(i, k) /= LU(k, k);
             for (int j = k + 1; j < n; j++) {
-                LU(i,j) -= LU(i,k) * LU(k,j);
+                LU(i, j) -= LU(i, k) * LU(k, j);
             }
         }
     }
 
     real det = 1.0;
     for (int i = 0; i < n; i++) {
-        det *= LU(i,i);
+        det *= LU(i, i);
     }
 
     return det;
 }
+
 blast_fn Matrix LU_decomp(const Matrix& m) {
     int n = m.rows;
     Matrix LU = m;
@@ -1351,81 +1379,70 @@ blast_fn Matrix LU_decomp(const Matrix& m) {
             }
         }
     }
-    return LU; 
+    return LU;
 }
-Matrix solveLU(const Matrix& LU, const Matrix& b) {
-    int n = LU.rows;
-    Matrix x(n, 1);
 
-    // Résolution de Ly = b (étape de substitution avant)
+Array solveLU(const Matrix& LU, const Array& b) {
+    int n = LU.rows;
+    Array x(n, 0.0);
+
     for (int i = 0; i < n; i++) {
         real sum = 0.0;
-        for (int j = 0; j < i; j++) {
-            // Somme des termes L(i, j) * y(j)
-            sum += LU(i, j) * x(j, 0);
-        }
-        // Calcul de y(i) = b(i) - sum
-        x(i, 0) = b(i, 0) - sum;
+        for (int j = 0; j < i; j++)
+            sum += LU(i, j) * x[j];
+
+        x[i] = b[i] - sum;
     }
 
-    // Résolution de Ux = y (étape de substitution arrière)
+    // Solve Ux = y (backsubstitution)
     for (int i = n - 1; i >= 0; i--) {
         real sum = 0.0;
-        for (int j = i + 1; j < n; j++) {
-            // Somme des termes U(i, j) * x(j)
-            sum += LU(i, j) * x(j, 0);
-        }
-        // Calcul de x(i) = (y(i) - sum) / U(i, i)
-        x(i, 0) = (x(i, 0) - sum) / LU(i, i);
+        for (int j = i + 1; j < n; j++)
+            sum += LU(i, j) * x[j];
+
+        x[i] = (x[i] - sum) / LU(i, i);
     }
 
     return x;
 }
 
-void setMatrixColumn(Matrix& m, const Matrix& column, int col) {
-    int numRows = m.rows;
-
-    for (int i = 0; i < numRows; i++) {
-        // Copie des éléments de la colonne 'column' dans la colonne 'col' de la matrice 'm'
-        m(i, col) = column(i, 0);
-    }
-}
-
 blast_fn Matrix inverse(const Matrix& m) {
+    Assert(m.rows == m.cols); // square matrix
+
     int n = m.rows;
-    Matrix LU = LU_decomp(m); // Effectue la décomposition LU de la matrice d'origine
-    Matrix inv(n, n); // Crée une matrice inverse vide de même taille que la matrice d'origine
+    Matrix LU = LU_decomp(m);
+    Matrix inv(n, n);
 
     for (int i = 0; i < n; i++) {
-        Matrix identity(n, 1); // Crée un vecteur colonne identité
-        identity(i, 0) = 1.0; // Modifie la valeur correspondant à la ligne courante pour obtenir une colonne de l'identité
+        // unit vector in one dimension
+        Array unit(n);
+        unit[i] = 1.0;
 
-        Matrix column = solveLU(LU, identity); // Résout le système linéaire LU * column = identity pour obtenir la colonne de l'inverse
+        // Solve for the i-th column of the inverse
+        Array column = solveLU(LU, unit);
 
-        setMatrixColumn(inv, column, i); // Place la colonne calculée dans la matrice inverse
+        // insert the column into the inverse matrix
+        inv.col(i) = column;
     }
-
-    return inv; // Retourne la matrice inverse
+    return inv;
 }
 
 blast_fn Matrix pinv(const Matrix& m) {
-    
     Matrix res(m.cols, m.rows);
     /*if (m.cols >= m.rows) {
         res = transpose(m) * inverse(m * transpose(m));
     }
-    else { 
-        res = inverse(transpose(m) * m) * transpose(m); 
-    }*/
+    else {
+        res = inverse(transpose(m) * m) * transpose(m);
+    }
     return res;
-
 }
 
 
 
 
 
-   
+
 
 
 
@@ -1795,12 +1812,30 @@ TEST_CASE("MatrixOperations", "[Math]") {
         m.data[i] = i;
     auto mT = transpose(m);
 
-    REQUIRE(mT(0,0) == m(0,0));
-    REQUIRE(mT(0,1) == m(1,0));
-    REQUIRE(mT(0,2) == m(2,0));
-    REQUIRE(mT(1,0) == m(0,1));
-    REQUIRE(mT(1,1) == m(1,1));
-    REQUIRE(mT(1,2) == m(2,1));
+    REQUIRE(mT(0, 0) == m(0, 0));
+    REQUIRE(mT(0, 1) == m(1, 0));
+    REQUIRE(mT(0, 2) == m(2, 0));
+    REQUIRE(mT(1, 0) == m(0, 1));
+    REQUIRE(mT(1, 1) == m(1, 1));
+    REQUIRE(mT(1, 2) == m(2, 1));
+
+
+    blast::Matrix m2(2, 3);
+    for (int i = 0; i < m2.size; i++)
+        m2.data[i] = i+1;
+
+    auto m3 = m * m2;
+    REQUIRE(m3.cols == 3);
+    REQUIRE(m3.rows == 3);
+    REQUIRE(m3(0, 0) == 6);
+    REQUIRE(m3(0, 1) == 12);
+    REQUIRE(m3(0, 2) == 18);
+    REQUIRE(m3(1, 0) == 9);
+    REQUIRE(m3(1, 1) == 19);
+    REQUIRE(m3(1, 2) == 29);
+    REQUIRE(m3(2, 0) == 12);
+    REQUIRE(m3(2, 1) == 26);
+    REQUIRE(m3(2, 2) == 40);
 }
 
 #endif
