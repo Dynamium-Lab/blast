@@ -4,8 +4,8 @@ echo 'building tests and benchmarks'
 pushd "examples/build"
 
 set includes=-I "../../blast/" -I "../../blast/optional"
-set options= --std c++17 -m64 -O0 -g -D BLAST_DEBUG
+set options= /DEBUG -D BLAST_DEBUG /EHsc /MDd /std:c++17 /Z7
 @REM set options= --std c++17 -m64 -O3
-nvcc ../tests.cu -o tests.exe %includes% %options% %libr%
+cl ../tests.cpp -o tests.exe %includes% %options%
 
 popd
