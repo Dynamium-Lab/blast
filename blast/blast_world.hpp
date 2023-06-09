@@ -64,6 +64,11 @@ struct objlist {
 };
 objlist world;
 
+struct robot {
+    Vec3 pts[]; // pts of the center of every articulation in the given position
+    Vec3 r[]; // radii of the respective link
+}
+
 
 // A paper in 2005 suggested an elegant solution to the problem of the point in the triangle. This is this solution (adapted from https://gamedev.stackexchange.com/questions/28781/easy-way-to-project-point-onto-triangle-or-plane)
 bool pointInTriangle(Vec3 V1, Vec3 V2, Vec3 o, Vec3 P) {
@@ -606,92 +611,145 @@ void add_caps(Vec3 p1, Vec3 p2, real r) {
     world.capslist.push_back(new_caps);
 }
  
-// real test_collision(/*robot, */objlist world, int n_var){
+real test_collision(/*robot, */objlist world, int n_var){
 
-// !!!MANQUE SELF-COLLISION
+!!!MANQUE SELF-COLLISION
 
-//     // real dist_min[n_var];
-//     // int idx = 0;
+    real dist_min[n_var];
+    int idx = 0;
 
-//     // for (int i = 0; i < size(world.OBBlist); i++) {
-//     //     real dist = distmin(t.caps, world.OBBlist[i]);
-//     //     for (int j = 0; j < n_var; j++){
-//     //          if (dist < dist_min[j]) {
-//     //              for (int k = n_var; k > j; k--) {
-//     //                  dist_min[k] = dist_min[k-1];
-//     //              }
-//     //              dist_min[j] = dist;
-//     //              break
-//     //          }
-//     //     }
-//     // }
+    // OBB collisions
+    for (int i = 0; i < size(world.OBBlist); i++) {
+        real dist = distmin(t.caps, world.OBBlist[i]);
+        for (int j = 0; j < n_var; j++){
+                if (dist < dist_min[j]) {
+                    for (int k = n_var; k > j; k--) {
+                        dist_min[k] = dist_min[k-1];
+                    }
+                    dist_min[j] = dist;
+                    break
+                }
+        }
+    }
 
-//     // for (int i = 0; i < size(world.capslist); i++) {
-//     //     real dist = distmin(t.caps, world.capslist[i]);
-//     //     for (int j = 0; j < n_var; j++){
-//     //          if (dist < dist_min[j]) {
-//     //              for (int k = n_var; k > j; k--) {
-//     //                  dist_min[k] = dist_min[k-1];
-//     //              }
-//     //              dist_min[j] = dist;
-//     //              break
-//     //          }
-//     //     }
-//     // }
+    // Capsule collisions
+    for (int i = 0; i < size(world.capslist); i++) {
+        real dist = distmin(t.caps, world.capslist[i]);
+        for (int j = 0; j < n_var; j++){
+                if (dist < dist_min[j]) {
+                    for (int k = n_var; k > j; k--) {
+                        dist_min[k] = dist_min[k-1];
+                    }
+                    dist_min[j] = dist;
+                    break
+                }
+        }
+    }
 
-//     // for (int i = 0; i < size(world.cyllist); i++) {
-//     //     real dist = distmin(t.caps, world.cyllist[i]);
-//     //     for (int j = 0; j < n_var; j++){
-//     //          if (dist < dist_min[j]) {
-//     //              for (int k = n_var; k > j; k--) {
-//     //                  dist_min[k] = dist_min[k-1];
-//     //              }
-//     //              dist_min[j] = dist;
-//     //              break
-//     //          }
-//     //     }
-//     // }
+    // Cylinder collisions
+    for (int i = 0; i < size(world.cyllist); i++) {
+        real dist = distmin(t.caps, world.cyllist[i]);
+        for (int j = 0; j < n_var; j++){
+                if (dist < dist_min[j]) {
+                    for (int k = n_var; k > j; k--) {
+                        dist_min[k] = dist_min[k-1];
+                    }
+                    dist_min[j] = dist;
+                    break
+                }
+        }
+    }
 
-//     // for (int i = 0; i < size(world.sphlist); i++) {
-//     //     real dist = distmin(t.caps, world.sphlist[i]);
-//     //     for (int j = 0; j < n_var; j++){
-//     //          if (dist < dist_min[j]) {
-//     //              for (int k = n_var; k > j; k--) {
-//     //                  dist_min[k] = dist_min[k-1];
-//     //              }
-//     //              dist_min[j] = dist;
-//     //              break
-//     //          }
-//     //     }
-//     // }
-//     // return dist_min;
+    // Sphere collisions
+    for (int i = 0; i < size(world.sphlist); i++) {
+        real dist = distmin(t.caps, world.sphlist[i]);
+        for (int j = 0; j < n_var; j++){
+                if (dist < dist_min[j]) {
+                    for (int k = n_var; k > j; k--) {
+                        dist_min[k] = dist_min[k-1];
+                    }
+                    dist_min[j] = dist;
+                    break
+                }
+        }
+    }
 
-//     real dist_min;
+    // Self-collision
+    // note : this does not take into account the collision between two subsequent links of a robot, 
+    // which means that angle constraints must be put on the articulations.
+    real n_pts = size(robot.pts);
+    real n_link = n_pts - 1;
+    capsule link[n_link];
 
+    for (int i = 0; i < n_pts - 1; i++) {
+        link[i].p1 = robot.pts[i];
+        link[i].p2 = robot.pts[i+1];
+        link[i].r = robot.r[i];
+    }
+
+    for (int i = 0; i < n_link; i++) {
+        for (int j = 2 + i; j < n_link; j++) {
+            dist = distmin(link[i], link[i+j]);
+            for (int k = 0; k < n_var; k++){
+                if (dist < dist_min[j]) {
+                    for (int l = n_var; l > k; l--) {
+                        dist_min[l] = dist_min[l-1];
+                    }
+                    dist_min[k] = dist;
+                    break
+                }
+            }
+        }
+    }
+
+    return dist_min;
+}
+
+//    note: this is a simpler version of the collision test which only allows for one minimum distance to be returned. 
+//    It could easily be adapted to include all distances as well.
+//    real dist_min;
+//
 //     for (int i = 0; i < size(world.OBBlist); i++) {
 //         real dist = distmin(caps, world.OBBlist[i]);
 //         if (dist < dist_min)
 //             dist_min = dist;
 //     }
-
+//
 //     for (int i = 0; i < size(world.capslist); i++) {
 //         real dist = distmin(caps, world.capslist[i]);
 //         if (dist < dist_min)
 //             dist_min = dist;
 //     }
-
+//
 //     for (int i = 0; i < size(world.sphlist); i++) {
 //         real dist = distmin(caps, world.sphlist[i]);
 //         if (dist < dist_min)
 //             dist_min = dist;
 //     }
-
+//
 //     for (int i = 0; i < size(world.cyllist); i++) {
 //         real dist = distmin(caps, world.cyllist[i]);
 //         if (dist < dist_min)
 //             dist_min = dist;
 //     }
-
+// real n_pts = size(robot.pts);
+// real n_link = n_pts - 1;
+// capsule link[n_link];
+//
+// for (int i = 0; i < n_pts - 1; i++) {
+//     link[i].p1 = robot.pts[i];
+//     link[i].p2 = robot.pts[i+1];
+//     link[i].r = robot.r[i];
+// }
+//
+// for (int i = 0; i < n_link; i++) {
+//     for (int j = 2 + i; j < n_link; j++) {
+//         dist = distmin(link[i], link[i+j]);
+//         if (dist < dist_min)
+//             dist_min = dist;
+//     }
+// }
+//
 //     return dist_min;
 // }
 
