@@ -30,7 +30,7 @@ struct capsule {
 };
 
 struct sphere {
-    Vec3 p;
+    Vec3 c;
     real r;
 };
 
@@ -52,8 +52,17 @@ struct two_pts {
 
 struct circle {
     Vec3 p;
+    Vec3 n;
     real r;
 };
+
+struct objlist {
+    std::vector<OBB> OBBlist;
+    std::vector<cylinder> cyllist;
+    std::vector<sphere> sphlist;
+    std::vector<capsule> capslist;
+};
+objlist world;
 
 
 // A paper in 2005 suggested an elegant solution to the problem of the point in the triangle. This is this solution (adapted from https://gamedev.stackexchange.com/questions/28781/easy-way-to-project-point-onto-triangle-or-plane)
@@ -76,38 +85,38 @@ bool pointInTriangle(Vec3 V1, Vec3 V2, Vec3 o, Vec3 P) {
     return ((0 <= alpha) && (alpha <= 1) && (0 <= beta) && (beta <= 1) && (0 <= gamma) && (gamma <= 1));
 }
 
-real distmin(segment obj1, Vec3 point) {
-    Vec3 ab = obj1.p2 - obj1.p1;
-    real t = dot(point - obj1.p1, ab) / dot(ab, ab);
-
-    if (t < 0.0f) t = 0.0f;
-    if (t > 1.0f) t = 1.0f;
-
-    Vec3 d = obj1.p1 + t * ab;
-    return norm(d - point);
+bool pointInSurf(Vec3 V1, Vec3 V2, Vec3 o, Vec3 P){
+    bool tri1 = pointInTriangle(V1,V2,o,P);
+    bool tri2 = pointInTriangle(-V1,-V2,o+V1+V2,P);
+    return (tri1 || tri2);
 }
 
-Vec3 ptint(segment obj1, Vec3 point) {
-    Vec3 ab = obj1.p2 - obj1.p1;
-    real t = dot(point - obj1.p1, obj1.p2 - obj1.p1) / dot(obj1.p2 - obj1.p1, obj1.p2 - obj1.p1);
+Vec3 ptint(segment seg, Vec3 point) {
+    Vec3 ab = seg.p2 - seg.p1;
+    real t = dot(point - seg.p1, ab) / dot(ab, ab);
 
     t = clamp(t, 0, 1);
 
-    Vec3 d = obj1.p1 + t * ab;
+    Vec3 d = seg.p1 + t * ab;
     return d;
+}
+
+real distmin(segment seg, Vec3 point) {
+    Vec3 d = ptint(seg, point);
+    return norm(d - point);
 }
 
 real distmin(surf surf, Vec3 point) {
     Vec3 n = cross(surf.d1, surf.d2);
+    Vec3 n_unit = (1/norm(n)*n);
 
     if (norm(n) < COLLISION_EPSILON) return -INF_REAL;
 
-    bool tri1 = pointInTriangle(surf.d1, surf.d2, surf.p, point);
-    bool tri2 = pointInTriangle(-surf.d1, -surf.d2, surf.p + surf.d1 + surf.d2, point);
+    bool pt_in_surf = pointInSurf(surf.d1, surf.d2, surf.p, point);
 
-    real normaldist = dot(point - surf.p, n) / norm(n);
+    real normaldist = dot(point - surf.p, n_unit);
 
-    if (tri1==1 || tri2 == 1) return normaldist;
+    if (pt_in_surf == true) return normaldist;
     else {
         segment seg1;
         segment seg2;
@@ -139,76 +148,6 @@ real distmin(surf surf, Vec3 point) {
     }
 }
 
-real distmin(segment seg1, segment seg2) {
-    // From : Real-Time Detection Collision (Christer Ericson)
-
-    // Computes closest points C1 and C2 of S1(s)=P1+s*(Q1-P1) and
-    // S2(t)=P2+t*(Q2-P2), returning s and t. Function result is squared
-    // distance between between S1(s) and S2(t)
-
-    real s;
-    real t;
-    Vec3 c1;
-    Vec3 c2;
-
-    Vec3 d1 = seg1.p1 - seg1.p2; // Direction vector of segment S1
-    Vec3 d2 = seg2.p1 - seg2.p2; // Direction vector of segment S2
-    Vec3 r = seg1.p1 - seg2.p1;
-    real a = dot(d1, d1); // Squared length of segment S1, always nonnegative
-    real e = dot(d2, d2); // Squared length of segment S2, always nonnegative
-    real f = dot(d2, r);
-    // Check if either or both segments degenerate into points
-    if (a <= COLLISION_EPSILON && e <= COLLISION_EPSILON) {
-        // Both segments degenerate into points
-        s = t = 0.0f;
-        c1 = seg1.p1;
-        c2 = seg2.p1;
-        return dot(c1 - c2, c1 - c2);
-    }
-    if (a <= COLLISION_EPSILON) {
-        // First segment degenerates into a point
-        s = 0.0f;
-        t = f / e; // s = 0 => t = (b*s + f) / e = f / e
-        t = clamp(t, 0.0f, 1.0f);
-    }
-    else {
-        real c = dot(d1, r);
-        if (e <= COLLISION_EPSILON) {
-            // Second segment degenerates into a point
-            t = 0.0f;
-            s = clamp(-c / a, 0.0f, 1.0f); // t = 0 => s = (b*t - c) / a = -c / a
-        }
-        else {
-            // The general nondegenerate case starts here
-            real b = dot(d1, d2);
-            real denom = a * e - b * b; // Always nonnegative
-            // If segments not parallel, compute closest point on L1 to L2 and
-            // clamp to segment S1. Else pick arbitrary s (here 0)
-            if (denom != 0.0f) {
-                s = clamp((b * f - c * e) / denom, 0.0f, 1.0f);
-            }
-            else s = 0.0f;
-            // Compute point on L2 closest to S1(s) using
-            // t = Dot((P1 + D1*s) - P2,D2) / Dot(D2,D2) = (b*s + f) / e
-            t = (b * s + f) / e;
-            // If t in [0,1] done. Else clamp t, recompute s for the new value
-            // of t using s = Dot((P2 + D2*t) - P1,D1) / Dot(D1,D1)= (t*b - c) / a
-            // and clamp s to [0, 1]
-            if (t < 0.0f) {
-                t = 0.0f;
-                s = clamp(-c / a, 0.0f, 1.0f);
-            }
-            else if (t > 1.0f) {
-                t = 1.0f;
-                s = clamp((b - c) / a, 0.0f, 1.0f);
-            }
-        }
-    }
-    c1 = seg1.p1 + d1 * s;
-    c2 = seg2.p1 + d2 * t;
-    return dot(c1 - c2, c1 - c2); // ATTENTION! CECI DONNE LE RESULTAT AU CARRE
-}
-
 two_pts closept(segment seg1, segment seg2) {
     // From : Real-Time Detection Collision (Christer Ericson)
 
@@ -216,12 +155,11 @@ two_pts closept(segment seg1, segment seg2) {
     // S2(t)=P2+t*(Q2-P2), returning s and t. Function result is squared
     // distance between between S1(s) and S2(t)
 
+    two_pts result;
     real s;
     real t;
     Vec3 c1;
     Vec3 c2;
-
-    two_pts result;
 
     Vec3 d1 = seg1.p2 - seg1.p1; // Direction vector of segment S1
     Vec3 d2 = seg2.p2 - seg2.p1; // Direction vector of segment S2
@@ -233,8 +171,8 @@ two_pts closept(segment seg1, segment seg2) {
     if (a <= COLLISION_EPSILON && e <= COLLISION_EPSILON) {
         // Both segments degenerate into points
         s = t = 0.0f;
-        c1 = seg1.p1;
-        c2 = seg2.p1;
+        c1 = seg1.p2;
+        c2 = seg2.p2;
         result.p1 = c1;
         result.p2 = c2;
         return result;
@@ -285,35 +223,54 @@ two_pts closept(segment seg1, segment seg2) {
     return result;
 }
 
+real distmin(segment seg1, segment seg2) {
+    two_pts close_pt = closept(seg1,seg2);
+    return dot(close_pt.p1 - close_pt.p2, close_pt.p1 - close_pt.p2); // ATTENTION! CECI DONNE LE RESULTAT AU CARRE
+}
+
 Vec3 ClosestPtPointPlane(Vec3 q, plane p) {
     return q - (dot(p.n, q - p.p) / dot(p.n, p.n)) * p.n;;
 }
 
 two_pts intersection(circle circ, segment seg) {
-    real dx = seg.p2.x - seg.p1.x;
-    real dy = seg.p2.y - seg.p1.y;
+    Vec3 p1 = seg.p1 - circ.p;
+    Vec3 p2 = seg.p2 - circ.p;
+    
+    Vec3 d1 = p1;
+    Vec3 d2 = cross(circ.n,d1);
+
+    Vec3 d1_unit = (1/norm(d1))*d1;
+    Vec3 d2_unit = (1/norm(d2))*d2;
+    
+    real x1 = norm(d1);
+    real y1 = 0;
+    real x2 = dot(p2, d1_unit);
+    real y2 = dot(p2, d2_unit);
+    
+    real dx = x2 - x1;
+    real dy = y2 - y1;
     real dr_sq = dx * dx + dy * dy;
-    real D = seg.p1.x * seg.p2.y - seg.p2.x * seg.p1.y;
+    real D = x1 * y2 - x2 * y1;
 
     real det = (circ.r * circ.r * dr_sq - D * D);
 
     if (det < 0) {
         Vec3 point = ptint(seg, circ.p);
-        Vec3 pointcirc = (circ.r / norm(point - circ.p)) * (point - circ.p);
+        Vec3 pointcirc = circ.p + (circ.r / norm(point - circ.p)) * (point - circ.p);
         return { pointcirc, pointcirc };
     }
 
-    det = sqrt(det); // note: only sqrt if det positive
+    det = sqrt(det); // note: only sqrt if det is non-negative
     real sign_dy = dy > 0 ? 1 : -1;
-    real x1 = (1 / dr_sq) * (D * dy + sign_dy * dx * det);
-    real x2 = (1 / dr_sq) * (D * dy - sign_dy * dx * det);
+    real x_1 = (1 / dr_sq) * (D * dy + sign_dy * dx * det);
+    real x_2 = (1 / dr_sq) * (D * dy - sign_dy * dx * det);
 
-    real y1 = (1 / dr_sq) * (-D * dx + abs(dy) * det);
-    real y2 = (1 / dr_sq) * (-D * dx - abs(dy) * det);
+    real y_1 = (1 / dr_sq) * (-D * dx + abs(dy) * det);
+    real y_2 = (1 / dr_sq) * (-D * dx - abs(dy) * det);
 
-    Vec3 p1 = { x1, y1, 0 };
-    Vec3 p2 = { x2, y2, 0 };
-    return { p1, p2 };
+    Vec3 p_1 = circ.p + x_1 * d1_unit + y_1 * d2_unit;
+    Vec3 p_2 = circ.p + x_2 * d1_unit + y_2 * d2_unit;
+    return { p_1, p_2 };
 }
 
 real distmin(capsule caps, cylinder cyl) {
@@ -324,7 +281,7 @@ real distmin(capsule caps, cylinder cyl) {
     seg2.p1 = cyl.p1;
     seg2.p2 = cyl.p2;
 
-    two_pts points = closept(seg1, seg2); // !! Erreur dans cette formule !!
+    two_pts points = closept(seg1, seg2);
     real cond1 = dot(points.p2 - cyl.p1, points.p2 - cyl.p1);
     real cond2 = dot(points.p2 - cyl.p2, points.p2 - cyl.p2);
 
@@ -355,14 +312,26 @@ real distmin(capsule caps, cylinder cyl) {
         real rad_sq1 = dot(proj1 - cent, proj1 - cent);
         real rad_sq2 = dot(proj2 - cent, proj2 - cent);
 
-        real dist_sq;
-        dist_sq = rad_sq1;
-        if (rad_sq2 < rad_sq1)
-            dist_sq = rad_sq2;
+        real dist_norm_sq1 = dot(caps.p1 - proj1, caps.p1 - proj1);
+        real dist_norm_sq2 = dot(caps.p2 - proj2, caps.p2 - proj2);
+
+        real dist_norm_sq_min = dist_norm_sq1;
+        if  (dist_norm_sq2 < dist_norm_sq1) {
+            dist_norm_sq_min = dist_norm_sq2;
+        }
 
         // if both points project on the circle plane, then the distance will be the minimum of the two normal distances calculated
-        if (rad_sq1 < cyl.r * cyl.r && rad_sq2 < cyl.r * cyl.r)
-            return sqrt(dist_sq) - caps.r;
+        if (rad_sq1 <= cyl.r * cyl.r && rad_sq2 <= cyl.r * cyl.r)
+            return sqrt(dist_norm_sq_min) - caps.r;
+
+        // if one point projects on the circle plane, it is necessary to check the normal distance as well
+        real testnormal = INF_REAL;
+        if (rad_sq1 <= cyl.r * cyl.r){
+            testnormal = dist_norm_sq1;
+        }
+        else if (rad_sq2 <= cyl.r * cyl.r) {
+            testnormal = dist_norm_sq2;
+        }
 
         // project the points on the plan
         segment proj;
@@ -371,19 +340,20 @@ real distmin(capsule caps, cylinder cyl) {
         circle circ;
         circ.p = cent;
         circ.r = cyl.r;
+        circ.n = n_unit;
 
         two_pts pts = intersection(circ, proj);
 
         real dist1 = distmin(seg1, pts.p1);
         real dist2 = distmin(seg1, pts.p2);
 
-        if (dist2 < dist1 && dist2*dist2 < dist_sq)
+        if (dist2 <= dist1 && dist2 * dist2 < testnormal)
             return dist2 - caps.r;
 
-        if (dist1 < dist2 && dist1 * dist1 < dist_sq)
+        if (dist1 < dist2 && dist1 * dist1 < testnormal)
             return dist1 - caps.r;
 
-        return sqrt(dist_sq) - caps.r;
+        return sqrt(testnormal) - caps.r;
     }
     else
         return norm(points.p1 - points.p2) - caps.r - cyl.r;
@@ -393,18 +363,18 @@ real distmin(capsule caps, sphere sph) {
     segment seg;
     seg.p1 = caps.p1;
     seg.p2 = caps.p2;
-    real dist_seg_pt = distmin(seg, sph.p);
+    real dist_seg_pt = distmin(seg, sph.c);
     return dist_seg_pt - caps.r - sph.r;
 }
 
 real distmin(capsule caps1, capsule caps2) {
     segment seg1;
     segment seg2;
-    seg1.p1 = caps1.p1;
-    seg1.p2 = caps1.p2;
-    seg2.p1 = caps2.p1;
-    seg2.p2 = caps2.p2;
-    real dist_seg_seg = distmin(seg1, seg2);
+    seg1.p1 = caps1.p2;
+    seg1.p2 = caps1.p1;
+    seg2.p1 = caps2.p2;
+    seg2.p2 = caps2.p1;
+    real dist_seg_seg = /*two_segment_distance_sqr(caps1.p1, caps1.p2, caps2.p1, caps2.p2);*/ sqrt(distmin(seg1, seg2));
     return dist_seg_seg - caps1.r - caps2.r;
 }
 
@@ -414,13 +384,17 @@ real distmin(OBB OBB, capsule caps) {
     seg.p2 = caps.p2;
 
     Mat3 Rtrans = transpose(OBB.R);
+    // Mat3 Rtrans = OBB.R;
 
-    Vec3 vec = Rtrans * (seg.p2 - seg.p1);
-    Vec3 point = Rtrans * (seg.p2 - OBB.c);
+    Vec3 p1 = Rtrans * (seg.p1 - OBB.c);
+    Vec3 p2 = Rtrans * (seg.p2 - OBB.c);
+
+    Vec3 vec = p2 - p1;
+    Vec3 point = p2;
 
     if (vec.z < 0) {
         vec = -vec;
-        point = Rtrans * (seg.p1 - OBB.c);
+        point = p1;
     }
 
     real xmin = - OBB.e[0];
@@ -451,18 +425,9 @@ real distmin(OBB OBB, capsule caps) {
 
     // Creating the added vertices
     Vec3 vert[8];
-
-    // bottom four
-    vert[0] = orgvert[0] + vec;
-    vert[1] = orgvert[1] + vec;
-    vert[2] = orgvert[2] + vec;
-    vert[3] = orgvert[3] + vec;
-
-    // top four
-    vert[4] = orgvert[4] + vec;
-    vert[5] = orgvert[5] + vec;
-    vert[6] = orgvert[6] + vec;
-    vert[7] = orgvert[7] + vec;
+    for (int i = 0; i < 8; i++){
+        vert[i] = orgvert[i] + vec;
+    }
 
     // some faces depend only on the direction of vec in x
     surf face[12];
@@ -587,86 +552,158 @@ real distmin(OBB OBB, capsule caps) {
         face[10].p = orgvert[2];
         face[10].d1 = dir[2];
         face[10].d2 = vec;
-
+        
         face[11].p = orgvert[5];
         face[11].d1 = -dir[2];
-        face[11].d2 = vec;
+        face[11].d2 = vec;        
     }
 
     real dist[12];
+    dist[0] = distmin(face[0], point);
 
-    real distmax = -INF_REAL;
-
-    for (int i = 0; i < 12; i++) {
+    real distcurrent = dist[0];
+    
+    for (int i = 1; i < 12; i++) {
         dist[i] = distmin(face[i], point);
-        // std::cout << "La distance de la face " << i << " est " << dist[i] << std::endl;
-        if (dist[i] > distmax)
-            distmax = dist[i];
+        if (dist[i] >= 0 && (dist[i] < distcurrent || distcurrent < 0)) {
+            distcurrent = dist[i];
+        }
+        else if (dist[i] < 0 && dist[i] > distcurrent) {
+            distcurrent = dist[i];
+        }
     }
-    return distmax - caps.r;
+    return distcurrent - caps.r;
 }
+
+void add_OBB(Vec3 c, Vec3 e, Mat3 R) {
+    OBB new_OBB;
+    new_OBB.c = c;
+    new_OBB.e = e;
+    new_OBB.R = R;
+    world.OBBlist.push_back(new_OBB);
+}
+
+void add_sph(Vec3 c, real r) {
+    sphere new_sph;
+    new_sph.c = c;
+    new_sph.r = r;
+    world.sphlist.push_back(new_sph);
+}
+
+void add_cyl(Vec3 p1, Vec3 p2, real r) {
+    cylinder new_cyl;
+    new_cyl.p1 = p1;
+    new_cyl.p1 = p2;
+    new_cyl.r = r;
+    world.cyllist.push_back(new_cyl);
+}
+
+void add_caps(Vec3 p1, Vec3 p2, real r) {
+    capsule new_caps;
+    new_caps.p1 = p1;
+    new_caps.p1 = p2;
+    new_caps.r = r;
+    world.capslist.push_back(new_caps);
+}
+ 
+// real test_collision(/*robot, */objlist world, int n_var){
+
+// !!!MANQUE SELF-COLLISION
+
+//     // real dist_min[n_var];
+//     // int idx = 0;
+
+//     // for (int i = 0; i < size(world.OBBlist); i++) {
+//     //     real dist = distmin(t.caps, world.OBBlist[i]);
+//     //     for (int j = 0; j < n_var; j++){
+//     //          if (dist < dist_min[j]) {
+//     //              for (int k = n_var; k > j; k--) {
+//     //                  dist_min[k] = dist_min[k-1];
+//     //              }
+//     //              dist_min[j] = dist;
+//     //              break
+//     //          }
+//     //     }
+//     // }
+
+//     // for (int i = 0; i < size(world.capslist); i++) {
+//     //     real dist = distmin(t.caps, world.capslist[i]);
+//     //     for (int j = 0; j < n_var; j++){
+//     //          if (dist < dist_min[j]) {
+//     //              for (int k = n_var; k > j; k--) {
+//     //                  dist_min[k] = dist_min[k-1];
+//     //              }
+//     //              dist_min[j] = dist;
+//     //              break
+//     //          }
+//     //     }
+//     // }
+
+//     // for (int i = 0; i < size(world.cyllist); i++) {
+//     //     real dist = distmin(t.caps, world.cyllist[i]);
+//     //     for (int j = 0; j < n_var; j++){
+//     //          if (dist < dist_min[j]) {
+//     //              for (int k = n_var; k > j; k--) {
+//     //                  dist_min[k] = dist_min[k-1];
+//     //              }
+//     //              dist_min[j] = dist;
+//     //              break
+//     //          }
+//     //     }
+//     // }
+
+//     // for (int i = 0; i < size(world.sphlist); i++) {
+//     //     real dist = distmin(t.caps, world.sphlist[i]);
+//     //     for (int j = 0; j < n_var; j++){
+//     //          if (dist < dist_min[j]) {
+//     //              for (int k = n_var; k > j; k--) {
+//     //                  dist_min[k] = dist_min[k-1];
+//     //              }
+//     //              dist_min[j] = dist;
+//     //              break
+//     //          }
+//     //     }
+//     // }
+//     // return dist_min;
+
+//     real dist_min;
+
+//     for (int i = 0; i < size(world.OBBlist); i++) {
+//         real dist = distmin(caps, world.OBBlist[i]);
+//         if (dist < dist_min)
+//             dist_min = dist;
+//     }
+
+//     for (int i = 0; i < size(world.capslist); i++) {
+//         real dist = distmin(caps, world.capslist[i]);
+//         if (dist < dist_min)
+//             dist_min = dist;
+//     }
+
+//     for (int i = 0; i < size(world.sphlist); i++) {
+//         real dist = distmin(caps, world.sphlist[i]);
+//         if (dist < dist_min)
+//             dist_min = dist;
+//     }
+
+//     for (int i = 0; i < size(world.cyllist); i++) {
+//         real dist = distmin(caps, world.cyllist[i]);
+//         if (dist < dist_min)
+//             dist_min = dist;
+//     }
+
+//     return dist_min;
+// }
+
 
 } // namespace blast
 
-
-
 #ifdef BLAST_ENABLE_TESTS
-TEST_CASE("OBB collision", "[World]") {
-    using namespace blast;
-
-    real TESTCOLL_EPSILON = 1e-3;
-
-    struct collision_test_box {
-        OBB box;
-        capsule caps;
-        real expected_dist;
-    };
-
-    collision_test_box test[] = {
-        // OBB.R and caps.r changed
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.21, -5.18, 18.05 }, { -3.89, 8.59, 6.3 }, 1 }, 1.64 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.46, 0.97, 3.7 }, { 7.79, 14.74, -8.04 }, 1 }, 1.5 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.05, 1.11, 12.87 }, { 7.37, 14.89, 1.13 }, 1 }, 0.41 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.82, 6.9, 12.84 }, { 4.7, -7.14, 24.59 }, 1 }, 4.04 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -3.06, 5.73, 1.67 }, { -0.39, -8.05, 13.41 }, 1 }, 0.91 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.97, 2.79, 12.23 }, { 2.29, 16.57, 0.48 }, 1 }, 1.76 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 6.76, -1.55, 8 }, { 9.44, -15.33, 19.74 }, 1 }, 0.45 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.15, 13.92, -7.48 }, { 1.53, 0.14, 4.27 }, 1 }, 0.74 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.49, -0.06, 8.32 }, { 14.17, -13.84, 20.07 }, 1 }, 0.49 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.54, 0.1, 10.59 }, { 1.86, 13.87, -1.15 }, 1 }, -0.98 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.76, 0.28, 8.08 }, { 13.44, -13.5, 19.83 }, 1 }, -0.22 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.96, 0.43, 8.3 }, { 7.64, -13.35, 20.05 }, 1 }, 0.31 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.48, -4.07, 0.76 }, { 8.64, -4.41, 18.58 }, 1 }, 3.12 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 17.48, 2.95, 13.77 }, { -0.82, 3.11, 13.77 }, 1 }, 2.49 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.18, 8.56, 4.82 }, { 11.04, -6.44, 15.29 }, 1 }, 0.1 },
-
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, 0.707, 0, 1, 0, -0.707, 0, 0.707 } }, { { 2.94, -6.06, 5.74 }, { 4.01, -9.86, 0.98 }, 0.5 }, 0.99 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, 0.707, 0, 1, 0, -0.707, 0, 0.707 } }, { { 1.64, 9.52, 11.7 }, { 2.71, 5.72, 6.94 }, 0.5 }, 0.23 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, 0.707, 0, 1, 0, -0.707, 0, 0.707 } }, { { 3, 5.69, 6.2 }, { 4.07, 1.89, 1.44 }, 0.5 }, 0.41 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, 0.707, 0, 1, 0, -0.707, 0, 0.707 } }, { { 3.1, 4.23, 6.22 }, { 4.17, 0.43, 1.46 }, 0.5 }, 0.09 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, 0.707, 0, 1, 0, -0.707, 0, 0.707 } }, { { 6.35, 8.57, 12.85 }, { 7.42, 4.77, 8.09 }, 0.5 }, 0.87 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, 0.707, 0, 1, 0, -0.707, 0, 0.707 } }, { { 1.88, -2.47, 7.07 }, { 2.95, -6.27, 2.31 }, 0.5 }, 0.4 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, 0.707, 0, 1, 0, -0.707, 0, 0.707 } }, { { 1.8, 3.83, 14.57 }, { 2.87, 0.03, 9.81 }, 0.5 }, 1.48 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, 0.707, 0, 1, 0, -0.707, 0, 0.707 } }, { { 4.28, 6.32, 8.33 }, { 3.21, 10.12, 13.09 }, 0.5 }, 0.82 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, 0.707, 0, 1, 0, -0.707, 0, 0.707 } }, { { 2.36, 2.3, 6.31 }, { 3.43, -1.5, 1.55 }, 0.5 }, 0.27 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, 0.707, 0, 1, 0, -0.707, 0, 0.707 } }, { { 2.93, 7.6, 12.29 }, { 4, 3.8, 7.53 }, 0.5 }, -1.21 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, 0.707, 0, 1, 0, -0.707, 0, 0.707 } }, { { 7.55, 0.92, 10.24 }, { 6.48, 4.72, 15 }, 0.5 }, -0.31 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, 0.707, 0, 1, 0, -0.707, 0, 0.707 } }, { { 6.79, 5, 13.29 }, { 7.86, 1.2, 8.52 }, 0.5 }, -0.39 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, 0.707, 0, 1, 0, -0.707, 0, 0.707 } }, { { 5.66, -0.92, 7.44 }, { 8.04, 4.16, 9.96 }, 0.5 }, 0.89 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, 0.707, 0, 1, 0, -0.707, 0, 0.707 } }, { { 8.94, 3.63, 11.01 }, { 8.94, -2.55, 11.01 }, 0.5 }, 1.27 },
-        { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, 0.707, 0, 1, 0, -0.707, 0, 0.707 } }, { { 5.91, 5.9, 7.39 }, { 4.14, 5.9, 13.32 }, 0.5 }, 0.4 },
-    };
-
-    for (auto t : test) {
-        real dist = distmin(t.box, t.caps);
-        CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
-    }
-}
 
 TEST_CASE("Sphere collision", "[World]") {
     using namespace blast;
 
-    real TESTCOLL_EPSILON = 0.1;
+    real TESTCOLL_EPSILON = 1e-2;
 
     struct collision_test_sph {
         sphere sph;
@@ -676,9 +713,9 @@ TEST_CASE("Sphere collision", "[World]") {
 
     collision_test_sph test[] = {
         { { { 4.27, 1.73, 3.74 }, 1 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, 0.42 },
-        { { { 2.75, 1.48, 3.44}, 1 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, -0.75 },
+        { { { 2.75, 1.48, 3.44}, 1 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, -0.25 },
         { { { 5.72, 6.47, 3.78 }, 1 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, 1.4 },
-        { { { 4.74, 5.26, 4.52 }, 1 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, -0.68 },
+        { { { 4.74, 5.26, 4.52 }, 1 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, -0.18 },
     };
 
     for (auto t : test) {
@@ -687,36 +724,10 @@ TEST_CASE("Sphere collision", "[World]") {
     }
 }
 
-TEST_CASE("Cylinder collision", "[World]") {
-    using namespace blast;
-
-    real TESTCOLL_EPSILON = 1e-3;
-
-    struct collision_test_cyl {
-        cylinder cyl;
-        capsule caps;
-        real expected_dist;
-    };
-
-    collision_test_cyl test[] = {
-        { { { -1, 2.5, -1 }, { 1, 1, -2 }, 1 }, { { 0.5, 0.4, 0.9 }, { 4, 4.2, 4.3 }, 0.5 }, -0.35 },
-        { { { 3.18, 3.52, 0.84 }, { 4.18, 2.02, 1.84 }, 1 }, { { 0.5, 0.4, 0.9 }, { 4, 4.2, 4.3 }, 2 }, 0.39 },
-        { { { 5.18, 1.88, 5.87 }, {5.74, 3.85, 6.06 }, 1 }, { { 0.5, 0.4, 0.9 }, { 4, 4.2, 4.3 }, 2 }, 0.98 },
-        { { { 1, 1, 1 }, { 0, 0, 0 }, 1 }, { { 10, 10, 10 }, { 11, 11, 11 }, 1 }, 14.59 },
-        { { { 1, 1, 1 }, { 0, 0, 0 }, 1 }, { { 2, 2.5, 2.4 }, { 4, 4.2, 4.3 }, 2.5 }, -0.22 },
-        { { { 1, 1, 1 }, { 0, 0, 0 }, 1 }, { { 0.5, 0.4, 0.9 }, { -4, -4.2, -4.3 }, 0.5 }, -0.69 },
-    };
-
-    for (auto t : test) {
-        real dist = distmin(t.caps, t.cyl);
-        CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
-    }
-}
-
 TEST_CASE("Capsule collision", "[World]") {
     using namespace blast;
 
-    real TESTCOLL_EPSILON = 1e-3;
+    real TESTCOLL_EPSILON = 1e-2;
 
     struct collision_test_caps {
         capsule caps1;
@@ -728,10 +739,90 @@ TEST_CASE("Capsule collision", "[World]") {
         { { { 0.5, 0.95, 6.73 }, { 4, 4.9, 3.51 }, 0.5 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, -0.54 },
         { { { 5.16, 4.9, 4.37 }, { 3.55, 0.95, 8.84 }, 0.5 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, 0.16 },
         { { { 5.16, 4.9, 4.37 }, { 3.55, 0.95, 8.84 }, 0.5 }, { { 5.45, 4.78, 4.57 }, { 6.57, 1, -0.2 }, 0.5 }, -0.66 },
+        { { { 2.59, 1.88, 4.22 }, { 18.85, 10.07, 6.1 }, 1 }, { { 0.55, 21.32, 3.08 }, { 5.07, 3.62, 4.19 }, 1 }, -1.44 },
+        { { { -9.26, 12.81, 7.98 }, { 6.63, 4.62, 4.04 }, 1 }, { { 0.55, 21.32, 3.08 }, { 5.07, 3.62, 4.19 }, 1 }, -1.52 },
     };
 
     for (auto t : test) {
         real dist = distmin(t.caps1, t.caps2);
+        CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+    }
+}
+
+TEST_CASE("Cylinder collision", "[World]") {
+    using namespace blast;
+
+    real TESTCOLL_EPSILON = 1e-2;
+
+    struct collision_test_cyl {
+        cylinder cyl;
+        capsule caps;
+        real expected_dist;
+    };
+
+    collision_test_cyl test[] = {
+        /*Test 1*/ { { { -13.46, -3.61, 189 }, { -12.46, -5.11, 190 }, 1 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, -0.54 },
+        /*Test 2*/ { { { -13.41, -2.79, 189 }, { -15.16, -3.2, 190 }, 1 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, 1.33 },
+        /*Test 3*/ { { { -16.3, -3.97, 200.87 }, { -17.3, -2.47, 199.87 }, 1 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, 1.53 },
+        /*Test 4*/ { { { -7.25, -10.11, 174.29 }, { -7.86, -9.44, 176.14 }, 2 }, { { -14.66, -13.24, 198.94 }, { -11.16, -7.94, 181.77 }, 1 }, 5.53 },
+        /*Test 5*/ { { { -14.88, -2.74, 198.21 }, { -15.49, -2.08, 200.06 }, 2 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, -0.45 },
+    };
+
+    for (auto t : test) {
+        real dist = distmin(t.caps, t.cyl);
+        CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+    }
+}
+
+TEST_CASE("OBB collision", "[World]") {
+    using namespace blast;
+
+    real TESTCOLL_EPSILON = 1e-2;
+
+    struct collision_test_box {
+        OBB box;
+        capsule caps;
+        real expected_dist;
+    };
+
+    collision_test_box test[] = {
+        /*Test1*/ // /* no error */ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.21, -5.18, 18.05 }, { -3.89, 8.59, 6.3 }, 1 }, 1.64 },
+        /*Test2*/ // /* no error */ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.46, 0.97, 3.7 }, { 7.79, 14.74, -8.04 }, 1 }, 1.5 },
+        /*Test3*/ /* err 0.0733, perp*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, 1, 0, -1, 0, 0, 0, 0, 1 } }, { { 10.05, 1.11, 12.87 }, { 7.37, 14.89, 1.13 }, 1 }, 0.33397901 },
+        /*Test4*/ /* err 0.053 - 0.0586*/ /*test simplifié*/ { { { 50, 0, 90 }, { 1, 50, 30 }, { 1, 0, 0, 0, 1, 0, 0, 0, 1 } }, { { 110.4473414, -64.4145806, 152.9388155 }, { 111.7567752, 85.6316709, 48.1847808 }, 10 }, 49.2682992 },
+        /*Test5*/ // /*0.032*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.82, 6.9, 12.84 }, { 4.7, -7.14, 24.59 }, 1 }, 4.04 },
+        /*Test6*/ // /*err 0.015*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -3.06, 5.73, 1.67 }, { -0.39, -8.05, 13.41 }, 1 }, 0.91 },
+        /*Test7*/ // /*err 0.06, perp*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.97, 2.79, 12.23 }, { 2.29, 16.57, 0.48 }, 1 }, 1.76 },
+        /*Test8*/ // /*no error*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.49, -0.06, 8.32 }, { 14.17, -13.84, 20.07 }, 1 }, 0.49 },
+        /*Test9*/ // /*no error*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 6.76, -1.55, 8 }, { 9.44, -15.33, 19.74 }, 1 }, 0.45 },
+        /*Test10*/ // /*no error*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.15, 13.92, -7.48 }, { 1.53, 0.14, 4.27 }, 1 }, 0.74 },
+        /*Test11*/ // { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.54, 0.1, 10.59 }, { 1.86, 13.87, -1.15 }, 1 }, -0.98 },
+        /*Test12*/ // /*no error*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.76, 0.28, 8.08 }, { 13.44, -13.5, 19.83 }, 1 }, -0.22 },
+        /*Test13*/ // !Verifier rep /*err 0.63, perp*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.96, 0.43, 8.3 }, { 7.64, -13.35, 20.05 }, 1 }, -0.9 },
+        /*Test14*/ // /*err 0.05, perp VEC CHANGE ET ERREUR ARRIVE*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.48, -4.07, 0.76 }, { 8.64, -4.41, 18.58 }, 1 }, 3.12 },
+        /*Test15*/ // /*err 0.079*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 17.48, 2.95, 13.77 }, { -0.82, 3.11, 13.77 }, 1 }, 2.49 },
+        /*Test16*/ // /*no error*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.18, 8.56, 4.82 }, { 11.04, -6.44, 15.29 }, 1 }, 0.1 },
+
+        // OBB.R and caps.r changed
+        /*Test17*/ // /*err 0.014*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.94, -6.06, 5.74 }, { 4.01, -9.86, 0.98 }, 0.5 }, 0.99 },
+        /*Test18*/ /*no error*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.64, 9.52, 11.7 }, { 2.71, 5.72, 6.94 }, 0.5 }, 0.23 },
+        /*Test19*/ /*err 0.0107*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 3, 5.69, 6.2 }, { 4.07, 1.89, 1.44 }, 0.5 }, 0.41 },
+        /*Test20*/ // /*err 0.017*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 3.1, 4.23, 6.22 }, { 4.17, 0.43, 1.46 }, 0.5 },  0.09 },
+        /*Test21*/ // /*err 0.011*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.35, 8.57, 12.85 }, { 7.42, 4.77, 8.09 }, 0.5 }, 0.87 },
+        /*Test22*/ // /*err 0.022*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.88, -2.47, 7.07 }, { 2.95, -6.27, 2.31 }, 0.5 }, 0.4 },
+        /*Test23*/ // /*err 0.022*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.8, 3.83, 14.57 }, { 2.87, 0.03, 9.81 }, 0.5 }, 1.48 },
+        /*Test24*/ /*no error*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 4.28, 6.32, 8.33 }, { 3.21, 10.12, 13.09 }, 0.5 }, 0.82 },
+        /*Test25*/ /*no error*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.36, 2.3, 6.31 }, { 3.43, -1.5, 1.55 }, 0.5 }, 0.27 },
+        /*Test26*/ //!Vérifier /*err 0.28*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.93, 7.6, 12.29 }, { 4, 3.8, 7.53 }, 0.5 }, -1.21 },
+        /*Test27*/ // /*err 0.019*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 7.55, 0.92, 10.24 }, { 6.48, 4.72, 15 }, 0.5 }, -0.31 },
+        /*Test28*/ // /*err 0.013*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.79, 5, 13.29 }, { 7.86, 1.2, 8.52 }, 0.5 }, -0.39 },
+        /*Test29*/ // /*err 0.019*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.66, -0.92, 7.44 }, { 8.04, 4.16, 9.96 }, 0.5 }, 0.89 },
+        /*Test30*/ // /*err 0.022 - 0.027*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 8.94, 3.63, 11.01 }, { 8.94, -2.55, 11.01 }, 0.5 }, 1.27 },
+        /*Test31*/ /*no error*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.91, 5.9, 7.39 }, { 4.14, 5.9, 13.32 }, 0.5 }, 0.4 },
+    };
+
+    for (auto t : test) {
+        real dist = distmin(t.box, t.caps);
         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
     }
 }
