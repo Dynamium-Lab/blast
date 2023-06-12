@@ -750,6 +750,509 @@ void add_caps(Vec3 p1, Vec3 p2, real r) {
 //     return dist_min;
 // }
 
+// ======================================
+//            GJK algorithm
+// ======================================
+// This version of the GJK algorithm is adapted from : https://www.youtube.com/watch?v=DGVZYdlw_uo
+
+struct ComplexSimplex {
+    Vec3 a;
+    Vec3 a1;
+    Vec3 a2;
+
+    Vec3 b;
+    Vec3 b1;
+    Vec3 b2;
+
+    Vec3 c;
+    Vec3 c1;
+    Vec3 c2;
+    
+    Vec3 d;
+    Vec3 d1;
+    Vec3 d2;
+
+    int count;
+};
+
+struct KodaVertices {
+    int count;
+    std::vector<Vec3> fixed;
+};
+
+struct gjkresult {
+    bool intersection;
+    ComplexSimplex final_simplex;
+    Vec3 A_closept;
+    Vec3 B_closept;
+    real minimal_distance;
+};
+
+
+real GJK_triangle_area_2d(real x1, real y1, real x2, real y2, real x3, real y3) {
+    return (x1 - x2) * (y2 - y3) - (x2 - x3) * (y1 - y2);
+}
+
+Vec3 GJK_convert_barycentric(Vec3 a, Vec3 b, Vec3 c, Vec3 p) {
+    Vec3 abc = cross(b - a, c - a);
+    real nu;
+    real nv;
+    real ood;
+
+    real x = abs(abc.x);
+    real y = abs(abc.y);
+    real z = abs(abc.z);
+
+    if ((x >= y) && (x >= z)) {
+        // x is the largest so project onto the yz plane
+        nu = GJK_triangle_area_2d(p.y, p.z, b.y, b.z, c.y, c.z);
+        nv = GJK_triangle_area_2d(p.y, p.z, c.y, c.z, a.y, a.z);
+        ood = 1 / abc.x;
+    }
+    else if ((y >= x) && (y >= z)) {
+        // y is the largest so project onto the xz plane
+        nu = GJK_triangle_area_2d(p.x, p.z, b.x, b.z, c.x, c.z);
+        nv = GJK_triangle_area_2d(p.x, p.z, c.x, c.z, a.x, a.z);
+        ood = 1 / -abc.y;
+    }
+    else {
+        // z is the largest so project onto the xy plane
+        nu = GJK_triangle_area_2d(p.x, p.y, b.x, b.y, c.x, c.y);
+        nv = GJK_triangle_area_2d(p.x, p.y, c.x, c.y, a.x, a.y);
+        ood = 1 / abc.z;
+    }
+
+    Vec3 result;
+    result.x = nu * ood;
+    result.y = nv * ood;
+    result.z = 1 - result.x - result.y;
+    return result;
+}
+
+real GJK_convert_barycentric(Vec3 a, Vec3 b, Vec3 p) {
+    Vec3 ab = b - a;
+    Vec3 ap = p - a;
+
+    real t = dot(ap, ab) / dot(ab, ab);
+    return t;
+}
+
+Vec3 GJK_convert_cartesian(Vec3 a, Vec3 b, real barycentric) {
+    Vec3 result;
+    result.x = a.x + barycentric * (b.x - a.x);
+    result.y = a.y + barycentric * (b.y - a.y);
+    result.z = a.z + barycentric * (b.z - a.z);
+    return result;
+
+}
+
+Vec3 GJK_convert_cartesian(Vec3 a, Vec3 b, Vec3 c, Vec3 barycentric) {
+    Vec3 result;
+    result.x = a.x * barycentric.x + b.x * barycentric.y + c.x * barycentric.z;
+    result.y = a.y * barycentric.x + b.y * barycentric.y + c.y * barycentric.z;
+    result.z = a.z * barycentric.x + b.z * barycentric.y + c.z * barycentric.z;
+    return result;
+}
+
+two_pts GJK_get_local_points(ComplexSimplex simplex, Vec3 p) {
+    two_pts loc;
+    real barycentric;
+    Vec3 barycentric3;
+
+    switch (simplex.count) {
+    case '1':
+        loc.p1 = simplex.a1;
+        loc.p2 = simplex.a2;
+        return loc;
+
+    case '2':
+        barycentric = GJK_convert_barycentric(simplex.a, simplex.b, p);
+        loc.p1 = GJK_convert_cartesian(simplex.a1, simplex.b1, barycentric);
+        loc.p2 = GJK_convert_cartesian(simplex.a2, simplex.b2, barycentric);
+        return loc;
+
+    case '3':
+        barycentric3 = GJK_convert_barycentric(simplex.a, simplex.b, simplex.c, p);
+        loc.p1 = GJK_convert_cartesian(simplex.a1, simplex.b1, simplex.c1, barycentric3);
+        loc.p2 = GJK_convert_cartesian(simplex.a2, simplex.b2, simplex.c2, barycentric3);
+        return loc;
+
+    default:
+        Assert (false/*"invalid simplex dimension for nearest feature resolution."*/);
+        return loc;
+    }
+}
+
+Vec3 GJK_get_support(KodaVertices vertices, Vec3 direction) {
+    real largest_dot = dot(vertices.fixed[0], direction);
+    Vec3 largest_vertex = vertices.fixed[0];
+    for (int i = 0; i < vertices.count; i++) {
+        Vec3 vertex = vertices.fixed[i];
+
+        real current_dot = dot(vertex, direction);
+        if (current_dot > largest_dot) {
+            largest_dot = current_dot;
+            largest_vertex = vertex;
+        }
+    }
+    return largest_vertex;
+}
+
+Vec3 GJK_get_support(sphere sph, Vec3 direction) {
+    return sph.c + sph.r * direction;
+}
+
+Vec3 GJK_get_support(capsule caps, Vec3 direction) {
+    Vec3 ab = caps.p2 - caps.p1;
+    if (norm(cross(ab,direction)) < COLLISION_EPSILON)
+        return caps.p1 + caps.r*direction; // In the case where the direction is perpendicular to the capsule.
+    else if (GJK_same_direction(ab, direction))
+        return caps.p2 + caps.r*direction;
+    else
+        return caps.p1 + caps.r*direction;
+}
+
+Vec3 GJK_get_support(cylinder cyl, Vec3 direction) {
+    Vec3 ab = cyl.p2 - cyl.p1;
+    if (norm(cross(ab,direction)) < COLLISION_EPSILON)
+        return cyl.p1 + cyl.r*direction; // In the case where the direction is perpendicular to the cylinder.
+    plane circ;
+    circ.n = ab;
+    circ.p = cyl.p2;
+    Vec3 direction_unit = (1/norm(direction))*direction; // maybe already done before?
+    Vec3 proj = ClosestPtPointPlane(direction_unit, circ);
+    if (dot(proj - cyl.p2,proj - cyl.p2) - cyl.r*cyl.r < COLLISION_EPSILON) // the direction is similar to the cylinder and the projected point should be on the face
+        if (GJK_same_direction(ab, direction))
+            return proj;
+        else
+            return proj - ab;
+    else {
+        if (GJK_same_direction(ab, direction)){
+            Vec3 dir_proj = proj - cyl.p2;
+            Vec3 dir_proj_unit = (1/norm(dir_proj))*dir_proj;
+            return cyl.p2 + cyl.r*dir_proj_unit;
+        }
+        else {
+            Vec3 dir_proj = proj - cyl.p1;
+            Vec3 dir_proj_unit = (1/norm(dir_proj))*dir_proj;
+            return cyl.p1 + cyl.r*dir_proj_unit;
+        }
+    }
+}
+
+bool GJK_same_direction(Vec3 a, Vec3 b) {
+    return dot(a,b) > 0;
+}
+
+Vec3 GJK_solve_simplex2(ComplexSimplex simplex) {
+    Vec3 ab = simplex.b - simplex.a;
+    Vec3 ao = -simplex.a;
+
+    if (GJK_same_direction(ab, ao)) {
+        // the origin falls on the line, project the origin onto the line and return
+        real t = dot(ao, ab) / dot(ab, ab);
+        return simplex.a + t * ab;
+    }
+    else {
+        // the origin is closer to a
+        simplex.count = 1;
+        return simplex.a;
+    }
+}
+
+Vec3 GJK_solve_simplex3(ComplexSimplex simplex) {
+    Vec3 abc = cross(simplex.b - simplex.a, simplex.c - simplex.a);
+    Vec3 ac = simplex.c - simplex.a;
+    Vec3 ao = -simplex.a;
+
+    if (GJK_same_direction(cross(abc, ac), ao)) {
+        // the origin is in the direction of the triangle normal
+        if (GJK_same_direction(ac, ao)) {
+            // the origin is nearest to the line ac
+            // simplex c remains as c
+            // simplex.b_all = simplex.c_all;
+            simplex.b = simplex.c;
+            simplex.b1 = simplex.c1;
+            simplex.b2 = simplex.c2;
+            simplex.count = 2;
+            real t = dot(ao, ac) / dot(ac, ac);
+            return simplex.a + t * ac;
+        }
+        else {
+            Vec3 ab = simplex.b - simplex.a;
+            if (GJK_same_direction(ab, ao)) {
+                // origin is closest to the line ab
+                simplex.count = 2;
+                real t = dot(ao, ab) / dot(ab, ab);
+                return simplex.a + t * ab;
+            }
+            else {
+                // the origin is nearest to the point a
+                simplex.count = 1;
+                return simplex.a;
+            }
+        }
+    }
+    else {
+        Vec3 ab = simplex.b - simplex.a;
+        if (GJK_same_direction(cross(ab, abc), ao)) {
+            if (GJK_same_direction(ab, ao)) {
+                // the origin is closest to line ab
+                simplex.count = 1;
+                real t = dot(ao, ab) / dot(ab, ab);
+                return simplex.a + t * ab;
+             }
+            else {
+            // the origin is nearest to the point a
+            simplex.count = 1;
+            return simplex.a;
+            }
+        }
+        else {
+            if (GJK_same_direction(abc, ao)) {
+                // the origin is closest to the triangle abc
+                Vec3 bo = -simplex.b;
+                Vec3 co = -simplex.c;
+                real d1 = dot(ab, ao);
+                real d2 = dot(ac, ao);
+                real d3 = dot(ab, bo);
+                real d4 = dot(ac, bo);
+                real d5 = dot(ab, co);
+                real d6 = dot(ac, co);
+                real va = d3 * d6 - d5 * d4;
+                real vb = d5 * d2 - d1 * d6;
+                real vc = d1 * d4 - d3 * d2;
+                real denom = 1 / (va + vb + vc);
+                real v = vb * denom;
+                real w = vc * denom;
+                return simplex.a + ab * v + ac * w;
+            }
+            else {
+                // the origin is closest to the triangle acb (other side of the triangle)
+                // simplex.b_all, simplex.c_all = swap(simplex.b_all, simplex.c_all);
+                Vec3 sb = simplex.c;
+                Vec3 sb1 = simplex.c1;
+                Vec3 sb2 = simplex.c2;
+
+                simplex.c = simplex.b;
+                simplex.c1 = simplex.b1;
+                simplex.c2 = simplex.b2;
+
+                simplex.b = sb;
+                simplex.b1 = sb1;
+                simplex.b2 = sb2;
+
+                Vec3 bo = -simplex.b;
+                Vec3 co = -simplex.c;
+                real d1 = dot(ac, ao);
+                real d2 = dot(ab, ao);
+                real d3 = dot(ac, co);
+                real d4 = dot(ab, co);
+                real d5 = dot(ac, bo);
+                real d6 = dot(ab, bo);
+                real va = d3 * d6 - d5 * d4;
+                real vb = d5 * d2 - d1 * d6;
+                real vc = d1 * d4 - d3 * d2;
+                real denom = 1 / (va + vb + vc);
+                real v = vb * denom;
+                real w = vc * denom;
+                return simplex.a + ab * v + ac * w;
+            }
+        }
+    }
+}
+
+Vec3 GJK_solve_simplex4(ComplexSimplex simplex) {
+    Vec3 abc = cross(simplex.b - simplex.a, simplex.c - simplex.a);
+    Vec3 acd = cross(simplex.c - simplex.a, simplex.d - simplex.a);
+    Vec3 adb = cross(simplex.d - simplex.a, simplex.b - simplex.a);
+    Vec3 ao = -simplex.a;
+
+    real abc_dir = GJK_same_direction(abc, ao);
+    real acd_dir = GJK_same_direction(acd, ao);
+    real adb_dir = GJK_same_direction(adb, ao);
+
+    if (!abc_dir && !acd_dir && !adb_dir) {
+        // the origin is inside the simplex
+        return { 0, 0, 0 };
+    }
+    if (abc_dir && !acd_dir && !adb_dir) {
+        // the origin is near abc
+        simplex.count = 3;
+        return GJK_solve_simplex3(simplex);
+    }
+    if (!abc_dir && acd_dir && !adb_dir) {
+        // the origin is near acd
+        // simplex.b_all = simplex.c_all;
+        simplex.b = simplex.c;
+        simplex.b1 = simplex.c1;
+        simplex.b2 = simplex.c2;
+        // simplex.c_all = simplex.d_all;
+        simplex.c = simplex.d;
+        simplex.c1 = simplex.d1;
+        simplex.c2 = simplex.d2;
+
+        simplex.count = 3;
+        return GJK_solve_simplex3(simplex);
+    }
+    if (!abc_dir && !acd_dir && adb_dir) {
+        // the origin is near adb
+        // simplex.c_all = simplex.b_all;
+        simplex.c = simplex.b;
+        simplex.c1 = simplex.b1;
+        simplex.c2 = simplex.b2;
+
+        // simplex.b_all = simplex.d_all;
+        simplex.b = simplex.d;
+        simplex.b1 = simplex.d1;
+        simplex.b2 = simplex.d2;
+        
+        simplex.count = 3;
+        return GJK_solve_simplex3(simplex);
+    }
+
+    // the origin potentially falls on multiple triangles
+    ComplexSimplex simplex_abc = simplex;
+    simplex_abc.count = 3;
+
+    // There may be a better way to do this.
+
+    ComplexSimplex simplex_acd;
+    //simplex_acd.b_all = simplex_acd.c_all;
+    simplex_acd.b = simplex.c;
+    simplex_acd.b1 = simplex.c1;
+    simplex_acd.b2 = simplex.c2;
+    //simplex_acd.c_all = simplex_acd.d_all;
+    simplex_acd.c = simplex.d;
+    simplex_acd.c1 = simplex.d1;
+    simplex_acd.c2 = simplex.d2;
+
+    simplex_acd.count = 3;
+
+    ComplexSimplex simplex_adb;
+    // simplex_adb.b_all = simplex_adb.b_all;
+    simplex_adb.b = simplex.c;
+    simplex_adb.b1 = simplex.c1;
+    simplex_adb.b2 = simplex.c2;
+    // simplex_adb.c_all = simplex_adb.d_all;
+    simplex_adb.c = simplex.d;
+    simplex_adb.c1 = simplex.d1;
+    simplex_adb.c2 = simplex.d2;
+
+    simplex_adb.count = 3;
+
+    Vec3 p_abc = GJK_solve_simplex3(simplex_abc);
+    Vec3 p_acd = GJK_solve_simplex3(simplex_acd);
+    Vec3 p_adb = GJK_solve_simplex3(simplex_adb);
+
+    real abc_d2 = dot(p_abc, p_abc);
+    real acd_d2 = dot(p_acd, p_acd);
+    real adb_d2 = dot(p_adb, p_adb);
+
+    if ((abc_d2 <= acd_d2) && (abc_d2 <= adb_d2)){
+        simplex = simplex_abc;
+        return p_abc;
+    }
+    else if ((acd_d2 <= abc_d2) && (acd_d2 <= adb_d2)) {
+        simplex = simplex_acd;
+        return p_acd;
+    }
+    else if ((adb_d2 <= abc_d2) && (adb_d2 <= acd_d2)) {
+        simplex = simplex_adb;
+        return p_adb;
+    }
+
+    Assert (false);
+
+    // the origin isn't outside of any plane, so it's inside the tetrahedron
+    return { 0,0,0 };
+}
+
+gjkresult GJK_solve_gjk_simple(KodaVertices v1, KodaVertices v2) {
+    ComplexSimplex simplex;
+    gjkresult results;
+
+    Vec3 direction = v1.fixed[0] - v2.fixed[0];
+    simplex.a1 = GJK_get_support(v1, -direction);
+    simplex.a2 = GJK_get_support(v2, direction);
+    simplex.a = simplex.a2 - simplex.a1;
+    simplex.count = 1;
+
+    while (true) {
+        Vec3 p;
+        switch (simplex.count) {
+        case '1':
+            p = simplex.a;
+        case '2':
+            p = GJK_solve_simplex2(simplex);
+        case '3':
+            p = GJK_solve_simplex3(simplex);
+        case '4':
+            p = GJK_solve_simplex4(simplex);
+        default:
+            std::cout << "error: the simplex size is not valid!" << std::endl;
+        }
+        if (dot(p, p) < COLLISION_EPSILON) {
+            results.intersection = true;
+            results.final_simplex = simplex;
+            results.minimal_distance = 0;
+            return results;
+        }
+
+        direction = -p;
+
+        Vec3 support1 = GJK_get_support(v1, -direction);
+        Vec3 support2 = GJK_get_support(v2, direction);
+        
+        Vec3 support = support2 - support1;
+
+        if (dot(p, direction) >= dot(support, direction)) {
+            two_pts local = GJK_get_local_points(simplex, p);
+
+            results.intersection = false;
+            results.A_closept = local.p1;
+            results.B_closept = local.p2;
+            results.final_simplex = simplex;
+            results.minimal_distance = norm(results.A_closept - results.B_closept);
+            return results;
+        }
+        Assert(simplex.count < 4 /*"You cannot have a simplex that's a tetrahedron at this point."*/);
+
+        simplex.d = simplex.c;
+        simplex.d1 = simplex.c1;
+        simplex.d2 = simplex.c2;
+
+        simplex.c = simplex.b;
+        simplex.c1 = simplex.b1;
+        simplex.c2 = simplex.b2;
+
+        simplex.b = simplex.c;
+        simplex.b1 = simplex.c1;
+        simplex.b2 = simplex.c2;
+
+        simplex.count += 1;
+
+        simplex.a1 = support1;
+        simplex.a2 = support2;
+        simplex.a = support;
+    }
+
+    /*results.intersection = false;
+    results.final_simplex = simplex;
+    results.A_closept = {};
+    results.B_closept = {};
+    results.minimal_distance = norm(results.A_closept - results.B_closept);
+    return results;*/
+}
+
+
+int main()
+{
+    std::cout << "Hello World!\n";
+}
+
+
+
 
 } // namespace blast
 
@@ -880,5 +1383,34 @@ TEST_CASE("OBB collision", "[World]") {
         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
     }
 }
+
+// ======================================
+//          GJK algorithm tests
+// ======================================
+
+TEST_CASE("Sphere collision", "[World]") {
+    using namespace blast;
+
+    real TESTCOLL_EPSILON = 1e-2;
+
+    struct collision_test_sph {
+        sphere sph;
+        capsule caps;
+        real expected_dist;
+    };
+
+    collision_test_sph test[] = {
+        { { { 4.27, 1.73, 3.74 }, 1 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, 0.42 },
+        { { { 2.75, 1.48, 3.44}, 1 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, -0.25 },
+        { { { 5.72, 6.47, 3.78 }, 1 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, 1.4 },
+        { { { 4.74, 5.26, 4.52 }, 1 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, -0.18 },
+    };
+
+    for (auto t : test) {
+        real dist = distmin(t.caps, t.sph);
+        CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+    }
+}
+
 
 #endif
