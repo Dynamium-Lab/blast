@@ -789,6 +789,10 @@ struct gjkresult {
 };
 
 
+bool GJK_same_direction(Vec3 a, Vec3 b) {
+    return dot(a,b) > 0;
+}
+
 real GJK_triangle_area_2d(real x1, real y1, real x2, real y2, real x3, real y3) {
     return (x1 - x2) * (y2 - y3) - (x2 - x3) * (y1 - y2);
 }
@@ -938,10 +942,6 @@ Vec3 GJK_get_support(cylinder cyl, Vec3 direction) {
             return cyl.p1 + cyl.r*dir_proj_unit;
         }
     }
-}
-
-bool GJK_same_direction(Vec3 a, Vec3 b) {
-    return dot(a,b) > 0;
 }
 
 Vec3 GJK_solve_simplex2(ComplexSimplex simplex) {
@@ -1246,7 +1246,7 @@ gjkresult GJK_solve_gjk_simple(KodaVertices v1, KodaVertices v2) {
     return results;
 }
 
-gjkresult GJK_solve_gjk_simple(OBB OBBtest, KodaVertices v2) {
+gjkresult GJK_solve_gjk_simple(OBB OBBtest, capsule v2) {
     ComplexSimplex simplex;
     gjkresult results;
 
@@ -1273,7 +1273,7 @@ gjkresult GJK_solve_gjk_simple(OBB OBBtest, KodaVertices v2) {
     }
 
     // The general code starts here
-    Vec3 direction = v1.fixed[0] - v2.fixed[0];
+    Vec3 direction = v1.fixed[0] - v2.p1;
     simplex.a1 = GJK_get_support(v1, -direction);
     simplex.a2 = GJK_get_support(v2, direction);
     simplex.a = simplex.a2 - simplex.a1;
@@ -1347,12 +1347,11 @@ gjkresult GJK_solve_gjk_simple(OBB OBBtest, KodaVertices v2) {
     return results;
 }
 
-
-gjkresult GJK_solve_gjk_simple(capsule v1, KodaVertices v2) {
+gjkresult GJK_solve_gjk_simple(capsule v1, capsule v2) {
     ComplexSimplex simplex;
     gjkresult results;
 
-    Vec3 direction = v1.p1 - v2.fixed[0];
+    Vec3 direction = v1.p1 - v2.p1;
     simplex.a1 = GJK_get_support(v1, -direction);
     simplex.a2 = GJK_get_support(v2, direction);
     simplex.a = simplex.a2 - simplex.a1;
@@ -1426,11 +1425,11 @@ gjkresult GJK_solve_gjk_simple(capsule v1, KodaVertices v2) {
     return results;
 }
 
-gjkresult GJK_solve_gjk_simple(sphere v1, KodaVertices v2) {
+gjkresult GJK_solve_gjk_simple(sphere v1, capsule v2) {
     ComplexSimplex simplex;
     gjkresult results;
 
-    Vec3 direction = v1.c - v2.fixed[0];
+    Vec3 direction = v1.c - v2.p1;
     simplex.a1 = GJK_get_support(v1, -direction);
     simplex.a2 = GJK_get_support(v2, direction);
     simplex.a = simplex.a2 - simplex.a1;
@@ -1504,11 +1503,11 @@ gjkresult GJK_solve_gjk_simple(sphere v1, KodaVertices v2) {
     return results;
 }
 
-gjkresult GJK_solve_gjk_simple(cylinder v1, KodaVertices v2) {
+gjkresult GJK_solve_gjk_simple(cylinder v1, capsule v2) {
     ComplexSimplex simplex;
     gjkresult results;
 
-    Vec3 direction = v1.p1 - v2.fixed[0];
+    Vec3 direction = v1.p1 - v2.p1;
     simplex.a1 = GJK_get_support(v1, -direction);
     simplex.a2 = GJK_get_support(v2, direction);
     simplex.a = simplex.a2 - simplex.a1;
@@ -1583,12 +1582,10 @@ gjkresult GJK_solve_gjk_simple(cylinder v1, KodaVertices v2) {
 }
 
 
-int main()
-{
-    std::cout << "Hello World!\n";
-}
-
-
+// int main()
+// {
+//     std::cout << "Hello World!\n";
+// }
 
 
 } // namespace blast
@@ -1725,18 +1722,18 @@ TEST_CASE("OBB collision", "[World]") {
 //          GJK algorithm tests
 // ======================================
 
-TEST_CASE("Sphere collision", "[World]") {
+TEST_CASE("GJK Sphere collision", "[World]") {
     using namespace blast;
 
     real TESTCOLL_EPSILON = 1e-2;
 
-    struct collision_test_sph {
+    struct GJK_collision_test_sph {
         sphere sph;
         capsule caps;
         real expected_dist;
     };
 
-    collision_test_sph test[] = {
+    GJK_collision_test_sph test[] = {
         { { { 4.27, 1.73, 3.74 }, 1 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, 0.42 },
         { { { 2.75, 1.48, 3.44}, 1 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, -0.25 },
         { { { 5.72, 6.47, 3.78 }, 1 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, 1.4 },
@@ -1744,10 +1741,113 @@ TEST_CASE("Sphere collision", "[World]") {
     };
 
     for (auto t : test) {
-        real dist = distmin(t.caps, t.sph);
-        CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+        gjkresult res = GJK_solve_gjk_simple(t.sph, t.caps);
+        CHECK(abs(res.minimal_distance - t.expected_dist) < TESTCOLL_EPSILON);
     }
 }
+
+TEST_CASE("GJK Capsule collision", "[World]") {
+    using namespace blast;
+
+    real TESTCOLL_EPSILON = 1e-2;
+
+    struct GJK_collision_test_caps {
+        capsule caps1;
+        capsule caps2;
+        real expected_dist;
+    };
+
+    GJK_collision_test_caps test[] = {
+        { { { 0.5, 0.95, 6.73 }, { 4, 4.9, 3.51 }, 0.5 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, -0.54 },
+        { { { 5.16, 4.9, 4.37 }, { 3.55, 0.95, 8.84 }, 0.5 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, 0.16 },
+        { { { 5.16, 4.9, 4.37 }, { 3.55, 0.95, 8.84 }, 0.5 }, { { 5.45, 4.78, 4.57 }, { 6.57, 1, -0.2 }, 0.5 }, -0.66 },
+        { { { 2.59, 1.88, 4.22 }, { 18.85, 10.07, 6.1 }, 1 }, { { 0.55, 21.32, 3.08 }, { 5.07, 3.62, 4.19 }, 1 }, -1.44 },
+        { { { -9.26, 12.81, 7.98 }, { 6.63, 4.62, 4.04 }, 1 }, { { 0.55, 21.32, 3.08 }, { 5.07, 3.62, 4.19 }, 1 }, -1.52 },
+    };
+
+    for (auto t : test) {
+        gjkresult res = GJK_solve_gjk_simple(t.caps1, t.caps2);
+        CHECK(abs(res.minimal_distance - t.expected_dist) < TESTCOLL_EPSILON);
+    }
+}
+
+TEST_CASE("GJK Cylinder collision", "[World]") {
+    using namespace blast;
+
+    real TESTCOLL_EPSILON = 1e-2;
+
+    struct GJK_collision_test_cyl {
+        cylinder cyl;
+        capsule caps;
+        real expected_dist;
+    };
+
+    GJK_collision_test_cyl test[] = {
+        /*Test 1*/ { { { -13.46, -3.61, 189 }, { -12.46, -5.11, 190 }, 1 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, -0.54 },
+        /*Test 2*/ { { { -13.41, -2.79, 189 }, { -15.16, -3.2, 190 }, 1 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, 1.33 },
+        /*Test 3*/ { { { -16.3, -3.97, 200.87 }, { -17.3, -2.47, 199.87 }, 1 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, 1.53 },
+        /*Test 4*/ { { { -7.25, -10.11, 174.29 }, { -7.86, -9.44, 176.14 }, 2 }, { { -14.66, -13.24, 198.94 }, { -11.16, -7.94, 181.77 }, 1 }, 5.53 },
+        /*Test 5*/ { { { -14.88, -2.74, 198.21 }, { -15.49, -2.08, 200.06 }, 2 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, -0.45 },
+    };
+
+    for (auto t : test) {
+        gjkresult res = GJK_solve_gjk_simple(t.cyl, t.caps);
+        CHECK(abs(res.minimal_distance - t.expected_dist) < TESTCOLL_EPSILON);
+    }
+}
+
+TEST_CASE("GJK OBB collision", "[World]") {
+    using namespace blast;
+
+    real TESTCOLL_EPSILON = 6e-4;
+
+    struct GJK_collision_test_box {
+        OBB box;
+        capsule caps;
+        real expected_dist;
+    };
+
+    GJK_collision_test_box test[] = {
+        /*Test1*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.21, -5.18, 18.05 }, { -3.89, 8.59, 6.3 }, 1 }, 1.63659624 },
+        /*Test2*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.46, 0.97, 3.7 }, { 7.79, 14.74, -8.04 }, 1 }, 1.50169942 },
+        /*Test3*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, 1, 0, -1, 0, 0, 0, 0, 1 } }, { { 10.05, 1.11, 12.87 }, { 7.37, 14.89, 1.13 }, 1 }, 0.33397901 },
+        /*Test5*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.82, 6.9, 12.84 }, { 4.7, -7.14, 24.59 }, 1 }, 4.00838054 },
+        /*Test6*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -3.06, 5.73, 1.67 }, { -0.39, -8.05, 13.41 }, 1 }, 0.89513819 },
+        /*Test7*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.97, 2.79, 12.23 }, { 2.29, 16.57, 0.48 }, 1 }, 1.69981481 },
+        /*Test8*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.49, -0.06, 8.32 }, { 14.17, -13.84, 20.07 }, 1 }, 0.49000000 },
+        /*Test9*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 6.76, -1.55, 8 }, { 9.44, -15.33, 19.74 }, 1 }, 0.45000000 },
+        /*Test10*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.15, 13.92, -7.48 }, { 1.53, 0.14, 4.27 }, 1 }, 0.73046237 },
+        /*Test11*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.54, 0.1, 10.59 }, { 1.86, 13.87, -1.15 }, 1 }, -1.00000000 },
+        /*Test12*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.76, 0.28, 8.08 }, { 13.44, -13.5, 19.83 }, 1 }, -0.21961454 },
+        /*Test13*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.96, 0.43, 8.3 }, { 7.64, -13.35, 20.05 }, 1 }, -1.53000000 },
+        /*Test14*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.48, -4.07, 0.76 }, { 8.64, -4.41, 18.58 }, 1 }, 3.06923695 },
+        /*Test15*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 17.48, 2.95, 13.77 }, { -0.82, 3.11, 13.77 }, 1 }, 2.41054264 },
+        /*Test16*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.18, 8.56, 4.82 }, { 11.04, -6.44, 15.29 }, 1 }, 0.09912546 },
+
+        // OBB.R and caps.r changed
+        /*Test17*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.94, -6.06, 5.74 }, { 4.01, -9.86, 0.98 }, 0.5 }, 1.00474115 },
+        /*Test18*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.64, 9.52, 11.7 }, { 2.71, 5.72, 6.94 }, 0.5 }, 0.22669533 },
+        /*Test19*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 3, 5.69, 6.2 }, { 4.07, 1.89, 1.44 }, 0.5 }, 0.42102531 },
+        /*Test20*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 3.1, 4.23, 6.22 }, { 4.17, 0.43, 1.46 }, 0.5 },  0.10695205 },
+        /*Test21*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.35, 8.57, 12.85 }, { 7.42, 4.77, 8.09 }, 0.5 }, 0.85902522 },
+        /*Test22*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.88, -2.47, 7.07 }, { 2.95, -6.27, 2.31 }, 0.5 }, 0.37892454 },
+        /*Test23*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.8, 3.83, 14.57 }, { 2.87, 0.03, 9.81 }, 0.5 }, 1.47889394 },
+        /*Test24*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 4.28, 6.32, 8.33 }, { 3.21, 10.12, 13.09 }, 0.5 }, 0.82000000 },
+        /*Test25*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.36, 2.3, 6.31 }, { 3.43, -1.5, 1.55 }, 0.5 }, 0.26887914 },
+        /*Test26*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.93, 7.6, 12.29 }, { 4, 3.8, 7.53 }, 0.5 }, -0.93234019 },
+        /*Test27*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 7.55, 0.92, 10.24 }, { 6.48, 4.72, 15 }, 0.5 }, -0.32852683 },
+        /*Test28*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.79, 5, 13.29 }, { 7.86, 1.2, 8.52 }, 0.5 }, -0.40212621 },
+        /*Test29*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.66, -0.92, 7.44 }, { 8.04, 4.16, 9.96 }, 0.5 }, 0.87078210 },
+        /*Test30*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 8.94, 3.63, 11.01 }, { 8.94, -2.55, 11.01 }, 0.5 }, 1.24844065 },
+        /*Test31*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.91, 5.9, 7.39 }, { 4.14, 5.9, 13.32 }, 0.5 }, 0.40000000 },
+    };
+
+    for (auto t : test) {
+        gjkresult res = GJK_solve_gjk_simple(t.box, t.caps);
+        CHECK(abs(res.minimal_distance - t.expected_dist) < TESTCOLL_EPSILON);
+    }
+}
+
 
 
 #endif
