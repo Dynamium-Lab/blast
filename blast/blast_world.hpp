@@ -1237,12 +1237,349 @@ gjkresult GJK_solve_gjk_simple(KodaVertices v1, KodaVertices v2) {
         simplex.a = support;
     }
 
-    /*results.intersection = false;
+    // note : this should never be called, but it was included in the video
+    results.intersection = false;
     results.final_simplex = simplex;
     results.A_closept = {};
     results.B_closept = {};
     results.minimal_distance = norm(results.A_closept - results.B_closept);
-    return results;*/
+    return results;
+}
+
+gjkresult GJK_solve_gjk_simple(OBB OBBtest, KodaVertices v2) {
+    ComplexSimplex simplex;
+    gjkresult results;
+
+    // Initialization of the eight OBB points
+    Vec3 size_x_org = {OBBtest.e.x, 0, 0};
+    Vec3 size_y_org = {0, OBBtest.e.y, 0};
+    Vec3 size_z_org = {0, 0, OBBtest.e.z};
+    Vec3 size_x = OBBtest.R*size_x_org;
+    Vec3 size_y = OBBtest.R*size_y_org;
+    Vec3 size_z = OBBtest.R*size_z_org;
+
+    KodaVertices v1;
+    v1.count = 0;
+    int sign[2] = {-1,1};
+
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            for (int k = 0; k < 2; k++) {
+                Vec3 p = OBBtest.c + sign[i]*size_x + sign[j]*size_y + sign[k]*size_z;
+                v1.fixed.push_back(p);
+                v1.count += 1;
+            }
+        }
+    }
+
+    // The general code starts here
+    Vec3 direction = v1.fixed[0] - v2.fixed[0];
+    simplex.a1 = GJK_get_support(v1, -direction);
+    simplex.a2 = GJK_get_support(v2, direction);
+    simplex.a = simplex.a2 - simplex.a1;
+    simplex.count = 1;
+
+    while (true) {
+        Vec3 p;
+        switch (simplex.count) {
+        case '1':
+            p = simplex.a;
+        case '2':
+            p = GJK_solve_simplex2(simplex);
+        case '3':
+            p = GJK_solve_simplex3(simplex);
+        case '4':
+            p = GJK_solve_simplex4(simplex);
+        default:
+            std::cout << "error: the simplex size is not valid!" << std::endl;
+        }
+        if (dot(p, p) < COLLISION_EPSILON) {
+            results.intersection = true;
+            results.final_simplex = simplex;
+            results.minimal_distance = 0;
+            return results;
+        }
+
+        direction = -p;
+
+        Vec3 support1 = GJK_get_support(v1, -direction);
+        Vec3 support2 = GJK_get_support(v2, direction);
+        
+        Vec3 support = support2 - support1;
+
+        if (dot(p, direction) >= dot(support, direction)) {
+            two_pts local = GJK_get_local_points(simplex, p);
+
+            results.intersection = false;
+            results.A_closept = local.p1;
+            results.B_closept = local.p2;
+            results.final_simplex = simplex;
+            results.minimal_distance = norm(results.A_closept - results.B_closept);
+            return results;
+        }
+        Assert(simplex.count < 4 /*"You cannot have a simplex that's a tetrahedron at this point."*/);
+
+        simplex.d = simplex.c;
+        simplex.d1 = simplex.c1;
+        simplex.d2 = simplex.c2;
+
+        simplex.c = simplex.b;
+        simplex.c1 = simplex.b1;
+        simplex.c2 = simplex.b2;
+
+        simplex.b = simplex.c;
+        simplex.b1 = simplex.c1;
+        simplex.b2 = simplex.c2;
+
+        simplex.count += 1;
+
+        simplex.a1 = support1;
+        simplex.a2 = support2;
+        simplex.a = support;
+    }
+
+    // note : this should never be called, but it was included in the video
+    results.intersection = false;
+    results.final_simplex = simplex;
+    results.A_closept = {};
+    results.B_closept = {};
+    results.minimal_distance = norm(results.A_closept - results.B_closept);
+    return results;
+}
+
+
+gjkresult GJK_solve_gjk_simple(capsule v1, KodaVertices v2) {
+    ComplexSimplex simplex;
+    gjkresult results;
+
+    Vec3 direction = v1.p1 - v2.fixed[0];
+    simplex.a1 = GJK_get_support(v1, -direction);
+    simplex.a2 = GJK_get_support(v2, direction);
+    simplex.a = simplex.a2 - simplex.a1;
+    simplex.count = 1;
+
+    while (true) {
+        Vec3 p;
+        switch (simplex.count) {
+        case '1':
+            p = simplex.a;
+        case '2':
+            p = GJK_solve_simplex2(simplex);
+        case '3':
+            p = GJK_solve_simplex3(simplex);
+        case '4':
+            p = GJK_solve_simplex4(simplex);
+        default:
+            std::cout << "error: the simplex size is not valid!" << std::endl;
+        }
+        if (dot(p, p) < COLLISION_EPSILON) {
+            results.intersection = true;
+            results.final_simplex = simplex;
+            results.minimal_distance = 0;
+            return results;
+        }
+
+        direction = -p;
+
+        Vec3 support1 = GJK_get_support(v1, -direction);
+        Vec3 support2 = GJK_get_support(v2, direction);
+        
+        Vec3 support = support2 - support1;
+
+        if (dot(p, direction) >= dot(support, direction)) {
+            two_pts local = GJK_get_local_points(simplex, p);
+
+            results.intersection = false;
+            results.A_closept = local.p1;
+            results.B_closept = local.p2;
+            results.final_simplex = simplex;
+            results.minimal_distance = norm(results.A_closept - results.B_closept);
+            return results;
+        }
+        Assert(simplex.count < 4 /*"You cannot have a simplex that's a tetrahedron at this point."*/);
+
+        simplex.d = simplex.c;
+        simplex.d1 = simplex.c1;
+        simplex.d2 = simplex.c2;
+
+        simplex.c = simplex.b;
+        simplex.c1 = simplex.b1;
+        simplex.c2 = simplex.b2;
+
+        simplex.b = simplex.c;
+        simplex.b1 = simplex.c1;
+        simplex.b2 = simplex.c2;
+
+        simplex.count += 1;
+
+        simplex.a1 = support1;
+        simplex.a2 = support2;
+        simplex.a = support;
+    }
+
+    // note : this should never be called, but it was included in the video
+    results.intersection = false;
+    results.final_simplex = simplex;
+    results.A_closept = {};
+    results.B_closept = {};
+    results.minimal_distance = norm(results.A_closept - results.B_closept);
+    return results;
+}
+
+gjkresult GJK_solve_gjk_simple(sphere v1, KodaVertices v2) {
+    ComplexSimplex simplex;
+    gjkresult results;
+
+    Vec3 direction = v1.c - v2.fixed[0];
+    simplex.a1 = GJK_get_support(v1, -direction);
+    simplex.a2 = GJK_get_support(v2, direction);
+    simplex.a = simplex.a2 - simplex.a1;
+    simplex.count = 1;
+
+    while (true) {
+        Vec3 p;
+        switch (simplex.count) {
+        case '1':
+            p = simplex.a;
+        case '2':
+            p = GJK_solve_simplex2(simplex);
+        case '3':
+            p = GJK_solve_simplex3(simplex);
+        case '4':
+            p = GJK_solve_simplex4(simplex);
+        default:
+            std::cout << "error: the simplex size is not valid!" << std::endl;
+        }
+        if (dot(p, p) < COLLISION_EPSILON) {
+            results.intersection = true;
+            results.final_simplex = simplex;
+            results.minimal_distance = 0;
+            return results;
+        }
+
+        direction = -p;
+
+        Vec3 support1 = GJK_get_support(v1, -direction);
+        Vec3 support2 = GJK_get_support(v2, direction);
+        
+        Vec3 support = support2 - support1;
+
+        if (dot(p, direction) >= dot(support, direction)) {
+            two_pts local = GJK_get_local_points(simplex, p);
+
+            results.intersection = false;
+            results.A_closept = local.p1;
+            results.B_closept = local.p2;
+            results.final_simplex = simplex;
+            results.minimal_distance = norm(results.A_closept - results.B_closept);
+            return results;
+        }
+        Assert(simplex.count < 4 /*"You cannot have a simplex that's a tetrahedron at this point."*/);
+
+        simplex.d = simplex.c;
+        simplex.d1 = simplex.c1;
+        simplex.d2 = simplex.c2;
+
+        simplex.c = simplex.b;
+        simplex.c1 = simplex.b1;
+        simplex.c2 = simplex.b2;
+
+        simplex.b = simplex.c;
+        simplex.b1 = simplex.c1;
+        simplex.b2 = simplex.c2;
+
+        simplex.count += 1;
+
+        simplex.a1 = support1;
+        simplex.a2 = support2;
+        simplex.a = support;
+    }
+
+    // note : this should never be called, but it was included in the video
+    results.intersection = false;
+    results.final_simplex = simplex;
+    results.A_closept = {};
+    results.B_closept = {};
+    results.minimal_distance = norm(results.A_closept - results.B_closept);
+    return results;
+}
+
+gjkresult GJK_solve_gjk_simple(cylinder v1, KodaVertices v2) {
+    ComplexSimplex simplex;
+    gjkresult results;
+
+    Vec3 direction = v1.p1 - v2.fixed[0];
+    simplex.a1 = GJK_get_support(v1, -direction);
+    simplex.a2 = GJK_get_support(v2, direction);
+    simplex.a = simplex.a2 - simplex.a1;
+    simplex.count = 1;
+
+    while (true) {
+        Vec3 p;
+        switch (simplex.count) {
+        case '1':
+            p = simplex.a;
+        case '2':
+            p = GJK_solve_simplex2(simplex);
+        case '3':
+            p = GJK_solve_simplex3(simplex);
+        case '4':
+            p = GJK_solve_simplex4(simplex);
+        default:
+            std::cout << "error: the simplex size is not valid!" << std::endl;
+        }
+        if (dot(p, p) < COLLISION_EPSILON) {
+            results.intersection = true;
+            results.final_simplex = simplex;
+            results.minimal_distance = 0;
+            return results;
+        }
+
+        direction = -p;
+
+        Vec3 support1 = GJK_get_support(v1, -direction);
+        Vec3 support2 = GJK_get_support(v2, direction);
+        
+        Vec3 support = support2 - support1;
+
+        if (dot(p, direction) >= dot(support, direction)) {
+            two_pts local = GJK_get_local_points(simplex, p);
+
+            results.intersection = false;
+            results.A_closept = local.p1;
+            results.B_closept = local.p2;
+            results.final_simplex = simplex;
+            results.minimal_distance = norm(results.A_closept - results.B_closept);
+            return results;
+        }
+        Assert(simplex.count < 4 /*"You cannot have a simplex that's a tetrahedron at this point."*/);
+
+        simplex.d = simplex.c;
+        simplex.d1 = simplex.c1;
+        simplex.d2 = simplex.c2;
+
+        simplex.c = simplex.b;
+        simplex.c1 = simplex.b1;
+        simplex.c2 = simplex.b2;
+
+        simplex.b = simplex.c;
+        simplex.b1 = simplex.c1;
+        simplex.b2 = simplex.c2;
+
+        simplex.count += 1;
+
+        simplex.a1 = support1;
+        simplex.a2 = support2;
+        simplex.a = support;
+    }
+
+    // note : this should never be called, but it was included in the video
+    results.intersection = false;
+    results.final_simplex = simplex;
+    results.A_closept = {};
+    results.B_closept = {};
+    results.minimal_distance = norm(results.A_closept - results.B_closept);
+    return results;
 }
 
 
