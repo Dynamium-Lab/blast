@@ -1304,6 +1304,57 @@ gjkresult GJK_solve_gjk_simple(capsule caps, OBB box) {
     return results;
 }
 
+// ======================================
+//       To transfer in blast_kinova
+// ======================================
+
+#include <BaseClientRpc.h>
+#include <SessionManager.h>
+
+#include <RouterClient.h>
+#include <TransportClientTcp.h>
+
+#include <array>
+
+#include "utilities.h"
+
+#define PORT 10000
+
+namespace k_api = Kinova::Api;
+
+// information from : https://github.com/Kinovarobotics/kortex/tree/44dac04e89f0ba8a6d8fc6b9e5e12c677e738c1e/api_cpp/doc/markdown/enums/Base
+
+void print_protection_zones(k_api::Base::BaseClient* base) {
+    const auto all_protection_zones = base->ReadAllProtectionZones();
+
+    for(auto protection_zone : all_protection_zones.protection_zones() {
+        if (protection_zone.shape().shape_type() == 1) /*cylinder*/ {
+            cylinder cyl;
+            cyl.p1 = protection_zone.shape().origin();
+            cyl.p2 = protection_zone.shape().orientation() * protection_zone.shape().dimensions()[1] + cyl.p1; // Check again
+            cyl.r = protection_zone.shape().dimensions()[0];
+            add_cyl(cyl.p1, cyl.p2, cyl.r);
+        }
+        if (protection_zone.shape().shape_type() == 2) /*sphere*/ {
+            sphere sph;
+            sph.c = protection_zone.shape().origin();
+            sph.r = protection_zone.shape().dimensions();
+            add_sph(sph.c, sph.r);
+        }
+        if (protection_zone.shape().shape_type() == 3) /*OBB*/ {
+            OBB box;
+            box.c = protection_zone.shape().origin();
+            box.e = protection_zone.shape().dimensions();
+            box.R = protection_zone.shape().orientation();
+            add_box(box.c, box.e, box.R);
+        }
+        else /*undefined*/ {
+            std::cout << "Error : one shape has type : 0 (undefined)" << std::endl;
+        }
+    }
+}
+
+
 // int main()
 // {
 //     std::cout << "Hello World!\n";
