@@ -64,9 +64,8 @@ struct objlist {
 };
 objlist world;
 
-struct robot {
-    std::vector<Vec3> pts; // pts of the center of every articulation in the given position
-    std::vector<real> r; // radii of the respective link
+struct capslist {
+    std::vector<capsule> caps; // list of capsules
 };
 
 
@@ -611,96 +610,98 @@ void add_caps(Vec3 p1, Vec3 p2, real r) {
     world.capslist.push_back(new_caps);
 }
  
-// real test_collision(/*robot, */objlist world, int n_var){
-//     real dist_min[n_var];
-//     int idx = 0;
+std::vector<real> test_collision(capslist caps_list, objlist world, int n_var){
+    std::vector<real> dist_min(n_var); // !Does this work?
+    int idx = 0;
+    real dist;
 
-//     // OBB collisions
-//     for (int i = 0; i < size(world.OBBlist); i++) {
-//         real dist = distmin(t.caps, world.OBBlist[i]);
-//         for (int j = 0; j < n_var; j++){
-//                 if (dist < dist_min[j]) {
-//                     for (int k = n_var; k > j; k--) {
-//                         dist_min[k] = dist_min[k-1];
-//                     }
-//                     dist_min[j] = dist;
-//                     break
-//                 }
-//         }
-//     }
+    for (int c = 0; c < size(caps_list.caps); c++) {
+        // OBB collisions
+        for (int i = 0; i < size(world.OBBlist); i++) {
+            dist = distmin(world.OBBlist[i], caps_list.caps[c]);
+            for (int j = 0; j < n_var; j++){
+                if (dist < dist_min[j]) {
+                    for (int k = n_var; k > j; k--) {
+                        dist_min[k] = dist_min[k-1];
+                    }
+                    dist_min[j] = dist;
+                    break;
+                }
+            }
+        }
 
-//     // Capsule collisions
-//     for (int i = 0; i < size(world.capslist); i++) {
-//         real dist = distmin(t.caps, world.capslist[i]);
-//         for (int j = 0; j < n_var; j++){
-//                 if (dist < dist_min[j]) {
-//                     for (int k = n_var; k > j; k--) {
-//                         dist_min[k] = dist_min[k-1];
-//                     }
-//                     dist_min[j] = dist;
-//                     break
-//                 }
-//         }
-//     }
+        // Capsule collisions
+        for (int i = 0; i < size(world.capslist); i++) {
+            dist = distmin(caps_list.caps[c], world.capslist[i]);
+            for (int j = 0; j < n_var; j++){
+                if (dist < dist_min[j]) {
+                    for (int k = n_var; k > j; k--) {
+                        dist_min[k] = dist_min[k-1];
+                    }
+                    dist_min[j] = dist;
+                    break;
+                }
+            }
+        }
 
-//     // Cylinder collisions
-//     for (int i = 0; i < size(world.cyllist); i++) {
-//         real dist = distmin(t.caps, world.cyllist[i]);
-//         for (int j = 0; j < n_var; j++){
-//                 if (dist < dist_min[j]) {
-//                     for (int k = n_var; k > j; k--) {
-//                         dist_min[k] = dist_min[k-1];
-//                     }
-//                     dist_min[j] = dist;
-//                     break
-//                 }
-//         }
-//     }
+        // Cylinder collisions
+        for (int i = 0; i < size(world.cyllist); i++) {
+            dist = distmin(caps_list.caps[c], world.cyllist[i]);
+            for (int j = 0; j < n_var; j++){
+                if (dist < dist_min[j]) {
+                    for (int k = n_var; k > j; k--) {
+                        dist_min[k] = dist_min[k-1];
+                    }
+                    dist_min[j] = dist;
+                    break;
+                }
+            }
+        }
 
-//     // Sphere collisions
-//     for (int i = 0; i < size(world.sphlist); i++) {
-//         real dist = distmin(t.caps, world.sphlist[i]);
-//         for (int j = 0; j < n_var; j++){
-//                 if (dist < dist_min[j]) {
-//                     for (int k = n_var; k > j; k--) {
-//                         dist_min[k] = dist_min[k-1];
-//                     }
-//                     dist_min[j] = dist;
-//                     break
-//                 }
-//         }
-//     }
+        // Sphere collisions
+        for (int i = 0; i < size(world.sphlist); i++) {
+            dist = distmin(caps_list.caps[c], world.sphlist[i]);
+            for (int j = 0; j < n_var; j++){
+                if (dist < dist_min[j]) {
+                    for (int k = n_var; k > j; k--) {
+                        dist_min[k] = dist_min[k-1];
+                    }
+                    dist_min[j] = dist;
+                    break;
+                }
+            }
+        }
+    }
 
-//     // Self-collision
-//     // note : this does not take into account the collision between two subsequent links of a robot, 
-//     // which means that angle constraints must be put on the articulations.
-//     real n_pts = size(robot.pts);
-//     real n_link = n_pts - 1;
-//     capsule link[n_link];
+    // // Self-collision
+    // // note : this does not take into account the collision between two subsequent links of a robot, 
+    // // which means that angle constraints must be put on the articulations.
+    // real n_pts = size(robot.pts);
+    // real n_link = n_pts - 1;
+    // capsule link[n_link];
 
-//     for (int i = 0; i < n_pts - 1; i++) {
-//         link[i].p1 = robot.pts[i];
-//         link[i].p2 = robot.pts[i+1];
-//         link[i].r = robot.r[i];
-//     }
+    // for (int i = 0; i < n_link; i++) {
+    //     link[i].p1 = robot.pts[i];
+    //     link[i].p2 = robot.pts[i+1];
+    //     link[i].r = robot.r[i];
+    // }
 
-//     for (int i = 0; i < n_link; i++) {
-//         for (int j = 2 + i; j < n_link; j++) {
-//             dist = distmin(link[i], link[i+j]);
-//             for (int k = 0; k < n_var; k++){
-//                 if (dist < dist_min[j]) {
-//                     for (int l = n_var; l > k; l--) {
-//                         dist_min[l] = dist_min[l-1];
-//                     }
-//                     dist_min[k] = dist;
-//                     break
-//                 }
-//             }
-//         }
-//     }
-
-//     return dist_min;
-// }
+    // for (int i = 0; i < n_link; i++) {
+    //     for (int j = 2 + i; j < n_link; j++) {
+    //         dist = distmin(link[i], link[i+j]);
+    //         for (int k = 0; k < n_var; k++){
+    //             if (dist < dist_min[j]) {
+    //                 for (int l = n_var; l > k; l--) {
+    //                     dist_min[l] = dist_min[l-1];
+    //                 }
+    //                 dist_min[k] = dist;
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // }
+    return dist_min;
+}
 
 //    note: this is a simpler version of the collision test which only allows for one minimum distance to be returned. 
 //    It could easily be adapted to include all distances as well.
@@ -864,18 +865,18 @@ two_pts GJK_get_local_points(ComplexSimplex simplex, Vec3 p) {
     Vec3 barycentric3;
 
     switch (simplex.count) {
-    case '1':
+    case 1:
         loc.p1 = simplex.a1;
         loc.p2 = simplex.a2;
         return loc;
 
-    case '2':
+    case 2:
         barycentric = GJK_convert_barycentric(simplex.a, simplex.b, p);
         loc.p1 = GJK_convert_cartesian(simplex.a1, simplex.b1, barycentric);
         loc.p2 = GJK_convert_cartesian(simplex.a2, simplex.b2, barycentric);
         return loc;
 
-    case '3':
+    case 3:
         barycentric3 = GJK_convert_barycentric(simplex.a, simplex.b, simplex.c, p);
         loc.p1 = GJK_convert_cartesian(simplex.a1, simplex.b1, simplex.c1, barycentric3);
         loc.p2 = GJK_convert_cartesian(simplex.a2, simplex.b2, simplex.c2, barycentric3);
@@ -890,7 +891,7 @@ two_pts GJK_get_local_points(ComplexSimplex simplex, Vec3 p) {
 Vec3 GJK_get_support(KodaVertices vertices, Vec3 direction) {
     real largest_dot = dot(vertices.fixed[0], direction);
     Vec3 largest_vertex = vertices.fixed[0];
-    for (int i = 0; i < vertices.count; i++) {
+    for (int i = 1; i < vertices.count; i++) {
         Vec3 vertex = vertices.fixed[i];
 
         real current_dot = dot(vertex, direction);
@@ -1176,283 +1177,39 @@ two_pts GJK_solve_simplex4(ComplexSimplex& simplex) {
     return {{ 0,0,0 }, {0,0,0}};
 }
 
-// gjkresult GJK_solve_gjk_simple(KodaVertices v1, KodaVertices v2) {
-//     ComplexSimplex simplex;
-//     gjkresult results;
-
-//     Vec3 direction = v1.fixed[0] - v2.fixed[0];
-//     simplex.a1 = GJK_get_support(v1, -direction);
-//     simplex.a2 = GJK_get_support(v2, direction);
-//     simplex.a = simplex.a2 - simplex.a1;
-//     simplex.count = 1;
-
-//     while (true) {
-//         Vec3 p;
-//         switch (simplex.count) {
-//         case 1:
-//             p = simplex.a;
-//             break;
-//         case 2:
-//             p = GJK_solve_simplex2(simplex);
-//             break;
-//         case 3:
-//             p = GJK_solve_simplex3(simplex);
-//             break;
-//         case 4:
-//             p = GJK_solve_simplex4(simplex);
-//             break;
-//         default:
-//             std::cout << "error: the simplex size is not valid!" << std::endl;
-//             break;
-//         }
-//         if (dot(p, p) < COLLISION_EPSILON) {
-//             results.intersection = true;
-//             results.final_simplex = simplex;
-//             results.minimal_distance = 0;
-//             return results;
-//         }
-
-//         direction = -p;
-
-//         Vec3 support1 = GJK_get_support(v1, -direction);
-//         Vec3 support2 = GJK_get_support(v2, direction);
-        
-//         Vec3 support = support2 - support1;
-
-//         if (dot(p, direction) >= dot(support, direction)) {
-//             two_pts local = GJK_get_local_points(simplex, p);
-
-//             results.intersection = false;
-//             results.A_closept = local.p1;
-//             results.B_closept = local.p2;
-//             results.final_simplex = simplex;
-//             results.minimal_distance = norm(results.A_closept - results.B_closept);
-//             return results;
-//         }
-//         Assert(simplex.count < 4 /*"You cannot have a simplex that's a tetrahedron at this point."*/);
-
-//         simplex.d = simplex.c;
-//         simplex.d1 = simplex.c1;
-//         simplex.d2 = simplex.c2;
-
-//         simplex.c = simplex.b;
-//         simplex.c1 = simplex.b1;
-//         simplex.c2 = simplex.b2;
-
-//         simplex.b = simplex.c;
-//         simplex.b1 = simplex.c1;
-//         simplex.b2 = simplex.c2;
-
-//         simplex.count += 1;
-
-//         simplex.a1 = support1;
-//         simplex.a2 = support2;
-//         simplex.a = support;
-//     }
-
-//     // note : this should never be called, but it was included in the video
-//     results.intersection = false;
-//     results.final_simplex = simplex;
-//     results.A_closept = {};
-//     results.B_closept = {};
-//     results.minimal_distance = norm(results.A_closept - results.B_closept);
-//     return results;
-// }
-
-// gjkresult GJK_solve_gjk_simple(OBB OBBtest, capsule v2) {
-//     ComplexSimplex simplex;
-//     gjkresult results;
-
-//     // Initialization of the eight OBB points
-//     Vec3 size_x_org = {OBBtest.e.x, 0, 0};
-//     Vec3 size_y_org = {0, OBBtest.e.y, 0};
-//     Vec3 size_z_org = {0, 0, OBBtest.e.z};
-//     Vec3 size_x = OBBtest.R*size_x_org;
-//     Vec3 size_y = OBBtest.R*size_y_org;
-//     Vec3 size_z = OBBtest.R*size_z_org;
-
-//     KodaVertices v1;
-//     v1.count = 0;
-//     int sign[2] = {-1,1};
-
-//     for (int i = 0; i < 2; i++) {
-//         for (int j = 0; j < 2; j++) {
-//             for (int k = 0; k < 2; k++) {
-//                 Vec3 p = OBBtest.c + sign[i]*size_x + sign[j]*size_y + sign[k]*size_z;
-//                 v1.fixed.push_back(p);
-//                 v1.count += 1;
-//             }
-//         }
-//     }
-
-//     // The general code starts here
-//     Vec3 direction = v1.fixed[0] - v2.p1;
-//     simplex.a1 = GJK_get_support(v1, -direction);
-//     simplex.a2 = GJK_get_support(v2, direction);
-//     simplex.a = simplex.a2 - simplex.a1;
-//     simplex.count = 1;
-
-//     while (true) {
-//         Vec3 p;
-//         switch (simplex.count) {
-//         case 1:
-//             p = simplex.a;
-//             break;
-//         case 2:
-//             p = GJK_solve_simplex2(simplex);
-//             break;
-//         case 3:
-//             p = GJK_solve_simplex3(simplex);
-//             break;
-//         case 4:
-//             p = GJK_solve_simplex4(simplex);
-//             break;
-//         default:
-//             std::cout << "error: the simplex size is not valid!" << std::endl;
-//             break;
-//         }
-//         if (dot(p, p) < COLLISION_EPSILON) {
-//             results.intersection = true;
-//             results.final_simplex = simplex;
-//             results.minimal_distance = 0;
-//             return results;
-//         }
-
-//         direction = -p;
-
-//         Vec3 support1 = GJK_get_support(v1, -direction);
-//         Vec3 support2 = GJK_get_support(v2, direction);
-        
-//         Vec3 support = support2 - support1;
-
-//         if (dot(p, direction) >= dot(support, direction)) {
-//             two_pts local = GJK_get_local_points(simplex, p);
-
-//             results.intersection = false;
-//             results.A_closept = local.p1;
-//             results.B_closept = local.p2;
-//             results.final_simplex = simplex;
-//             results.minimal_distance = norm(results.A_closept - results.B_closept);
-//             return results;
-//         }
-//         Assert(simplex.count < 4 /*"You cannot have a simplex that's a tetrahedron at this point."*/);
-
-//         simplex.d = simplex.c;
-//         simplex.d1 = simplex.c1;
-//         simplex.d2 = simplex.c2;
-
-//         simplex.c = simplex.b;
-//         simplex.c1 = simplex.b1;
-//         simplex.c2 = simplex.b2;
-
-//         simplex.b = simplex.c;
-//         simplex.b1 = simplex.c1;
-//         simplex.b2 = simplex.c2;
-
-//         simplex.count += 1;
-
-//         simplex.a1 = support1;
-//         simplex.a2 = support2;
-//         simplex.a = support;
-//     }
-
-//     // note : this should never be called, but it was included in the video
-//     results.intersection = false;
-//     results.final_simplex = simplex;
-//     results.A_closept = {};
-//     results.B_closept = {};
-//     results.minimal_distance = norm(results.A_closept - results.B_closept);
-//     return results;
-// }
-
-// gjkresult GJK_solve_gjk_simple(capsule v1, capsule v2) {
-//     ComplexSimplex simplex;
-//     gjkresult results;
-
-//     Vec3 direction = v1.p1 - v2.p1;
-//     simplex.a1 = GJK_get_support(v1, -direction);
-//     simplex.a2 = GJK_get_support(v2, direction);
-//     simplex.a = simplex.a2 - simplex.a1;
-//     simplex.count = 1;
-
-//     while (true) {
-//         Vec3 p;
-//         switch (simplex.count) {
-//         case 1:
-//             p = simplex.a;
-//             break;
-//         case 2:
-//             p = GJK_solve_simplex2(simplex);
-//             break;
-//         case 3:
-//             p = GJK_solve_simplex3(simplex);
-//             break;
-//         case 4:
-//             p = GJK_solve_simplex4(simplex);
-//             break;
-//         default:
-//             std::cout << "error: the simplex size is not valid!" << std::endl;
-//             break;
-//         }
-//         if (dot(p, p) < COLLISION_EPSILON) {
-//             results.intersection = true;
-//             results.final_simplex = simplex;
-//             results.minimal_distance = 0;
-//             return results;
-//         }
-
-//         direction = -p;
-
-//         Vec3 support1 = GJK_get_support(v1, -direction);
-//         Vec3 support2 = GJK_get_support(v2, direction);
-        
-//         Vec3 support = support2 - support1;
-
-//         if (dot(p, direction) >= dot(support, direction)) {
-//             two_pts local = GJK_get_local_points(simplex, p);
-
-//             results.intersection = false;
-//             results.A_closept = local.p1;
-//             results.B_closept = local.p2;
-//             results.final_simplex = simplex;
-//             results.minimal_distance = norm(results.A_closept - results.B_closept);
-//             return results;
-//         }
-//         Assert(simplex.count < 4 /*"You cannot have a simplex that's a tetrahedron at this point."*/);
-
-//         simplex.d = simplex.c;
-//         simplex.d1 = simplex.c1;
-//         simplex.d2 = simplex.c2;
-
-//         simplex.c = simplex.b;
-//         simplex.c1 = simplex.b1;
-//         simplex.c2 = simplex.b2;
-
-//         simplex.b = simplex.c;
-//         simplex.b1 = simplex.c1;
-//         simplex.b2 = simplex.c2;
-
-//         simplex.count += 1;
-
-//         simplex.a1 = support1;
-//         simplex.a2 = support2;
-//         simplex.a = support;
-//     }
-
-//     // note : this should never be called, but it was included in the video
-//     results.intersection = false;
-//     results.final_simplex = simplex;
-//     results.A_closept = {};
-//     results.B_closept = {};
-//     results.minimal_distance = norm(results.A_closept - results.B_closept);
-//     return results;
-// }
-
-gjkresult GJK_solve_gjk_simple(sphere v1, capsule v2) {
+gjkresult GJK_solve_gjk_simple(capsule caps, OBB box) {
     ComplexSimplex simplex;
     gjkresult results;
 
-    Vec3 direction = v1.c - v2.p1;
+    // Initialization of the eight OBB points
+    Vec3 size_x_org = {box.e.x, 0, 0};
+    Vec3 size_y_org = {0, box.e.y, 0};
+    Vec3 size_z_org = {0, 0, box.e.z};
+    Vec3 size_x = box.R*size_x_org;
+    Vec3 size_y = box.R*size_y_org;
+    Vec3 size_z = box.R*size_z_org;
+
+    KodaVertices v1;
+    v1.count = 0;
+    int sign[2] = {-1,1};
+
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            for (int k = 0; k < 2; k++) {
+                Vec3 p = box.c + sign[i]*size_x + sign[j]*size_y + sign[k]*size_z;
+                v1.fixed.push_back(p);
+                v1.count += 1;
+            }
+        }
+    }
+
+    KodaVertices v2;
+    v2.fixed.push_back(caps.p1);
+    v2.fixed.push_back(caps.p2);
+    v2.count = 2;
+
+    // The general code starts here
+    Vec3 direction = v1.fixed[0] - v2.fixed[0];
     simplex.a1 = GJK_get_support(v1, -direction);
     simplex.a2 = GJK_get_support(v2, direction);
     simplex.a = simplex.a2 - simplex.a1;
@@ -1483,6 +1240,7 @@ gjkresult GJK_solve_gjk_simple(sphere v1, capsule v2) {
             direction = solved.p2;
             break;
         default:
+            // This should never be called
             results.intersection = false;
             results.final_simplex = simplex;
             results.A_closept = {};
@@ -1505,18 +1263,16 @@ gjkresult GJK_solve_gjk_simple(sphere v1, capsule v2) {
         
         Vec3 support = support2 - support1;
 
-        if (dot(p, direction) >= dot(support, direction) + COLLISION_EPSILON) {
+        if (dot(p, direction) - dot(support, direction) >=  COLLISION_EPSILON || abs(dot(simplex.a, direction) - dot(support, direction)) <= COLLISION_EPSILON || dot(simplex.b, direction) - dot(support, direction) <= COLLISION_EPSILON || abs(dot(simplex.c, direction) - dot(support, direction)) <= COLLISION_EPSILON /*|| abs(dot(simplex.d, direction) - dot(support, direction)) <= COLLISION_EPSILON*/) {
             two_pts local = GJK_get_local_points(simplex, p);
 
             results.intersection = false;
             results.A_closept = local.p1;
             results.B_closept = local.p2;
             results.final_simplex = simplex;
-            results.minimal_distance = norm(results.A_closept - results.B_closept);
+            results.minimal_distance = norm(results.A_closept - results.B_closept) - caps.r;
             return results;
         }
-
-
 
         Assert(simplex.count < 4 /*"You cannot have a simplex that's a tetrahedron at this point."*/);
 
@@ -1544,88 +1300,9 @@ gjkresult GJK_solve_gjk_simple(sphere v1, capsule v2) {
     results.final_simplex = simplex;
     results.A_closept = {};
     results.B_closept = {};
-    results.minimal_distance = norm(results.A_closept - results.B_closept);
+    results.minimal_distance = norm(results.A_closept - results.B_closept) - caps.r;
     return results;
 }
-
-// gjkresult GJK_solve_gjk_simple(cylinder v1, capsule v2) {
-//     ComplexSimplex simplex;
-//     gjkresult results;
-
-//     Vec3 direction = v1.p1 - v2.p1;
-//     simplex.a1 = GJK_get_support(v1, -direction);
-//     simplex.a2 = GJK_get_support(v2, direction);
-//     simplex.a = simplex.a2 - simplex.a1;
-//     simplex.count = 1;
-
-//     while (true) {
-//         Vec3 p;
-//         switch (simplex.count) {
-//         case '1':
-//             p = simplex.a;
-//         case '2':
-//             p = GJK_solve_simplex2(simplex);
-//         case '3':
-//             p = GJK_solve_simplex3(simplex);
-//         case '4':
-//             p = GJK_solve_simplex4(simplex);
-//         default:
-//             std::cout << "error: the simplex size is not valid!" << std::endl;
-//         }
-//         if (dot(p, p) < COLLISION_EPSILON) {
-//             results.intersection = true;
-//             results.final_simplex = simplex;
-//             results.minimal_distance = 0;
-//             return results;
-//         }
-
-//         direction = -p;
-
-//         Vec3 support1 = GJK_get_support(v1, -direction);
-//         Vec3 support2 = GJK_get_support(v2, direction);
-        
-//         Vec3 support = support2 - support1;
-
-//         if (dot(p, direction) >= dot(support, direction)) {
-//             two_pts local = GJK_get_local_points(simplex, p);
-
-//             results.intersection = false;
-//             results.A_closept = local.p1;
-//             results.B_closept = local.p2;
-//             results.final_simplex = simplex;
-//             results.minimal_distance = norm(results.A_closept - results.B_closept);
-//             return results;
-//         }
-//         Assert(simplex.count < 4 /*"You cannot have a simplex that's a tetrahedron at this point."*/);
-
-//         simplex.d = simplex.c;
-//         simplex.d1 = simplex.c1;
-//         simplex.d2 = simplex.c2;
-
-//         simplex.c = simplex.b;
-//         simplex.c1 = simplex.b1;
-//         simplex.c2 = simplex.b2;
-
-//         simplex.b = simplex.c;
-//         simplex.b1 = simplex.c1;
-//         simplex.b2 = simplex.c2;
-
-//         simplex.count += 1;
-
-//         simplex.a1 = support1;
-//         simplex.a2 = support2;
-//         simplex.a = support;
-//     }
-
-//     // note : this should never be called, but it was included in the video
-//     results.intersection = false;
-//     results.final_simplex = simplex;
-//     results.A_closept = {};
-//     results.B_closept = {};
-//     results.minimal_distance = norm(results.A_closept - results.B_closept);
-//     return results;
-// }
-
 
 // int main()
 // {
@@ -1767,131 +1444,57 @@ TEST_CASE("OBB collision", "[World]") {
 //          GJK algorithm tests
 // ======================================
 
-TEST_CASE("GJK Sphere collision", "[World]") {
+TEST_CASE("GJK OBB collision", "[World]") {
     using namespace blast;
 
-    real TESTCOLL_EPSILON = 1e-2;
+    real TESTCOLL_EPSILON = 6e-4;
 
-    struct GJK_collision_test_sph {
-        sphere sph;
+    struct GJK_collision_test_box {
+        OBB box;
         capsule caps;
         real expected_dist;
     };
 
-    GJK_collision_test_sph test[] = {
-        { { { 4.27, 1.73, 3.74 }, 1 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, 0.42 },
-        { { { 2.75, 1.48, 3.44}, 1 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, -0.25 },
-        { { { 5.72, 6.47, 3.78 }, 1 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, 1.4 },
-        { { { 4.74, 5.26, 4.52 }, 1 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, -0.18 },
+    GJK_collision_test_box test[] = {
+        /*Test1*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.21, -5.18, 18.05 }, { -3.89, 8.59, 6.3 }, 1 }, 1.63659624 },
+        /*Test2*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.46, 0.97, 3.7 }, { 7.79, 14.74, -8.04 }, 1 }, 1.50169942 },
+        /*Test3*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, 1, 0, -1, 0, 0, 0, 0, 1 } }, { { 10.05, 1.11, 12.87 }, { 7.37, 14.89, 1.13 }, 1 }, 0.33397901 },
+        /*Test5*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.82, 6.9, 12.84 }, { 4.7, -7.14, 24.59 }, 1 }, 4.00838054 },
+        /*Test6*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -3.06, 5.73, 1.67 }, { -0.39, -8.05, 13.41 }, 1 }, 0.89513819 },
+        /*Test7*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.97, 2.79, 12.23 }, { 2.29, 16.57, 0.48 }, 1 }, 1.69981481 },
+        /*Test8*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.49, -0.06, 8.32 }, { 14.17, -13.84, 20.07 }, 1 }, 0.49000000 },
+        /*Test9*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 6.76, -1.55, 8 }, { 9.44, -15.33, 19.74 }, 1 }, 0.45000000 },
+        /*Test10*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.15, 13.92, -7.48 }, { 1.53, 0.14, 4.27 }, 1 }, 0.73046237 },
+        /*Test11*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.54, 0.1, 10.59 }, { 1.86, 13.87, -1.15 }, 1 }, -1.00000000 },
+        /*Test12*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.76, 0.28, 8.08 }, { 13.44, -13.5, 19.83 }, 1 }, -0.21961454 },
+        /*Test13*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.96, 0.43, 8.3 }, { 7.64, -13.35, 20.05 }, 1 }, -1.53000000 },
+        /*Test14*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.48, -4.07, 0.76 }, { 8.64, -4.41, 18.58 }, 1 }, 3.06923695 },
+        /*Test15*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 17.48, 2.95, 13.77 }, { -0.82, 3.11, 13.77 }, 1 }, 2.41054264 },
+        /*Test16*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.18, 8.56, 4.82 }, { 11.04, -6.44, 15.29 }, 1 }, 0.09912546 },
+
+        // OBB.R and caps.r changed
+        /*Test17*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.94, -6.06, 5.74 }, { 4.01, -9.86, 0.98 }, 0.5 }, 1.00474115 },
+        /*Test18*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.64, 9.52, 11.7 }, { 2.71, 5.72, 6.94 }, 0.5 }, 0.22669533 },
+        /*Test19*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 3, 5.69, 6.2 }, { 4.07, 1.89, 1.44 }, 0.5 }, 0.42102531 },
+        /*Test20*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 3.1, 4.23, 6.22 }, { 4.17, 0.43, 1.46 }, 0.5 },  0.10695205 },
+        /*Test21*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.35, 8.57, 12.85 }, { 7.42, 4.77, 8.09 }, 0.5 }, 0.85902522 },
+        /*Test22*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.88, -2.47, 7.07 }, { 2.95, -6.27, 2.31 }, 0.5 }, 0.37892454 },
+        /*Test23*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.8, 3.83, 14.57 }, { 2.87, 0.03, 9.81 }, 0.5 }, 1.47889394 },
+        /*Test24*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 4.28, 6.32, 8.33 }, { 3.21, 10.12, 13.09 }, 0.5 }, 0.82000000 },
+        /*Test25*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.36, 2.3, 6.31 }, { 3.43, -1.5, 1.55 }, 0.5 }, 0.26887914 },
+        /*Test26*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.93, 7.6, 12.29 }, { 4, 3.8, 7.53 }, 0.5 }, -0.93234019 },
+        /*Test27*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 7.55, 0.92, 10.24 }, { 6.48, 4.72, 15 }, 0.5 }, -0.32852683 },
+        /*Test28*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.79, 5, 13.29 }, { 7.86, 1.2, 8.52 }, 0.5 }, -0.40212621 },
+        /*Test29*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.66, -0.92, 7.44 }, { 8.04, 4.16, 9.96 }, 0.5 }, 0.87078210 },
+        /*Test30*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 8.94, 3.63, 11.01 }, { 8.94, -2.55, 11.01 }, 0.5 }, 1.24844065 },
+        /*Test31*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.91, 5.9, 7.39 }, { 4.14, 5.9, 13.32 }, 0.5 }, 0.40000000 },
     };
 
     for (auto t : test) {
-        gjkresult res = GJK_solve_gjk_simple(t.sph, t.caps);
+        gjkresult res = GJK_solve_gjk_simple(t.caps, t.box);
         CHECK(abs(res.minimal_distance - t.expected_dist) < TESTCOLL_EPSILON);
     }
 }
-
-// TEST_CASE("GJK Capsule collision", "[World]") {
-//     using namespace blast;
-
-//     real TESTCOLL_EPSILON = 1e-2;
-
-//     struct GJK_collision_test_caps {
-//         capsule caps1;
-//         capsule caps2;
-//         real expected_dist;
-//     };
-
-//     GJK_collision_test_caps test[] = {
-//         { { { 0.5, 0.95, 6.73 }, { 4, 4.9, 3.51 }, 0.5 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, -0.54 },
-//         { { { 5.16, 4.9, 4.37 }, { 3.55, 0.95, 8.84 }, 0.5 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, 0.16 },
-//         { { { 5.16, 4.9, 4.37 }, { 3.55, 0.95, 8.84 }, 0.5 }, { { 5.45, 4.78, 4.57 }, { 6.57, 1, -0.2 }, 0.5 }, -0.66 },
-//         { { { 2.59, 1.88, 4.22 }, { 18.85, 10.07, 6.1 }, 1 }, { { 0.55, 21.32, 3.08 }, { 5.07, 3.62, 4.19 }, 1 }, -1.44 },
-//         { { { -9.26, 12.81, 7.98 }, { 6.63, 4.62, 4.04 }, 1 }, { { 0.55, 21.32, 3.08 }, { 5.07, 3.62, 4.19 }, 1 }, -1.52 },
-//     };
-
-//     for (auto t : test) {
-//         gjkresult res = GJK_solve_gjk_simple(t.caps1, t.caps2);
-//         CHECK(abs(res.minimal_distance - t.expected_dist) < TESTCOLL_EPSILON);
-//     }
-// }
-
-// TEST_CASE("GJK Cylinder collision", "[World]") {
-//     using namespace blast;
-
-//     real TESTCOLL_EPSILON = 1e-2;
-
-//     struct GJK_collision_test_cyl {
-//         cylinder cyl;
-//         capsule caps;
-//         real expected_dist;
-//     };
-
-//     GJK_collision_test_cyl test[] = {
-//         /*Test 1*/ { { { -13.46, -3.61, 189 }, { -12.46, -5.11, 190 }, 1 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, -0.54 },
-//         /*Test 2*/ { { { -13.41, -2.79, 189 }, { -15.16, -3.2, 190 }, 1 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, 1.33 },
-//         /*Test 3*/ { { { -16.3, -3.97, 200.87 }, { -17.3, -2.47, 199.87 }, 1 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, 1.53 },
-//         /*Test 4*/ { { { -7.25, -10.11, 174.29 }, { -7.86, -9.44, 176.14 }, 2 }, { { -14.66, -13.24, 198.94 }, { -11.16, -7.94, 181.77 }, 1 }, 5.53 },
-//         /*Test 5*/ { { { -14.88, -2.74, 198.21 }, { -15.49, -2.08, 200.06 }, 2 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, -0.45 },
-//     };
-
-//     for (auto t : test) {
-//         gjkresult res = GJK_solve_gjk_simple(t.cyl, t.caps);
-//         CHECK(abs(res.minimal_distance - t.expected_dist) < TESTCOLL_EPSILON);
-//     }
-// }
-
-// TEST_CASE("GJK OBB collision", "[World]") {
-//     using namespace blast;
-
-//     real TESTCOLL_EPSILON = 6e-4;
-
-//     struct GJK_collision_test_box {
-//         OBB box;
-//         capsule caps;
-//         real expected_dist;
-//     };
-
-//     GJK_collision_test_box test[] = {
-//         /*Test1*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.21, -5.18, 18.05 }, { -3.89, 8.59, 6.3 }, 1 }, 1.63659624 },
-//         /*Test2*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.46, 0.97, 3.7 }, { 7.79, 14.74, -8.04 }, 1 }, 1.50169942 },
-//         /*Test3*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, 1, 0, -1, 0, 0, 0, 0, 1 } }, { { 10.05, 1.11, 12.87 }, { 7.37, 14.89, 1.13 }, 1 }, 0.33397901 },
-//         /*Test5*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.82, 6.9, 12.84 }, { 4.7, -7.14, 24.59 }, 1 }, 4.00838054 },
-//         /*Test6*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -3.06, 5.73, 1.67 }, { -0.39, -8.05, 13.41 }, 1 }, 0.89513819 },
-//         /*Test7*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.97, 2.79, 12.23 }, { 2.29, 16.57, 0.48 }, 1 }, 1.69981481 },
-//         /*Test8*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.49, -0.06, 8.32 }, { 14.17, -13.84, 20.07 }, 1 }, 0.49000000 },
-//         /*Test9*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 6.76, -1.55, 8 }, { 9.44, -15.33, 19.74 }, 1 }, 0.45000000 },
-//         /*Test10*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.15, 13.92, -7.48 }, { 1.53, 0.14, 4.27 }, 1 }, 0.73046237 },
-//         /*Test11*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.54, 0.1, 10.59 }, { 1.86, 13.87, -1.15 }, 1 }, -1.00000000 },
-//         /*Test12*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.76, 0.28, 8.08 }, { 13.44, -13.5, 19.83 }, 1 }, -0.21961454 },
-//         /*Test13*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.96, 0.43, 8.3 }, { 7.64, -13.35, 20.05 }, 1 }, -1.53000000 },
-//         /*Test14*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.48, -4.07, 0.76 }, { 8.64, -4.41, 18.58 }, 1 }, 3.06923695 },
-//         /*Test15*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 17.48, 2.95, 13.77 }, { -0.82, 3.11, 13.77 }, 1 }, 2.41054264 },
-//         /*Test16*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.18, 8.56, 4.82 }, { 11.04, -6.44, 15.29 }, 1 }, 0.09912546 },
-
-//         // OBB.R and caps.r changed
-//         /*Test17*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.94, -6.06, 5.74 }, { 4.01, -9.86, 0.98 }, 0.5 }, 1.00474115 },
-//         /*Test18*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.64, 9.52, 11.7 }, { 2.71, 5.72, 6.94 }, 0.5 }, 0.22669533 },
-//         /*Test19*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 3, 5.69, 6.2 }, { 4.07, 1.89, 1.44 }, 0.5 }, 0.42102531 },
-//         /*Test20*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 3.1, 4.23, 6.22 }, { 4.17, 0.43, 1.46 }, 0.5 },  0.10695205 },
-//         /*Test21*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.35, 8.57, 12.85 }, { 7.42, 4.77, 8.09 }, 0.5 }, 0.85902522 },
-//         /*Test22*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.88, -2.47, 7.07 }, { 2.95, -6.27, 2.31 }, 0.5 }, 0.37892454 },
-//         /*Test23*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.8, 3.83, 14.57 }, { 2.87, 0.03, 9.81 }, 0.5 }, 1.47889394 },
-//         /*Test24*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 4.28, 6.32, 8.33 }, { 3.21, 10.12, 13.09 }, 0.5 }, 0.82000000 },
-//         /*Test25*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.36, 2.3, 6.31 }, { 3.43, -1.5, 1.55 }, 0.5 }, 0.26887914 },
-//         /*Test26*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.93, 7.6, 12.29 }, { 4, 3.8, 7.53 }, 0.5 }, -0.93234019 },
-//         /*Test27*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 7.55, 0.92, 10.24 }, { 6.48, 4.72, 15 }, 0.5 }, -0.32852683 },
-//         /*Test28*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.79, 5, 13.29 }, { 7.86, 1.2, 8.52 }, 0.5 }, -0.40212621 },
-//         /*Test29*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.66, -0.92, 7.44 }, { 8.04, 4.16, 9.96 }, 0.5 }, 0.87078210 },
-//         /*Test30*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 8.94, 3.63, 11.01 }, { 8.94, -2.55, 11.01 }, 0.5 }, 1.24844065 },
-//         /*Test31*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.91, 5.9, 7.39 }, { 4.14, 5.9, 13.32 }, 0.5 }, 0.40000000 },
-//     };
-
-//     for (auto t : test) {
-//         gjkresult res = GJK_solve_gjk_simple(t.box, t.caps);
-//         CHECK(abs(res.minimal_distance - t.expected_dist) < TESTCOLL_EPSILON);
-//     }
-// }
 
 
 
