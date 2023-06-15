@@ -56,6 +56,18 @@ struct circle {
     real r;
 };
 
+struct EPA_dist_norm {
+    Vec3 normal;
+    real distance;
+};
+
+struct triangle {
+    Vec3 p1;
+    Vec3 p2;
+    Vec3 p3;
+    real distance;
+};
+
 struct objlist {
     std::vector<OBB> OBBlist;
     std::vector<cylinder> cyllist;
@@ -68,6 +80,10 @@ struct capslist {
     std::vector<capsule> caps; // list of capsules
 };
 
+
+Vec3 normalize(Vec3 a){
+    return (1/norm(a))*a;
+}
 
 // A paper in 2005 suggested an elegant solution to the problem of the point in the triangle. This is this solution (adapted from https://gamedev.stackexchange.com/questions/28781/easy-way-to-project-point-onto-triangle-or-plane)
 bool pointInTriangle(Vec3 V1, Vec3 V2, Vec3 o, Vec3 P) {
@@ -108,6 +124,55 @@ Vec3 ptint(segment seg, Vec3 point) {
 real distmin(segment seg, Vec3 point) {
     Vec3 d = ptint(seg, point);
     return norm(d - point);
+}
+
+Vec3 closept_origin(segment seg) {
+    Vec3 ab = seg.p2 - seg.p1;
+    real t = dot(- seg.p1, ab) / dot(ab, ab);
+
+    t = clamp(t, 0, 1);
+
+    Vec3 d = seg.p1 + t * ab;
+    return d;
+}
+
+EPA_dist_norm distmin_origin(triangle tri) {
+    EPA_dist_norm result;
+
+    Vec3 o = tri.p1;
+    Vec3 v1 = tri.p2 - tri.p1;
+    Vec3 v2 = tri.p3 - tri.p1;
+    Vec3 n = cross(v1,v2);
+    if (dot(n,o) < 0)
+        n = -n;
+
+    real distmin = INF_REAL;
+    if (pointInTriangle(v1, v2, o, {0,0,0})) {
+        Vec3 n_unit = normalize(n);
+        real d = dot(o, n_unit);
+        result.normal = n_unit;
+        result.distance = d;
+        return result;    
+    }
+    
+    segment seg[3];
+
+    seg[0].p1 = tri.p1;
+    seg[0].p2 = tri.p2;
+    seg[1].p1 = tri.p2;
+    seg[1].p2 = tri.p3;
+    seg[2].p1 = tri.p3;
+    seg[2].p2 = tri.p1;
+
+    for (int i = 0; i < 3; i++) {
+        Vec3 d = closept_origin(seg[i]);
+        if (dot(d,d) < distmin*distmin) {
+            distmin = norm(d);
+            result.normal = d;
+        }
+    }
+    result.distance = distmin;
+    return result;
 }
 
 real distmin(surf surf, Vec3 point) {
@@ -1177,6 +1242,144 @@ two_pts GJK_solve_simplex4(ComplexSimplex& simplex) {
     return {{ 0,0,0 }, {0,0,0}};
 }
 
+// ======================================
+//            EPA algorithm
+// ======================================
+// This version of the EPA algorithm is adapted from : https://dyn4j.org/2010/05/epa-expanding-polytope-algorithm/
+
+struct EPA_simplex{
+    std::vector<Vec3> pts;
+    int count;
+};
+
+struct edge{
+    real distance;
+    Vec3 normal;
+    int index;
+};
+
+struct closeface {
+    real distance;
+    Vec3 normal;
+    int index;
+};
+
+Vec3 tripleProduct(Vec3 a, Vec3 b, Vec3 c) {
+    return cross(cross(a,b),c);
+}
+
+Vec3 get_point(EPA_simplex simplex, int index) {
+    return simplex.pts[index];
+}
+
+closeface findClosestFace(EPA_simplex simplex) {
+    closeface closest;
+    closest.distance = INF_REAL;
+    for (int i = 0; i < simplex.count; i++) {
+        int j = i + 1 == simplex.count ? 0 : i + 1;
+        int k = j + 1 == simplex.count ? 0 : j + 1;
+        triangle tri;
+        tri.p1 = get_point(simplex, i);
+        tri.p2 = get_point(simplex, j);
+        tri.p3 = get_point(simplex, k);
+        EPA_dist_norm d = distmin_origin(tri);
+        if (d.distance < closest.distance) {
+            closest.distance = d.distance;
+            closest.normal = d.normal;
+            closest.index = i;
+        }
+    }
+    return closest;
+}
+
+edge findClosestEdge(EPA_simplex simplex) {
+    edge closest;
+    // prime the distance of the edge to the max
+    closest.distance = INF_REAL;
+    // s is the passed in simplex
+    for (int i = 0; i < simplex.count; i++) {
+        // compute the next points index
+        int j = i + 1 == simplex.count ? 0 : i + 1;
+        // get the current point and the next one
+        Vec3 a = get_point(simplex, i);
+        Vec3 b = get_point(simplex, j);
+        // create the edge vector
+        Vec3 e = b - a;
+        // get the vector from the origin to a
+        Vec3 oa = a; // or a - ORIGIN
+        // get the vector from the edge towards the origin
+        Vec3 n = tripleProduct(e, oa, e);
+        // normalize the vector
+        Vec3 n_unit = normalize(n);
+        // calculate the distance from the origin to the edge
+        real d = dot(a,n_unit); // could use b or a here
+        // check the distance against the other distances
+        if (d < closest.distance) {
+            // if this edge is closer then use it
+            closest.distance = d;
+            closest.normal = n_unit;
+            closest.index = j;
+        }
+        int k = j + 1 == simplex.count ? 0 : j + 1;
+        Vec3 c = get_point(simplex, k);
+        Vec3 Vec1 = c - a;
+        Vec3 Vec2 = b - a;
+        if (pointInTriangle(Vec1, Vec2, a, {0,0,0})) {
+            plane p;
+            p.n = cross(Vec1, Vec2);
+            p.p = a;
+            Vec3 closept = ClosestPtPointPlane({0,0,0}, p);
+            real d = norm(closept);
+            if (d < closest.distance) {
+            // if this edge is closer then use it
+            closest.distance = d;
+            closest.normal = normalize(p.n);
+            closest.index = j;
+            }
+        }
+    }
+    // return the closest edge we found
+    return closest;
+}
+
+real solve_EPA_algorithm(ComplexSimplex simplex, KodaVertices v1, KodaVertices v2) {
+    // create a simplex that can take as many points as necessary (EPA_simplex)
+    EPA_simplex s;
+    s.pts.push_back(simplex.a);
+    s.pts.push_back(simplex.b);
+    s.pts.push_back(simplex.c);
+    s.pts.push_back(simplex.d);
+    s.count = 4; 
+    
+    // loop to find the collision information
+    while (true) {
+        // obtain the feature (edge for 2D) closest to the 
+        // origin on the Minkowski Difference
+        closeface e = findClosestFace(s);
+        // obtain a new support point in the direction of the edge normal
+        Vec3 support1 = GJK_get_support(v1, -e.normal);
+        Vec3 support2 = GJK_get_support(v2, e.normal);
+        Vec3 p = support2 - support1;
+        // check the distance from the origin to the edge against the
+        // distance p is along e.normal
+        real d = dot(p, e.normal);
+        if (abs(abs(d) - abs(e.distance)) < 1e-2) {
+            // the tolerance should be something positive close to zero (ex. 0.00001)
+
+            // if the difference is less than the tolerance then we can
+            // assume that we cannot expand the simplex any further and
+            // we have our solution
+            return -abs(d);
+        } else {
+            // we haven't reached the edge of the Minkowski Difference
+            // so continue expanding by adding the new point to the simplex
+            // in between the points that made the closest edge
+            s.pts.insert(s.pts.begin() + e.index, p);
+            s.count ++;
+        }
+    }
+}
+
 gjkresult GJK_solve_gjk_simple(capsule caps, OBB box) {
     ComplexSimplex simplex;
     gjkresult results;
@@ -1252,7 +1455,9 @@ gjkresult GJK_solve_gjk_simple(capsule caps, OBB box) {
         if (dot(p, p) < COLLISION_EPSILON) {
             results.intersection = true;
             results.final_simplex = simplex;
-            results.minimal_distance = 0;
+            results.A_closept = {};
+            results.B_closept = {};
+            results.minimal_distance = solve_EPA_algorithm(simplex, v1, v2) - caps.r;
             return results;
         }
 
@@ -1272,7 +1477,7 @@ gjkresult GJK_solve_gjk_simple(capsule caps, OBB box) {
             return results;
         }
 
-        Assert(simplex.count < 4 /*"You cannot have a simplex that's a tetrahedron at this point."*/);
+        Assert(simplex.count < 4 );/*"You cannot have a simplex that's a tetrahedron at this point."*/
 
         simplex.d = simplex.c;
         simplex.d1 = simplex.c1;
@@ -1455,18 +1660,18 @@ TEST_CASE("GJK OBB collision", "[World]") {
     };
 
     GJK_collision_test_box test[] = {
-        /*Test1*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.21, -5.18, 18.05 }, { -3.89, 8.59, 6.3 }, 1 }, 1.63659624 },
-        /*Test2*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.46, 0.97, 3.7 }, { 7.79, 14.74, -8.04 }, 1 }, 1.50169942 },
-        /*Test3*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, 1, 0, -1, 0, 0, 0, 0, 1 } }, { { 10.05, 1.11, 12.87 }, { 7.37, 14.89, 1.13 }, 1 }, 0.33397901 },
-        /*Test5*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.82, 6.9, 12.84 }, { 4.7, -7.14, 24.59 }, 1 }, 4.00838054 },
-        /*Test6*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -3.06, 5.73, 1.67 }, { -0.39, -8.05, 13.41 }, 1 }, 0.89513819 },
-        /*Test7*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.97, 2.79, 12.23 }, { 2.29, 16.57, 0.48 }, 1 }, 1.69981481 },
-        /*Test8*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.49, -0.06, 8.32 }, { 14.17, -13.84, 20.07 }, 1 }, 0.49000000 },
-        /*Test9*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 6.76, -1.55, 8 }, { 9.44, -15.33, 19.74 }, 1 }, 0.45000000 },
-        /*Test10*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.15, 13.92, -7.48 }, { 1.53, 0.14, 4.27 }, 1 }, 0.73046237 },
+        // /*Test1*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.21, -5.18, 18.05 }, { -3.89, 8.59, 6.3 }, 1 }, 1.63659624 },
+        // /*Test2*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.46, 0.97, 3.7 }, { 7.79, 14.74, -8.04 }, 1 }, 1.50169942 },
+        // /*Test3*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, 1, 0, -1, 0, 0, 0, 0, 1 } }, { { 10.05, 1.11, 12.87 }, { 7.37, 14.89, 1.13 }, 1 }, 0.33397901 },
+        // /*Test5*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.82, 6.9, 12.84 }, { 4.7, -7.14, 24.59 }, 1 }, 4.00838054 },
+        // /*Test6*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -3.06, 5.73, 1.67 }, { -0.39, -8.05, 13.41 }, 1 }, 0.89513819 },
+        // /*Test7*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.97, 2.79, 12.23 }, { 2.29, 16.57, 0.48 }, 1 }, 1.69981481 },
+        // /*Test8*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.49, -0.06, 8.32 }, { 14.17, -13.84, 20.07 }, 1 }, 0.49000000 },
+        // /*Test9*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 6.76, -1.55, 8 }, { 9.44, -15.33, 19.74 }, 1 }, 0.45000000 },
+        // /*Test10*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.15, 13.92, -7.48 }, { 1.53, 0.14, 4.27 }, 1 }, 0.73046237 },
         // /*Test11*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.54, 0.1, 10.59 }, { 1.86, 13.87, -1.15 }, 1 }, -1.00000000 },
         // /*Test12*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.76, 0.28, 8.08 }, { 13.44, -13.5, 19.83 }, 1 }, -0.21961454 },
-        // /*Test13*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.96, 0.43, 8.3 }, { 7.64, -13.35, 20.05 }, 1 }, -1.53000000 },
+        /*Test13*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.96, 0.43, 8.3 }, { 7.64, -13.35, 20.05 }, 1 }, -1.53000000 },
         /*Test14*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.48, -4.07, 0.76 }, { 8.64, -4.41, 18.58 }, 1 }, 3.06923695 },
         /*Test15*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 17.48, 2.95, 13.77 }, { -0.82, 3.11, 13.77 }, 1 }, 2.41054264 },
         /*Test16*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.18, 8.56, 4.82 }, { 11.04, -6.44, 15.29 }, 1 }, 0.09912546 },
@@ -1482,8 +1687,8 @@ TEST_CASE("GJK OBB collision", "[World]") {
         /*Test24*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 4.28, 6.32, 8.33 }, { 3.21, 10.12, 13.09 }, 0.5 }, 0.82000000 },
         /*Test25*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.36, 2.3, 6.31 }, { 3.43, -1.5, 1.55 }, 0.5 }, 0.26887914 },
         // /*Test26*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.93, 7.6, 12.29 }, { 4, 3.8, 7.53 }, 0.5 }, -0.93234019 },
-        // /*Test27*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 7.55, 0.92, 10.24 }, { 6.48, 4.72, 15 }, 0.5 }, -0.32852683 },
-        // /*Test28*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.79, 5, 13.29 }, { 7.86, 1.2, 8.52 }, 0.5 }, -0.40212621 },
+        /*Test27*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 7.55, 0.92, 10.24 }, { 6.48, 4.72, 15 }, 0.5 }, -0.32852683 },
+        /*Test28*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.79, 5, 13.29 }, { 7.86, 1.2, 8.52 }, 0.5 }, -0.40212621 },
         /*Test29*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.66, -0.92, 7.44 }, { 8.04, 4.16, 9.96 }, 0.5 }, 0.87078210 },
         /*Test30*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 8.94, 3.63, 11.01 }, { 8.94, -2.55, 11.01 }, 0.5 }, 1.24844065 },
         /*Test31*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.91, 5.9, 7.39 }, { 4.14, 5.9, 13.32 }, 0.5 }, 0.40000000 },
