@@ -1,7 +1,5 @@
 #pragma once
 #include <iostream>
-#include <array>
-#include <utility>      // std::pair, std::make_pair
 #include <vector>
 #include "blast.hpp"
 
@@ -1252,7 +1250,6 @@ two_pts GJK_solve_simplex4(ComplexSimplex& simplex) {
 
 struct EPA_simplex{
     std::vector<triangle> triangles;
-    int count;
 };
 
 struct edge{
@@ -1267,55 +1264,10 @@ struct closeface {
     int index;
 };
 
-// closeface findClosestFace(EPA_simplex simplex) {
-//     closeface closest;
-//     closest.distance = INF_REAL;
-//     for (int i = 0; i < simplex.count; i++) {
-//         int j = i + 1 == simplex.count ? 0 : i + 1;
-//         int k = (j + 1 == simplex.count ? 0 : (j == simplex.count) ? 1 : j + 1);
-//         // triangle tri;
-//         // tri.p1 = get_point(simplex, i);
-//         // tri.p2 = get_point(simplex, j);
-//         // tri.p3 = get_point(simplex, k);
-//         Vec3 p1 = get_point(simplex, i);
-//         Vec3 p2 = get_point(simplex, j);
-//         Vec3 p3 = get_point(simplex, k);
-
-//         Vec3 vec1 = p2-p1;
-//         Vec3 vec2 = p3-p1;
-        
-//         Vec3 origin = {0,0,0};
-//         //if (pointInTriangle(vec1, vec2, p1, origin)) {
-            
-//             Vec3 n = cross(vec1, vec2);
-//             if (norm(n) < COLLISION_EPSILON) 
-//                 break;
-//             if (dot(n,p1) < 0)
-//                 n = - n;
-//             Vec3 n_unit = (1/norm(n))*n;
-//             plane pl;
-//             pl.p = p1;
-//             pl.n = n;
-//             Vec3 closept = ClosestPtPointPlane(origin, pl);
-//             // real normaldistance = dot(p1, n_unit);
-//             real normaldistance = norm(closept);
-//             if (normaldistance < closest.distance) {
-//             closest.distance = normaldistance;
-//             closest.normal = normalize(closept);
-//             closest.index = i;
-//             }
-//         //}
-
-//         // EPA_dist_norm d = distmin_origin(tri);
-        
-//     }
-//     return closest;
-// }
-
 closeface findClosestFace(EPA_simplex simplex) {
     closeface closest;
     closest.distance = INF_REAL;
-    for (int i = 0; i < simplex.count; i++) {
+    for (int i = 0; i < size(simplex.triangles); i++) {
         triangle current_triangle;
         current_triangle.p1 = simplex.triangles[i].p1;
         current_triangle.p2 = simplex.triangles[i].p2;
@@ -1363,17 +1315,9 @@ real solve_EPA_algorithm(ComplexSimplex simplex, KodaVertices v1, KodaVertices v
     s.triangles.push_back({simplex.a, simplex.b, simplex.d});
     s.triangles.push_back({simplex.a, simplex.c, simplex.d});
     s.triangles.push_back({simplex.b, simplex.c, simplex.d});
-    s.count = 4; 
-
-    std::vector<Vec3> pts;
-    pts.push_back(simplex.a);
-    pts.push_back(simplex.b);
-    pts.push_back(simplex.c);
-    pts.push_back(simplex.d);
     
     // loop to find the collision information
     while (true) {
-        start:
         // obtain the feature (edge for 2D) closest to the 
         // origin on the Minkowski Difference
         closeface e = findClosestFace(s);
@@ -1392,11 +1336,6 @@ real solve_EPA_algorithm(ComplexSimplex simplex, KodaVertices v1, KodaVertices v
             // we have our solution
             return -abs(d);
         } else {
-            // in the case where two faces return the same support point, it can be the case that two 
-            // faces are created on top of one another. In this case, the face is always inside the 
-            // polytope and it should therefore be deleted.
-            pts.push_back(p);
-
             // we haven't reached the edge of the Minkowski Difference
             // so continue expanding by adding the new triangle to the simplex
             // in between the points that made the closest triangle. To do this,
@@ -1413,38 +1352,38 @@ real solve_EPA_algorithm(ComplexSimplex simplex, KodaVertices v1, KodaVertices v
             // we delete the face which was closest before. it is now inside the polytope.
             s.triangles.erase(s.triangles.begin() + e.index);
 
-            // Then, we create the faces by making sure that none of them were already in the polytope
-            for (int i = 0; i < size(s.triangles); i++) {
+            // in the case where two iterations return the same support point, it can be the case that two 
+            // faces are created on top of one another. In this case, the face is always inside the 
+            // polytope and it should therefore be deleted.
+            for (int i = size(s.triangles) - 1; i >= 0; i--) {
                 if (check_same_triangle(s.triangles[i], new_tri1)) {
                     s.triangles.erase(s.triangles.begin() + i); // if the triangle was already in the list, then we must delete it as this face is now inside the simplex
                     break;
-                } else if (i == size(s.triangles) - 1) {
+                } else if (i == 0) {
                     s.triangles.push_back(new_tri1); // if it is a new triangle, add it to the list
                     break;
                 }
             }
 
-            for (int i = 0; i < size(s.triangles); i++) {
+            for (int i = size(s.triangles) - 1; i >= 0; i--) {
                 if (check_same_triangle(s.triangles[i], new_tri2)) {
                     s.triangles.erase(s.triangles.begin() + i);
                     break;
-                } else if (i == size(s.triangles) - 1) {
+                } else if (i == 0) {
                     s.triangles.push_back(new_tri2); // if it is a new triangle, add it to the list
                     break;
                 }
             }
 
-            for (int i = 0; i < size(s.triangles); i++) {
+            for (int i = size(s.triangles) - 1; i >= 0; i--) {
                 if (check_same_triangle(s.triangles[i], new_tri3)) {
                     s.triangles.erase(s.triangles.begin() + i);
                     break;
-                } else if (i == size(s.triangles) - 1) {
+                } else if (i == 0) {
                     s.triangles.push_back(new_tri3); // if it is a new triangle, add it to the list
                     break;
                 }
             }
-
-
         }
     }
 }
@@ -1704,64 +1643,24 @@ TEST_CASE("OBB collision", "[World]") {
         real dist = distmin(t.box, t.caps);
         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
     }
-}
 
-// ======================================
-//          GJK algorithm tests
-// ======================================
-
-TEST_CASE("GJK OBB collision", "[World]") {
-    using namespace blast;
-
-    real TESTCOLL_EPSILON = 6e-4;
-
-    struct GJK_collision_test_box {
-        OBB box;
-        capsule caps;
-        real expected_dist;
-    };
-
-    GJK_collision_test_box test[] = {
-        /*Test1*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.21, -5.18, 18.05 }, { -3.89, 8.59, 6.3 }, 1 }, 1.63659624 },
-        /*Test2*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.46, 0.97, 3.7 }, { 7.79, 14.74, -8.04 }, 1 }, 1.50169942 },
-        /*Test3*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, 1, 0, -1, 0, 0, 0, 0, 1 } }, { { 10.05, 1.11, 12.87 }, { 7.37, 14.89, 1.13 }, 1 }, 0.33397901 },
-        /*Test5*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.82, 6.9, 12.84 }, { 4.7, -7.14, 24.59 }, 1 }, 4.00838054 },
-        /*Test6*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -3.06, 5.73, 1.67 }, { -0.39, -8.05, 13.41 }, 1 }, 0.89513819 },
-        /*Test7*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.97, 2.79, 12.23 }, { 2.29, 16.57, 0.48 }, 1 }, 1.69981481 },
-        /*Test8*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.49, -0.06, 8.32 }, { 14.17, -13.84, 20.07 }, 1 }, 0.49000000 },
-        /*Test9*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 6.76, -1.55, 8 }, { 9.44, -15.33, 19.74 }, 1 }, 0.45000000 },
-        /*Test10*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.15, 13.92, -7.48 }, { 1.53, 0.14, 4.27 }, 1 }, 0.73046237 },
-        /*Test11*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.54, 0.1, 10.59 }, { 1.86, 13.87, -1.15 }, 1 }, -1.00000000 },
-        /*Test12*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.76, 0.28, 8.08 }, { 13.44, -13.5, 19.83 }, 1 }, -0.21961454 },
-        /*Test13*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.96, 0.43, 8.3 }, { 7.64, -13.35, 20.05 }, 1 }, -1.53000000 },
-        /*Test14*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.48, -4.07, 0.76 }, { 8.64, -4.41, 18.58 }, 1 }, 3.06923695 },
-        /*Test15*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 17.48, 2.95, 13.77 }, { -0.82, 3.11, 13.77 }, 1 }, 2.41054264 },
-        /*Test16*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.18, 8.56, 4.82 }, { 11.04, -6.44, 15.29 }, 1 }, 0.09912546 },
-
-        // OBB.R and caps.r changed
-        /*Test17*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.94, -6.06, 5.74 }, { 4.01, -9.86, 0.98 }, 0.5 }, 1.00474115 },
-        /*Test18*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.64, 9.52, 11.7 }, { 2.71, 5.72, 6.94 }, 0.5 }, 0.22669533 },
-        /*Test19*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 3, 5.69, 6.2 }, { 4.07, 1.89, 1.44 }, 0.5 }, 0.42102531 },
-        /*Test20*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 3.1, 4.23, 6.22 }, { 4.17, 0.43, 1.46 }, 0.5 },  0.10695205 },
-        /*Test21*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.35, 8.57, 12.85 }, { 7.42, 4.77, 8.09 }, 0.5 }, 0.85902522 },
-        /*Test22*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.88, -2.47, 7.07 }, { 2.95, -6.27, 2.31 }, 0.5 }, 0.37892454 },
-        /*Test23*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.8, 3.83, 14.57 }, { 2.87, 0.03, 9.81 }, 0.5 }, 1.47889394 },
-        /*Test24*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 4.28, 6.32, 8.33 }, { 3.21, 10.12, 13.09 }, 0.5 }, 0.82000000 },
-        /*Test25*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.36, 2.3, 6.31 }, { 3.43, -1.5, 1.55 }, 0.5 }, 0.26887914 },
-        /*Test26*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.93, 7.6, 12.29 }, { 4, 3.8, 7.53 }, 0.5 }, -0.93234019 },
-        /*Test27*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 7.55, 0.92, 10.24 }, { 6.48, 4.72, 15 }, 0.5 }, -0.32852683 },
-        /*Test28*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.79, 5, 13.29 }, { 7.86, 1.2, 8.52 }, 0.5 }, -0.40212621 },
-        /*Test29*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.66, -0.92, 7.44 }, { 8.04, 4.16, 9.96 }, 0.5 }, 0.87078210 },
-        /*Test30*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 8.94, 3.63, 11.01 }, { 8.94, -2.55, 11.01 }, 0.5 }, 1.24844065 },
-        /*Test31*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.91, 5.9, 7.39 }, { 4.14, 5.9, 13.32 }, 0.5 }, 0.40000000 },
-    };
-
+    // GJK Algorithm
     for (auto t : test) {
         gjkresult res = GJK_solve_gjk_simple(t.caps, t.box);
         CHECK(abs(res.minimal_distance - t.expected_dist) < TESTCOLL_EPSILON);
     }
-}
 
+    BENCHMARK("OBB-caps without GJK") {
+        for (auto t : test) {
+            real dist = distmin(t.box, t.caps);
+        }
+    };
+    BENCHMARK("OBB-caps with GJK") {
+        for (auto t : test) {
+        gjkresult res = GJK_solve_gjk_simple(t.caps, t.box);
+        }
+    };
+}
 
 
 #endif
