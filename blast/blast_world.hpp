@@ -1519,77 +1519,97 @@ gjkresult GJK_solve_gjk_simple(capsule caps, OBB box) {
 // ======================================
 //          méthode des points
 // ======================================
+// in progress
+// real pts_distmin(OBB OBBtest, capsule caps) {
+//     segment seg;
+//     seg.p1 = caps.p1;
+//     seg.p2 = caps.p2;
 
-real pts_distmin(OBB OBBtest, capsule caps) {
-    segment seg;
-    seg.p1 = caps.p1;
-    seg.p2 = caps.p2;
+//     Mat3 Rtrans = transpose(OBBtest.R);
+//     // Mat3 Rtrans = OBB.R;
 
-    Mat3 Rtrans = transpose(OBBtest.R);
-    // Mat3 Rtrans = OBB.R;
+//     Vec3 p1 = Rtrans * (seg.p1 - OBBtest.c);
+//     Vec3 p2 = Rtrans * (seg.p2 - OBBtest.c);
 
-    Vec3 p1 = Rtrans * (seg.p1 - OBBtest.c);
-    Vec3 p2 = Rtrans * (seg.p2 - OBBtest.c);
+//     Vec3 vec = p2 - p1;
 
-    Vec3 vec = p2 - p1;
+//     // This ensures that p1 is always below p2 in z coordinates
+//     if (vec.z < 0) {
+//         vec = -vec;
+//         Vec3 point = p1;
+//         p1 = p2;
+//         p2 = point;
+//     }
 
-    // This ensures that p1 is always below p2 in z coordinates
-    if (vec.z < 0) {
-        vec = -vec;
-        Vec3 point = p1;
-        p1 = p2;
-        p2 = point;
-    }
+//     // We must find the points which need to be tested later.
+//     Vec3 p[2];
 
-    // We must find the points which need to be tested later.
-    Vec3 p[2];
-
-    // The point p1 clamped on the OBB
-    p[0].x = clamp(p1.x, -OBBtest.e.x, OBBtest.e.x);
-    p[0].y = clamp(p1.y, -OBBtest.e.y, OBBtest.e.y);
-    p[0].z = clamp(p1.z, -OBBtest.e.z, OBBtest.e.z);
+//     // The point p1 clamped on the OBB
+//     p[0].x = clamp(p1.x, -OBBtest.e.x, OBBtest.e.x);
+//     p[0].y = clamp(p1.y, -OBBtest.e.y, OBBtest.e.y);
+//     p[0].z = clamp(p1.z, -OBBtest.e.z, OBBtest.e.z);
     
-    // The point p2 clamped on the OBB
-    p[1].x = clamp(p2.x, -OBBtest.e.x, OBBtest.e.x);
-    p[1].y = clamp(p2.y, -OBBtest.e.y, OBBtest.e.y);
-    p[1].z = clamp(p2.z, -OBBtest.e.z, OBBtest.e.z);
+//     // The point p2 clamped on the OBB
+//     p[1].x = clamp(p2.x, -OBBtest.e.x, OBBtest.e.x);
+//     p[1].y = clamp(p2.y, -OBBtest.e.y, OBBtest.e.y);
+//     p[1].z = clamp(p2.z, -OBBtest.e.z, OBBtest.e.z);
 
-    // The point on the closest OBB line
-    Vec3 vec_unit = (1 / norm(vec)) * vec;
-    Vec3 direction = dot(-p1, p2 - p1) * (vec_unit) + p1;
+//     // The point on the closest OBB line
+//     Vec3 vec_unit = (1 / norm(vec)) * vec;
+//     Vec3 direction = dot(-p1, p2 - p1) * (vec_unit) + p1;
 
-    int quadrant = direction.x > 0 ? (direction.z > 0 ? 1 : 4) : (direction.z > 0 ? 2 : 3);
+//     int quadrant = direction.x > 0 ? (direction.z > 0 ? 1 : 4) : (direction.z > 0 ? 2 : 3);
 
-    real xmin = - OBBtest.e[0];
-    real xmax = + OBBtest.e[0];
-    real ymin = - OBBtest.e[1];
-    real ymax = + OBBtest.e[1];
-    real zmin = - OBBtest.e[2];
-    real zmax = + OBBtest.e[2];
 
-    // Creating the eight original vertices
-    Vec3 orgvert[8];
 
-    orgvert[0] = { xmax, ymin, zmax };
-    orgvert[1] = { xmax, ymax, zmax };
-    orgvert[2] = { xmin, ymin, zmax };
-    orgvert[3] = { xmin, ymax, zmax };
-    orgvert[4] = { xmin, ymin, zmin };
-    orgvert[5] = { xmin, ymax, zmin };
-    orgvert[6] = { xmax, ymin, zmin };
-    orgvert[7] = { xmax, ymax, zmin };
+//     real xmin = - OBBtest.e[0];
+//     real xmax = + OBBtest.e[0];
+//     real ymin = - OBBtest.e[1];
+//     real ymax = + OBBtest.e[1];
+//     real zmin = - OBBtest.e[2];
+//     real zmax = + OBBtest.e[2];
 
-    segment seg_OBB;
-    seg_OBB.p1 = orgvert[2 * quadrant - 2];
-    seg_OBB.p2 = orgvert[2 * quadrant - 1];
+//     // Creating the eight original vertices
+//     Vec3 orgvert[8];
+
+//     orgvert[0] = { xmax, ymin, zmax };
+//     orgvert[1] = { xmax, ymax, zmax };
+//     orgvert[2] = { xmin, ymin, zmax };
+//     orgvert[3] = { xmin, ymax, zmax };
+//     orgvert[4] = { xmin, ymin, zmin };
+//     orgvert[5] = { xmin, ymax, zmin };
+//     orgvert[6] = { xmax, ymin, zmin };
+//     orgvert[7] = { xmax, ymax, zmin };
+
+//     segment seg_OBB;
+//     seg_OBB.p1 = orgvert[2 * quadrant - 2];
+//     seg_OBB.p2 = orgvert[2 * quadrant - 1];
+
+//     segment corner_p1;
+//     corner_p1.p1 = seg_OBB.p1;
+//     corner_p1.p2 = p1;
+
+//     Vec3 cross_product = cross(vec, corner_p1.p1 - p1);
+//     cross_product.y = quadrant == 2 || quadrant == 3 ? -cross_product.y : cross_product.y;
+
+//     if (cross_product.y > 0) {
+        
+//     }
+
+
+
+
+
+
+
     
-    real dist_seg = distmin(seg, seg_OBB);
-    real dist_p3 = distmin(seg, p[0]);
-    real dist_p4 = distmin(seg, p[1]);
+//     real dist_seg = distmin(seg, seg_OBB);
+//     real dist_p3 = distmin(seg, p[0]);
+//     real dist_p4 = distmin(seg, p[1]);
 
-    real dist_min = (dist_seg < dist_p3 && dist_seg < dist_p4) ? dist_seg : (dist_p3 < dist_p4) ? dist_p3 : dist_p4;
-    return dist_min - caps.r;
-}
+//     real dist_min = (dist_seg < dist_p3 && dist_seg < dist_p4) ? dist_seg : (dist_p3 < dist_p4) ? dist_p3 : dist_p4;
+//     return dist_min - caps.r;
+// }
 
 } // namespace blast
 
