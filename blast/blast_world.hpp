@@ -1435,11 +1435,13 @@ gjkresult GJK_solve_gjk_simple(capsule caps, OBB box) {
             direction = solved.p2;
             break;
         case 3:
+            // if colinear --> find closest to origin and return
             solved = GJK_solve_simplex3(simplex);
             p = solved.p1;
             direction = solved.p2;
             break;
         case 4:
+            // if 4 points in same plane --> find closest to origin and return
             solved = GJK_solve_simplex4(simplex);
             p = solved.p1;
             direction = solved.p2;
