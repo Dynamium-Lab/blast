@@ -1060,7 +1060,7 @@ two_pts GJK_solve_simplex3(ComplexSimplex& simplex) {
         if (GJK_same_direction(cross(ab, abc), ao)) {
             if (GJK_same_direction(ab, ao)) {
                 // the origin is closest to line ab
-                simplex.count = 1;
+                simplex.count = 2;
                 real t = dot(ao, ab) / dot(ab, ab);
                 return {simplex.a + t * ab, cross(cross(ab,ao),ab)};
             }
@@ -1382,6 +1382,12 @@ real solve_EPA_algorithm(ComplexSimplex simplex, std::vector<Vec3> v1, std::vect
     }
 }
 
+struct three_pts {
+    Vec3 p1;
+    Vec3 p2;
+    Vec3 p3;
+};
+
 gjkresult GJK_solve_gjk_simple(capsule caps, OBB box) {
     ComplexSimplex simplex;
     gjkresult results;
@@ -1419,11 +1425,7 @@ gjkresult GJK_solve_gjk_simple(capsule caps, OBB box) {
     while (true) {
         two_pts solved;
         Vec3 p;
-        Vec3 direction;
 
-        if (simplex.count == 3) {
-            Assert(norm(cross(simplex.b-simplex.a, simplex.c-simplex.a)) > 1e-9);
-        }
         switch (simplex.count) {
         case 1:
             p = simplex.a;
@@ -1466,8 +1468,51 @@ gjkresult GJK_solve_gjk_simple(capsule caps, OBB box) {
         Vec3 support2 = GJK_get_support(v2, direction);
         
         Vec3 support = support2 - support1;
+        real goal_post = dot(p, direction);
+        real current_highest = dot(support, direction);
 
-        if (dot(p, direction) - dot(support, direction) >=  COLLISION_EPSILON || abs(dot(simplex.a, simplex.a) - dot(support, simplex.a)) <= COLLISION_EPSILON || (simplex.count >= 2 && dot(simplex.b, simplex.b) - dot(support, simplex.b) <= COLLISION_EPSILON) || (simplex.count >= 3 && abs(dot(simplex.c, simplex.c) - dot(support, simplex.c)) <= COLLISION_EPSILON) || (simplex.count == 4 && abs(dot(simplex.d, simplex.d) - dot(support, simplex.d)) <= COLLISION_EPSILON)) {
+        if (current_highest - goal_post <=  COLLISION_EPSILON || abs(dot(simplex.a, simplex.a) - dot(support, simplex.a)) <= COLLISION_EPSILON || (simplex.count >= 2 && dot(simplex.b, simplex.b) - dot(support, simplex.b) <= COLLISION_EPSILON) || (simplex.count >= 3 && abs(dot(simplex.c, simplex.c) - dot(support, simplex.c)) <= COLLISION_EPSILON) || (simplex.count == 4 && abs(dot(simplex.d, simplex.d) - dot(support, simplex.d)) <= COLLISION_EPSILON)) {
+            if (simplex.count == 3 && norm(cross(simplex.b - simplex.a, simplex.c - simplex.a)) < 1e-9) {
+                segment seg_test;
+                // Calculate all points in minkowski difference
+                // Make a list of all the points that have the same dot product as our point p (closest point)
+                std::vector<three_pts> full_minkowski_list;
+                std::vector<Vec3> pts_list;
+                for (auto& vertex1 : v1) {
+                    for (auto& vertex2 : v2) {
+                        Vec3 new_pt = vertex2 - vertex1;
+                        full_minkowski_list.push_back({vertex1, vertex2, new_pt});
+                        if (abs(goal_post - dot(new_pt, direction)) < 1e-9)
+                            pts_list.push_back(new_pt);
+                    }
+                }
+
+                // Within this list, find the two points which are the most extreme
+                // Create a segment with these two points and test segment-point with the origin
+                Vec3 new_dir = simplex.b - simplex.a;
+                real max_dot = -INF_REAL;
+                real min_dot = INF_REAL;
+                for (auto& pts : pts_list) {
+                    real current_dot = dot(pts, new_dir);
+                    if (current_dot > max_dot){
+                        max_dot = current_dot;
+                        seg_test.p1 = pts;
+                    } else if (current_dot < min_dot) {
+                        min_dot = current_dot;
+                        seg_test.p2 = pts;
+                    }
+                }
+                simplex.a = seg_test.p1;
+                simplex.a1 = GJK_get_support(v1, -simplex.a);
+                simplex.a2 = GJK_get_support(v2, simplex.a);
+
+                simplex.b = seg_test.p2;
+                simplex.b1 = GJK_get_support(v1, -simplex.b);
+                simplex.b2 = GJK_get_support(v2, simplex.b);         
+                
+                simplex.count = 2;
+            }
+                        
             two_pts local = GJK_get_local_points(simplex, p);
 
             results.intersection = false;
@@ -1503,11 +1548,10 @@ gjkresult GJK_solve_gjk_simple(capsule caps, OBB box) {
     return results;
 }
 
-
-// ======================================
-//          méthode des points
-// ======================================
-// in progress
+// // ======================================
+// //          méthode des points
+// // ======================================
+// // in progress
 // real pts_distmin(OBB OBBtest, capsule caps) {
 //     segment seg;
 //     seg.p1 = caps.p1;
@@ -1584,13 +1628,6 @@ gjkresult GJK_solve_gjk_simple(capsule caps, OBB box) {
         
 //     }
 
-
-
-
-
-
-
-    
 //     real dist_seg = distmin(seg, seg_OBB);
 //     real dist_p3 = distmin(seg, p[0]);
 //     real dist_p4 = distmin(seg, p[1]);
@@ -1598,6 +1635,150 @@ gjkresult GJK_solve_gjk_simple(capsule caps, OBB box) {
 //     real dist_min = (dist_seg < dist_p3 && dist_seg < dist_p4) ? dist_seg : (dist_p3 < dist_p4) ? dist_p3 : dist_p4;
 //     return dist_min - caps.r;
 // }
+
+// // Let's try something new
+// real dist_OBB_caps(OBB OBBtest, capsule caps) {
+//     segment seg;
+//     seg.p1 = caps.p1;
+//     seg.p2 = caps.p2;
+
+//     Mat3 Rtrans = transpose(OBBtest.R);
+
+//     Vec3 p1 = Rtrans * (seg.p1 - OBBtest.c);
+//     Vec3 p2 = Rtrans * (seg.p2 - OBBtest.c);
+
+//     Vec3 vec = p2 - p1;
+
+//     // This ensures that p1 is always below p2 in z coordinates
+//     if (vec.z < 0) {
+//         Vec3 point = p1;
+//         p1 = p2;
+//         p2 = point;
+//         vec = p2 - p1;
+//     }
+
+//     // We must find the points which need to be tested later.
+//     Vec3 p[4];
+
+//     // The point p1 clamped on the OBB
+//     p[0].x = clamp(p1.x, -OBBtest.e.x, OBBtest.e.x);
+//     p[0].y = clamp(p1.y, -OBBtest.e.y, OBBtest.e.y);
+//     p[0].z = clamp(p1.z, -OBBtest.e.z, OBBtest.e.z);
+    
+//     // The point p2 clamped on the OBB
+//     p[1].x = clamp(p2.x, -OBBtest.e.x, OBBtest.e.x);
+//     p[1].y = clamp(p2.y, -OBBtest.e.y, OBBtest.e.y);
+//     p[1].z = clamp(p2.z, -OBBtest.e.z, OBBtest.e.z);
+
+//     // Early return : if both points project on the same face, then the smallest of the two distances
+//     // will be returned (there is no need to test anything else).
+//     if ((p[1].x > -OBBtest.e.x && p[1].x < OBBtest.e.x && p[2].x > -OBBtest.e.x && p[2].x < OBBtest.e.x) && 
+//     ((p[1].y > -OBBtest.e.y && p[1].y < OBBtest.e.y && p[2].y > -OBBtest.e.y && p[2].y < OBBtest.e.y) || (p[1].z > -OBBtest.e.z && p[1].z < OBBtest.e.z && p[2].z > -OBBtest.e.z && p[2].z < OBBtest.e.z)) || 
+//     ((p[1].y > -OBBtest.e.y && p[1].y < OBBtest.e.y && p[2].y > -OBBtest.e.y && p[2].y < OBBtest.e.y) || (p[1].z > -OBBtest.e.z && p[1].z < OBBtest.e.z && p[2].z > -OBBtest.e.z && p[2].z < OBBtest.e.z)))
+//     {
+//         real dist1 = distmin(seg, p[1]);
+//         real dist2 = distmin(seg, p[2]);
+//         return dist1 < dist2 ? dist1 - caps.r : dist2 - caps.r;
+//     }
+
+//     // We find the face which will be tested : this face is the face in which the vector from the center
+//     // of the OBB to the closest point on the line to the center crosses first.
+//     Vec3 closept = closept_origin(seg);
+//     Vec3 t;
+//     t.x = closept.x / OBBtest.e.x;
+//     t.y = closept.y / OBBtest.e.y;
+//     t.z = closept.z / OBBtest.e.z;
+
+//     Vec3 t_abs = { abs(t.x), abs(t.y), abs(t.z) };
+
+//     int face = (t_abs.x > t_abs.y && t_abs.x > t_abs.z) ? 1 : (t_abs.y > t_abs.z) ? 2 : 3;
+//     int sign = (face == 1 && t.x < 0) || (face == 2 && t.y < 0) || (face == 3 && t.z < 0) ? -1 : 1;
+
+//     int face_idx = face*sign;
+
+//     std::vector<real> dist;
+
+//     real s[3][2];
+//     s[0][0] = (OBBtest.e.x - p1.x) / vec.x;
+//     s[0][1] = (-OBBtest.e.x - p1.x) / vec.x;
+//     s[1][0] = (OBBtest.e.y - p1.y) / vec.y;
+//     s[1][1] = (-OBBtest.e.y - p1.y) / vec.y;
+//     s[2][0] = (OBBtest.e.z - p1.z) / vec.z;
+//     s[2][1] = (-OBBtest.e.z - p1.z) / vec.z;
+
+//     int dim1 = (face == 1) ? 1 : (face == 2) ? 0 : 0;
+//     int dim2 = (face == 3) ? 1 : (face == 2) ? 2 : 2;
+
+//     bool dim1_intersection[2] = { s[dim1][0] >= 0 && s[dim1][0] <= 1, s[dim1][1] >= 0 && s[dim1][1] <= 1};
+//     bool dim2_intersection[2] = { s[dim2][0] >= 0 && s[dim2][0] <= 1, s[dim2][1] >= 0 && s[dim2][1] <= 1};
+
+//     // how many times does our segment intersect its first dimension axis?
+//     int dim1_number =   dim1_intersection[0] && dim1_intersection[1] ? 2 : 
+//                         dim1_intersection[0] || dim1_intersection[1] ? 1 : 0;
+
+//     int dim2_number =   dim2_intersection[0] && dim2_intersection[1] ? 2 : 
+//                         dim2_intersection[0] || dim2_intersection[1] ? 1 : 0;
+
+//     real coord1 = sign*OBBtest.e[face - 1]; 
+
+
+
+//     int idx = 2;
+//     if (face == 1) {
+//         dist[idx++] = (dim1_intersection[0] == true) ? distmin(seg, { sign * OBBtest.e.x, p1.y + s[1][0]*vec.y, OBBtest.e.z }) : INF_REAL;
+//         dist[idx++] = (dim1_intersection[1] == true) ? distmin(seg, { sign * OBBtest.e.x, p1.y + s[1][1]*vec.y, -OBBtest.e.z }) : INF_REAL;
+//         dist[idx++] = (dim2_intersection[0] == true) ? distmin(seg, { sign * OBBtest.e.x, OBBtest.e.y, p1.z + s[2][0]*vec.z }) : INF_REAL;
+//         dist[idx++] = (dim2_intersection[1] == true) ? distmin(seg, { sign * OBBtest.e.x, -OBBtest.e.y, p1.z + s[2][1]*vec.z }) : INF_REAL;
+//     }
+
+//     if (face == 2) {
+//         // todo : face 2 and 3.
+//         dist[idx++] = (dim1_intersection[0] == true) ? distmin(seg, { sign * OBBtest.e.x, p1.y + s[1][0]*vec.y, OBBtest.e.z }) : INF_REAL;
+//         dist[idx++] = (dim1_intersection[1] == true) ? distmin(seg, { sign * OBBtest.e.x, p1.y + s[1][1]*vec.y, -OBBtest.e.z }) : INF_REAL;
+//         dist[idx++] = (dim2_intersection[0] == true) ? distmin(seg, { sign * OBBtest.e.x, OBBtest.e.y, p1.z + s[2][0]*vec.z }) : INF_REAL;
+//         dist[idx++] = (dim2_intersection[1] == true) ? distmin(seg, { sign * OBBtest.e.x, -OBBtest.e.y, p1.z + s[2][1]*vec.z }) : INF_REAL;
+//     }
+
+//     // Vec3 pt1_1;
+//     // Vec3 pt1_2;
+//     // Vec3 pt2_1;
+//     // Vec3 pt2_2;
+//     // pt1_1.x = face == 1 ? sign * OBBtest.e.x : (s[0][0] >= 0 && s[0][0] <= 1 ? s[0][0] : (s[0][1] >= 0 && s[0][1] <= 1 ? s[0][1] : 0));
+//     // pt1_1.y = face == 2 ? sign * OBBtest.e.y : (s[dim1][0] >= 0 && s[dim1][0] <= 1 ? s[dim1][0] : (s[dim1][1] >= 0 && s[dim1][1] <= 1 ? s[dim1][1] : 0));
+//     // pt1_1.z = face == 3 ? sign * OBBtest.e.z : (s[dim1][0] >= 0 && s[dim1][0] <= 1 ? s[dim1][0] : (s[dim1][1] >= 0 && s[dim1][1] <= 1 ? s[dim1][1] : 0));
+
+//     // if (s[0] >= 0 && s[0] <= 1) {
+//     //     dist[idx++] = distmin(seg, { sign * OBBtest.e.x, p1.y + s[0]*vec.y, OBBtest.e.z });
+//     // }
+//     // if (s[1] >= 0 && s[1] <= 1) {
+//     //     dist[idx++] = distmin(seg, { sign * OBBtest.e.x, p1.y + s[1]*vec.y, -OBBtest.e.z });
+//     // }
+//     // if (s[2] >= 0 && s[2] <= 1) {
+//     //     dist[idx++] = distmin(seg, { sign * OBBtest.e.x, OBBtest.e.y, p1.z + s[2]*vec.z });
+//     // }
+//     // if (s[3] >= 0 && s[3] <= 1) {
+//     //     dist[idx++] = distmin(seg, { sign * OBBtest.e.x, -OBBtest.e.y, p1.z + s[3]*vec.z });
+//     // }
+
+//     // If there is no intersection, then we should take the corner closest to the segment.
+//     if (size(dist) == 0) {
+//         return distmin(seg, )
+//     }
+
+//     real distcurrent = dist[0];
+//     for (auto& d : dist) {
+//         if (d >= 0 && (d < distcurrent || distcurrent < 0)) {
+//             distcurrent = d;
+//         }
+//         else if (d < 0 && d > distcurrent) {
+//             distcurrent = d;
+//         }
+//     }
+//     return distcurrent - caps.r;   
+
+
+// }
+
 
 } // namespace blast
 
@@ -1689,36 +1870,36 @@ TEST_CASE("OBB collision", "[World]") {
     };
 
     collision_test_box test[] = {
-        // /*Test1*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.21, -5.18, 18.05 }, { -3.89, 8.59, 6.3 }, 1 }, 1.63659624 },
-        // /*Test2*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.46, 0.97, 3.7 }, { 7.79, 14.74, -8.04 }, 1 }, 1.50169942 },
-        // /*Test3*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, 1, 0, -1, 0, 0, 0, 0, 1 } }, { { 10.05, 1.11, 12.87 }, { 7.37, 14.89, 1.13 }, 1 }, 0.33397901 },
-        // /*Test5*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.82, 6.9, 12.84 }, { 4.7, -7.14, 24.59 }, 1 }, 4.00838054 },
-        // /*Test6*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -3.06, 5.73, 1.67 }, { -0.39, -8.05, 13.41 }, 1 }, 0.89513819 },
-        // /*Test7*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.97, 2.79, 12.23 }, { 2.29, 16.57, 0.48 }, 1 }, 1.69981481 },
-        // /*Test8*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.49, -0.06, 8.32 }, { 14.17, -13.84, 20.07 }, 1 }, 0.49000000 },
-        // /*Test9*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 6.76, -1.55, 8 }, { 9.44, -15.33, 19.74 }, 1 }, 0.45000000 },
-        // /*Test10*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.15, 13.92, -7.48 }, { 1.53, 0.14, 4.27 }, 1 }, 0.73046237 },
-        // /*Test11*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.54, 0.1, 10.59 }, { 1.86, 13.87, -1.15 }, 1 }, -1.00000000 },
-        // /*Test12*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.76, 0.28, 8.08 }, { 13.44, -13.5, 19.83 }, 1 }, -0.21961454 },
-        // /*Test13*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.96, 0.43, 8.3 }, { 7.64, -13.35, 20.05 }, 1 }, -1.53000000 },
-        // /*Test14*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.48, -4.07, 0.76 }, { 8.64, -4.41, 18.58 }, 1 }, 3.06923695 },
-        // /*Test15*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 17.48, 2.95, 13.77 }, { -0.82, 3.11, 13.77 }, 1 }, 2.41054264 },
-        // /*Test16*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.18, 8.56, 4.82 }, { 11.04, -6.44, 15.29 }, 1 }, 0.09912546 },
+        /*Test1*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.21, -5.18, 18.05 }, { -3.89, 8.59, 6.3 }, 1 }, 1.63659624 },
+        /*Test2*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.46, 0.97, 3.7 }, { 7.79, 14.74, -8.04 }, 1 }, 1.50169942 },
+        /*Test3*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.05, 1.11, 12.87 }, { 7.37, 14.89, 1.13 }, 1 }, 0.33397901 },
+        /*Test5*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.82, 6.9, 12.84 }, { 4.7, -7.14, 24.59 }, 1 }, 4.00838054 },
+        /*Test6*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -3.06, 5.73, 1.67 }, { -0.39, -8.05, 13.41 }, 1 }, 0.89513819 },
+        /*Test7*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.97, 2.79, 12.23 }, { 2.29, 16.57, 0.48 }, 1 }, 1.69981481 },
+        /*Test8*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.49, -0.06, 8.32 }, { 14.17, -13.84, 20.07 }, 1 }, 0.49000000 },
+        /*Test9*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 6.76, -1.55, 8 }, { 9.44, -15.33, 19.74 }, 1 }, 0.45000000 },
+        /*Test10*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.15, 13.92, -7.48 }, { 1.53, 0.14, 4.27 }, 1 }, 0.73046237 },
+        /*Test11*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.54, 0.1, 10.59 }, { 1.86, 13.87, -1.15 }, 1 }, -1.00000000 },
+        /*Test12*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.76, 0.28, 8.08 }, { 13.44, -13.5, 19.83 }, 1 }, -0.21961454 },
+        /*Test13*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.96, 0.43, 8.3 }, { 7.64, -13.35, 20.05 }, 1 }, -1.53000000 },
+        /*Test14*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.48, -4.07, 0.76 }, { 8.64, -4.41, 18.58 }, 1 }, 3.06923695 },
+        /*Test15*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 17.48, 2.95, 13.77 }, { -0.82, 3.11, 13.77 }, 1 }, 2.41054264 },
+        /*Test16*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.18, 8.56, 4.82 }, { 11.04, -6.44, 15.29 }, 1 }, 0.09912546 },
 
-        // // OBB.R and caps.r changed
-        // /*Test17*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.94, -6.06, 5.74 }, { 4.01, -9.86, 0.98 }, 0.5 }, 1.00474115 },
-        // /*Test18*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.64, 9.52, 11.7 }, { 2.71, 5.72, 6.94 }, 0.5 }, 0.22669533 },
-        // /*Test19*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 3, 5.69, 6.2 }, { 4.07, 1.89, 1.44 }, 0.5 }, 0.42102531 },
-        // /*Test20*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 3.1, 4.23, 6.22 }, { 4.17, 0.43, 1.46 }, 0.5 },  0.10695205 },
-        // /*Test21*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.35, 8.57, 12.85 }, { 7.42, 4.77, 8.09 }, 0.5 }, 0.85902522 },
-        // /*Test22*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.88, -2.47, 7.07 }, { 2.95, -6.27, 2.31 }, 0.5 }, 0.37892454 },
-        // /*Test23*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.8, 3.83, 14.57 }, { 2.87, 0.03, 9.81 }, 0.5 }, 1.47889394 },
-        // /*Test24*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 4.28, 6.32, 8.33 }, { 3.21, 10.12, 13.09 }, 0.5 }, 0.82000000 },
-        // /*Test25*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.36, 2.3, 6.31 }, { 3.43, -1.5, 1.55 }, 0.5 }, 0.26887914 },
-        // /*Test26*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.93, 7.6, 12.29 }, { 4, 3.8, 7.53 }, 0.5 }, -0.93234019 },
-        // /*Test27*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 7.55, 0.92, 10.24 }, { 6.48, 4.72, 15 }, 0.5 }, -0.32852683 },
-        // /*Test28*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.79, 5, 13.29 }, { 7.86, 1.2, 8.52 }, 0.5 }, -0.40212621 },
-        // /*Test29*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.66, -0.92, 7.44 }, { 8.04, 4.16, 9.96 }, 0.5 }, 0.87078210 },
+        // OBB.R and caps.r changed
+        /*Test17*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.94, -6.06, 5.74 }, { 4.01, -9.86, 0.98 }, 0.5 }, 1.00474115 },
+        /*Test18*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.64, 9.52, 11.7 }, { 2.71, 5.72, 6.94 }, 0.5 }, 0.22669533 },
+        /*Test19*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 3, 5.69, 6.2 }, { 4.07, 1.89, 1.44 }, 0.5 }, 0.42102531 },
+        /*Test20*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 3.1, 4.23, 6.22 }, { 4.17, 0.43, 1.46 }, 0.5 },  0.10695205 },
+        /*Test21*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.35, 8.57, 12.85 }, { 7.42, 4.77, 8.09 }, 0.5 }, 0.85902522 },
+        /*Test22*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.88, -2.47, 7.07 }, { 2.95, -6.27, 2.31 }, 0.5 }, 0.37892454 },
+        /*Test23*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.8, 3.83, 14.57 }, { 2.87, 0.03, 9.81 }, 0.5 }, 1.47889394 },
+        /*Test24*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 4.28, 6.32, 8.33 }, { 3.21, 10.12, 13.09 }, 0.5 }, 0.82000000 },
+        /*Test25*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.36, 2.3, 6.31 }, { 3.43, -1.5, 1.55 }, 0.5 }, 0.26887914 },
+        /*Test26*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.93, 7.6, 12.29 }, { 4, 3.8, 7.53 }, 0.5 }, -0.93234019 },
+        /*Test27*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 7.55, 0.92, 10.24 }, { 6.48, 4.72, 15 }, 0.5 }, -0.32852683 },
+        /*Test28*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.79, 5, 13.29 }, { 7.86, 1.2, 8.52 }, 0.5 }, -0.40212621 },
+        /*Test29*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.66, -0.92, 7.44 }, { 8.04, 4.16, 9.96 }, 0.5 }, 0.87078210 },
         /*Test30*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 8.94, 3.63, 11.01 }, { 8.94, -2.55, 11.01 }, 0.5 }, 1.24844065 },
         /*Test31*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.91, 5.9, 7.39 }, { 4.14, 5.9, 13.32 }, 0.5 }, 0.40000000 },
     };
