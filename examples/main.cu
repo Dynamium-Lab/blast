@@ -13,7 +13,7 @@ int main() {
     const u32 npts = 101;
     const u32 nctrl = 8;
     const u32 p = 5;
-    PvaBspline pva(nctrl, npts, p, njoints);
+    Bspline bspline(nctrl, npts, p, njoints);
 
     // random task
     real amp = 2;
@@ -23,13 +23,14 @@ int main() {
             task(i, j) = amp * get_random();
 
     // random optimization vector
-    Array x(pva.xlen(task));
+    Array x(bspline.xlen(task));
     for (u32 i = 0; i < x.size; i++)
         x[i] = amp * get_random();
     x[x.size-1] = 5;
 
     // Compute trajectory
-    pva.compute_trajectory(x, task);
+    bspline.compute_trajectory(x, task);
+    auto &traj = bspline.traj;
 
     double init_max_pos_error = 0;
     double init_max_vel_error = 0;
@@ -42,19 +43,19 @@ int main() {
     double dt = (double)x[x.size-1] / (double)(npts-1);
     for (u32 i = 0; i < njoints; i++) {
         // boundary conditions
-        init_max_pos_error  = std::max(init_max_pos_error,  std::abs((double)pva.pos(i, 0) - (double)task(i, 0)));
-        init_max_vel_error  = std::max(init_max_vel_error,  std::abs((double)pva.vel(i, 0) - (double)task(i, 1)));
-        init_max_acc_error  = std::max(init_max_acc_error,  std::abs((double)pva.acc(i, 0) - (double)task(i, 2)));
-        final_max_pos_error = std::max(final_max_pos_error, std::abs((double)pva.pos(i, npts-1) - (double)task(i, 3)));
-        final_max_vel_error = std::max(final_max_vel_error, std::abs((double)pva.vel(i, npts-1) - (double)task(i, 4)));
-        final_max_acc_error = std::max(final_max_acc_error, std::abs((double)pva.acc(i, npts-1) - (double)task(i, 5)));
+        init_max_pos_error  = std::max(init_max_pos_error,  std::abs((double)traj.pos(i, 0) - (double)task(i, 0)));
+        init_max_vel_error  = std::max(init_max_vel_error,  std::abs((double)traj.vel(i, 0) - (double)task(i, 1)));
+        init_max_acc_error  = std::max(init_max_acc_error,  std::abs((double)traj.acc(i, 0) - (double)task(i, 2)));
+        final_max_pos_error = std::max(final_max_pos_error, std::abs((double)traj.pos(i, npts-1) - (double)task(i, 3)));
+        final_max_vel_error = std::max(final_max_vel_error, std::abs((double)traj.vel(i, npts-1) - (double)task(i, 4)));
+        final_max_acc_error = std::max(final_max_acc_error, std::abs((double)traj.acc(i, npts-1) - (double)task(i, 5)));
 
         // derivatives
         for (u32 j = 1; j < npts-1; j++) {
-            double diff_p = ((double)pva.pos(i, j+1) - (double)pva.pos(i, j-1)) / (2.0*dt);
-            max_vel_error = std::max(max_vel_error, std::abs(diff_p - (double)pva.vel(i, j)));
-            double diff_v = ((double)pva.vel(i, j+1) - (double)pva.vel(i, j-1)) / (2.0*dt);
-            max_acc_error = std::max(max_acc_error, std::abs(diff_v - (double)pva.acc(i, j)));
+            double diff_p = ((double)traj.pos(i, j+1) - (double)traj.pos(i, j-1)) / (2.0*dt);
+            max_vel_error = std::max(max_vel_error, std::abs(diff_p - (double)traj.vel(i, j)));
+            double diff_v = ((double)traj.vel(i, j+1) - (double)traj.vel(i, j-1)) / (2.0*dt);
+            max_acc_error = std::max(max_acc_error, std::abs(diff_v - (double)traj.acc(i, j)));
         }
     }
 
