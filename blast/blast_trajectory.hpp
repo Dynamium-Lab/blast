@@ -3,56 +3,46 @@
 
 namespace blast {
 
-// Container for the position, velocity, and acceleration matrices and the time vector.
-struct Pva {
+struct Trajectory {
     Matrix pos; // njoints x npoints
     Matrix vel; // njoints x npoints
     Matrix acc; // njoints x npoints
     Array t;    // npoints
-    u32 joints = 0;
-    u32 points = 0;
 
-    Pva() = default;
-    host_fn Pva(u32 njoints, u32 npoints);
+    Trajectory(u32 npoints, u32 njoints) :
+        pos(njoints, npoints),
+        vel(njoints, npoints),
+        acc(njoints, npoints),
+        t(npoints) {}
 
-    host_fn Pva &operator=(const Pva &);
-
-    // compute the PVA using bsplines.
-    virtual void compute_trajectory(const Array &x, Matrix &task) {
-        (void)x;
-        (void)task;
-    }
-    virtual u32 xlen(Matrix &task) {
-        return 0;
-    }
+    Trajectory() = default;
 };
 
-struct PvaBspline : public Pva {
+struct Bspline {
+    Trajectory traj;
     Matrix control; // nctrl x njoints
     Matrix basis_p; // nctrl x npoints
     Matrix basis_v; // nctrl x npoints
     Matrix basis_a; // nctrl x npoints
+    u32 joints;
+    u32 points;
     u32 nctrl;
     u32 p;
 
-    host_fn PvaBspline(u32 ncontrol, u32 npoints, u32 P, u32 dof);
+    host_fn Bspline(u32 ncontrol, u32 npoints, u32 P, u32 njoints);
 
     // Compute a trajectory from the given optimization vector
     //  - note: fastest when 'ncontrol' is a multiple of 4 (SIMD)
-    host_fn void compute_trajectory(const Array &x, Matrix &task) override;
-    host_fn u32 xlen(Matrix &task) override;
+    host_fn void compute_trajectory(const Array &x, Matrix &task);
+    host_fn u32 xlen(Matrix &task);
 
     host_fn void compute_basis();
     host_fn void compute_control(const Array &x, const Matrix &task);
 };
 
-
-
-
-
 // note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
-struct cuPvaBspline {
+struct cuBspline {
     bool is_init = false;
     // data for both the host and the device
     unsigned points;
@@ -75,7 +65,7 @@ struct cuPvaBspline {
     real one_over_T2;
 
     // data only for the host
-    PvaBspline *host = nullptr;
+    Bspline *host = nullptr;
 
     // compute the basis functions
     host_fn void init(u32 points, u32 joints, u32 p, u32 ncontrol);
@@ -101,35 +91,22 @@ struct cuPvaBspline {
 #endif
 
 //------ FUNCTIONS ------------------------------------------------------------------------------------
-host_fn Pva::Pva(u32 njoints, u32 npoints) : pos(njoints, npoints),
-    vel(njoints, npoints),
-    acc(njoints, npoints),
-    t(npoints),
-    joints(njoints),
-    points(npoints) {
-}
 
-host_fn Pva &Pva::operator=(const Pva &rhs) {
-    pos = rhs.pos;
-    vel = rhs.vel;
-    acc = rhs.acc;
-    t = rhs.t;
-    joints = rhs.joints;
-    points = rhs.points;
-    return *this;
-}
 
-host_fn PvaBspline::PvaBspline(u32 ncontrol, u32 npoints, u32 P, u32 dof) : Pva(dof, npoints),
-    nctrl(ncontrol),
-    p(P),
-    control(ncontrol, dof),
+host_fn Bspline::Bspline(u32 ncontrol, u32 npoints, u32 P, u32 njoints) :
+    traj(npoints, njoints),
+    control(ncontrol, njoints),
     basis_p(ncontrol, npoints),
     basis_v(ncontrol, npoints),
-    basis_a(ncontrol, npoints) {
+    basis_a(ncontrol, npoints),
+    joints(njoints),
+    points(npoints),
+    nctrl(ncontrol),
+    p(P) {
     compute_basis();
 }
 
-host_fn void PvaBspline::compute_basis() {
+host_fn void Bspline::compute_basis() {
     u32 m = nctrl + p;
     Array knots(m + 1);
     {
@@ -191,14 +168,13 @@ host_fn void PvaBspline::compute_basis() {
     }
 }
 
-host_fn void PvaBspline::compute_control(const Array &x, const Matrix &task) {
+host_fn void Bspline::compute_control(const Array &x, const Matrix &task) {
     Assert(nctrl >= 6);
     const real T = x[x.size - 1];
     const real du = 1.0f / (nctrl - p);
     const real T2 = T * T;
     const real one_over_T = 1 / T;
     const real one_over_T2 = one_over_T * one_over_T;
-
 
     u32 ctr_i = 0;
     u32 x_i = 0;
@@ -213,7 +189,7 @@ host_fn void PvaBspline::compute_control(const Array &x, const Matrix &task) {
         const auto ai = task(joint, 2);
         ctr[ctr_i++] = isnan(pi) ? x[x_i++] : pi;
         ctr[ctr_i++] = isnan(vi) ? x[x_i++] : Kv * vi + ctr[ctr_i - 1];
-        ctr[ctr_i++] = isnan(ai) ? x[x_i++] : Ka * ai + 3 * ctr[ctr_i -1] - 2 * ctr[ctr_i - 2];
+        ctr[ctr_i++] = isnan(ai) ? x[x_i++] : Ka * ai + 3 * ctr[ctr_i - 1] - 2 * ctr[ctr_i - 2];
 
         // From optimization vector
         for (u32 i = 3; i < nctrl - 3; i++)
@@ -232,7 +208,7 @@ host_fn void PvaBspline::compute_control(const Array &x, const Matrix &task) {
     }
 }
 
-host_fn u32 PvaBspline::xlen(Matrix &task) {
+host_fn u32 Bspline::xlen(Matrix &task) {
     Assert(task.rows == joints);
     Assert(task.cols == 6);
     auto results = joints * (nctrl - 6) + 1;
@@ -256,7 +232,7 @@ host_fn u32 PvaBspline::xlen(Matrix &task) {
  * Finally, it computes the position, velocity, and acceleration of each joint at each point along the trajectory
  * using the computed control points and the basis functions for position, velocity, and acceleration.
  */
-host_fn void PvaBspline::compute_trajectory(const Array &x, Matrix &task) {
+host_fn void Bspline::compute_trajectory(const Array &x, Matrix &task) {
     Assert(x.size == xlen(task));
     Assert(task.rows == joints);
     Assert(task.cols == 6);
@@ -269,24 +245,24 @@ host_fn void PvaBspline::compute_trajectory(const Array &x, Matrix &task) {
     const real one_over_T2 = one_over_T * one_over_T;
 
     for (u32 point = 0; point < points; point++) {
-        t[point] = dt * point;
+        traj.t[point] = dt * point;
         auto bp = basis_p.col(point);
         auto bv = basis_v.col(point);
         auto ba = basis_a.col(point);
         for (u32 joint = 0; joint < joints; joint++) {
             auto c = control.col(joint);
-            pos(joint, point) = dot(c, bp);
-            vel(joint, point) = dot(c, bv) * one_over_T;
-            acc(joint, point) = dot(c, ba) * one_over_T2;
+            traj.pos(joint, point) = dot(c, bp);
+            traj.vel(joint, point) = dot(c, bv) * one_over_T;
+            traj.acc(joint, point) = dot(c, ba) * one_over_T2;
         }
     }
 }
 
-host_fn Pva compute_5order_trajectory(real T, Matrix &task) {
+host_fn Trajectory compute_5order_trajectory(real T, Matrix &task) {
     const u32 joints = task.rows;
     const u32 points = (u32)ceil(T * 1000 + 1);
 
-    Pva result(joints, points);
+    Trajectory result(points, joints);
 
     const real deltaT = 0.001f;
     T = (points - 1) * deltaT;
@@ -333,11 +309,10 @@ host_fn Pva compute_5order_trajectory(real T, Matrix &task) {
     return result;
 }
 
-
 // note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
 
-host_fn void cuPvaBspline::init(u32 _points, u32 _joints, u32 _p, u32 _ncontrol) {
+host_fn void cuBspline::init(u32 _points, u32 _joints, u32 _p, u32 _ncontrol) {
     if (is_init)
         return;
     is_init = true;
@@ -347,7 +322,7 @@ host_fn void cuPvaBspline::init(u32 _points, u32 _joints, u32 _p, u32 _ncontrol)
     p = _p;
     ncontrol = _ncontrol;
 
-    host = new PvaBspline(ncontrol, points, p, joints);
+    host = new Bspline(ncontrol, points, p, joints);
 
     // prepare and send basis function values
     const u32 basis_bytes = points * ncontrol * sizeof(real);
@@ -366,7 +341,7 @@ host_fn void cuPvaBspline::init(u32 _points, u32 _joints, u32 _p, u32 _ncontrol)
     cuda_check(cudaMalloc(&device_control, joints * ncontrol * sizeof(real)));
 }
 
-host_fn void cuPvaBspline::clear() {
+host_fn void cuBspline::clear() {
     printf("Clearing memory\n");
     if (device_basis_p) {
         cuda_check(cudaFree(device_basis_p));
@@ -401,14 +376,14 @@ host_fn void cuPvaBspline::clear() {
     is_init = false;
 }
 
-host_fn void cuPvaBspline::fetch_pva() {
-    cuda_check(cudaMemcpy(host->pos.data, device_pos, host->pos.size * sizeof(real), cudaMemcpyDeviceToHost));
-    cuda_check(cudaMemcpy(host->vel.data, device_vel, host->vel.size * sizeof(real), cudaMemcpyDeviceToHost));
-    cuda_check(cudaMemcpy(host->acc.data, device_acc, host->acc.size * sizeof(real), cudaMemcpyDeviceToHost));
-    cuda_check(cudaMemcpy(host->t.data, device_t, host->t.size * sizeof(real), cudaMemcpyDeviceToHost));
+host_fn void cuBspline::fetch_pva() {
+    cuda_check(cudaMemcpy(host->traj.pos.data, device_pos, host->traj.pos.size * sizeof(real), cudaMemcpyDeviceToHost));
+    cuda_check(cudaMemcpy(host->traj.vel.data, device_vel, host->traj.vel.size * sizeof(real), cudaMemcpyDeviceToHost));
+    cuda_check(cudaMemcpy(host->traj.acc.data, device_acc, host->traj.acc.size * sizeof(real), cudaMemcpyDeviceToHost));
+    cuda_check(cudaMemcpy(host->traj.t.data, device_t, host->traj.t.size * sizeof(real), cudaMemcpyDeviceToHost));
 }
 
-host_fn void cuPvaBspline::compute_control(const Array &x, const Matrix &task) {
+host_fn void cuBspline::compute_control(const Array &x, const Matrix &task) {
     Assert(host);
     dt = x.back() / (real)(points - 1);
     one_over_T = 1 / x.back();
@@ -416,17 +391,17 @@ host_fn void cuPvaBspline::compute_control(const Array &x, const Matrix &task) {
     host->compute_control(x, task);
 }
 
-host_fn void cuPvaBspline::send_control() {
+host_fn void cuBspline::send_control() {
     cuda_check(cudaMemcpy(device_control, host->control.data, joints * ncontrol * sizeof(real), cudaMemcpyHostToDevice));
 }
 
-host_fn void cuPvaBspline::compute_control_and_send(const Array &x, const Matrix &task) {
+host_fn void cuBspline::compute_control_and_send(const Array &x, const Matrix &task) {
     compute_control(x, task);
     send_control();
 }
 
 //------ DEVICE FUNCTIONS ------------------------------------------------------------------------------------
-dev_fn void cuPvaBspline::compute_trajectory(const unsigned point) {
+dev_fn void cuBspline::compute_trajectory(const unsigned point) {
     device_t[point] = dt * point;
     const auto bp = device_basis_p + point * ncontrol;
     const auto bv = device_basis_v + point * ncontrol;
@@ -450,12 +425,10 @@ dev_fn void cuPvaBspline::compute_trajectory(const unsigned point) {
 
 #endif
 
-
-
 } // namespace blast
 
 #ifdef BLAST_ENABLE_TESTS
-TEST_CASE ("SplineTest", "[Trajectory]") {
+TEST_CASE("SplineTest", "[Trajectory]") {
     using namespace blast;
 
     const u32 nctrl = 8 * 3;
@@ -481,8 +454,9 @@ TEST_CASE ("SplineTest", "[Trajectory]") {
     // Compute basis functions
 
     // Compute trajectory
-    PvaBspline pva(nctrl, npts, p, njoints);
-    pva.compute_trajectory(x, task);
+    Bspline bspline(nctrl, npts, p, njoints);
+    bspline.compute_trajectory(x, task);
+    auto& traj = bspline.traj;
 
     double init_max_pos_error = 0;
     double init_max_vel_error = 0;
@@ -495,19 +469,19 @@ TEST_CASE ("SplineTest", "[Trajectory]") {
     double dt = x[x.size - 1] / (double)(npts - 1);
     for (u32 i = 0; i < njoints; i++) {
         // boundary conditions
-        init_max_pos_error = std::max(init_max_pos_error, std::abs((double)pva.pos(i, 0) - (double)task(i, 0)));
-        init_max_vel_error = std::max(init_max_vel_error, std::abs((double)pva.vel(i, 0) - (double)task(i, 1)));
-        init_max_acc_error = std::max(init_max_acc_error, std::abs((double)pva.acc(i, 0) - (double)task(i, 2)));
-        final_max_pos_error = std::max(final_max_pos_error, std::abs((double)pva.pos(i, npts - 1) - (double)task(i, 3)));
-        final_max_vel_error = std::max(final_max_vel_error, std::abs((double)pva.vel(i, npts - 1) - (double)task(i, 4)));
-        final_max_acc_error = std::max(final_max_acc_error, std::abs((double)pva.acc(i, npts - 1) - (double)task(i, 5)));
+        init_max_pos_error = std::max(init_max_pos_error, std::abs((double)traj.pos(i, 0) - (double)task(i, 0)));
+        init_max_vel_error = std::max(init_max_vel_error, std::abs((double)traj.vel(i, 0) - (double)task(i, 1)));
+        init_max_acc_error = std::max(init_max_acc_error, std::abs((double)traj.acc(i, 0) - (double)task(i, 2)));
+        final_max_pos_error = std::max(final_max_pos_error, std::abs((double)traj.pos(i, npts - 1) - (double)task(i, 3)));
+        final_max_vel_error = std::max(final_max_vel_error, std::abs((double)traj.vel(i, npts - 1) - (double)task(i, 4)));
+        final_max_acc_error = std::max(final_max_acc_error, std::abs((double)traj.acc(i, npts - 1) - (double)task(i, 5)));
 
         // derivatives
         for (u32 j = 1; j < npts - 1; j++) {
-            double diff_p = ((double)pva.pos(i, j + 1) - (double)pva.pos(i, j - 1)) / (2.0 * dt);
-            max_vel_error = std::max(max_vel_error, std::abs(diff_p - (double)pva.vel(i, j)));
-            double diff_v = ((double)pva.vel(i, j + 1) - (double)pva.vel(i, j - 1)) / (2.0 * dt);
-            max_acc_error = std::max(max_acc_error, std::abs(diff_v - (double)pva.acc(i, j)));
+            double diff_p = ((double)traj.pos(i, j + 1) - (double)traj.pos(i, j - 1)) / (2.0 * dt);
+            max_vel_error = std::max(max_vel_error, std::abs(diff_p - (double)traj.vel(i, j)));
+            double diff_v = ((double)traj.vel(i, j + 1) - (double)traj.vel(i, j - 1)) / (2.0 * dt);
+            max_acc_error = std::max(max_acc_error, std::abs(diff_v - (double)traj.acc(i, j)));
         }
     }
 
