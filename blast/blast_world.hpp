@@ -237,7 +237,7 @@ real distmin(surf surf, Vec3 point) {
         return -INF_REAL; // the plane is non-existent
     Vec3 n_unit = 1/norm(n)*n;
 
-    //If the surface is a rectangular shape, it is much easier to treat.
+    // If the surface is a rectangular shape, it is much easier to treat.
     if (abs(dot(surf.d1, surf.d2)) <= COLLISION_EPSILON) {
         real val_d1_sq = dot(surf.d1, surf.d1);
         real val_d2_sq = dot(surf.d2, surf.d2);
@@ -272,18 +272,12 @@ real distmin(surf surf, Vec3 point) {
 
         Vec3 dy = cross(n_unit, surf.d1);
         Vec3 dy_unit = 1 / norm(dy) * dy;
-        // Vec3 dx = { norm_d1, 0, 0 };
-        // Vec3 dx_unit = { 1,0,0 };
 
         real norm_dy = norm(dy);
-        // real norm_dx = norm(dx);
 
         real dot_dy_d2 = dot(dy, surf.d2);
         real dot_dy_dir = dot(dy, direction);
         real dot_dy_dy = dot(dy, dy);
-        // real dot_dx_d2 = dot(dx, surf.d2);
-        // real dot_dx_dir = dot(dx, direction);
-        // real dot_dx_dx = dot(dx, dx);
 
         real dir_y = dot_dy_dir;
         real dir_x = dot_d1_dir;
@@ -293,15 +287,6 @@ real distmin(surf surf, Vec3 point) {
 
         real t2 = dir_y / d2_y;
         real t1 = (dir_x - (t2*d2_x)) / dot_d1_d1;
-
-        // real x2 = dot_d1_d2 / norm_d1;
-        // real xdir = dot_d1_dir / norm_d1;
-
-        // real y2 = dot_dy_d2;
-        // real ydir = dot_dy_dir;
-
-        // real t2 = ydir*norm(dy) / dot_dy_dy;
-        // real t1 = (xdir - t2*x2) / norm_d1;
 
         real t1_clamped = clamp(t1, 0, 1);
         real t2_clamped = clamp(t2, 0, 1);
@@ -314,69 +299,29 @@ real distmin(surf surf, Vec3 point) {
         Vec3 empty3 = {0,0,0};
 
         // If the point is closest to a corner of the shape
-        if ((t1 <= 0 || t1 >= 1) && (t2 <= 0 || t2 >= 1)) {
-            Vec3 testpoint = t1 <= 0 ? (t2 <= 0 ? empty3 :  surf.d2) : (t2 <= 0 ? surf.d1 : surf.d1 + surf.d2);
-            real distance = sqrt(dot(direction - testpoint, direction - testpoint) + normaldist*normaldist);
-            return normaldist < 0 ? -distance : distance;
-        }
+        // if ((t1 <= 0 || t1 >= 1) && (t2 <= 0 || t2 >= 1)) {
+        //     Vec3 testpoint = t1 <= 0 ? (t2 <= 0 ? empty3 :  surf.d2) : (t2 <= 0 ? surf.d1 : surf.d1 + surf.d2);
+        //     real distance = sqrt(dot(direction - testpoint, direction - testpoint) + normaldist*normaldist);
+        //     return normaldist < 0 ? -distance : distance;
+        // }
 
-        Vec3 Projection_vector = (t1 > 1 || t1 < 0) ? cross(1/norm(surf.d2)*surf.d2, n_unit) : dy_unit;
+        Vec3 Projection_vector = (t1 < 1 && t1 > 0) ? dy_unit : cross(1/norm(surf.d2)*surf.d2, n_unit);
         Projection_vector = dot(Projection_vector, direction) < 0 ? -Projection_vector : Projection_vector;
-        Vec3 testpoint = (t1 < 0 || t2 < 0) ?  empty3 : (surf.d1 + surf.d2);
+        Vec3 testpoint = (t1 < 0 || t2 < 0) ? empty3 : (surf.d1 + surf.d2);
 
-        // Vec3 projected_point = direction - dot(Projection_vector, direction - testpoint)*Projection_vector;
-        // real norm_proj = (t1 > 1 || t1 < 0) ? norm_d2 : norm_d1;
-
-        // real t_proj = norm(projected_point - testpoint) / norm_proj;
-        // // prob apr'es ceci
-        // Vec3 projected_point_clamped = testpoint + 1 / norm(projected_point - testpoint) * t_proj * norm_proj * (projected_point - testpoint);
         real dist_plan = dot(Projection_vector, direction - testpoint);
-        //real result = sqrt(dot(projected_point - direction, projected_point - direction) + normaldist*normaldist);
-        real result = sqrt(dist_plan*dist_plan + normaldist*normaldist);
+        Vec3 projected_point = direction - dist_plan*Projection_vector;
+
+        Vec3 clamping_direction = (t1 < 0 || t2 < 0) ? ((t1 < 1 && t1 > 0) ? surf.d1 : surf.d2) : ((t1 < 1 && t1 > 0) ? -surf.d1 : -surf.d2);
+        real t_current = dot(direction - testpoint, clamping_direction) / dot(clamping_direction, clamping_direction);
+        real t_current_clamped = clamp(t_current, 0, 1);
+
+        real dist_current = (t_current - t_current_clamped)*(t_current - t_current_clamped)*dot(clamping_direction, clamping_direction);
+        real result = sqrt(dist_current + dist_plan*dist_plan + normaldist*normaldist);
         
-        // real distx = ((t1 - t1_clamped)*norm(surf.d1) + (t2 - t2_clamped)*dot_d1_d2 / norm(surf.d1))*((t1 - t1_clamped)*norm(surf.d1) + (t2 - t2_clamped)*dot_d1_d2 / norm(surf.d1));
-        // real disty = (t2 - t2_clamped)*(t2 - t2_clamped)*dot_d2_d2;
-
-        // real result = sqrt(distx + disty + normaldist*normaldist);
-
         real distance = (t1 >= 0 && t1 <= 1 && t2 >= 0 && t2 <= 1) ? normaldist : result;
         return distance == normaldist ? normaldist : (normaldist < 0 ? -distance : distance);
-
-    // This is the general case in which the surface is not rectangular.
-        // bool pt_in_surf = pointInSurf(surf.d1, surf.d2, surf.p, point);
-
-        // real normaldist = dot(point - surf.p, n_unit);
-
-        // if (pt_in_surf == true) return normaldist;
-        // segment seg1;
-        // segment seg2;
-        // segment seg3;
-        // segment seg4;
-
-        // seg1.p1 = surf.p;
-        // seg1.p2 = seg1.p1 + surf.d1;
-        // seg2.p1 = seg1.p2;
-        // seg2.p2 = seg2.p1 + surf.d2;
-        // seg3.p1 = seg2.p2;
-        // seg3.p2 = seg3.p1 - surf.d1;
-        // seg4.p1 = seg3.p2;
-        // seg4.p2 = seg4.p1 - surf.d2;
-
-        // real dist1 = distmin(seg1, point);
-        // real dist2 = distmin(seg2, point);
-        // real dist3 = distmin(seg3, point);
-        // real dist4 = distmin(seg4, point);
-
-        // real distmin = dist1;
-        // if (dist2 < distmin) distmin = dist2;
-        // if (dist3 < distmin) distmin = dist3;
-        // if (dist4 < distmin) distmin = dist4;
-
-        // if (normaldist < 0) distmin = -distmin;
-
-        // return distmin;
     }
-    return 0;
 }
 
 two_pts closept(segment seg1, segment seg2) {
@@ -793,7 +738,11 @@ real distmin(OBB OBB, capsule caps) {
 
     for (int i = 1; i < 12; i++) {
         dist[i] = distmin(face[i], point);
-        if (dist[i] >= 0 && (dist[i] < distcurrent || distcurrent < 0)) {
+        bool cond1 = dist[i] >= 0;
+        bool cond21 = (dist[i] - distcurrent < COLLISION_EPSILON);
+        bool cond22 = (distcurrent < 0);
+        bool cond2 = (cond21 || cond22);
+        if (cond1 && cond2) {
             distcurrent = dist[i];
         }
         else if (dist[i] < 0 && dist[i] > distcurrent) {
@@ -2527,38 +2476,38 @@ TEST_CASE("OBB collision", "[World]") {
     };
 
     collision_test_box test[] = {
-        // /*Test1*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.21, -5.18, 18.05 }, { -3.89, 8.59, 6.3 }, 1 }, 1.63659624 },
-        // /*Test2*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.46, 0.97, 3.7 }, { 7.79, 14.74, -8.04 }, 1 }, 1.50169942 },
-        // /*Test3*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.05, 1.11, 12.87 }, { 7.37, 14.89, 1.13 }, 1 }, 0.33397901 },
-        // /*Test5*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.82, 6.9, 12.84 }, { 4.7, -7.14, 24.59 }, 1 }, 4.00838054 },
-        // /*Test6*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -3.06, 5.73, 1.67 }, { -0.39, -8.05, 13.41 }, 1 }, 0.89513819 },
-        // /*Test7*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.97, 2.79, 12.23 }, { 2.29, 16.57, 0.48 }, 1 }, 1.69981481 },
-        // /*Test8*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.49, -0.06, 8.32 }, { 14.17, -13.84, 20.07 }, 1 }, 0.49000000 },
-        // /*Test9*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 6.76, -1.55, 8 }, { 9.44, -15.33, 19.74 }, 1 }, 0.45000000 },
-        // /*Test10*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.15, 13.92, -7.48 }, { 1.53, 0.14, 4.27 }, 1 }, 0.73046237 },
-        // /*Test11*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.54, 0.1, 10.59 }, { 1.86, 13.87, -1.15 }, 1 }, -1.00000000 },
-        // /*Test12*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.76, 0.28, 8.08 }, { 13.44, -13.5, 19.83 }, 1 }, -0.21961454 },
-        // /*Test13*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.96, 0.43, 8.3 }, { 7.64, -13.35, 20.05 }, 1 }, -1.53000000 },
-        // /*Test14*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.48, -4.07, 0.76 }, { 8.64, -4.41, 18.58 }, 1 }, 3.06923695 },
-        // /*Test15*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 17.48, 2.95, 13.77 }, { -0.82, 3.11, 13.77 }, 1 }, 2.41054264 },
-        // /*Test16*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.18, 8.56, 4.82 }, { 11.04, -6.44, 15.29 }, 1 }, 0.09912546 },
+        /*Test1*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.21, -5.18, 18.05 }, { -3.89, 8.59, 6.3 }, 1 }, 1.63659624 },
+        /*Test2*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.46, 0.97, 3.7 }, { 7.79, 14.74, -8.04 }, 1 }, 1.50169942 },
+        /*Test3*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.05, 1.11, 12.87 }, { 7.37, 14.89, 1.13 }, 1 }, 0.33397901 },
+        /*Test5*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.82, 6.9, 12.84 }, { 4.7, -7.14, 24.59 }, 1 }, 4.00838054 },
+        /*Test6*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -3.06, 5.73, 1.67 }, { -0.39, -8.05, 13.41 }, 1 }, 0.89513819 },
+        /*Test7*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.97, 2.79, 12.23 }, { 2.29, 16.57, 0.48 }, 1 }, 1.69981481 },
+        /*Test8*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.49, -0.06, 8.32 }, { 14.17, -13.84, 20.07 }, 1 }, 0.49000000 },
+        /*Test9*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 6.76, -1.55, 8 }, { 9.44, -15.33, 19.74 }, 1 }, 0.45000000 },
+        /*Test10*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.15, 13.92, -7.48 }, { 1.53, 0.14, 4.27 }, 1 }, 0.73046237 },
+        /*Test11*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.54, 0.1, 10.59 }, { 1.86, 13.87, -1.15 }, 1 }, -1.00000000 },
+        /*Test12*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.76, 0.28, 8.08 }, { 13.44, -13.5, 19.83 }, 1 }, -0.21961454 },
+        /*Test13*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.96, 0.43, 8.3 }, { 7.64, -13.35, 20.05 }, 1 }, -1.53000000 },
+        /*Test14*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.48, -4.07, 0.76 }, { 8.64, -4.41, 18.58 }, 1 }, 3.06923695 },
+        /*Test15*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 17.48, 2.95, 13.77 }, { -0.82, 3.11, 13.77 }, 1 }, 2.41054264 },
+        /*Test16*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.18, 8.56, 4.82 }, { 11.04, -6.44, 15.29 }, 1 }, 0.09912546 },
 
-        // // OBB.R and caps.r changed
-        // /*Test17*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.94, -6.06, 5.74 }, { 4.01, -9.86, 0.98 }, 0.5 }, 1.00474115 },
-        // /*Test18*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.64, 9.52, 11.7 }, { 2.71, 5.72, 6.94 }, 0.5 }, 0.22669533 },
+        // OBB.R and caps.r changed
+        /*Test17*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.94, -6.06, 5.74 }, { 4.01, -9.86, 0.98 }, 0.5 }, 1.00474115 },
+        /*Test18*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.64, 9.52, 11.7 }, { 2.71, 5.72, 6.94 }, 0.5 }, 0.22669533 },
         /*Test19*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 3, 5.69, 6.2 }, { 4.07, 1.89, 1.44 }, 0.5 }, 0.42102531 },
-        // /*Test20*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 3.1, 4.23, 6.22 }, { 4.17, 0.43, 1.46 }, 0.5 },  0.10695205 },
-        // /*Test21*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.35, 8.57, 12.85 }, { 7.42, 4.77, 8.09 }, 0.5 }, 0.85902522 },
-        // /*Test22*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.88, -2.47, 7.07 }, { 2.95, -6.27, 2.31 }, 0.5 }, 0.37892454 },
-        // /*Test23*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.8, 3.83, 14.57 }, { 2.87, 0.03, 9.81 }, 0.5 }, 1.47889394 },
-        // /*Test24*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 4.28, 6.32, 8.33 }, { 3.21, 10.12, 13.09 }, 0.5 }, 0.82000000 },
-        // /*Test25*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.36, 2.3, 6.31 }, { 3.43, -1.5, 1.55 }, 0.5 }, 0.26887914 },
-        // /*Test26*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.93, 7.6, 12.29 }, { 4, 3.8, 7.53 }, 0.5 }, -0.93234019 },
-        // /*Test27*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 7.55, 0.92, 10.24 }, { 6.48, 4.72, 15 }, 0.5 }, -0.32852683 },
-        // /*Test28*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.79, 5, 13.29 }, { 7.86, 1.2, 8.52 }, 0.5 }, -0.40212621 },
-        // /*Test29*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.66, -0.92, 7.44 }, { 8.04, 4.16, 9.96 }, 0.5 }, 0.87078210 },
-        // /*Test30*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 8.94, 3.63, 11.01 }, { 8.94, -2.55, 11.01 }, 0.5 }, 1.24844065 },
-        // /*Test31*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.91, 5.9, 7.39 }, { 4.14, 5.9, 13.32 }, 0.5 }, 0.40000000 },
+        /*Test20*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 3.1, 4.23, 6.22 }, { 4.17, 0.43, 1.46 }, 0.5 },  0.10695205 },
+        /*Test21*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.35, 8.57, 12.85 }, { 7.42, 4.77, 8.09 }, 0.5 }, 0.85902522 },
+        /*Test22*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.88, -2.47, 7.07 }, { 2.95, -6.27, 2.31 }, 0.5 }, 0.37892454 },
+        /*Test23*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.8, 3.83, 14.57 }, { 2.87, 0.03, 9.81 }, 0.5 }, 1.47889394 },
+        /*Test24*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 4.28, 6.32, 8.33 }, { 3.21, 10.12, 13.09 }, 0.5 }, 0.82000000 },
+        /*Test25*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.36, 2.3, 6.31 }, { 3.43, -1.5, 1.55 }, 0.5 }, 0.26887914 },
+        /*Test26*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.93, 7.6, 12.29 }, { 4, 3.8, 7.53 }, 0.5 }, -0.93234019 },
+        /*Test27*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 7.55, 0.92, 10.24 }, { 6.48, 4.72, 15 }, 0.5 }, -0.32852683 },
+        /*Test28*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.79, 5, 13.29 }, { 7.86, 1.2, 8.52 }, 0.5 }, -0.40212621 },
+        /*Test29*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.66, -0.92, 7.44 }, { 8.04, 4.16, 9.96 }, 0.5 }, 0.87078210 },
+        /*Test30*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 8.94, 3.63, 11.01 }, { 8.94, -2.55, 11.01 }, 0.5 }, 1.24844065 },
+        /*Test31*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.91, 5.9, 7.39 }, { 4.14, 5.9, 13.32 }, 0.5 }, 0.40000000 },
     };
 
     for (auto t : test) {
