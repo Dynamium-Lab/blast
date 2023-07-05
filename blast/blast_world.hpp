@@ -2102,25 +2102,27 @@ real pts_distmin(OBB OBBtest, capsule caps) {
     return dist_min - caps.r;
 }
 
-// Let's try something new
+// Points method
 real dist_OBB_caps(OBB OBBtest, capsule caps) {
     segment seg;
     seg.p1 = caps.p1;
     seg.p2 = caps.p2;
-
+    
     Mat3 Rtrans = transpose(OBBtest.R);
+    // Mat3 Rtrans = OBB.R;
 
     Vec3 p1 = Rtrans * (seg.p1 - OBBtest.c);
     Vec3 p2 = Rtrans * (seg.p2 - OBBtest.c);
-    Vec3 vec = p2 - p1;
 
-    //This ensures that p1 is always below p2 in z coordinates
+    Vec3 vec = p2 - p1;
+    Vec3 point = p2;
+
     if (vec.z < 0) {
-        Vec3 point = p1;
-        p1 = p2;
-        p2 = point;
-        vec = p2 - p1;
+        vec = -vec;
+        point = p1;
     }
+
+    p2 = p1 + vec;
 
     segment seg_test;
     seg_test = {p1,p2};
@@ -2134,7 +2136,7 @@ real dist_OBB_caps(OBB OBBtest, capsule caps) {
     p[0].z = clamp(p1.z, -OBBtest.e.z, OBBtest.e.z);
 
     // The point p2 clamped on the OBB
-    p[1].x = clamp(p2.x, -OBBtest.e.x, OBBtest.e.x);
+    p[1].x = clamp(p2.x, -OBBtest.e.x, OBBtest.e.x); 
     p[1].y = clamp(p2.y, -OBBtest.e.y, OBBtest.e.y);
     p[1].z = clamp(p2.z, -OBBtest.e.z, OBBtest.e.z);
 
@@ -2148,7 +2150,6 @@ real dist_OBB_caps(OBB OBBtest, capsule caps) {
     //     real dist2 = distmin(seg, p[2]);
     //     return dist1 < dist2 ? dist1 - caps.r : dist2 - caps.r;
     // }
-
     // We find the face which will be tested : this face is the face in which the vector from the center
     // of the OBB to the closest point on the line to the center crosses first.
     // Vec3 closept = closept_origin(seg);
@@ -2156,16 +2157,11 @@ real dist_OBB_caps(OBB OBBtest, capsule caps) {
     // t.x = closept.x / OBBtest.e.x;
     // t.y = closept.y / OBBtest.e.y;
     // t.z = closept.z / OBBtest.e.z;
-
     // Vec3 t_abs = { abs(t.x), abs(t.y), abs(t.z) };
-
     // int face = (t_abs.x > t_abs.y && t_abs.x > t_abs.z) ? 0 : (t_abs.y > t_abs.z) ? 1 : 2;
     // int sign = (face == 1 && t.x < 0) || (face == 2 && t.y < 0) || (face == 3 && t.z < 0) ? -1 : 1;
-
     // int face_idx = face*sign;
-
     // std::vector<real> dist;
-
     // std::vector<real> t(6);
     // t[0] = (OBBtest.e.x - p1.x) / vec.x;
     // t[1] = (-OBBtest.e.x - p1.x) / vec.x;
@@ -2173,11 +2169,11 @@ real dist_OBB_caps(OBB OBBtest, capsule caps) {
     // t[3] = (-OBBtest.e.y - p1.y) / vec.y;
     // t[4] = (OBBtest.e.z - p1.z) / vec.z;
     // t[5] = (-OBBtest.e.z - p1.z) / vec.z;
-
     // int dim1 = (face == 0) ? 1 : 0;
     // int dim2 = (face == 2) ? 1 : 2;
 
     real s[6];
+    // todo : fix division by 0
     s[0] = (OBBtest.e.x - p1.x) / vec.x;
     s[1] = (-OBBtest.e.x - p1.x) / vec.x;
     s[2] = (OBBtest.e.y - p1.y) / vec.y;
@@ -2185,16 +2181,25 @@ real dist_OBB_caps(OBB OBBtest, capsule caps) {
     s[4] = (OBBtest.e.z - p1.z) / vec.z;
     s[5] = (-OBBtest.e.z - p1.z) / vec.z;
 
+    real s_clamped[6];
+
+    s_clamped[0] = clamp(s[0], 0, 1);
+    s_clamped[1] = clamp(s[1], 0, 1);
+    s_clamped[2] = clamp(s[2], 0, 1);
+    s_clamped[3] = clamp(s[3], 0, 1);
+    s_clamped[4] = clamp(s[4], 0, 1);
+    s_clamped[5] = clamp(s[5], 0, 1);
+
     // We find the points on the segment which will clamp to the closest point on the OBB (with t)
     Vec3 pt_segment[6];
 
     // !!! Is it possible to skip the first step by creating points with logic here?
-    pt_segment[0] = s[0] >= 0 && s[0] <= 1 ? p1 + s[0]*vec : p1;
-    pt_segment[1] = s[1] >= 0 && s[1] <= 1 ? p1 + s[1]*vec : p1;
-    pt_segment[2] = s[2] >= 0 && s[2] <= 1 ? p1 + s[2]*vec : p1;
-    pt_segment[3] = s[3] >= 0 && s[3] <= 1 ? p1 + s[3]*vec : p1;
-    pt_segment[4] = s[4] >= 0 && s[4] <= 1 ? p1 + s[4]*vec : p1;
-    pt_segment[5] = s[5] >= 0 && s[5] <= 1 ? p1 + s[5]*vec : p1;
+    pt_segment[0] = p1 + s_clamped[0]*vec;
+    pt_segment[1] = p1 + s_clamped[1]*vec;
+    pt_segment[2] = p1 + s_clamped[2]*vec;
+    pt_segment[3] = p1 + s_clamped[3]*vec;
+    pt_segment[4] = p1 + s_clamped[4]*vec;
+    pt_segment[5] = p1 + s_clamped[5]*vec;
 
     for (int i = 0; i < 6; i++) {
         p[i + 2].x = clamp(pt_segment[i].x, -OBBtest.e.x, OBBtest.e.x);
@@ -2202,18 +2207,24 @@ real dist_OBB_caps(OBB OBBtest, capsule caps) {
         p[i + 2].z = clamp(pt_segment[i].z, -OBBtest.e.z, OBBtest.e.z);
     }
 
-    real dist[8];
+    // for debugging : p_general
+    Vec3 p_general[8];
+    Vec3 p_segment_general[8];
+    
+    for (int i = 0; i < 8; i++) {
+        p_general[i] = OBBtest.R*p[i+2] + OBBtest.c;
+        p_segment_general[i] = OBBtest.R*pt_segment[i+2] + OBBtest.c;
+    }
 
+    real dist[8];
     // Initializing at dist[0]
     Vec3 pt_on_segment = ptint(seg_test, p[0]);
-    Vec3 current_distance_vector = pt_on_segment - p[0];
-    dist[0] = norm(current_distance_vector);
+    dist[0] = norm(pt_on_segment - p[0]);
     dist[0] = (dot(p[0], p[0]) >= dot(pt_on_segment, p[0])) ? -dist[0] : dist[0];
     real distcurrent = dist[0];
     for (int i = 1; i < 8; i++) {
         pt_on_segment = ptint(seg_test, p[i]);
-        current_distance_vector = pt_on_segment - p[i];
-        dist[i] = norm(current_distance_vector);
+        dist[i] = norm(pt_on_segment - p[i]);
         dist[i] = (dot(p[i], p[i]) >= dot(pt_on_segment, pt_on_segment)) ? -dist[i] : dist[i];
         if (dist[i] >= 0 && (dist[i] < distcurrent || distcurrent < 0)) {
             distcurrent = abs(dist[i]) < COLLISION_EPSILON ? distcurrent : dist[i];
@@ -2227,16 +2238,12 @@ real dist_OBB_caps(OBB OBBtest, capsule caps) {
 
     // bool dim1_intersection[2] = { s[dim1][0] >= 0 && s[dim1][0] <= 1, s[dim1][1] >= 0 && s[dim1][1] <= 1};
     // bool dim2_intersection[2] = { s[dim2][0] >= 0 && s[dim2][0] <= 1, s[dim2][1] >= 0 && s[dim2][1] <= 1};
-
     // // how many times does our segment intersect its first dimension axis?
     // int dim1_number =   dim1_intersection[0] && dim1_intersection[1] ? 2 :
     //                     dim1_intersection[0] || dim1_intersection[1] ? 1 : 0;
-
     // int dim2_number =   dim2_intersection[0] && dim2_intersection[1] ? 2 :
     //                     dim2_intersection[0] || dim2_intersection[1] ? 1 : 0;
-
     // real coord1 = sign*OBBtest.e[face - 1];
-
     // int idx = 2;
     // if (face == 1) {
     //     dist[idx++] = (dim1_intersection[0] == true) ? distmin(seg, { sign * OBBtest.e.x, p1.y + s[1][0]*vec.y, OBBtest.e.z }) : INF_REAL;
@@ -2244,7 +2251,6 @@ real dist_OBB_caps(OBB OBBtest, capsule caps) {
     //     dist[idx++] = (dim2_intersection[0] == true) ? distmin(seg, { sign * OBBtest.e.x, OBBtest.e.y, p1.z + s[2][0]*vec.z }) : INF_REAL;
     //     dist[idx++] = (dim2_intersection[1] == true) ? distmin(seg, { sign * OBBtest.e.x, -OBBtest.e.y, p1.z + s[2][1]*vec.z }) : INF_REAL;
     // }
-
     // if (face == 2) {
     //     // todo : face 2 and 3.
     //     dist[idx++] = (dim1_intersection[0] == true) ? distmin(seg, { sign * OBBtest.e.x, p1.y + s[1][0]*vec.y, OBBtest.e.z }) : INF_REAL;
@@ -2252,7 +2258,6 @@ real dist_OBB_caps(OBB OBBtest, capsule caps) {
     //     dist[idx++] = (dim2_intersection[0] == true) ? distmin(seg, { sign * OBBtest.e.x, OBBtest.e.y, p1.z + s[2][0]*vec.z }) : INF_REAL;
     //     dist[idx++] = (dim2_intersection[1] == true) ? distmin(seg, { sign * OBBtest.e.x, -OBBtest.e.y, p1.z + s[2][1]*vec.z }) : INF_REAL;
     // }
-
     // Vec3 pt1_1;
     // Vec3 pt1_2;
     // Vec3 pt2_1;
@@ -2260,7 +2265,6 @@ real dist_OBB_caps(OBB OBBtest, capsule caps) {
     // pt1_1.x = face == 1 ? sign * OBBtest.e.x : (s[0][0] >= 0 && s[0][0] <= 1 ? s[0][0] : (s[0][1] >= 0 && s[0][1] <= 1 ? s[0][1] : 0));
     // pt1_1.y = face == 2 ? sign * OBBtest.e.y : (s[dim1][0] >= 0 && s[dim1][0] <= 1 ? s[dim1][0] : (s[dim1][1] >= 0 && s[dim1][1] <= 1 ? s[dim1][1] : 0));
     // pt1_1.z = face == 3 ? sign * OBBtest.e.z : (s[dim1][0] >= 0 && s[dim1][0] <= 1 ? s[dim1][0] : (s[dim1][1] >= 0 && s[dim1][1] <= 1 ? s[dim1][1] : 0));
-
     // if (s[0] >= 0 && s[0] <= 1) {
     //     dist[idx++] = distmin(seg, { sign * OBBtest.e.x, p1.y + s[0]*vec.y, OBBtest.e.z });
     // }
@@ -2273,12 +2277,10 @@ real dist_OBB_caps(OBB OBBtest, capsule caps) {
     // if (s[3] >= 0 && s[3] <= 1) {
     //     dist[idx++] = distmin(seg, { sign * OBBtest.e.x, -OBBtest.e.y, p1.z + s[3]*vec.z });
     // }
-
     // If there is no intersection, then we should take the corner closest to the segment.
     // if (size(dist) == 0) {
     //     return distmin(seg, )
     // }
-
     // real distcurrent = dist[0];
     // for (auto& d : dist) {
     //     if (d >= 0 && (d < distcurrent || distcurrent < 0)) {
@@ -2421,17 +2423,19 @@ TEST_CASE("OBB collision", "[World]") {
         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
     }
 
+    // GJK Algorithm
+    for (auto t : test) {
+        gjkresult res = GJK_solve_gjk_simple(t.caps, t.box);
+        CHECK(abs(res.minimal_distance - t.expected_dist) < TESTCOLL_EPSILON);
+    }
+
     // points method
     for (auto t : test) {
         real dist = dist_OBB_caps(t.box, t.caps);
         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
     }
 
-    // GJK Algorithm
-    // for (auto t : test) {
-    //     gjkresult res = GJK_solve_gjk_simple(t.caps, t.box);
-    //     CHECK(abs(res.minimal_distance - t.expected_dist) < TESTCOLL_EPSILON);
-    // }
+    
 
     // boolean GJK algorithm
     for (auto t : test) {
