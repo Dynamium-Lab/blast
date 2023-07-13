@@ -582,12 +582,12 @@ blast_fn real norm1(const Array& a) {
 }
 
 // return an array of the same size with each element being the absolute value of the corresponding element
-blast_fn Array abs(const Array& a) {
-    Array result(a.size);
-    for (u32 i = 0; i < a.size; i++)
-        result[i] = abs(a[i]);
-    return result;
-}
+// blast_fn Array abs(const Array& a) {
+//     Array result(a.size);
+//     for (u32 i = 0; i < a.size; i++)
+//         result[i] = abs(a[i]);
+//     return result;
+// }
 
 // return an array of the same size with each element being the square of the corresponding element
 blast_fn Array abs2(const Array& a) {
@@ -1102,7 +1102,7 @@ blast_fn Array Array::operator-() {
 
 blast_fn bool Array::operator==(Array& a) {
     Assert(size == a.size);
-    return close(*this, a);
+    return is_close(*this, a);
 }
 
 blast_fn Array& Array::operator*=(real n) {
@@ -1459,9 +1459,9 @@ blast_fn Array Matrix::col(u32 c) const {
 
 blast_fn Matrix transpose(const Matrix& m) {
     Matrix result(m.cols, m.rows);
-    for (int i = 0; i < m.cols; i++) {
-        for (int j = 0; j < m.rows; j++) {
-            result(i, j) = m(j, i);
+    for (u32 i = 0; i < m.rows; ++i) {
+        for (u32 j = 0; j < m.cols; ++j) {
+            result(j, i) = m(i, j);
         }
     }
     return result;
@@ -1834,7 +1834,7 @@ TEST_CASE("MatrixOperations", "[Math]") {
     blast::Matrix m(3, 2);
     for (int i = 0; i < m.size; i++)
         m.data[i] = i;
-    auto mT = transpose(m);
+    auto mT = blast::transpose(m);
 
     REQUIRE(mT(0, 0) == m(0, 0));
     REQUIRE(mT(0, 1) == m(1, 0));
