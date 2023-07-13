@@ -330,6 +330,7 @@ struct Matrix {
 
 //------ MISC ---------------------
 
+// wrap to -pi to pi
 blast_fn real wrap2pi(real r) {
     while (r < -(real)3.1415)
         r += 2*(real)3.1415;
@@ -338,6 +339,7 @@ blast_fn real wrap2pi(real r) {
     return r;
 }
 
+// wrap to -180 to 180
 blast_fn float wrap_to_180(float r) {
     while (r < -180)
         r += 360;
@@ -346,14 +348,17 @@ blast_fn float wrap_to_180(float r) {
     return r;
 }
 
+// convert degrees to radians
 blast_fn real deg2rad(real r) {
     return r * (real)3.1415/180;
 }
 
+// convert radians to degrees
 blast_fn real rad2deg(real r) {
     return r * 180/(real)3.1415;
 }
 
+// return an array with the values converted from radians to degrees
 blast_fn Array rad2deg(const Array& a) {
     Array r(a.size);
     for (u32 i = 0; i < a.size; i++)
@@ -361,6 +366,7 @@ blast_fn Array rad2deg(const Array& a) {
     return r;
 }
 
+// return an array with the values converted from degrees to radians
 blast_fn Array deg2rad(const Array& a) {
     Array r(a.size);
     for (u32 i = 0; i < a.size; i++)
@@ -368,74 +374,60 @@ blast_fn Array deg2rad(const Array& a) {
     return r;
 }
 
+// fill the vector with zeros
 blast_fn void zero(Vec3& v) {
     v.x = v.y = v.z = 0;
 }
 
+// fill the matrix with zeros
 blast_fn void zero(Mat3& m) {
     memset(m.data, 0, 9*sizeof(real));
 }
 
+// fill the array with zeros
 blast_fn void zero(Array& a) {
     if(a.data)
         memset(a.data, 0, a.size*sizeof(real));
 }
 
+// fill the matrix with zeros
 blast_fn void zero(Matrix& m) {
     if(m.data)
         memset(m.data, 0, m.size*sizeof(real));
 }
 
+// fill the vector with a constant value
 blast_fn void constant(Vec3& v, real val) {
     v.x = val;
     v.y = val;
     v.z = val;
 }
 
+// fill the matrix with a constant value
 blast_fn void constant(Mat3& m, real val) {
     for (u32 i = 0; i < 9; i++)
         m.data[i] = val;
 }
 
+// fill the matrix with a constant value
 blast_fn void constant(Mat4& m, real val) {
     for (u32 i = 0; i < 16; i++)
         m.data[i] = val;
 }
 
+// fill the array with a constant value
 blast_fn void constant(Array& a, real val) {
     for (u32 i = 0; i < a.size; i++)
         a[i] = val;
 }
 
+// fill the matrix with a constant value
 blast_fn void constant(Matrix& m, real val) {
     for (u32 i = 0; i < m.size; i++)
         m.data[i] = val;
 }
 
-blast_fn void minus_insert(const Array& a, const Matrix& m, real* dst) {
-    Assert(m.rows == a.size);
-    auto m_data = m.data;
-    for (u32 c = 0; c < m.cols; c++) {
-        for (u32 r = 0; r < a.size; r++) {
-            *dst = a[r] - *m_data;
-            m_data++;
-            dst++;
-        }
-    }
-}
-
-blast_fn void minus_insert(const Matrix& m, const Array& a, real* dst) {
-    Assert(m.rows == a.size);
-    auto m_data = m.data;
-    for (u32 c = 0; c < m.cols; c++) {
-        for (u32 r = 0; r < a.size; r++) {
-            *dst = *m_data - a[r];
-            m_data++;
-            dst++;
-        }
-    }
-}
-
+// return the minimum value of the array (sign matters)
 blast_fn real array_min(const Array& a) {
     real result = INF_REAL;
     for(u32 i = 0; i < a.size; i++)
@@ -443,6 +435,7 @@ blast_fn real array_min(const Array& a) {
     return result;
 }
 
+// return the maximum value of the array (sign matters)
 blast_fn real array_max(const Array& a) {
     real result = -INF_REAL;
     for(u32 i = 0; i < a.size; i++)
@@ -450,7 +443,8 @@ blast_fn real array_max(const Array& a) {
     return result;
 }
 
-blast_fn bool close(const Array& a1, const Array& a2, real eps = 1e-05) {
+// return true if the difference of all elements of each array are close to zero
+blast_fn bool is_close(const Array& a1, const Array& a2, real eps = 1e-05) {
     Assert(a1.size == a2.size);
     for (u32 i =0; i < a1.size; i++)
         if(a1[i] - a2[i] > eps || a1[i] - a2[i] < -eps)
@@ -458,6 +452,15 @@ blast_fn bool close(const Array& a1, const Array& a2, real eps = 1e-05) {
     return true;
 }
 
+// return true if all elements are close to zero
+blast_fn bool is_small(const Array& a, real eps = 1e-05) {
+    for (u32 i =0; i < a.size; i++)
+        if(abs(a[i]) > eps)
+            return false;
+    return true;
+}
+
+// return 1 if v > 0, 0 if v == 0, -1 if v < 0
 blast_fn real sign(real v) {
     return v > 0 ? 1: v == 0 ? 0: -1;
 }
@@ -470,17 +473,20 @@ host_fn real get_random() {
     return dis(e2);
 }
 
+// fill the given array with random values between -A and A
 host_fn void fill_random(Array& v, real A) {
     for (int i = 0; i < (int)v.size; i++)
         v[i] = A * get_random();
     // todo: performance
 }
 
+// fill the given matrix with random values between -A and A
 host_fn void fill_random(Mat3& m, real A) {
     for (int i = 0; i < 9; i++)
         m[i] = A * get_random();
 }
 
+// create a new array with random values between -A and A
 host_fn Array random_array(u32 n, real A) {
     Array result(n);
     for (int i = 0; i < (int)n; i++)
@@ -488,10 +494,145 @@ host_fn Array random_array(u32 n, real A) {
     return result;
 }
 
+// return the value clamped to [mini, maxi]
 blast_fn real clamp(real val, real mini, real maxi) {
     real r = val < mini ? mini : val;
     r = r > maxi ? maxi : r;
     return r;
+}
+
+// return a new array with each value clamped to [mini, maxi]
+blast_fn Array clamp(const Array& a, real mini, real maxi) {
+    Array r(a.size);
+    for (u32 i = 0; i < a.size; i++)
+        r[i] = clamp(a[i], mini, maxi);
+    return r;
+}
+
+// return a new array with each value clamped to [lb, ub] (each element can have different lb and ub)
+blast_fn Array clamp(const Array& a, const Array& lb, const Array& ub) {
+    Assert(a.size == lb.size && a.size == ub.size);
+    Array r(a.size);
+    for (u32 i = 0; i < a.size; i++)
+        r[i] = clamp(a[i], lb[i], ub[i]);
+    return r;
+}
+
+// modify the value to clamp to [mini, maxi]
+blast_fn void clamp_inplace(real& val, real mini, real maxi) {
+    val = clamp(val, mini, maxi);
+}
+
+// modify the array to clamp each value to [mini, maxi]
+blast_fn void clamp_inplace(Array& a, real mini, real maxi) {
+    for (u32 i = 0; i < a.size; i++)
+        clamp_inplace(a[i], mini, maxi);
+}
+
+// clamp inplace with lower bound and upper bound
+blast_fn void clamp_inplace(Array& a, const Array& lb, const Array& ub) {
+    Assert(a.size == lb.size && a.size == ub.size);
+    for (u32 i = 0; i < a.size; i++)
+        a[i] = clamp(a[i], lb[i], ub[i]);
+}
+
+// return the sum of the array
+blast_fn real sum(const Array& a) {
+    real result = 0;
+    for (u32 i = 0; i < a.size; i++)
+        result += a[i];
+    return result;
+}
+
+// return the mean of the array
+blast_fn real mean(const Array& a) {
+    return sum(a) / a.size;
+}
+
+// return the euclidean norm (2-norm)
+blast_fn real norm(const Array& a) {
+    real result = 0;
+    for (u32 i = 0; i < a.size; i++)
+        result += a[i] * a[i];
+    return sqrt(result);
+}
+
+// return the sum of the square of each element
+blast_fn real norm_sqr(const Array& a) {
+    real result = 0;
+    for (u32 i = 0; i < a.size; i++)
+        result += a[i] * a[i];
+    return result;
+}
+
+// return the infinity norm
+blast_fn real norm_inf(const Array& a) {
+    real result = 0;
+    for (u32 i = 0; i < a.size; i++)
+        result = abs(a[i]) > result ? abs(a[i]) : result;
+    return result;
+}
+
+// return the 1-norm
+blast_fn real norm1(const Array& a) {
+    real result = 0;
+    for (u32 i = 0; i < a.size; i++)
+        result += abs(a[i]);
+    return result;
+}
+
+// return an array of the same size with each element being the absolute value of the corresponding element
+blast_fn Array abs(const Array& a) {
+    Array result(a.size);
+    for (u32 i = 0; i < a.size; i++)
+        result[i] = abs(a[i]);
+    return result;
+}
+
+// return an array of the same size with each element being the square of the corresponding element
+blast_fn Array abs2(const Array& a) {
+    Array result(a.size);
+    for (u32 i = 0; i < a.size; i++)
+        result[i] = a[i] * a[i];
+    return result;
+}
+
+// modify the array in place with each element being the absolute value of the corresponding element
+blast_fn void abs_inplace(Array& a) {
+    for (u32 i = 0; i < a.size; i++)
+        a[i] = abs(a[i]);
+}
+
+// modify the array in place with each element being the square of the corresponding element
+blast_fn void abs2_inplace(Array& a) {
+    for (u32 i = 0; i < a.size; i++)
+        a[i] = a[i] * a[i];
+}
+
+// fill the destination pointer with a matrix of the same size as m with each element (i,j) being a[i] - m(i,j)
+blast_fn void minus_insert(const Array& a, const Matrix& m, real* dst) {
+    Assert(m.rows == a.size);
+    auto m_data = m.data;
+    for (u32 c = 0; c < m.cols; c++) {
+        for (u32 r = 0; r < a.size; r++) {
+            *dst = a[r] - *m_data;
+            m_data++;
+            dst++;
+        }
+    }
+}
+
+// fill the destination pointer with a matrix of the same size as m with each element (i,j) being m(i,j) - a[i]
+blast_fn void minus_insert(const Matrix& m, const Array& a, real* dst) {
+    Assert(m.rows == a.size);
+    auto m_data = m.data;
+    for (u32 c = 0; c < m.cols; c++) {
+        for (u32 r = 0; r < a.size; r++) {
+            *dst = *m_data - a[r];
+            m_data++;
+            dst++;
+        }
+    }
 }
 
 
@@ -1695,12 +1836,12 @@ TEST_CASE("MatrixOperations", "[Math]") {
         m.data[i] = i;
     auto mT = transpose(m);
 
-    REQUIRE(mT(0,0) == m(0,0));
-    REQUIRE(mT(0,1) == m(1,0));
-    REQUIRE(mT(0,2) == m(2,0));
-    REQUIRE(mT(1,0) == m(0,1));
-    REQUIRE(mT(1,1) == m(1,1));
-    REQUIRE(mT(1,2) == m(2,1));
+    REQUIRE(mT(0, 0) == m(0, 0));
+    REQUIRE(mT(0, 1) == m(1, 0));
+    REQUIRE(mT(0, 2) == m(2, 0));
+    REQUIRE(mT(1, 0) == m(0, 1));
+    REQUIRE(mT(1, 1) == m(1, 1));
+    REQUIRE(mT(1, 2) == m(2, 1));
 }
 
 #endif
