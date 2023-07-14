@@ -108,7 +108,7 @@ struct Gen3_7DOF : public Manipulator {
     Matrix forward_kinematics(const Matrix &joint_positions);
 
     // compute jacobian matrix
-    Matrix Gen3_7DOF::jacobian(const Array &joint_position);
+    Matrix jacobian(const Array &joint_position);
 
     // check collision
     Array collision_check(const Array &joint_position);
@@ -813,7 +813,7 @@ host_fn Matrix Gen3Lite::jacobian(const Array& joint_position) {
 
 //------ Kinova Gen3 7DOF manipulator functions ---------------------------------------
 
-host_fn Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
+Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
     // position of the first joint with respect to the table in the center of the base
     p_base = {0, 0, 0.1564f};
 

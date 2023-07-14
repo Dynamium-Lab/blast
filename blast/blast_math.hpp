@@ -702,7 +702,7 @@ blast_fn Vec3 operator*(Vec3 a, real b) {
     };
 }
 
-blast_fn Vec3& operator+=(Vec3& v1, Vec3& v2) {
+blast_fn Vec3& operator+=(Vec3& v1, const Vec3& v2) {
     v1.x += v2.x;
     v1.y += v2.y;
     v1.z += v2.z;
@@ -758,14 +758,14 @@ blast_fn Mat3& operator*=(Mat3& lhs, const Mat3& rhs) {
     return lhs;
 }
 
-blast_fn Mat3 operator+(Mat3& lhs, Mat3& rhs) {
+blast_fn Mat3 operator+(const Mat3& lhs, const Mat3& rhs) {
     Mat3 r;
     for (u32 i = 0; i < 9; i++)
         r.data[i] = lhs.data[i] + rhs.data[i];
     return r;
 }
 
-blast_fn Mat3& operator+=(Mat3& lhs, Mat3& rhs) {
+blast_fn Mat3& operator+=(Mat3& lhs, const Mat3& rhs) {
     lhs = lhs + rhs;
     return lhs;
 }
@@ -1459,9 +1459,9 @@ blast_fn Array Matrix::col(u32 c) const {
 
 blast_fn Matrix transpose(const Matrix& m) {
     Matrix result(m.cols, m.rows);
-    for (u32 i = 0; i < m.rows; ++i) {
-        for (u32 j = 0; j < m.cols; ++j) {
-            result(j, i) = m(i, j);
+    for (int i = 0; i < m.cols; i++) {
+        for (int j = 0; j < m.rows; j++) {
+            result(i, j) = m(j, i);
         }
     }
     return result;
@@ -1834,14 +1834,14 @@ TEST_CASE("MatrixOperations", "[Math]") {
     blast::Matrix m(3, 2);
     for (int i = 0; i < m.size; i++)
         m.data[i] = i;
-    auto mT = blast::transpose(m);
+    auto mT = transpose(m);
 
-    REQUIRE(mT(0, 0) == m(0, 0));
-    REQUIRE(mT(0, 1) == m(1, 0));
-    REQUIRE(mT(0, 2) == m(2, 0));
-    REQUIRE(mT(1, 0) == m(0, 1));
-    REQUIRE(mT(1, 1) == m(1, 1));
-    REQUIRE(mT(1, 2) == m(2, 1));
+    REQUIRE(mT(0,0) == m(0,0));
+    REQUIRE(mT(0,1) == m(1,0));
+    REQUIRE(mT(0,2) == m(2,0));
+    REQUIRE(mT(1,0) == m(0,1));
+    REQUIRE(mT(1,1) == m(1,1));
+    REQUIRE(mT(1,2) == m(2,1));
 }
 
 #endif

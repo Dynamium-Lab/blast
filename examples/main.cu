@@ -5,7 +5,16 @@
 
 int main() {
     using namespace blast;
-    world.OBBlist.clear();
+
+    // note: quick test for non-square matrix transpose function
+    // Matrix m(3,2);
+    // for (int i = 0; i < m.size; i++)
+    //     m.data[i] = i+1;
+    // auto mT = transpose(m);
+    // print(m);
+    // print(mT);
+
+
     Gen3_7DOF manip;
 
     // init
