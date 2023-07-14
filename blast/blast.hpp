@@ -21,7 +21,6 @@
 #define host_fn __host__ inline
 #define dev_fn __device__ inline
 #else
-#pragma message("WARN, Not compiling with 'nvcc', the Nvidia GPU will not be used to speed up computation")
 #define blast_fn inline
 #define host_fn inline
 #endif

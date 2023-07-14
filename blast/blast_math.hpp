@@ -662,7 +662,7 @@ blast_fn real norm(Vec3 a) {
     return sqrt(a.x*a.x + a.y*a.y + a.z*a.z);
 }
 
-Vec3 operator-(const Vec3& a) {
+blast_fn Vec3 operator-(const Vec3& a) {
     Vec3 r;
     r.x = -a.x;
     r.y = -a.y;
