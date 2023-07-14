@@ -813,7 +813,7 @@ host_fn Matrix Gen3Lite::jacobian(const Array& joint_position) {
 
 //------ Kinova Gen3 7DOF manipulator functions ---------------------------------------
 
-Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
+host_fn Gen3_7DOF::Gen3_7DOF() : Manipulator(7) {
     // position of the first joint with respect to the table in the center of the base
     p_base = {0, 0, 0.1564f};
 
