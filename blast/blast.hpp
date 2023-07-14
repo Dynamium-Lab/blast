@@ -33,3 +33,4 @@
 #include "blast_trajectory.hpp"
 #include "blast_manipulator.hpp"
 #include "blast_optimization.hpp"
+#include "blast_world.hpp"
