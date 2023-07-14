@@ -2274,9 +2274,11 @@ TEST_CASE("Sphere collision", "[World]") {
     }
 
     BENCHMARK("Sphere collision") {
+        real dist = 0;
         for (auto t : test) {
-            real dist = distmin(t.caps, t.sph);
+            dist = distmin(t.caps, t.sph);
         }
+        return dist;
     };
 }
 
