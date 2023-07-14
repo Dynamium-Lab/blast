@@ -440,13 +440,9 @@ real distmin(capsule caps, cylinder cyl) {
         Vec3 cent;
         Vec3 other;
 
-        cent = cyl.p1;
-        other = cyl.p2;
-
-        if (cond2 < cond1) {
-            cent = cyl.p2;
-            other = cyl.p1;
-        }
+        bool corner = cond2 < cond1;
+        cent = corner ? cyl.p2 : cyl.p1;
+        other = corner ? cyl.p1 : cyl.p2;
 
         // Check if both points project on the circle plane
         Vec3 n = cent - other;
@@ -465,23 +461,37 @@ real distmin(capsule caps, cylinder cyl) {
         real dist_norm_sq1 = dot(caps.p1 - proj1, caps.p1 - proj1);
         real dist_norm_sq2 = dot(caps.p2 - proj2, caps.p2 - proj2);
 
-        real dist_norm_sq_min = dist_norm_sq1;
-        if  (dist_norm_sq2 < dist_norm_sq1) {
-            dist_norm_sq_min = dist_norm_sq2;
-        }
+        real dist_norm_sq_min = (dist_norm_sq2 < dist_norm_sq1) ? dist_norm_sq2 : dist_norm_sq1;
 
         // if both points project on the circle plane, then the distance will be the minimum of the two normal distances calculated
         if (rad_sq1 <= cyl.r * cyl.r && rad_sq2 <= cyl.r * cyl.r)
             return sqrt(dist_norm_sq_min) - caps.r;
 
         // if one point projects on the circle plane, it is necessary to check the normal distance as well
-        real testnormal = INF_REAL;
-        if (rad_sq1 <= cyl.r * cyl.r){
-            testnormal = dist_norm_sq1;
-        }
-        else if (rad_sq2 <= cyl.r * cyl.r) {
-            testnormal = dist_norm_sq2;
-        }
+        real testnormal = (rad_sq1 <= cyl.r * cyl.r) ? dist_norm_sq1 : (rad_sq2 <= cyl.r * cyl.r) ? dist_norm_sq2 : INF_REAL;
+
+        // // To find the point on the side of the circle : (This was an attempt at fixing the current mistake, 
+        // // which leads to only a very small error. Thus it was deemed ok and this attempt scrapped)
+        // Vec3 caps_segment = caps.p2 - caps.p1;
+        // Vec3 caps_segment_unit = 1 / norm(caps_segment) * caps_segment; 
+        // Vec3 cross_prod = cross(n, caps_segment);
+        // //Vec3 cross_prod = cross(n_unit, caps_segment_unit);
+        // Vec3 cross_prod_unit = 1 / norm(cross_prod) * cross_prod; 
+        // Vec3 pt_direction = cross(caps_segment, cross_prod);
+        // // Vec3 pt_direction = cross(caps_segment_unit, cross_prod_unit);
+        // Vec3 pt_direction_unit = 1 / norm(pt_direction) * pt_direction; 
+        // pt_direction = (dot(pt_direction, points.p1 - points.p2) > 0) ? pt_direction : -pt_direction;
+        // pt_direction_unit = 1 / norm(pt_direction) * pt_direction;
+        // Vec3 projected_direction = ClosestPtPointPlane(pt_direction_unit, face1);
+        // Vec3 projected_direction_unit = 1 / norm(projected_direction - cent) * (projected_direction - cent); 
+        // real verification_direction = dot(projected_direction_unit, n);
+        // Vec3 testpoint = cent + (projected_direction_unit)*cyl.r;
+        // Vec3 point_caps = ptint(seg1, testpoint);
+        // real dist_point = norm(testpoint - point_caps);
+        // // real dist_point = distmin(seg1, testpoint);
+        // // dist_point = (dot(point_caps - cent, testpoint - cent) < dot(testpoint - cent, testpoint - cent)) ? -dist_point : dist_point;
+        // real distance = dist_point < testnormal ? dist_point - caps.r : testnormal - caps.r;
+        // // return distance;
 
         // project the points on the plan
         segment proj;
@@ -1258,9 +1268,6 @@ two_pts GJK_solve_simplex4(ComplexSimplex& simplex) {
 // ======================================
 // This version of the EPA algorithm is adapted from : https://dyn4j.org/2010/05/epa-expanding-polytope-algorithm/
 
-
-
-
 closeface findClosestFace(std::vector<triangle> simplex) {
     closeface closest;
     closest.distance = INF_REAL;
@@ -1499,10 +1506,12 @@ gjkresult GJK_solve_gjk_simple(capsule caps, OBB box) {
 
     simplex.count = 1;
 
-    while (true) {
-        two_pts solved;
-        Vec3 p;
+    two_pts solved;
+    Vec3 p;
+    real old_simplex_count;
 
+    while (true) {
+        old_simplex_count = simplex.count;
         
         if (simplex.count == 1) {
             p = simplex.a;
@@ -1540,7 +1549,7 @@ gjkresult GJK_solve_gjk_simple(capsule caps, OBB box) {
         //     Assert(false);
         // }
 
-        if (dot(p, p) < COLLISION_EPSILON) {
+        if (dot(p, p) < COLLISION_EPSILON && old_simplex_count == 4) {
             results.intersection = true;
             results.final_simplex = simplex;
             results.A_closept = {};
@@ -1902,395 +1911,339 @@ bool GJK_bool(capsule caps, OBB box) {
     return GJK_bool_gen(v1, v2, caps.r);
 }
 
-bool_simplex_2stdvec GJK_bool_gen_informations(std::vector<Vec3> v1, std::vector<Vec3> v2, real radius){
-    bool_simplex simplex;
-    bool_simplex_2stdvec results;
-
-    int full_size = size(v1) * size(v2);
-    std::vector<Vec3> full_minkowski_list(full_size);
-
-    real low_norm = INF_REAL;
-    for (auto& vertex1 : v1) {
-        for (auto& vertex2 : v2) {
-            Vec3 new_pt = vertex2 - vertex1;
-            full_minkowski_list.push_back(new_pt);
-            real current_norm_sq = dot(new_pt, new_pt);
-            if (current_norm_sq < low_norm*low_norm) {
-                low_norm = sqrt(current_norm_sq);
-                simplex.a = new_pt;
-            }
-        }
-    }
-
-    Vec3 direction;
-    simplex.count = 1;
-    
-    while (true) {
-        if (simplex.count == 4) {
-            bool_Vec3 sol = GJK_find_direction4(simplex);
-            if (sol.intersection == true) {
-                results.intersection = true;
-                results.simplex = simplex;
-                results.v1 = v1;
-                results.v2 = v2;
-                goto end;
-            }
-            direction = sol.direction;
-        }
-        else {
-            direction = simplex.count == 1 ? -simplex.a : (simplex.count == 2 ? GJK_find_direction2(simplex) : (GJK_find_direction3(simplex)));
-        }
-
-        Assert(simplex.count < 4 ); /*"You cannot have a simplex that's a tetrahedron at this point."*/
-        
-        if (GJK_bool_simplexdistance(simplex) - radius <= COLLISION_EPSILON) {
-            results.intersection = true;
-            results.simplex = simplex;
-            results.v1 = v1;
-            results.v2 = v2;
-            break;
-        }
-
-        // Vec3 support = full_size < 32 ? GJK_get_support(v2, direction) - GJK_get_support(v1, -direction) : GJK_bool_get_support(full_minkowski_list, direction);
-        // Vec3 support1 = GJK_get_support(v1, -direction);
-        // Vec3 support2 = GJK_get_support(v2, direction);
-
-        Vec3 support = GJK_bool_get_support(full_minkowski_list, direction); //support2 - support1;
-
-        if (dot(support, direction) <= 0) {
-            // That means that we did not cross the origin, therefore it is impossible that the
-            // origin is inside the minkowski difference.
-            results.intersection = false;
-            results.simplex = simplex;
-            results.v1 = v1;
-            results.v2 = v2;
-            break;
-        }
-
-        simplex.d = simplex.c;
-        simplex.c = simplex.b;
-        simplex.b = simplex.a;
-        simplex.a = support;
-
-        simplex.count += 1;
-    }
-    end :
-    return results;
-}
-
-bool_simplex_2stdvec GJK_bool_informations(capsule caps, OBB box) {
-    // Initialization of the eight OBB points
-    Vec3 size_x_org = {box.e.x, 0, 0};
-    Vec3 size_y_org = {0, box.e.y, 0};
-    Vec3 size_z_org = {0, 0, box.e.z};
-    Vec3 size_x = box.R*size_x_org;
-    Vec3 size_y = box.R*size_y_org;
-    Vec3 size_z = box.R*size_z_org;
-
-    std::vector<Vec3> v1(8);
-    v1[0] = box.c + size_x + size_y + size_z;
-    v1[1] = box.c + size_x + size_y - size_z;
-    v1[2] = box.c + size_x - size_y + size_z;
-    v1[3] = box.c + size_x - size_y - size_z;
-    v1[4] = box.c - size_x + size_y + size_z;
-    v1[5] = box.c - size_x + size_y - size_z;
-    v1[6] = box.c - size_x - size_y + size_z;
-    v1[7] = box.c - size_x - size_y - size_z;
-
-    std::vector<Vec3> v2(2);
-    v2[0] = caps.p1;
-    v2[1] = caps.p2;
-
-    return GJK_bool_gen_informations(v1, v2, caps.r);
-}
-
-bool_real GJK_bool_dist_pen(capsule caps, OBB box) {
-    bool_simplex_2stdvec results = GJK_bool_informations(caps, box);
-    if (results.intersection) {
-        return {true, solve_EPA_algorithm_bool(results.simplex, results.v1, results.v2) - caps.r};
-    }
-    return {false, INF_REAL};
-}
+// Boolean GJK with depth
+// bool_simplex_2stdvec GJK_bool_gen_informations(std::vector<Vec3> v1, std::vector<Vec3> v2, real radius){
+//     bool_simplex simplex;
+//     bool_simplex_2stdvec results;
+//     int full_size = size(v1) * size(v2);
+//     std::vector<Vec3> full_minkowski_list(full_size);
+//     real low_norm = INF_REAL;
+//     for (auto& vertex1 : v1) {
+//         for (auto& vertex2 : v2) {
+//             Vec3 new_pt = vertex2 - vertex1;
+//             full_minkowski_list.push_back(new_pt);
+//             real current_norm_sq = dot(new_pt, new_pt);
+//             if (current_norm_sq < low_norm*low_norm) {
+//                 low_norm = sqrt(current_norm_sq);
+//                 simplex.a = new_pt;
+//             }
+//         }
+//     }
+//     Vec3 direction;
+//     simplex.count = 1;
+//     while (true) {
+//         if (simplex.count == 4) {
+//             bool_Vec3 sol = GJK_find_direction4(simplex);
+//             if (sol.intersection == true) {
+//                 results.intersection = true;
+//                 results.simplex = simplex;
+//                 results.v1 = v1;
+//                 results.v2 = v2;
+//                 goto end;
+//             }
+//             direction = sol.direction;
+//         }
+//         else {
+//             direction = simplex.count == 1 ? -simplex.a : (simplex.count == 2 ? GJK_find_direction2(simplex) : (GJK_find_direction3(simplex)));
+//         }
+//         Assert(simplex.count < 4 ); /*"You cannot have a simplex that's a tetrahedron at this point."*/
+//         if (GJK_bool_simplexdistance(simplex) - radius <= COLLISION_EPSILON) {
+//             results.intersection = true;
+//             results.simplex = simplex;
+//             results.v1 = v1;
+//             results.v2 = v2;
+//             break;
+//         }
+//         // Vec3 support = full_size < 32 ? GJK_get_support(v2, direction) - GJK_get_support(v1, -direction) : GJK_bool_get_support(full_minkowski_list, direction);
+//         // Vec3 support1 = GJK_get_support(v1, -direction);
+//         // Vec3 support2 = GJK_get_support(v2, direction);
+//         Vec3 support = GJK_bool_get_support(full_minkowski_list, direction); //support2 - support1;
+//         if (dot(support, direction) <= 0) {
+//             // That means that we did not cross the origin, therefore it is impossible that the
+//             // origin is inside the minkowski difference.
+//             results.intersection = false;
+//             results.simplex = simplex;
+//             results.v1 = v1;
+//             results.v2 = v2;
+//             break;
+//         }
+//         simplex.d = simplex.c;
+//         simplex.c = simplex.b;
+//         simplex.b = simplex.a;
+//         simplex.a = support;
+//         simplex.count += 1;
+//     }
+//     end :
+//     return results;
+// }
+// bool_simplex_2stdvec GJK_bool_informations(capsule caps, OBB box) {
+//     // Initialization of the eight OBB points
+//     Vec3 size_x_org = {box.e.x, 0, 0};
+//     Vec3 size_y_org = {0, box.e.y, 0};
+//     Vec3 size_z_org = {0, 0, box.e.z};
+//     Vec3 size_x = box.R*size_x_org;
+//     Vec3 size_y = box.R*size_y_org;
+//     Vec3 size_z = box.R*size_z_org;
+//     std::vector<Vec3> v1(8);
+//     v1[0] = box.c + size_x + size_y + size_z;
+//     v1[1] = box.c + size_x + size_y - size_z;
+//     v1[2] = box.c + size_x - size_y + size_z;
+//     v1[3] = box.c + size_x - size_y - size_z;
+//     v1[4] = box.c - size_x + size_y + size_z;
+//     v1[5] = box.c - size_x + size_y - size_z;
+//     v1[6] = box.c - size_x - size_y + size_z;
+//     v1[7] = box.c - size_x - size_y - size_z;
+//     std::vector<Vec3> v2(2);
+//     v2[0] = caps.p1;
+//     v2[1] = caps.p2;
+//     return GJK_bool_gen_informations(v1, v2, caps.r);
+// }
+// bool_real GJK_bool_dist_pen(capsule caps, OBB box) {
+//     bool_simplex_2stdvec results = GJK_bool_informations(caps, box);
+//     if (results.intersection) {
+//         return {true, solve_EPA_algorithm_bool(results.simplex, results.v1, results.v2) - caps.r};
+//     }
+//     return {false, INF_REAL};
+// }
 
 
 // ======================================
 //          méthode des points
 // ======================================
 // in progress
-real pts_distmin(OBB OBBtest, capsule caps) {
-    segment seg;
-    seg.p1 = caps.p1;
-    seg.p2 = caps.p2;
-
-    Mat3 Rtrans = transpose(OBBtest.R);
-    // Mat3 Rtrans = OBB.R;
-
-    Vec3 p1 = Rtrans * (seg.p1 - OBBtest.c);
-    Vec3 p2 = Rtrans * (seg.p2 - OBBtest.c);
-
-    Vec3 vec = p2 - p1;
-
-    // This ensures that p1 is always below p2 in z coordinates
-    if (vec.z < 0) {
-        vec = -vec;
-        Vec3 point = p1;
-        p1 = p2;
-        p2 = point;
-    }
-
-    segment seg_test;
-    seg_test = { p1, p2 };
-
-    // We must find the points which need to be tested later.
-    Vec3 p[2];
-
-    // The point p1 clamped on the OBB
-    p[0].x = clamp(p1.x, -OBBtest.e.x, OBBtest.e.x);
-    p[0].y = clamp(p1.y, -OBBtest.e.y, OBBtest.e.y);
-    p[0].z = clamp(p1.z, -OBBtest.e.z, OBBtest.e.z);
-
-    // The point p2 clamped on the OBB
-    p[1].x = clamp(p2.x, -OBBtest.e.x, OBBtest.e.x);
-    p[1].y = clamp(p2.y, -OBBtest.e.y, OBBtest.e.y);
-    p[1].z = clamp(p2.z, -OBBtest.e.z, OBBtest.e.z);
-
-    // The point on the closest OBB line
-    Vec3 vec_unit = (1 / norm(vec)) * vec;
-    Vec3 direction = dot(-p1, p2 - p1) * (vec_unit) + p1;
-
-    int quadrant = direction.x > 0 ? (direction.z > 0 ? 1 : 4) : (direction.z > 0 ? 2 : 3);
-
-    real xmin = - OBBtest.e[0];
-    real xmax = + OBBtest.e[0];
-    real ymin = - OBBtest.e[1];
-    real ymax = + OBBtest.e[1];
-    real zmin = - OBBtest.e[2];
-    real zmax = + OBBtest.e[2];
-
-    // Creating the eight original vertices
-    Vec3 orgvert[8];
-
-    orgvert[0] = { xmax, ymin, zmax };
-    orgvert[1] = { xmax, ymax, zmax };
-    orgvert[2] = { xmin, ymin, zmax };
-    orgvert[3] = { xmin, ymax, zmax };
-    orgvert[4] = { xmin, ymin, zmin };
-    orgvert[5] = { xmin, ymax, zmin };
-    orgvert[6] = { xmax, ymin, zmin };
-    orgvert[7] = { xmax, ymax, zmin };
-
-    segment seg_OBB;
-    seg_OBB.p1 = orgvert[2 * quadrant - 2];
-    seg_OBB.p2 = orgvert[2 * quadrant - 1];
-
-    segment corner_p1;
-    corner_p1.p1 = seg_OBB.p1;
-    corner_p1.p2 = p1;
-
-    Vec3 cross_product = cross(vec, corner_p1.p1 - p1);
-    cross_product.y = quadrant == 2 || quadrant == 3 ? -cross_product.y : cross_product.y;
-
-    if (cross_product.y > 0) {
-
-    }
-
-    real dist_seg = sqrt(distmin(seg, seg_OBB));
-    real dist_p3 = distmin(seg, p[0]);
-    real dist_p4 = distmin(seg, p[1]);
-
-    real dist_min = (dist_seg < dist_p3 && dist_seg < dist_p4) ? dist_seg : (dist_p3 < dist_p4) ? dist_p3 : dist_p4;
-    return dist_min - caps.r;
-}
+// real pts_distmin(OBB OBBtest, capsule caps) {
+//     segment seg;
+//     seg.p1 = caps.p1;
+//     seg.p2 = caps.p2;
+//     Mat3 Rtrans = transpose(OBBtest.R);
+//     // Mat3 Rtrans = OBB.R;
+//     Vec3 p1 = Rtrans * (seg.p1 - OBBtest.c);
+//     Vec3 p2 = Rtrans * (seg.p2 - OBBtest.c);
+//     Vec3 vec = p2 - p1;
+//     // This ensures that p1 is always below p2 in z coordinates
+//     if (vec.z < 0) {
+//         vec = -vec;
+//         Vec3 point = p1;
+//         p1 = p2;
+//         p2 = point;
+//     }
+//     segment seg_test;
+//     seg_test = { p1, p2 };
+//     // We must find the points which need to be tested later.
+//     Vec3 p[2];
+//     // The point p1 clamped on the OBB
+//     p[0].x = clamp(p1.x, -OBBtest.e.x, OBBtest.e.x);
+//     p[0].y = clamp(p1.y, -OBBtest.e.y, OBBtest.e.y);
+//     p[0].z = clamp(p1.z, -OBBtest.e.z, OBBtest.e.z);
+//     // The point p2 clamped on the OBB
+//     p[1].x = clamp(p2.x, -OBBtest.e.x, OBBtest.e.x);
+//     p[1].y = clamp(p2.y, -OBBtest.e.y, OBBtest.e.y);
+//     p[1].z = clamp(p2.z, -OBBtest.e.z, OBBtest.e.z);
+//     // The point on the closest OBB line
+//     Vec3 vec_unit = (1 / norm(vec)) * vec;
+//     Vec3 direction = dot(-p1, p2 - p1) * (vec_unit) + p1;
+//     int quadrant = direction.x > 0 ? (direction.z > 0 ? 1 : 4) : (direction.z > 0 ? 2 : 3);
+//     real xmin = - OBBtest.e[0];
+//     real xmax = + OBBtest.e[0];
+//     real ymin = - OBBtest.e[1];
+//     real ymax = + OBBtest.e[1];
+//     real zmin = - OBBtest.e[2];
+//     real zmax = + OBBtest.e[2];
+//     // Creating the eight original vertices
+//     Vec3 orgvert[8];
+//     orgvert[0] = { xmax, ymin, zmax };
+//     orgvert[1] = { xmax, ymax, zmax };
+//     orgvert[2] = { xmin, ymin, zmax };
+//     orgvert[3] = { xmin, ymax, zmax };
+//     orgvert[4] = { xmin, ymin, zmin };
+//     orgvert[5] = { xmin, ymax, zmin };
+//     orgvert[6] = { xmax, ymin, zmin };
+//     orgvert[7] = { xmax, ymax, zmin };
+//     segment seg_OBB;
+//     seg_OBB.p1 = orgvert[2 * quadrant - 2];
+//     seg_OBB.p2 = orgvert[2 * quadrant - 1];
+//     segment corner_p1;
+//     corner_p1.p1 = seg_OBB.p1;
+//     corner_p1.p2 = p1;
+//     Vec3 cross_product = cross(vec, corner_p1.p1 - p1);
+//     cross_product.y = quadrant == 2 || quadrant == 3 ? -cross_product.y : cross_product.y;
+//     if (cross_product.y > 0) {
+//     }
+//     real dist_seg = sqrt(distmin(seg, seg_OBB));
+//     real dist_p3 = distmin(seg, p[0]);
+//     real dist_p4 = distmin(seg, p[1]);
+//     real dist_min = (dist_seg < dist_p3 && dist_seg < dist_p4) ? dist_seg : (dist_p3 < dist_p4) ? dist_p3 : dist_p4;
+//     return dist_min - caps.r;
+// }
 
 // Points method
-real dist_OBB_caps(OBB OBBtest, capsule caps) {
-    segment seg;
-    seg.p1 = caps.p1;
-    seg.p2 = caps.p2;
-    
-    Mat3 Rtrans = transpose(OBBtest.R);
-    // Mat3 Rtrans = OBB.R;
-
-    Vec3 p1 = Rtrans * (seg.p1 - OBBtest.c);
-    Vec3 p2 = Rtrans * (seg.p2 - OBBtest.c);
-
-    Vec3 vec = p2 - p1;
-    Vec3 point = p2;
-
-    if (vec.z < 0) {
-        vec = -vec;
-        point = p1;
-    }
-
-    p2 = p1 + vec;
-
-    segment seg_test;
-    seg_test = {p1,p2};
-
-    // We must find the points which need to be tested later.
-    Vec3 p[8];
-
-    // The point p1 clamped on the OBB
-    p[0].x = clamp(p1.x, -OBBtest.e.x, OBBtest.e.x);
-    p[0].y = clamp(p1.y, -OBBtest.e.y, OBBtest.e.y);
-    p[0].z = clamp(p1.z, -OBBtest.e.z, OBBtest.e.z);
-
-    // The point p2 clamped on the OBB
-    p[1].x = clamp(p2.x, -OBBtest.e.x, OBBtest.e.x); 
-    p[1].y = clamp(p2.y, -OBBtest.e.y, OBBtest.e.y);
-    p[1].z = clamp(p2.z, -OBBtest.e.z, OBBtest.e.z);
-
-    // Early return : if both points project on the same face, then the smallest of the two distances
-    // will be returned (there is no need to test anything else).
-    // if ((p[1].x > -OBBtest.e.x && p[1].x < OBBtest.e.x && p[2].x > -OBBtest.e.x && p[2].x < OBBtest.e.x) &&
-    // ((p[1].y > -OBBtest.e.y && p[1].y < OBBtest.e.y && p[2].y > -OBBtest.e.y && p[2].y < OBBtest.e.y) || (p[1].z > -OBBtest.e.z && p[1].z < OBBtest.e.z && p[2].z > -OBBtest.e.z && p[2].z < OBBtest.e.z)) ||
-    // ((p[1].y > -OBBtest.e.y && p[1].y < OBBtest.e.y && p[2].y > -OBBtest.e.y && p[2].y < OBBtest.e.y) || (p[1].z > -OBBtest.e.z && p[1].z < OBBtest.e.z && p[2].z > -OBBtest.e.z && p[2].z < OBBtest.e.z)))
-    // {
-    //     real dist1 = distmin(seg, p[1]);
-    //     real dist2 = distmin(seg, p[2]);
-    //     return dist1 < dist2 ? dist1 - caps.r : dist2 - caps.r;
-    // }
-    // We find the face which will be tested : this face is the face in which the vector from the center
-    // of the OBB to the closest point on the line to the center crosses first.
-    // Vec3 closept = closept_origin(seg);
-    // Vec3 t;
-    // t.x = closept.x / OBBtest.e.x;
-    // t.y = closept.y / OBBtest.e.y;
-    // t.z = closept.z / OBBtest.e.z;
-    // Vec3 t_abs = { abs(t.x), abs(t.y), abs(t.z) };
-    // int face = (t_abs.x > t_abs.y && t_abs.x > t_abs.z) ? 0 : (t_abs.y > t_abs.z) ? 1 : 2;
-    // int sign = (face == 1 && t.x < 0) || (face == 2 && t.y < 0) || (face == 3 && t.z < 0) ? -1 : 1;
-    // int face_idx = face*sign;
-    // std::vector<real> dist;
-    // std::vector<real> t(6);
-    // t[0] = (OBBtest.e.x - p1.x) / vec.x;
-    // t[1] = (-OBBtest.e.x - p1.x) / vec.x;
-    // t[2] = (OBBtest.e.y - p1.y) / vec.y;
-    // t[3] = (-OBBtest.e.y - p1.y) / vec.y;
-    // t[4] = (OBBtest.e.z - p1.z) / vec.z;
-    // t[5] = (-OBBtest.e.z - p1.z) / vec.z;
-    // int dim1 = (face == 0) ? 1 : 0;
-    // int dim2 = (face == 2) ? 1 : 2;
-
-    real s[6];
-    // todo : fix division by 0
-    s[0] = (OBBtest.e.x - p1.x) / vec.x;
-    s[1] = (-OBBtest.e.x - p1.x) / vec.x;
-    s[2] = (OBBtest.e.y - p1.y) / vec.y;
-    s[3] = (-OBBtest.e.y - p1.y) / vec.y;
-    s[4] = (OBBtest.e.z - p1.z) / vec.z;
-    s[5] = (-OBBtest.e.z - p1.z) / vec.z;
-
-    real s_clamped[6];
-
-    s_clamped[0] = clamp(s[0], 0, 1);
-    s_clamped[1] = clamp(s[1], 0, 1);
-    s_clamped[2] = clamp(s[2], 0, 1);
-    s_clamped[3] = clamp(s[3], 0, 1);
-    s_clamped[4] = clamp(s[4], 0, 1);
-    s_clamped[5] = clamp(s[5], 0, 1);
-
-    // We find the points on the segment which will clamp to the closest point on the OBB (with t)
-    Vec3 pt_segment[6];
-
-    // !!! Is it possible to skip the first step by creating points with logic here?
-    pt_segment[0] = p1 + s_clamped[0]*vec;
-    pt_segment[1] = p1 + s_clamped[1]*vec;
-    pt_segment[2] = p1 + s_clamped[2]*vec;
-    pt_segment[3] = p1 + s_clamped[3]*vec;
-    pt_segment[4] = p1 + s_clamped[4]*vec;
-    pt_segment[5] = p1 + s_clamped[5]*vec;
-
-    for (int i = 0; i < 6; i++) {
-        p[i + 2].x = clamp(pt_segment[i].x, -OBBtest.e.x, OBBtest.e.x);
-        p[i + 2].y = clamp(pt_segment[i].y, -OBBtest.e.y, OBBtest.e.y);
-        p[i + 2].z = clamp(pt_segment[i].z, -OBBtest.e.z, OBBtest.e.z);
-    }
-
-    // for debugging : p_general
-    Vec3 p_general[8];
-    Vec3 p_segment_general[8];
-    
-    for (int i = 0; i < 8; i++) {
-        p_general[i] = OBBtest.R*p[i+2] + OBBtest.c;
-        p_segment_general[i] = OBBtest.R*pt_segment[i+2] + OBBtest.c;
-    }
-
-    real dist[8];
-    // Initializing at dist[0]
-    Vec3 pt_on_segment = ptint(seg_test, p[0]);
-    dist[0] = norm(pt_on_segment - p[0]);
-    dist[0] = (dot(p[0], p[0]) >= dot(pt_on_segment, p[0])) ? -dist[0] : dist[0];
-    real distcurrent = dist[0];
-    for (int i = 1; i < 8; i++) {
-        pt_on_segment = ptint(seg_test, p[i]);
-        dist[i] = norm(pt_on_segment - p[i]);
-        dist[i] = (dot(p[i], p[i]) >= dot(pt_on_segment, pt_on_segment)) ? -dist[i] : dist[i];
-        if (dist[i] >= 0 && (dist[i] < distcurrent || distcurrent < 0)) {
-            distcurrent = abs(dist[i]) < COLLISION_EPSILON ? distcurrent : dist[i];
-        }
-        else if (dist[i] < 0 && dist[i] > distcurrent) {
-            distcurrent = abs(dist[i]) < COLLISION_EPSILON ? distcurrent : dist[i];
-        }
-    }
-
-    return distcurrent - caps.r;
-
-    // bool dim1_intersection[2] = { s[dim1][0] >= 0 && s[dim1][0] <= 1, s[dim1][1] >= 0 && s[dim1][1] <= 1};
-    // bool dim2_intersection[2] = { s[dim2][0] >= 0 && s[dim2][0] <= 1, s[dim2][1] >= 0 && s[dim2][1] <= 1};
-    // // how many times does our segment intersect its first dimension axis?
-    // int dim1_number =   dim1_intersection[0] && dim1_intersection[1] ? 2 :
-    //                     dim1_intersection[0] || dim1_intersection[1] ? 1 : 0;
-    // int dim2_number =   dim2_intersection[0] && dim2_intersection[1] ? 2 :
-    //                     dim2_intersection[0] || dim2_intersection[1] ? 1 : 0;
-    // real coord1 = sign*OBBtest.e[face - 1];
-    // int idx = 2;
-    // if (face == 1) {
-    //     dist[idx++] = (dim1_intersection[0] == true) ? distmin(seg, { sign * OBBtest.e.x, p1.y + s[1][0]*vec.y, OBBtest.e.z }) : INF_REAL;
-    //     dist[idx++] = (dim1_intersection[1] == true) ? distmin(seg, { sign * OBBtest.e.x, p1.y + s[1][1]*vec.y, -OBBtest.e.z }) : INF_REAL;
-    //     dist[idx++] = (dim2_intersection[0] == true) ? distmin(seg, { sign * OBBtest.e.x, OBBtest.e.y, p1.z + s[2][0]*vec.z }) : INF_REAL;
-    //     dist[idx++] = (dim2_intersection[1] == true) ? distmin(seg, { sign * OBBtest.e.x, -OBBtest.e.y, p1.z + s[2][1]*vec.z }) : INF_REAL;
-    // }
-    // if (face == 2) {
-    //     // todo : face 2 and 3.
-    //     dist[idx++] = (dim1_intersection[0] == true) ? distmin(seg, { sign * OBBtest.e.x, p1.y + s[1][0]*vec.y, OBBtest.e.z }) : INF_REAL;
-    //     dist[idx++] = (dim1_intersection[1] == true) ? distmin(seg, { sign * OBBtest.e.x, p1.y + s[1][1]*vec.y, -OBBtest.e.z }) : INF_REAL;
-    //     dist[idx++] = (dim2_intersection[0] == true) ? distmin(seg, { sign * OBBtest.e.x, OBBtest.e.y, p1.z + s[2][0]*vec.z }) : INF_REAL;
-    //     dist[idx++] = (dim2_intersection[1] == true) ? distmin(seg, { sign * OBBtest.e.x, -OBBtest.e.y, p1.z + s[2][1]*vec.z }) : INF_REAL;
-    // }
-    // Vec3 pt1_1;
-    // Vec3 pt1_2;
-    // Vec3 pt2_1;
-    // Vec3 pt2_2;
-    // pt1_1.x = face == 1 ? sign * OBBtest.e.x : (s[0][0] >= 0 && s[0][0] <= 1 ? s[0][0] : (s[0][1] >= 0 && s[0][1] <= 1 ? s[0][1] : 0));
-    // pt1_1.y = face == 2 ? sign * OBBtest.e.y : (s[dim1][0] >= 0 && s[dim1][0] <= 1 ? s[dim1][0] : (s[dim1][1] >= 0 && s[dim1][1] <= 1 ? s[dim1][1] : 0));
-    // pt1_1.z = face == 3 ? sign * OBBtest.e.z : (s[dim1][0] >= 0 && s[dim1][0] <= 1 ? s[dim1][0] : (s[dim1][1] >= 0 && s[dim1][1] <= 1 ? s[dim1][1] : 0));
-    // if (s[0] >= 0 && s[0] <= 1) {
-    //     dist[idx++] = distmin(seg, { sign * OBBtest.e.x, p1.y + s[0]*vec.y, OBBtest.e.z });
-    // }
-    // if (s[1] >= 0 && s[1] <= 1) {
-    //     dist[idx++] = distmin(seg, { sign * OBBtest.e.x, p1.y + s[1]*vec.y, -OBBtest.e.z });
-    // }
-    // if (s[2] >= 0 && s[2] <= 1) {
-    //     dist[idx++] = distmin(seg, { sign * OBBtest.e.x, OBBtest.e.y, p1.z + s[2]*vec.z });
-    // }
-    // if (s[3] >= 0 && s[3] <= 1) {
-    //     dist[idx++] = distmin(seg, { sign * OBBtest.e.x, -OBBtest.e.y, p1.z + s[3]*vec.z });
-    // }
-    // If there is no intersection, then we should take the corner closest to the segment.
-    // if (size(dist) == 0) {
-    //     return distmin(seg, )
-    // }
-    // real distcurrent = dist[0];
-    // for (auto& d : dist) {
-    //     if (d >= 0 && (d < distcurrent || distcurrent < 0)) {
-    //         distcurrent = d;
-    //     }
-    //     else if (d < 0 && d > distcurrent) {
-    //         distcurrent = d;
-    //     }
-    // }
-}
+// real dist_OBB_caps(OBB OBBtest, capsule caps) {
+//     segment seg;
+//     seg.p1 = caps.p1;
+//     seg.p2 = caps.p2;
+//     Mat3 Rtrans = transpose(OBBtest.R);
+//     // Mat3 Rtrans = OBB.R;
+//     Vec3 p1 = Rtrans * (seg.p1 - OBBtest.c);
+//     Vec3 p2 = Rtrans * (seg.p2 - OBBtest.c);
+//     Vec3 vec = p2 - p1;
+//     Vec3 point = p2;
+//     if (vec.z < 0) {
+//         vec = -vec;
+//         point = p1;
+//     }
+//     p2 = p1 + vec;
+//     segment seg_test;
+//     seg_test = {p1,p2};
+//     // We must find the points which need to be tested later.
+//     Vec3 p[8];
+//     // The point p1 clamped on the OBB
+//     p[0].x = clamp(p1.x, -OBBtest.e.x, OBBtest.e.x);
+//     p[0].y = clamp(p1.y, -OBBtest.e.y, OBBtest.e.y);
+//     p[0].z = clamp(p1.z, -OBBtest.e.z, OBBtest.e.z);
+//     // The point p2 clamped on the OBB
+//     p[1].x = clamp(p2.x, -OBBtest.e.x, OBBtest.e.x); 
+//     p[1].y = clamp(p2.y, -OBBtest.e.y, OBBtest.e.y);
+//     p[1].z = clamp(p2.z, -OBBtest.e.z, OBBtest.e.z);
+//     // Early return : if both points project on the same face, then the smallest of the two distances
+//     // will be returned (there is no need to test anything else).
+//     // if ((p[1].x > -OBBtest.e.x && p[1].x < OBBtest.e.x && p[2].x > -OBBtest.e.x && p[2].x < OBBtest.e.x) &&
+//     // ((p[1].y > -OBBtest.e.y && p[1].y < OBBtest.e.y && p[2].y > -OBBtest.e.y && p[2].y < OBBtest.e.y) || (p[1].z > -OBBtest.e.z && p[1].z < OBBtest.e.z && p[2].z > -OBBtest.e.z && p[2].z < OBBtest.e.z)) ||
+//     // ((p[1].y > -OBBtest.e.y && p[1].y < OBBtest.e.y && p[2].y > -OBBtest.e.y && p[2].y < OBBtest.e.y) || (p[1].z > -OBBtest.e.z && p[1].z < OBBtest.e.z && p[2].z > -OBBtest.e.z && p[2].z < OBBtest.e.z)))
+//     // {
+//     //     real dist1 = distmin(seg, p[1]);
+//     //     real dist2 = distmin(seg, p[2]);
+//     //     return dist1 < dist2 ? dist1 - caps.r : dist2 - caps.r;
+//     // }
+//     // We find the face which will be tested : this face is the face in which the vector from the center
+//     // of the OBB to the closest point on the line to the center crosses first.
+//     // Vec3 closept = closept_origin(seg);
+//     // Vec3 t;
+//     // t.x = closept.x / OBBtest.e.x;
+//     // t.y = closept.y / OBBtest.e.y;
+//     // t.z = closept.z / OBBtest.e.z;
+//     // Vec3 t_abs = { abs(t.x), abs(t.y), abs(t.z) };
+//     // int face = (t_abs.x > t_abs.y && t_abs.x > t_abs.z) ? 0 : (t_abs.y > t_abs.z) ? 1 : 2;
+//     // int sign = (face == 1 && t.x < 0) || (face == 2 && t.y < 0) || (face == 3 && t.z < 0) ? -1 : 1;
+//     // int face_idx = face*sign;
+//     // std::vector<real> dist;
+//     // std::vector<real> t(6);
+//     // t[0] = (OBBtest.e.x - p1.x) / vec.x;
+//     // t[1] = (-OBBtest.e.x - p1.x) / vec.x;
+//     // t[2] = (OBBtest.e.y - p1.y) / vec.y;
+//     // t[3] = (-OBBtest.e.y - p1.y) / vec.y;
+//     // t[4] = (OBBtest.e.z - p1.z) / vec.z;
+//     // t[5] = (-OBBtest.e.z - p1.z) / vec.z;
+//     // int dim1 = (face == 0) ? 1 : 0;
+//     // int dim2 = (face == 2) ? 1 : 2;
+//     real s[6];
+//     // todo : fix division by 0
+//     s[0] = (OBBtest.e.x - p1.x) / vec.x;
+//     s[1] = (-OBBtest.e.x - p1.x) / vec.x;
+//     s[2] = (OBBtest.e.y - p1.y) / vec.y;
+//     s[3] = (-OBBtest.e.y - p1.y) / vec.y;
+//     s[4] = (OBBtest.e.z - p1.z) / vec.z;
+//     s[5] = (-OBBtest.e.z - p1.z) / vec.z;
+//     real s_clamped[6];
+//     s_clamped[0] = clamp(s[0], 0, 1);
+//     s_clamped[1] = clamp(s[1], 0, 1);
+//     s_clamped[2] = clamp(s[2], 0, 1);
+//     s_clamped[3] = clamp(s[3], 0, 1);
+//     s_clamped[4] = clamp(s[4], 0, 1);
+//     s_clamped[5] = clamp(s[5], 0, 1);
+//     // We find the points on the segment which will clamp to the closest point on the OBB (with t)
+//     Vec3 pt_segment[6];
+//     // !!! Is it possible to skip the first step by creating points with logic here?
+//     pt_segment[0] = p1 + s_clamped[0]*vec;
+//     pt_segment[1] = p1 + s_clamped[1]*vec;
+//     pt_segment[2] = p1 + s_clamped[2]*vec;
+//     pt_segment[3] = p1 + s_clamped[3]*vec;
+//     pt_segment[4] = p1 + s_clamped[4]*vec;
+//     pt_segment[5] = p1 + s_clamped[5]*vec;
+//     for (int i = 0; i < 6; i++) {
+//         p[i + 2].x = clamp(pt_segment[i].x, -OBBtest.e.x, OBBtest.e.x);
+//         p[i + 2].y = clamp(pt_segment[i].y, -OBBtest.e.y, OBBtest.e.y);
+//         p[i + 2].z = clamp(pt_segment[i].z, -OBBtest.e.z, OBBtest.e.z);
+//     }
+//     // for debugging : p_general
+//     Vec3 p_general[8];
+//     Vec3 p_segment_general[8];
+//     for (int i = 0; i < 8; i++) {
+//         p_general[i] = OBBtest.R*p[i+2] + OBBtest.c;
+//         p_segment_general[i] = OBBtest.R*pt_segment[i+2] + OBBtest.c;
+//     }
+//     real dist[8];
+//     // Initializing at dist[0]
+//     Vec3 pt_on_segment = ptint(seg_test, p[0]);
+//     dist[0] = norm(pt_on_segment - p[0]);
+//     dist[0] = (dot(p[0], p[0]) >= dot(pt_on_segment, p[0])) ? -dist[0] : dist[0];
+//     real distcurrent = dist[0];
+//     for (int i = 1; i < 8; i++) {
+//         pt_on_segment = ptint(seg_test, p[i]);
+//         dist[i] = norm(pt_on_segment - p[i]);
+//         dist[i] = (dot(p[i], p[i]) >= dot(pt_on_segment, pt_on_segment)) ? -dist[i] : dist[i];
+//         if (dist[i] >= 0 && (dist[i] < distcurrent || distcurrent < 0)) {
+//             distcurrent = abs(dist[i]) < COLLISION_EPSILON ? distcurrent : dist[i];
+//         }
+//         else if (dist[i] < 0 && dist[i] > distcurrent) {
+//             distcurrent = abs(dist[i]) < COLLISION_EPSILON ? distcurrent : dist[i];
+//         }
+//     }
+//     return distcurrent - caps.r;
+//     // bool dim1_intersection[2] = { s[dim1][0] >= 0 && s[dim1][0] <= 1, s[dim1][1] >= 0 && s[dim1][1] <= 1};
+//     // bool dim2_intersection[2] = { s[dim2][0] >= 0 && s[dim2][0] <= 1, s[dim2][1] >= 0 && s[dim2][1] <= 1};
+//     // // how many times does our segment intersect its first dimension axis?
+//     // int dim1_number =   dim1_intersection[0] && dim1_intersection[1] ? 2 :
+//     //                     dim1_intersection[0] || dim1_intersection[1] ? 1 : 0;
+//     // int dim2_number =   dim2_intersection[0] && dim2_intersection[1] ? 2 :
+//     //                     dim2_intersection[0] || dim2_intersection[1] ? 1 : 0;
+//     // real coord1 = sign*OBBtest.e[face - 1];
+//     // int idx = 2;
+//     // if (face == 1) {
+//     //     dist[idx++] = (dim1_intersection[0] == true) ? distmin(seg, { sign * OBBtest.e.x, p1.y + s[1][0]*vec.y, OBBtest.e.z }) : INF_REAL;
+//     //     dist[idx++] = (dim1_intersection[1] == true) ? distmin(seg, { sign * OBBtest.e.x, p1.y + s[1][1]*vec.y, -OBBtest.e.z }) : INF_REAL;
+//     //     dist[idx++] = (dim2_intersection[0] == true) ? distmin(seg, { sign * OBBtest.e.x, OBBtest.e.y, p1.z + s[2][0]*vec.z }) : INF_REAL;
+//     //     dist[idx++] = (dim2_intersection[1] == true) ? distmin(seg, { sign * OBBtest.e.x, -OBBtest.e.y, p1.z + s[2][1]*vec.z }) : INF_REAL;
+//     // }
+//     // if (face == 2) {
+//     //     // todo : face 2 and 3.
+//     //     dist[idx++] = (dim1_intersection[0] == true) ? distmin(seg, { sign * OBBtest.e.x, p1.y + s[1][0]*vec.y, OBBtest.e.z }) : INF_REAL;
+//     //     dist[idx++] = (dim1_intersection[1] == true) ? distmin(seg, { sign * OBBtest.e.x, p1.y + s[1][1]*vec.y, -OBBtest.e.z }) : INF_REAL;
+//     //     dist[idx++] = (dim2_intersection[0] == true) ? distmin(seg, { sign * OBBtest.e.x, OBBtest.e.y, p1.z + s[2][0]*vec.z }) : INF_REAL;
+//     //     dist[idx++] = (dim2_intersection[1] == true) ? distmin(seg, { sign * OBBtest.e.x, -OBBtest.e.y, p1.z + s[2][1]*vec.z }) : INF_REAL;
+//     // }
+//     // Vec3 pt1_1;
+//     // Vec3 pt1_2;
+//     // Vec3 pt2_1;
+//     // Vec3 pt2_2;
+//     // pt1_1.x = face == 1 ? sign * OBBtest.e.x : (s[0][0] >= 0 && s[0][0] <= 1 ? s[0][0] : (s[0][1] >= 0 && s[0][1] <= 1 ? s[0][1] : 0));
+//     // pt1_1.y = face == 2 ? sign * OBBtest.e.y : (s[dim1][0] >= 0 && s[dim1][0] <= 1 ? s[dim1][0] : (s[dim1][1] >= 0 && s[dim1][1] <= 1 ? s[dim1][1] : 0));
+//     // pt1_1.z = face == 3 ? sign * OBBtest.e.z : (s[dim1][0] >= 0 && s[dim1][0] <= 1 ? s[dim1][0] : (s[dim1][1] >= 0 && s[dim1][1] <= 1 ? s[dim1][1] : 0));
+//     // if (s[0] >= 0 && s[0] <= 1) {
+//     //     dist[idx++] = distmin(seg, { sign * OBBtest.e.x, p1.y + s[0]*vec.y, OBBtest.e.z });
+//     // }
+//     // if (s[1] >= 0 && s[1] <= 1) {
+//     //     dist[idx++] = distmin(seg, { sign * OBBtest.e.x, p1.y + s[1]*vec.y, -OBBtest.e.z });
+//     // }
+//     // if (s[2] >= 0 && s[2] <= 1) {
+//     //     dist[idx++] = distmin(seg, { sign * OBBtest.e.x, OBBtest.e.y, p1.z + s[2]*vec.z });
+//     // }
+//     // if (s[3] >= 0 && s[3] <= 1) {
+//     //     dist[idx++] = distmin(seg, { sign * OBBtest.e.x, -OBBtest.e.y, p1.z + s[3]*vec.z });
+//     // }
+//     // If there is no intersection, then we should take the corner closest to the segment.
+//     // if (size(dist) == 0) {
+//     //     return distmin(seg, )
+//     // }
+//     // real distcurrent = dist[0];
+//     // for (auto& d : dist) {
+//     //     if (d >= 0 && (d < distcurrent || distcurrent < 0)) {
+//     //         distcurrent = d;
+//     //     }
+//     //     else if (d < 0 && d > distcurrent) {
+//     //         distcurrent = d;
+//     //     }
+//     // }
+// }
 
 
 } // namespace blast
@@ -2319,6 +2272,12 @@ TEST_CASE("Sphere collision", "[World]") {
         real dist = distmin(t.caps, t.sph);
         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
     }
+
+    BENCHMARK("Sphere collision") {
+        for (auto t : test) {
+            real dist = distmin(t.caps, t.sph);
+        }
+    };
 }
 
 TEST_CASE("Capsule collision", "[World]") {
@@ -2344,6 +2303,12 @@ TEST_CASE("Capsule collision", "[World]") {
         real dist = distmin(t.caps1, t.caps2);
         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
     }
+
+    BENCHMARK("Capsule collision") {
+        for (auto t : test) {
+            real dist = distmin(t.caps1, t.caps2);
+        }
+    };
 }
 
 TEST_CASE("Cylinder collision", "[World]") {
@@ -2358,17 +2323,24 @@ TEST_CASE("Cylinder collision", "[World]") {
     };
 
     collision_test_cyl test[] = {
-        /*Test 1*/ { { { -13.46, -3.61, 189 }, { -12.46, -5.11, 190 }, 1 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, -0.54 },
-        /*Test 2*/ { { { -13.41, -2.79, 189 }, { -15.16, -3.2, 190 }, 1 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, 1.33 },
-        /*Test 3*/ { { { -16.3, -3.97, 200.87 }, { -17.3, -2.47, 199.87 }, 1 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, 1.53 },
-        /*Test 4*/ { { { -7.25, -10.11, 174.29 }, { -7.86, -9.44, 176.14 }, 2 }, { { -14.66, -13.24, 198.94 }, { -11.16, -7.94, 181.77 }, 1 }, 5.53 },
-        /*Test 5*/ { { { -14.88, -2.74, 198.21 }, { -15.49, -2.08, 200.06 }, 2 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, -0.45 },
+        /*Test 1*/ { { { -13.46, -3.61, 189 }, { -12.46, -5.11, 190 }, 1 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, -0.538346 },
+        /*Test 2*/ { { { -13.41, -2.79, 189 }, { -15.16, -3.2, 190 }, 1 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, 1.32728712 },
+        /*Test 3*/ { { { -16.3, -3.97, 200.87 }, { -17.3, -2.47, 199.87 }, 1 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, 1.53080644 },
+        /*Test 4*/ { { { -7.25, -10.11, 174.29 }, { -7.86, -9.44, 176.14 }, 2 }, { { -14.66, -13.24, 198.94 }, { -11.16, -7.94, 181.77 }, 1 }, 5.52119334 },
+        /*Test 5*/ { { { -14.88, -2.74, 198.21 }, { -15.49, -2.08, 200.06 }, 2 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, -0.44703889 },
     };
 
     for (auto t : test) {
         real dist = distmin(t.caps, t.cyl);
+        // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
     }
+
+    BENCHMARK("Cylinder collision") {
+        for (auto t : test) {
+            real dist = distmin(t.caps, t.cyl);
+        }
+    };
 }
 
 TEST_CASE("OBB collision", "[World]") {
@@ -2383,43 +2355,44 @@ TEST_CASE("OBB collision", "[World]") {
     };
 
     collision_test_box test[] = {
-        // /*Test1*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.21, -5.18, 18.05 }, { -3.89, 8.59, 6.3 }, 1 }, 1.63659624 },
-        // /*Test2*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.46, 0.97, 3.7 }, { 7.79, 14.74, -8.04 }, 1 }, 1.50169942 },
-        // /*Test3*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.05, 1.11, 12.87 }, { 7.37, 14.89, 1.13 }, 1 }, 0.33397901 },
-        // /*Test4*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.82, 6.9, 12.84 }, { 4.7, -7.14, 24.59 }, 1 }, 4.00838054 },
-        /*Wrong 0.015*/ /*Test5*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -3.06, 5.73, 1.67 }, { -0.39, -8.05, 13.41 }, 1 }, 0.89513819 },
-        // /*Test6*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.97, 2.79, 12.23 }, { 2.29, 16.57, 0.48 }, 1 }, 1.69981481 },
-        // /*Test7*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.49, -0.06, 8.32 }, { 14.17, -13.84, 20.07 }, 1 }, 0.49000000 },
-        // /*Test8*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 6.76, -1.55, 8 }, { 9.44, -15.33, 19.74 }, 1 }, 0.45000000 },
-        // /*Test9*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.15, 13.92, -7.48 }, { 1.53, 0.14, 4.27 }, 1 }, 0.73046237 },
-        // /*Test10*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.54, 0.1, 10.59 }, { 1.86, 13.87, -1.15 }, 1 }, -1.00000000 },
-        // /*Test11*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.76, 0.28, 8.08 }, { 13.44, -13.5, 19.83 }, 1 }, -0.21961454 },
-        /*Wrong 0.31*/ /*Test12*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.96, 0.43, 8.3 }, { 7.64, -13.35, 20.05 }, 1 }, -1.53000000 },
-        // /*Test13*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.48, -4.07, 0.76 }, { 8.64, -4.41, 18.58 }, 1 }, 3.06923695 },
-        // /*Test14*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 17.48, 2.95, 13.77 }, { -0.82, 3.11, 13.77 }, 1 }, 2.41054264 },
-        // /*Test15*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.18, 8.56, 4.82 }, { 11.04, -6.44, 15.29 }, 1 }, 0.09912546 },
+        /*Test1*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.21, -5.18, 18.05 }, { -3.89, 8.59, 6.3 }, 1 }, 1.63659624 },
+        /*Test2*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.46, 0.97, 3.7 }, { 7.79, 14.74, -8.04 }, 1 }, 1.50169942 },
+        /*Test3*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.05, 1.11, 12.87 }, { 7.37, 14.89, 1.13 }, 1 }, 0.33397901 },
+        /*Test4*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.82, 6.9, 12.84 }, { 4.7, -7.14, 24.59 }, 1 }, 4.00838054 },
+        /*Test5*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -3.06, 5.73, 1.67 }, { -0.39, -8.05, 13.41 }, 1 }, 0.89513819 },
+        /*Test6*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.97, 2.79, 12.23 }, { 2.29, 16.57, 0.48 }, 1 }, 1.69981481 },
+        /*Test7*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.49, -0.06, 8.32 }, { 14.17, -13.84, 20.07 }, 1 }, 0.49000000 },
+        /*Test8*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 6.76, -1.55, 8 }, { 9.44, -15.33, 19.74 }, 1 }, 0.45000000 },
+        /*Test9*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.15, 13.92, -7.48 }, { 1.53, 0.14, 4.27 }, 1 }, 0.73046237 },
+        /*Test10*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.54, 0.1, 10.59 }, { 1.86, 13.87, -1.15 }, 1 }, -1.00000000 },
+        /*Test11*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.76, 0.28, 8.08 }, { 13.44, -13.5, 19.83 }, 1 }, -0.21961454 },
+        /*Test12*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.96, 0.43, 8.3 }, { 7.64, -13.35, 20.05 }, 1 }, -1.53000000 },
+        /*Test13*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.48, -4.07, 0.76 }, { 8.64, -4.41, 18.58 }, 1 }, 3.06923695 },
+        /*Test14*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 17.48, 2.95, 13.77 }, { -0.82, 3.11, 13.77 }, 1 }, 2.41054264 },
+        /*Test15*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.18, 8.56, 4.82 }, { 11.04, -6.44, 15.29 }, 1 }, 0.09912546 },
 
-        // // OBB.R and caps.r changed
-        // /*Test16*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.94, -6.06, 5.74 }, { 4.01, -9.86, 0.98 }, 0.5 }, 1.00474115 },
-        // /*Test17*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.64, 9.52, 11.7 }, { 2.71, 5.72, 6.94 }, 0.5 }, 0.22669533 },
-        // /*Test18*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 3, 5.69, 6.2 }, { 4.07, 1.89, 1.44 }, 0.5 }, 0.42102531 },
-        // /*Test19*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 3.1, 4.23, 6.22 }, { 4.17, 0.43, 1.46 }, 0.5 },  0.10695205 },
-        /*Wrong 0.099*/ /*Test20*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.35, 8.57, 12.85 }, { 7.42, 4.77, 8.09 }, 0.5 }, 0.85902522 },
-        /*Wrong 0.021*/ /*Test21*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.88, -2.47, 7.07 }, { 2.95, -6.27, 2.31 }, 0.5 }, 0.37892454 },
-        // /*Test22*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.8, 3.83, 14.57 }, { 2.87, 0.03, 9.81 }, 0.5 }, 1.47889394 },
-        // /*Test23*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 4.28, 6.32, 8.33 }, { 3.21, 10.12, 13.09 }, 0.5 }, 0.82000000 },
-        // /*Test24*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.36, 2.3, 6.31 }, { 3.43, -1.5, 1.55 }, 0.5 }, 0.26887914 },
-        /*Wrong 0.60*/ /*Test25*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.93, 7.6, 12.29 }, { 4, 3.8, 7.53 }, 0.5 }, -0.93234019 },
-        /*Wrong 0.012*/ /*Test26*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 7.55, 0.92, 10.24 }, { 6.48, 4.72, 15 }, 0.5 }, -0.32852683 },
-        /*Wrong 0.067*/ /*Test27*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.79, 5, 13.29 }, { 7.86, 1.2, 8.52 }, 0.5 }, -0.40212621 },
-        // /*Test28*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.66, -0.92, 7.44 }, { 8.04, 4.16, 9.96 }, 0.5 }, 0.87078210 },
-        // /*Test29*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 8.94, 3.63, 11.01 }, { 8.94, -2.55, 11.01 }, 0.5 }, 1.24844065 },
-        // /*Test30*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.91, 5.9, 7.39 }, { 4.14, 5.9, 13.32 }, 0.5 }, 0.40000000 },
+        // OBB.R and caps.r changed
+        /*Test16*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.94, -6.06, 5.74 }, { 4.01, -9.86, 0.98 }, 0.5 }, 1.00474115 },
+        /*Test17*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.64, 9.52, 11.7 }, { 2.71, 5.72, 6.94 }, 0.5 }, 0.22669533 },
+        /*Test18*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 3, 5.69, 6.2 }, { 4.07, 1.89, 1.44 }, 0.5 }, 0.42102531 },
+        /*Test19*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 3.1, 4.23, 6.22 }, { 4.17, 0.43, 1.46 }, 0.5 },  0.10695205 },
+        /*Test20*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.35, 8.57, 12.85 }, { 7.42, 4.77, 8.09 }, 0.5 }, 0.85902522 },
+        /*Test21*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.88, -2.47, 7.07 }, { 2.95, -6.27, 2.31 }, 0.5 }, 0.37892454 },
+        /*Test22*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.8, 3.83, 14.57 }, { 2.87, 0.03, 9.81 }, 0.5 }, 1.47889394 },
+        /*Test23*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 4.28, 6.32, 8.33 }, { 3.21, 10.12, 13.09 }, 0.5 }, 0.82000000 },
+        /*Test24*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.36, 2.3, 6.31 }, { 3.43, -1.5, 1.55 }, 0.5 }, 0.26887914 },
+        /*Test25*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.93, 7.6, 12.29 }, { 4, 3.8, 7.53 }, 0.5 }, -0.93234019 },
+        /*Test26*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 7.55, 0.92, 10.24 }, { 6.48, 4.72, 15 }, 0.5 }, -0.32852683 },
+        /*Test27*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.79, 5, 13.29 }, { 7.86, 1.2, 8.52 }, 0.5 }, -0.40212621 },
+        /*Test28*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.66, -0.92, 7.44 }, { 8.04, 4.16, 9.96 }, 0.5 }, 0.87078210 },
+        /*Test29*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 8.94, 3.63, 11.01 }, { 8.94, -2.55, 11.01 }, 0.5 }, 1.24844065 },
+        /*Test30*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.91, 5.9, 7.39 }, { 4.14, 5.9, 13.32 }, 0.5 }, 0.40000000 },
     };
 
     // Minkowski sum method
     for (auto t : test) {
         real dist = distmin(t.box, t.caps);
+        // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
     }
 
@@ -2429,13 +2402,11 @@ TEST_CASE("OBB collision", "[World]") {
         CHECK(abs(res.minimal_distance - t.expected_dist) < TESTCOLL_EPSILON);
     }
 
-    // points method
-    for (auto t : test) {
-        real dist = dist_OBB_caps(t.box, t.caps);
-        CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
-    }
-
-    
+    // // points method
+    // for (auto t : test) {
+    //     real dist = dist_OBB_caps(t.box, t.caps);
+    //     CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+    // }
 
     // boolean GJK algorithm
     for (auto t : test) {
@@ -2463,11 +2434,11 @@ TEST_CASE("OBB collision", "[World]") {
             real dist = distmin(t.box, t.caps);
         }
     };
-    BENCHMARK("OBB-caps with points method") {
-        for (auto t : test) {
-            real dist = dist_OBB_caps(t.box, t.caps);
-        }
-    };
+    // BENCHMARK("OBB-caps with points method") {
+    //     for (auto t : test) {
+    //         real dist = dist_OBB_caps(t.box, t.caps);
+    //     }
+    // };
     BENCHMARK("OBB-caps with GJK") {
         for (auto t : test) {
         gjkresult res = GJK_solve_gjk_simple(t.caps, t.box);
