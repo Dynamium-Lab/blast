@@ -20,12 +20,14 @@ struct Manipulator {
 
     Manipulator(u32 njoints) : joints(njoints), vmax(njoints), vmin(njoints), pmax(njoints), pmin(njoints), amax(njoints), amin(njoints), tau_max(njoints), tau_min(njoints) {}
 
-    virtual Array constraints(const Pva &pva) {
+    // todo: remove?
+    virtual Array constraints(const Trajectory &traj) {
         return Array();
     }
 
-    virtual void constraints(const Pva &pva, real *dst) {}
+    virtual void constraints(const Trajectory &traj, real *dst) {}
 
+    // todo: remove?
     virtual bool validate_task(const Matrix &task) {
         return false;
     }
@@ -54,7 +56,7 @@ struct ManipulatorUR5 : public Manipulator {
 
     ManipulatorUR5() : Manipulator(6) {}
 
-    void dynamics(const Pva &pva, Matrix &efforts);
+    void dynamics(const Trajectory &traj, Matrix &efforts);
     void dynamics(const Matrix &pos, const Matrix &vel, const Matrix &acc, Matrix &efforts);
     void init_dynamics(real mass = 0);
 };
@@ -71,8 +73,8 @@ struct Gen3Lite : public Manipulator {
     // default constructor
     Gen3Lite();
 
-    // compute joint torque as a function of trajector (pva)
-    void dynamics(const Pva &pva, Matrix &efforts);
+    // compute joint torque as a function of trajector (traj)
+    void dynamics(const Trajectory &traj, Matrix &efforts);
     void dynamics(const Matrix &pos, const Matrix &vel, const Matrix &acc, Matrix &efforts);
 
     // compute forward kinematics for 1 point
@@ -98,8 +100,8 @@ struct Gen3_7DOF : public Manipulator {
     void set_payload(const real mass);
     void set_payload_without_gripper(const real mass);
 
-    // compute joint torque as a function of trajector (pva)
-    void dynamics(const Pva &pva, Matrix &efforts);
+    // compute joint torque as a function of trajector (traj)
+    void dynamics(const Trajectory &traj, Matrix &efforts);
     void dynamics(const Matrix &pos, const Matrix &vel, const Matrix &acc, Matrix &efforts);
     void dynamics(const Matrix &pos, const Matrix &vel, const Matrix &acc); // note: cache the results internally
 
@@ -124,11 +126,11 @@ struct Gen3_7DOF : public Manipulator {
 
     // check all constraints on the manipulator for a trajectory.
     // - note: any contraint that is positive is not respected.
-    virtual Array constraints(const Pva &pva) override;
+    virtual Array constraints(const Trajectory &traj) override;
 
     // check all constraints and put the result in 'dst'
     // - note: any contraint that is positive is not respected.
-    virtual void constraints(const Pva &pva, real *dst) override;
+    virtual void constraints(const Trajectory &traj, real *dst) override;
 
     // check that the task given is feasible (collision and joint limits)
     virtual bool validate_task(const Matrix &task) override;
@@ -186,7 +188,8 @@ struct cuGen3_7DOF {
 
 //------ Universal Robots UR5e manipulator functions ---------------------------------
 
-host_fn void ManipulatorUR5::dynamics(const Pva &pva, Matrix &efforts) {
+host_fn void ManipulatorUR5::dynamics(const Trajectory &traj, Matrix &efforts) {
+    const auto points = traj.t.size;
     Assert(is_init);
 
     real vel1, vel2, vel3, vel4, vel5, vel6;
@@ -202,22 +205,22 @@ host_fn void ManipulatorUR5::dynamics(const Pva &pva, Matrix &efforts) {
     Vec3 n1, n2, n3, n4, n5, n6;
 
     // loop all points
-    for (u32 i = 0; i < pva.points; i++) {
-        vel1 = pva.vel(0, i);
-        vel2 = pva.vel(1, i);
-        vel3 = pva.vel(2, i);
-        vel4 = pva.vel(3, i);
-        vel5 = pva.vel(4, i);
-        vel6 = pva.vel(5, i);
-        acc1 = pva.acc(0, i);
-        acc2 = pva.acc(1, i);
-        acc3 = pva.acc(2, i);
-        acc4 = pva.acc(3, i);
-        acc5 = pva.acc(4, i);
-        acc6 = pva.acc(5, i);
+    for (u32 i = 0; i < points; i++) {
+        vel1 = traj.vel(0, i);
+        vel2 = traj.vel(1, i);
+        vel3 = traj.vel(2, i);
+        vel4 = traj.vel(3, i);
+        vel5 = traj.vel(4, i);
+        vel6 = traj.vel(5, i);
+        acc1 = traj.acc(0, i);
+        acc2 = traj.acc(1, i);
+        acc3 = traj.acc(2, i);
+        acc4 = traj.acc(3, i);
+        acc5 = traj.acc(4, i);
+        acc6 = traj.acc(5, i);
 
         // SIMD compute sines and cosines note: approx 10% faster
-        const auto p = &pva.pos.data[i * pva.joints];
+        const auto p = &traj.pos.data[i * joints];
 
 #if BLAST_SIZEOF_REAL == 8
         real s[6];
@@ -510,8 +513,8 @@ host_fn Gen3Lite::Gen3Lite() : Manipulator(6) {
     tau_min = -tau_max;
 }
 
-host_fn void Gen3Lite::dynamics(const Pva &pva, Matrix &efforts) {
-    dynamics(pva.pos, pva.vel, pva.acc, efforts);
+host_fn void Gen3Lite::dynamics(const Trajectory &traj, Matrix &efforts) {
+    dynamics(traj.pos, traj.vel, traj.acc, efforts);
 }
 
 host_fn void Gen3Lite::dynamics(const Matrix &pos, const Matrix &vel, const Matrix &acc, Matrix &efforts) {
@@ -938,8 +941,8 @@ host_fn void Gen3_7DOF::set_payload_without_gripper(const real mass) {
     I[6](2, 2) += m_old*delta_av.z*delta_av.z + mass*av_to_mass.z*av_to_mass.z;
 }
 
-host_fn void Gen3_7DOF::dynamics(const Pva &pva, Matrix &efforts) {
-    dynamics(pva.pos, pva.vel, pva.acc, efforts);
+host_fn void Gen3_7DOF::dynamics(const Trajectory &traj, Matrix &efforts) {
+    dynamics(traj.pos, traj.vel, traj.acc, efforts);
 }
 
 host_fn void Gen3_7DOF::dynamics(const Matrix &pos, const Matrix &vel, const Matrix &acc, Matrix &efforts) {
@@ -1408,6 +1411,9 @@ host_fn Array Gen3_7DOF::collision_check(const Array &joint_position) {
     real dist2Msqr = two_segment_distance_sqr(p_j2, p_j3, p_j6, p_ee) - r1sqr;  // distance sqr from J2 J3 line to J6 EE line (capsule)
     real dist2sqr = dist2J2sqr <= dist2Msqr ? dist2J2sqr : dist2Msqr;
 
+
+    // todo: remove collision detection from here
+
     // Collision with table sqr
     const real r4table = 0.05; // todo: validate dimensions
     const real r6table = 0.04; // todo: validate dimensions
@@ -1467,14 +1473,14 @@ host_fn Array Gen3_7DOF::constraints(const Matrix &pos, const Matrix &vel, const
     return result;
 }
 
-host_fn Array Gen3_7DOF::constraints(const Pva &pva) {
-    Array result(ncon(pva.points));
-    constraints(pva.pos, pva.vel, pva.acc, result.data);
+host_fn Array Gen3_7DOF::constraints(const Trajectory &traj) {
+    Array result(ncon(traj.t.size));
+    constraints(traj.pos, traj.vel, traj.acc, result.data);
     return result;
 }
 
-host_fn void Gen3_7DOF::constraints(const Pva &pva, real *dst) {
-    constraints(pva.pos, pva.vel, pva.acc, dst);
+host_fn void Gen3_7DOF::constraints(const Trajectory &traj, real *dst) {
+    constraints(traj.pos, traj.vel, traj.acc, dst);
 }
 
 host_fn void Gen3_7DOF::constraints(const Matrix &pos, const Matrix &vel, const Matrix &acc, real *dst) {

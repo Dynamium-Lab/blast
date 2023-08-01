@@ -58,27 +58,27 @@ void eval_function() {
 
         Gen3_7DOF manip;
         manip.set_payload_without_gripper(config.m);
-        PvaBspline pva(nctrl, npts, p, manip.joints);
+        Bspline bspline(nctrl, npts, p, manip.joints);
 
         Gen3_7DOF manip_more_points;
         manip_more_points.set_payload_without_gripper(config.m);
-        PvaBspline pva_more_points(nctrl, 10000, p, manip_more_points.joints);
+        Bspline bspline_more_points(nctrl, 10000, p, manip_more_points.joints);
 
         // prep optimization
-        Optimisation optim{&manip, &config.task, &pva};
+        Optimisation optim{&manip, &config.task, &bspline};
         u32 ncon = manip.ncon(npts);
         Array con_tol(ncon, 0.001);
-        Array xtol(pva.xlen(config.task), 0.000001);
+        Array xtol(bspline.xlen(config.task), 0.000001);
 
-        nlopt_opt o = nlopt_create(nlopt_algorithm::NLOPT_LD_SLSQP, pva.xlen(config.task));
+        nlopt_opt o = nlopt_create(nlopt_algorithm::NLOPT_LD_SLSQP, bspline.xlen(config.task));
         nlopt_result result;
         result = nlopt_add_inequality_mconstraint(o, ncon, cstr_manip, &optim, con_tol.data);
         Assert(result == NLOPT_SUCCESS);
         result = nlopt_set_min_objective(o, obj_time, &optim);
         Assert(result == NLOPT_SUCCESS);
-        result = nlopt_set_lower_bound(o, pva.xlen(config.task) - 1, 0.1);
+        result = nlopt_set_lower_bound(o, bspline.xlen(config.task) - 1, 0.1);
         Assert(result == NLOPT_SUCCESS);
-        result = nlopt_set_upper_bound(o, pva.xlen(config.task) - 1, 60.0);
+        result = nlopt_set_upper_bound(o, bspline.xlen(config.task) - 1, 60.0);
         Assert(result == NLOPT_SUCCESS);
         result = nlopt_set_ftol_abs(o, 0.001);
         Assert(result == NLOPT_SUCCESS);
@@ -94,7 +94,7 @@ void eval_function() {
             auto T1 = get_tick_us();
 
             // random optimization vector
-            auto x = config.nshot == 1 ? guess_random(manip, pva, config.task) : guess_shot_mean(manip, pva, config.task, config.nshot);
+            auto x = config.nshot == 1 ? guess_random(manip, bspline, config.task) : guess_shot_mean(manip, bspline, config.task, config.nshot);
             tmp_result_list[iter].x0 = x;
 
             // launch optimization
@@ -104,14 +104,13 @@ void eval_function() {
             double time = (T2 - T1) / 1000.0;
 
             // check solution
-            pva.compute_trajectory(x, config.task);
-            auto max_con = array_max(manip.constraints(pva));
+            bspline.compute_trajectory(x, config.task);
+            auto max_con = array_max(manip.constraints(bspline.traj));
             bool is_valid = max_con < 0.01;
 
-            pva_more_points.compute_trajectory(x, config.task);
-            auto max_con_more_points = array_max(manip_more_points.constraints(pva_more_points));
+            bspline_more_points.compute_trajectory(x, config.task);
+            auto max_con_more_points = array_max(manip_more_points.constraints(bspline_more_points.traj));
             bool is_valid_more_points = max_con_more_points < 0.05;
-
 
             tmp_result_list[iter].success = is_valid && is_valid_more_points;
             tmp_result_list[iter].success_false = is_valid && !is_valid_more_points;
