@@ -577,20 +577,20 @@ blast_fn real norm_inf(const Array& a) {
 blast_fn real norm1(const Array& a) {
     real result = 0;
     for (u32 i = 0; i < a.size; i++)
-        result += abs(a[i]);
+        result += ::abs(a[i]);
     return result;
 }
 
 // return an array of the same size with each element being the absolute value of the corresponding element
-blast_fn Array abs(const Array& a) {
+blast_fn Array array_abs(const Array& a) {
     Array result(a.size);
     for (u32 i = 0; i < a.size; i++)
-        result[i] = abs(a[i]);
+        result[i] = ::abs(a[i]);
     return result;
 }
 
 // return an array of the same size with each element being the square of the corresponding element
-blast_fn Array abs2(const Array& a) {
+blast_fn Array array_abs2(const Array& a) {
     Array result(a.size);
     for (u32 i = 0; i < a.size; i++)
         result[i] = a[i] * a[i];
@@ -598,13 +598,13 @@ blast_fn Array abs2(const Array& a) {
 }
 
 // modify the array in place with each element being the absolute value of the corresponding element
-blast_fn void abs_inplace(Array& a) {
+blast_fn void array_abs_inplace(Array& a) {
     for (u32 i = 0; i < a.size; i++)
-        a[i] = abs(a[i]);
+        a[i] = ::abs(a[i]);
 }
 
 // modify the array in place with each element being the square of the corresponding element
-blast_fn void abs2_inplace(Array& a) {
+blast_fn void array_abs2_inplace(Array& a) {
     for (u32 i = 0; i < a.size; i++)
         a[i] = a[i] * a[i];
 }
