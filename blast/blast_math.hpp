@@ -582,12 +582,12 @@ blast_fn real norm1(const Array& a) {
 }
 
 // return an array of the same size with each element being the absolute value of the corresponding element
-// blast_fn Array abs(const Array& a) {
-//     Array result(a.size);
-//     for (u32 i = 0; i < a.size; i++)
-//         result[i] = abs(a[i]);
-//     return result;
-// }
+blast_fn Array abs(const Array& a) {
+    Array result(a.size);
+    for (u32 i = 0; i < a.size; i++)
+        result[i] = abs(a[i]);
+    return result;
+}
 
 // return an array of the same size with each element being the square of the corresponding element
 blast_fn Array abs2(const Array& a) {
