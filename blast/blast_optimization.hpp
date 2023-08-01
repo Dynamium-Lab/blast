@@ -371,6 +371,156 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
         device_manip.fetch_constraints(points);
         cudaDeviceSynchronize();
     };
+
+    double in_41[41] {};
+    double out[7] {};
+
+    BENCHMARK("Manipulator dynamics with MDA") {
+        // random optimization vector
+        auto x = blast::random_array(host_pva.xlen(task), amp);
+        x.back() = std::abs(x.back());
+        // compute trajectory
+        host_pva.compute_trajectory(x, task);
+        for (int i = 0; i < (int)points; i++) {
+            in_41[0] = host_pva.pos(0, i);
+            in_41[1] = host_pva.vel(0, i);
+            in_41[2] = host_pva.acc(0, i);
+            in_41[3] = host_pva.pos(1, i);
+            in_41[4] = host_pva.vel(1, i);
+            in_41[5] = host_pva.acc(1, i);
+            in_41[6] = host_pva.pos(2, i);
+            in_41[7] = host_pva.vel(2, i);
+            in_41[8] = host_pva.acc(2, i);
+            in_41[9] = host_pva.pos(3, i);
+            in_41[10] = host_pva.vel(3, i);
+            in_41[11] = host_pva.acc(3, i);
+            in_41[12] = host_pva.pos(4, i);
+            in_41[13] = host_pva.vel(4, i);
+            in_41[14] = host_pva.acc(4, i);
+            in_41[15] = host_pva.pos(5, i);
+            in_41[16] = host_pva.vel(5, i);
+            in_41[17] = host_pva.acc(5, i);
+            in_41[18] = host_pva.pos(6, i);
+            in_41[19] = host_pva.vel(6, i);
+            in_41[20] = host_pva.acc(6, i);
+
+            dynamics_mda(in_41, out);
+        }
+    };
+
+    BENCHMARK("Manipulator dynamics with MDA2") {
+        // random optimization vector
+        auto x = blast::random_array(host_pva.xlen(task), amp);
+        x.back() = std::abs(x.back());
+        // compute trajectory
+        host_pva.compute_trajectory(x, task);
+        for (int i = 0; i < (int)points; i++) {
+            in_41[0] = host_pva.pos(0, i);
+            in_41[1] = host_pva.vel(0, i);
+            in_41[2] = host_pva.acc(0, i);
+            in_41[3] = host_pva.pos(1, i);
+            in_41[4] = host_pva.vel(1, i);
+            in_41[5] = host_pva.acc(1, i);
+            in_41[6] = host_pva.pos(2, i);
+            in_41[7] = host_pva.vel(2, i);
+            in_41[8] = host_pva.acc(2, i);
+            in_41[9] = host_pva.pos(3, i);
+            in_41[10] = host_pva.vel(3, i);
+            in_41[11] = host_pva.acc(3, i);
+            in_41[12] = host_pva.pos(4, i);
+            in_41[13] = host_pva.vel(4, i);
+            in_41[14] = host_pva.acc(4, i);
+            in_41[15] = host_pva.pos(5, i);
+            in_41[16] = host_pva.vel(5, i);
+            in_41[17] = host_pva.acc(5, i);
+            in_41[18] = host_pva.pos(6, i);
+            in_41[19] = host_pva.vel(6, i);
+            in_41[20] = host_pva.acc(6, i);
+
+            dynamics_mda2(in_41, out);
+        }
+    };
+
+
+    BENCHMARK("Manipulator dynamics with MDA3") {
+        return dynamics_mda3(host_pva, in_41, out);
+    };
+
+
+    Array in_orhro_arr = random_array(69, 1.0);
+    double out_orhro[15] {};
+    BENCHMARK("Manipulator dynamics for Orhro with MDA") {
+        for (int i = 0; i < (int)points; i++)
+            dynamics_orhro_mda(in_orhro_arr.data, out_orhro);
+        return out_orhro;
+    };
+
+    Array in_21 = random_array(21, 1.0);
+    double out_7[7] {};
+    BENCHMARK("Manipulator dynamics with MDA reduced NoSimp Opt1") {
+        for (int i = 0; i < (int)points; i++)
+            dynamics_mda_reduct_nosimp_opt1(in_21.data, out_7);
+        return out_7;
+    };
+
+
+    BENCHMARK("Manipulator dynamics with MDA NoSimp Opt1") {
+        for (int i = 0; i < (int)points; i++) {
+            in_41[0] = host_pva.pos(0, i);
+            in_41[1] = host_pva.vel(0, i);
+            in_41[2] = host_pva.acc(0, i);
+            in_41[3] = host_pva.pos(1, i);
+            in_41[4] = host_pva.vel(1, i);
+            in_41[5] = host_pva.acc(1, i);
+            in_41[6] = host_pva.pos(2, i);
+            in_41[7] = host_pva.vel(2, i);
+            in_41[8] = host_pva.acc(2, i);
+            in_41[9] = host_pva.pos(3, i);
+            in_41[10] = host_pva.vel(3, i);
+            in_41[11] = host_pva.acc(3, i);
+            in_41[12] = host_pva.pos(4, i);
+            in_41[13] = host_pva.vel(4, i);
+            in_41[14] = host_pva.acc(4, i);
+            in_41[15] = host_pva.pos(5, i);
+            in_41[16] = host_pva.vel(5, i);
+            in_41[17] = host_pva.acc(5, i);
+            in_41[18] = host_pva.pos(6, i);
+            in_41[19] = host_pva.vel(6, i);
+            in_41[20] = host_pva.acc(6, i);
+
+            dynamics_mda_nosimp_opt1(in_41, out);
+        }
+        return out;
+    };
+
+    BENCHMARK("Manipulator dynamics with MDA NoSimp Opt2") {
+        for (int i = 0; i < (int)points; i++) {
+            in_41[0] = host_pva.pos(0, i);
+            in_41[1] = host_pva.vel(0, i);
+            in_41[2] = host_pva.acc(0, i);
+            in_41[3] = host_pva.pos(1, i);
+            in_41[4] = host_pva.vel(1, i);
+            in_41[5] = host_pva.acc(1, i);
+            in_41[6] = host_pva.pos(2, i);
+            in_41[7] = host_pva.vel(2, i);
+            in_41[8] = host_pva.acc(2, i);
+            in_41[9] = host_pva.pos(3, i);
+            in_41[10] = host_pva.vel(3, i);
+            in_41[11] = host_pva.acc(3, i);
+            in_41[12] = host_pva.pos(4, i);
+            in_41[13] = host_pva.vel(4, i);
+            in_41[14] = host_pva.acc(4, i);
+            in_41[15] = host_pva.pos(5, i);
+            in_41[16] = host_pva.vel(5, i);
+            in_41[17] = host_pva.acc(5, i);
+            in_41[18] = host_pva.pos(6, i);
+            in_41[19] = host_pva.vel(6, i);
+            in_41[20] = host_pva.acc(6, i);
+
+            dynamics_mda_nosimp_opt2(in_41, out);
+        }
+        return out;
+    };
 }
 #endif // nvcc
 #endif // tests
