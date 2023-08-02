@@ -426,6 +426,7 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
 
             dynamics_mda2(in_41, out);
         }
+        return out;
     };
 
 
@@ -434,14 +435,6 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
     };
 
 
-    Array in_orhro_arr = random_array(69, 1.0);
-    double out_orhro[15] {};
-    BENCHMARK("Manipulator dynamics for Orhro with MDA") {
-        for (int i = 0; i < (int)points; i++)
-            dynamics_orhro_mda(in_orhro_arr.data, out_orhro);
-        return out_orhro;
-    };
-
     Array in_21 = random_array(21, 1.0);
     double out_7[7] {};
     BENCHMARK("Manipulator dynamics with MDA reduced NoSimp Opt1") {
@@ -449,7 +442,6 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
             dynamics_mda_reduct_nosimp_opt1(in_21.data, out_7);
         return out_7;
     };
-
 
     BENCHMARK("Manipulator dynamics with MDA NoSimp Opt1") {
         for (int i = 0; i < (int)points; i++) {
