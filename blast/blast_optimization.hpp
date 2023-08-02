@@ -325,6 +325,7 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
     for (int i = 0; i < (int)host_con.size; i++)
         CHECK(abs(host_con[i] - device_manip.host_constraints[i]) < 0.0006);
 
+
     BENCHMARK("Objective function and constraints - CPU only") {
         // random optimization vector
         auto x = blast::random_array(device_pva.host->xlen(task), amp);
@@ -347,6 +348,7 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
         cudaDeviceSynchronize();
     };
 
+
     BENCHMARK("Objective function and constraints - GPU contraints and trajectory") {
         // random optimization vector
         auto x = blast::random_array(device_pva.host->xlen(task), amp);
@@ -360,6 +362,7 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
         cudaDeviceSynchronize();
     };
 
+
     BENCHMARK("Objective function and constraints - GPU contraints only") {
         // random optimization vector
         auto x = blast::random_array(device_pva.host->xlen(task), amp);
@@ -372,9 +375,9 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
         cudaDeviceSynchronize();
     };
 
+
     double in_41[41] {};
     double out[7] {};
-
     BENCHMARK("Manipulator dynamics with MDA") {
         for (int i = 0; i < (int)points; i++) {
             in_41[0] = host_bspline.traj.pos(0, i);
@@ -402,6 +405,7 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
             dynamics_mda(in_41, out);
         }
     };
+
 
     BENCHMARK("Manipulator dynamics with MDA2") {
         for (int i = 0; i < (int)points; i++) {
@@ -446,6 +450,7 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
         return out_7;
     };
 
+
     BENCHMARK("Manipulator dynamics with MDA NoSimp Opt1") {
         for (int i = 0; i < (int)points; i++) {
             in_41[0] = host_bspline.traj.pos(0, i);
@@ -475,6 +480,7 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
         return out;
     };
 
+
     BENCHMARK("Manipulator dynamics with MDA NoSimp Opt2") {
         for (int i = 0; i < (int)points; i++) {
             in_41[0] = host_bspline.traj.pos(0, i);
@@ -503,6 +509,7 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
         }
         return out;
     };
+
 
     BENCHMARK("Manipulator dynamics with MDA NoSimp Opt2 with simd trig functions") {
         return dynamics_mda_nosimp_opt2_custom(host_bspline.traj, in_41, out);
