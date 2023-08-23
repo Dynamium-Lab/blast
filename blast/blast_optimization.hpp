@@ -372,4 +372,5 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
         cudaDeviceSynchronize();
     };
 }
+#endif // nvcc
 #endif // tests
