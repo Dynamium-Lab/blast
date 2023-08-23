@@ -285,7 +285,7 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
 
     cuBspline device_pva;
     cuGen3_7DOF device_manip;
-    Bspline host_bspline(ncontrol, points, p, joints);
+    Bspline bspline(ncontrol, points, p, joints);
     Gen3_7DOF host_manip;
 
     // random task and input vector
@@ -301,8 +301,8 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
     x.back() = abs(x.back());
 
     // compute constraints on host
-    host_bspline.compute_trajectory(x, task);
-    auto host_con = host_manip.constraints(host_bspline.traj);
+    bspline.compute_trajectory(x, task);
+    auto host_con = host_manip.constraints(bspline.traj);
 
     // compute constraints on GPU
     device_pva.init(points, joints, p, ncontrol);
@@ -315,9 +315,9 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
     // Test correctness of the trajectory
     for (int i = 0; i < (int)points; i++) {
         for (int j = 0; j < joints; j++) {
-            CHECK((float)host_bspline.traj.pos(j, i) == (float)device_pva.host->traj.pos(j, i));
-            CHECK((float)host_bspline.traj.vel(j, i) == (float)device_pva.host->traj.vel(j, i));
-            CHECK((float)host_bspline.traj.acc(j, i) == (float)device_pva.host->traj.acc(j, i));
+            CHECK((float)bspline.traj.pos(j, i) == (float)device_pva.host->traj.pos(j, i));
+            CHECK((float)bspline.traj.vel(j, i) == (float)device_pva.host->traj.vel(j, i));
+            CHECK((float)bspline.traj.acc(j, i) == (float)device_pva.host->traj.acc(j, i));
         }
     }
 
@@ -330,8 +330,21 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
         auto x = blast::random_array(device_pva.host->xlen(task), amp);
         x.back() = std::abs(x.back());
         // compute trajectory
-        host_bspline.compute_trajectory(x, task);
-        host_manip.constraints(host_bspline.traj);
+        bspline.compute_trajectory(x, task);
+        host_manip.constraints(bspline.traj);
+    };
+
+    BENCHMARK("Objective function and constraints - GPU contraints and trajectory") {
+        // random optimization vector
+        auto x = blast::random_array(device_pva.host->xlen(task), amp);
+        x.back() = std::abs(x.back());
+        // compute trajectory
+        device_pva.compute_control_and_send(x, task);
+        pva_constraints_kernel<<< nblocks, points/nblocks >>>(device_pva);
+        cuda_check_kernel;
+        device_pva.fetch_pva();
+        device_manip.fetch_constraints(points);
+        cudaDeviceSynchronize();
     };
 
     BENCHMARK("Objective function and constraints - GPU contraints and trajectory") {
@@ -358,7 +371,5 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
         device_manip.fetch_constraints(points);
         cudaDeviceSynchronize();
     };
-
 }
-#endif // nvcc
 #endif // tests

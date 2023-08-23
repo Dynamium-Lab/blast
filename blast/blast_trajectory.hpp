@@ -258,6 +258,9 @@ host_fn void Bspline::compute_trajectory(const Array &x, Matrix &task) {
     }
 }
 
+
+
+
 host_fn Trajectory compute_5order_trajectory(real T, Matrix &task) {
     const u32 joints = task.rows;
     const u32 points = (u32)ceil(T * 1000 + 1);
