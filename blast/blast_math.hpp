@@ -15,10 +15,9 @@
 #include <math_constants.h>
 #endif
 
+#include "mipp/mipp.h"
 
 namespace blast {
-
-
 
 // uses doubles by default unless BLAST_USE_DOUBLES is set to 0
 #if BLAST_USE_DOUBLES
@@ -92,10 +91,7 @@ struct Mat3 {
 
 // 4x4 matrix
 struct alignas(32) Mat4 {
-    union {
-        real    data[16];
-        __m256d ymm[4];
-    };
+    real data[16];
 
     // default
     Mat4() = default;
@@ -325,8 +321,6 @@ struct Matrix {
     //  - note: new Array is aliasing our data
     blast_fn Array col(u32 c) const;
 };
-
-
 
 //------ MISC ---------------------
 
@@ -635,7 +629,6 @@ blast_fn void minus_insert(const Matrix& m, const Array& a, real* dst) {
     }
 }
 
-
 //------ Vec3 ---------------------
 blast_fn real& Vec3::operator[](u32 i) {
     Assert(i < 3);
@@ -715,7 +708,6 @@ blast_fn Vec3& operator*=(Vec3&v, real a) {
     v.z *= a;
     return v;
 }
-
 
 //------ Mat3 ---------------------
 
@@ -800,7 +792,6 @@ blast_fn Vec3 Mat3::col(u32 c) {
     return Vec3(data[c*3+0], data[c*3+1], data[c*3+2]);
 }
 
-
 //------ Mat4 ---------------------
 
 blast_fn Mat4::Mat4(const Mat4& m) {
@@ -869,27 +860,6 @@ blast_fn Mat4 Mat4::operator-() {
 }
 
 blast_fn Mat4& Mat4::operator*=(Mat4& rhs) {
-#if defined(__CUDA_ARCH__)
-    Mat4 tmp = *this;
-    for (u32 i = 0; i < 4; i++) {
-        for (u32 j = 0; j < 4; j++) {
-            (*this)(i, j) = tmp(i, 0)*rhs(0, j) + tmp(i, 1)*rhs(1, j) + tmp(i, 2)*rhs(2, j) + tmp(i, 3)*rhs(3, j);
-        }
-    }
-#elif BLAST_USE_DOUBLES
-    const auto a0 = ymm[0];
-    const auto a1 = ymm[1];
-    const auto a2 = ymm[2];
-    const auto a3 = ymm[3];
-
-    for (u32 i = 0; i < 4; i++) {
-        const auto _b0 = _mm256_set1_pd(rhs(0, i));
-        const auto _b1 = _mm256_set1_pd(rhs(1, i));
-        const auto _b2 = _mm256_set1_pd(rhs(2, i));
-        const auto _b3 = _mm256_set1_pd(rhs(3, i));
-        ymm[i] = _mm256_fmadd_pd(a0, _b0, _mm256_fmadd_pd(a1, _b1, _mm256_fmadd_pd(a2, _b2, _mm256_mul_pd(a3, _b3))));
-    }
-#else
     // naive implementation (no SIMD)
     Mat4 tmp = *this;
     for (u32 i = 0; i < 4; i++) {
@@ -897,55 +867,25 @@ blast_fn Mat4& Mat4::operator*=(Mat4& rhs) {
             (*this)(i, j) = tmp(i, 0)*rhs(0, j) + tmp(i, 1)*rhs(1, j) + tmp(i, 2)*rhs(2, j) + tmp(i, 3)*rhs(3, j);
         }
     }
-#endif
     return *this;
+
 }
 
 blast_fn Mat4& Mat4::operator*=(real v) {
-#if defined(__CUDA_ARCH__)
     for (int i = 0; i < 16; i++)
         data[i] *= v;
-#elif BLAST_USE_DOUBLES
-    const __m256d _v = _mm256_set1_pd(v);
-    for (u32 i = 0; i < 4; i++)
-        ymm[i] =_mm256_mul_pd(_v, ymm[i]);
-#else
-    const __m256 _v = _mm256_set1_ps(v);
-    _mm256_store_ps(data, _mm256_mul_ps(_v, _mm256_load_ps(data)));
-    _mm256_store_ps(data+8, _mm256_mul_ps(_v, _mm256_load_ps(data+8)));
-#endif
     return *this;
 }
 
 blast_fn Mat4& Mat4::operator+=(Mat4& rhs) {
-#if defined(__CUDA_ARCH__)
     for (u32 i = 0; i < 16; i++)
         data[i] += rhs[i];
-
-#elif BLAST_SIZEOF_REAL == 8
-    for (u32 i = 0; i < 4; i++)
-        ymm[i] = _mm256_add_pd(ymm[i], rhs.ymm[i]);
-
-#else
-    for (u32 i = 0; i < 16; i++)
-        data[i] += rhs[i];
-#endif
     return *this;
 }
 
 blast_fn Mat4& Mat4::operator-=(Mat4& rhs) {
-#if defined(__CUDA_ARCH__)
     for (u32 i = 0; i < 16; i++)
         data[i] -= rhs[i];
-
-#elif BLAST_SIZEOF_REAL == 8
-    for (u32 i = 0; i < 4; i++)
-        ymm[i] = _mm256_sub_pd(ymm[i], rhs.ymm[i]);
-
-#else
-    for (u32 i = 0; i < 16; i++)
-        data[i] -= rhs[i];
-#endif
     return *this;
 }
 
@@ -958,7 +898,6 @@ blast_fn bool Mat4::operator==(const Mat4& rhs) {
 
 blast_fn Mat4 operator*(const Mat4& lhs, const Mat4& rhs) {
     Mat4 result;
-#if defined(__CUDA_ARCH__)
     // naive implementation (no SIMD)
     //  note: order of for loops is important!
     for (u32 j = 0; j < 4; j++) {
@@ -966,31 +905,6 @@ blast_fn Mat4 operator*(const Mat4& lhs, const Mat4& rhs) {
             result(i, j) = lhs(i, 0)*rhs(0, j) + lhs(i, 1)*rhs(1, j) + lhs(i, 2)*rhs(2, j) + lhs(i, 3)*rhs(3, j);
         }
     }
-#elif BLAST_USE_DOUBLES
-// note: this implementation is approx 20% faster than above serialized code
-    const auto a0 = lhs.ymm[0];
-    const auto a1 = lhs.ymm[1];
-    const auto a2 = lhs.ymm[2];
-    const auto a3 = lhs.ymm[3];
-
-    for (u32 i = 0; i < 4; i++) {
-        const auto _b0 = _mm256_set1_pd(rhs(0, i));
-        const auto _b1 = _mm256_set1_pd(rhs(1, i));
-        const auto _b2 = _mm256_set1_pd(rhs(2, i));
-        const auto _b3 = _mm256_set1_pd(rhs(3, i));
-        result.ymm[i] = _mm256_fmadd_pd(a0, _b0, _mm256_fmadd_pd(a1, _b1, _mm256_fmadd_pd(a2, _b2, _mm256_mul_pd(a3, _b3))));
-    }
-
-#else
-    // todo: implement SIMD for floats
-    // naive implementation (no SIMD)
-    //  note: order of for loops is important!
-    for (u32 j = 0; j < 4; j++) {
-        for (u32 i = 0; i < 4; i++) {
-            result(i, j) = lhs(i, 0)*rhs(0, j) + lhs(i, 1)*rhs(1, j) + lhs(i, 2)*rhs(2, j) + lhs(i, 3)*rhs(3, j);
-        }
-    }
-#endif
     return result;
 }
 
@@ -1009,8 +923,6 @@ blast_fn Array Mat4::col(u32 c) const {
     memcpy(result.data, data + c*4, 4*sizeof(real));
     return result;
 }
-
-
 
 //------ Array ---------------------
 
@@ -1207,7 +1119,7 @@ blast_fn Array operator*(real b, const Array& a) {
 
 // Compute the dot product of the given arrays
 //  - note: fastest when the number of elements are a factor of 4 or even 8
-blast_fn real dot(const Array& a, const Array& b) {
+blast_fn real dot(Array& a, Array& b) {
     Assert(a.size == b.size);
     real r = 0;
 #if defined(__CUDA_ARCH__)
@@ -1215,25 +1127,18 @@ blast_fn real dot(const Array& a, const Array& b) {
         r += a[i] * b[i];
 #else
     int i = 0;
-// SIMD what you can
-#if BLAST_USE_DOUBLES
-    auto accum = _mm256_setzero_pd();
-    for (; i < (int)a.size - 3; i += 4) {
-        const auto a_v = _mm256_loadu_pd(&a.data[i]);
-        const auto b_v = _mm256_loadu_pd(&b.data[i]);
-        accum = _mm256_fmadd_pd(a_v, b_v, accum);
+
+    // SIMD what you can
+    mipp::Reg<real> ra; // wide register for part of the 'a' array
+    mipp::Reg<real> rb; // wide register for part of the 'b' array
+    mipp::Reg<real> accum = 0.0;
+    auto vecLoopSize = (a.size / mipp::N<real>()) * mipp::N<real>();
+    for (; i < vecLoopSize; i += mipp::N<real>()) {
+        ra.load(&a[i]);
+        rb.load(&b[i]);
+        accum = mipp::fmadd(ra, rb, accum);
     }
-    r = simd_hadd(accum);
-#elif BLAST_SIZEOF_REAL == 4
-    auto accum = _mm256_setzero_ps();
-    for (; i < (int)a.size - 7; i += 8) {
-        const auto a_v = _mm256_loadu_ps(&a.data[i]);
-        const auto b_v = _mm256_loadu_ps(&b.data[i]);
-        accum = _mm256_fmadd_ps(a_v, b_v, accum);
-    }
-    r = simd_hadd(accum);
-#endif
-    // serialize the rest
+    r = accum.hadd();
     for (; i < (int)a.size; i++)
         r += a[i] * b[i];
 #endif
@@ -1242,58 +1147,36 @@ blast_fn real dot(const Array& a, const Array& b) {
 
 // Compute the sine and the cosine of every element
 //  - note: fastest when the number of elements are a factor of 4 (or even 8 if real is float)
-//  - note: doing this manually in your function is still faster by about 10%-20%
 blast_fn void sincos(const Array& angles, Array& sines, Array& cosines) {
     Assert(angles.size == sines.size && angles.size == cosines.size);
-    int i = 0;
 
-#if defined(__CUDA_ARCH__) && BLAST_USE_DOUBLES
+#if defined(__CUDA_ARCH__)
+#if BLAST_USE_DOUBLES
     for (int i = 0; i < angles.size; i++)
         ::sincos(angles[i], &sines[i], &cosines[i]);
-#elif defined (__CUDA_ARCH__)
-    for (int i = 0; i < angles.size; i++)
-        sincosf(angles[i], &sines[i], &cosines[i]);
-#elif BLAST_USE_DOUBLES
-    // SIMD what we can
-    for (; i < (int)angles.size-3; i += 4) {
-        __m256d s_tmp;
-        __m256d c_tmp;
-        __m256d angle_v = _mm256_load_pd(angles.data + i);
-        s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-        _mm256_storeu_pd(&sines.data[i], s_tmp);
-        _mm256_storeu_pd(&cosines.data[i], c_tmp);
-    }
-    for (; i < (int)angles.size-1; i += 2) {
-        __m128d s_tmp;
-        __m128d c_tmp;
-        __m128d angle_v = _mm_load_pd(&angles.data[i]);
-        s_tmp = _mm_sincos_pd(&c_tmp, angle_v);
-        _mm_storeu_pd(&sines.data[i], s_tmp);
-        _mm_storeu_pd(&cosines.data[i], c_tmp);
-    }
 #else
-    for (; i < (int)angles.size-7; i += 8) {
-        __m256 s_tmp;
-        __m256 c_tmp;
-        __m256 angle_v = _mm256_load_ps(&angles.data[i]);
-        s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
-        _mm256_storeu_ps(&sines.data[i], s_tmp);
-        _mm256_storeu_ps(&cosines.data[i], c_tmp);
-    }
-    for (; i < (int)angles.size-3; i += 4) {
-        __m128 s_tmp;
-        __m128 c_tmp;
-        __m128 angle_v = _mm_load_ps(&angles.data[i]);
-        s_tmp = _mm_sincos_ps(&c_tmp, angle_v);
-        _mm_storeu_ps(&sines.data[i], s_tmp);
-        _mm_storeu_ps(&cosines.data[i], c_tmp);
-    }
+    for (int i = 0; i < angles.size; i++)
+        ::sincosf(angles[i], &sines[i], &cosines[i]);
 #endif
+#else
+    int i = 0;
+    // simd what you can
+    mipp::Reg<real> a;
+    mipp::Reg<real> c;
+    mipp::Reg<real> s;
+    auto vecLoopSize = (angles.size / mipp::N<real>()) * mipp::N<real>();
+    for (; i < vecLoopSize; i += mipp::N<real>()) {
+        a.load(angles.data + i);
+        mipp::sincos(a, s, c);
+        s.store(sines.data + i);
+        c.store(cosines.data + i);
+    }
     // serialize the rest
     for (; i < (int)angles.size; i++) {
         sines[i] = sin(angles[i]);
         cosines[i] = cos(angles[i]);
     }
+#endif
 }
 
 //------ Matrix ---------------------
@@ -1466,9 +1349,6 @@ blast_fn Matrix transpose(const Matrix& m) {
     }
     return result;
 }
-
-
-
 
 //------ Collision ---------------------
 
@@ -1673,14 +1553,7 @@ blast_fn real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
     return dot(diff, diff);
 }
 
-
-
-
-
-
 } // namespace blast
-
-
 
 #ifdef BLAST_ENABLE_TESTS
 TEST_CASE("Arrays", "[Math]") {
@@ -1845,4 +1718,3 @@ TEST_CASE("MatrixOperations", "[Math]") {
 }
 
 #endif
-
