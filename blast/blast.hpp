@@ -25,7 +25,6 @@
 #define host_fn inline
 #endif
 
-
 //--- Other headers ---
 #include "blast_error.hpp"
 #include "blast_math.hpp"

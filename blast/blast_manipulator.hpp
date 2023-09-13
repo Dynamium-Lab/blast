@@ -760,7 +760,7 @@ host_fn Matrix Gen3Lite::jacobian(const Array& joint_position) {
     e_1[4] = (Q_tmp *= Q5) * ev[4];
     e_1[5] = (Q_tmp *= Q6) * ev[5];
 
-    Vec3 r[6];
+    Vec3 r[7];
     r[5] = dv[5];
     r[4] = dv[4] + Q6 * r[6];
     r[3] = dv[3] + Q5 * r[5];
@@ -978,8 +978,8 @@ host_fn void Gen3_7DOF::dynamics(const Matrix &pos, const Matrix &vel, const Mat
 
         // SIMD compute sines and cosines note: approx 10% faster
         auto p = pos.col(i);
-        Array s(8);
-        Array c(8);
+        Array s(7);
+        Array c(7);
         blast::sincos(p, s, c);
 //         auto p = &pos.data[i * joints];
 

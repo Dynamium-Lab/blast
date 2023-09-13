@@ -1158,18 +1158,24 @@ blast_fn void sincos(const Array& angles, Array& sines, Array& cosines) {
     for (int i = 0; i < angles.size; i++)
         ::sincosf(angles[i], &sines[i], &cosines[i]);
 #endif
+#elif defined(__GNUC__)
+    int i = 0;
+    for (; i < (int)angles.size; i++) {
+        sines[i] = sin(angles[i]);
+        cosines[i] = cos(angles[i]);
+    }
 #else
     int i = 0;
     // simd what you can
     mipp::Reg<real> a;
-    mipp::Reg<real> c;
-    mipp::Reg<real> s;
+    // mipp::Reg<real> c;
+    // mipp::Reg<real> s;
     auto vecLoopSize = (angles.size / mipp::N<real>()) * mipp::N<real>();
     for (; i < vecLoopSize; i += mipp::N<real>()) {
         a.load(angles.data + i);
-        mipp::sincos(a, s, c);
-        s.store(sines.data + i);
-        c.store(cosines.data + i);
+        auto r = mipp::sincos(a);
+        r[0].store(sines.data + i);
+        r[1].store(cosines.data + i);
     }
     // serialize the rest
     for (; i < (int)angles.size; i++) {

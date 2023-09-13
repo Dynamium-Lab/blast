@@ -2,9 +2,7 @@
 #include "blast.hpp"
 #include "blast_math.hpp"
 
-
 namespace blast {
-
 
 struct Optimisation {
     blast::Manipulator*    manip;
@@ -12,12 +10,10 @@ struct Optimisation {
     blast::Bspline*        bspline;
 };
 
-
 //--------- OBJECTIVES AND CONSTRAINTS ----------------------------------------------------------
 
 host_fn double obj_time(unsigned n, const double* x, double* grad, void*);
 host_fn void cstr_manip(unsigned m, double *result, unsigned n, const double* x, double* grad, void* data);
-
 
 //--------- INITIAL GUESS GENERATION ----------------------------------------------------------
 
@@ -47,11 +43,6 @@ host_fn Array guess_shot_max(Gen3_7DOF& manip, Bspline& bspline, Matrix& task, i
 // Return the best vector
 host_fn Array guess_shot_mean(Gen3_7DOF& manip, Bspline& bspline, Matrix& task, int nshotgun);
 
-
-
-
-
-
 // note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
 // compute the trajectory and the constraints (slower, but access to trajectory)
@@ -60,8 +51,6 @@ __global__ void pva_constraints_kernel(cuBspline pva);
 // compute the constraints, but don't store the trajectory (faster, but no access to trajectory)
 __global__ void constraints_no_pva_kernel(cuBspline pva);
 #endif
-
-
 
 //--------- OBJECTIVES AND CONSTRAINTS ----------------------------------------------------------
 
@@ -90,7 +79,6 @@ host_fn void internal_cstr_manip_single(unsigned m, double* result, unsigned n, 
     opt->manip->constraints(opt->bspline->traj, result);
     // todo: add collision detection
 }
-
 
 // Simple manipulator defined constraints function.
 //  The given manipulator's constraints function is called and no additionnal constraints are added.
@@ -122,8 +110,6 @@ host_fn void cstr_manip(unsigned m, double *result, unsigned n, const double* x,
         }
     }
 }
-
-
 
 //--------- INITIAL GUESS GENERATION ----------------------------------------------------------
 host_fn Array guess_random(Gen3_7DOF& manip, Bspline& bspline, Matrix& task) {
@@ -167,9 +153,6 @@ host_fn Array guess_shot_mean(Gen3_7DOF& manip, Bspline& bspline, Matrix& task, 
     }
     return best_x;
 }
-
-
-
 
 // note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
@@ -220,7 +203,6 @@ __global__ void constraints_no_pva_kernel(cuBspline pva) {
     manip->compute_constraints(pos, vel, acc, manip->device_constraints + constraints_offset);
 }
 
-
 // kernel that uses shared memory to speed up constraint computation
 __global__ void constraints_shared_kernel(cuBspline pva) {
     const u32 point = blockIdx.x * blockDim.x + threadIdx.x;
@@ -263,7 +245,6 @@ __global__ void constraints_shared_kernel(cuBspline pva) {
     manip->compute_constraints(pos, vel, acc, manip->device_constraints + constraints_offset);
 }
 #endif
-
 
 } // namespace blast
 
