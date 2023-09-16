@@ -5,7 +5,7 @@
 #ifdef BLAST_ENABLE_TESTS
 #define CATCH_CONFIG_MAIN
 #define CATCH_CONFIG_ENABLE_BENCHMARKING
-#include "catch.hpp"
+#include "catch/catch.hpp"
 #endif
 
 //--- pre-processor directives to hand SIMD, CUDA, Etc
