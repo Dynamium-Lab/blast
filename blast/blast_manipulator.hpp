@@ -1260,14 +1260,10 @@ host_fn Matrix Gen3_7DOF::forward_kinematics(const Matrix &joint_positions) {
 
 host_fn Array Gen3_7DOF::inverse_kinematics(const Array& pose, const Array& initial_joint_position) {
 
-
     const double tolerance = 0.001; // Tolerance for convergence
     const int max_iter = 100; // Maximum number of iterations
 
-
     Array current_joint_angles = initial_joint_position;
-
-
 
     // Iterate until convergence or maximum iterations reached
     for (int iter = 0; iter < max_iter; ++iter) {
@@ -1276,7 +1272,7 @@ host_fn Array Gen3_7DOF::inverse_kinematics(const Array& pose, const Array& init
         Array delta_pose = pose - current_pose;
 
         // Check if the end effector is close enough to the desired position
-        if (close(pose, current_pose, tolerance))
+        if (is_close(pose, current_pose, tolerance))
             break;
 
         // Calculate the Jacobian matrix
