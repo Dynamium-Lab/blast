@@ -1,5 +1,6 @@
 #pragma once
 
+
 #include <xmmintrin.h>
 #include <immintrin.h>
 
@@ -23,14 +24,10 @@ inline float simd_hadd( __m256 r8 ) {
 
 // Horizontal sum of 4 lanes of a vector of doubles
 inline double simd_hadd(__m256d v) {
-#if defined(__MINGW64__) || defined(__MINGW64__) || defined(__MINGW32__)
-    return v[0] + v[1] + v[2] + v[3];
-#else
     __m128d vlow  = _mm256_castpd256_pd128(v);
     __m128d vhigh = _mm256_extractf128_pd(v, 1); // high 128
     vlow  = _mm_add_pd(vlow, vhigh);     // reduce down to 128
 
     __m128d high64 = _mm_unpackhi_pd(vlow, vlow);
     return  _mm_cvtsd_f64(_mm_add_sd(vlow, high64));  // reduce to scalar
-#endif
 }

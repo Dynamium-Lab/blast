@@ -131,7 +131,6 @@ struct bool_simplex_2stdvec {
     std::vector<Vec3> v2;
 };
 
-
 host_fn Vec3 normalize(Vec3 a) {
     return (1/norm(a))*a;
 }
@@ -883,7 +882,6 @@ struct gjkresult {
     real minimal_distance;
 };
 
-
 host_fn bool GJK_same_direction(Vec3 a, Vec3 b) {
     return dot(a, b) > 0;
 }
@@ -1616,7 +1614,6 @@ host_fn gjkresult GJK_solve_gjk_simple(capsule caps, OBB box) {
     return results;
 }
 
-
 // Boolean GJK algorithm
 
 host_fn Vec3 GJK_find_direction2(bool_simplex& simplex) {
@@ -1976,7 +1973,6 @@ host_fn bool GJK_bool(capsule caps, OBB box) {
 //     return {false, INF_REAL};
 // }
 
-
 // // ======================================
 // //          méthode des points
 // // ======================================
@@ -2214,118 +2210,94 @@ host_fn bool GJK_bool(capsule caps, OBB box) {
 //     // }
 // }
 
-
 } // namespace blast
 
 #ifdef BLAST_ENABLE_TESTS
 
-TEST_CASE("Sphere collision", "[World]") {
+TEST_CASE("Collisions", "[World]") {
     using namespace blast;
 
     real TESTCOLL_EPSILON = 1e-2;
 
+    // capsule - sphere collision tests
     struct collision_test_sph {
         sphere sph;
         capsule caps;
         real expected_dist;
     };
-
     collision_test_sph test[] = {
         { { { 4.27, 1.73, 3.74 }, 1 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, 0.42 },
         { { { 2.75, 1.48, 3.44}, 1 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, -0.25 },
         { { { 5.72, 6.47, 3.78 }, 1 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, 1.4 },
         { { { 4.74, 5.26, 4.52 }, 1 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, -0.18 },
     };
-
     for (auto t : test) {
         real dist = distmin(t.caps, t.sph);
         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
     }
+    BENCHMARK("Capsule - Sphere (4 objects)") {
+        real dist = 0;
+        for (auto t : test) {
+            dist = distmin(t.caps, t.sph);
+        }
+        return dist;
+    };
 
-    // BENCHMARK("Sphere collision") {
-    //     real dist = 0;
-    //     for (auto t : test) {
-    //         dist = distmin(t.caps, t.sph);
-    //     }
-    //     return dist;
-    // };
-}
-
-TEST_CASE("Capsule collision", "[World]") {
-    using namespace blast;
-
-    real TESTCOLL_EPSILON = 1e-2;
-
+    // capsule - capsule collision tests
     struct collision_test_caps {
         capsule caps1;
         capsule caps2;
         real expected_dist;
     };
-
-    collision_test_caps test[] = {
+    collision_test_caps test_caps[] = {
         { { { 0.5, 0.95, 6.73 }, { 4, 4.9, 3.51 }, 0.5 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, -0.54 },
         { { { 5.16, 4.9, 4.37 }, { 3.55, 0.95, 8.84 }, 0.5 }, { { 4, 4.2, 4.3 }, { 0.5, 0.4, 0.9 }, 0.5 }, 0.16 },
         { { { 5.16, 4.9, 4.37 }, { 3.55, 0.95, 8.84 }, 0.5 }, { { 5.45, 4.78, 4.57 }, { 6.57, 1, -0.2 }, 0.5 }, -0.66 },
         { { { 2.59, 1.88, 4.22 }, { 18.85, 10.07, 6.1 }, 1 }, { { 0.55, 21.32, 3.08 }, { 5.07, 3.62, 4.19 }, 1 }, -1.44 },
         { { { -9.26, 12.81, 7.98 }, { 6.63, 4.62, 4.04 }, 1 }, { { 0.55, 21.32, 3.08 }, { 5.07, 3.62, 4.19 }, 1 }, -1.52 },
     };
-
-    for (auto t : test) {
+    for (auto t : test_caps) {
         real dist = distmin(t.caps1, t.caps2);
         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
     }
+    BENCHMARK("Capsule - Capsule (5 objects)") {
+        real dist = 0;
+        for (auto t : test_caps) {
+            dist += distmin(t.caps1, t.caps2);
+        }
+        return dist;
+    };
 
-    // BENCHMARK("Capsule collision") {
-    //     for (auto t : test) {
-    //         real dist = distmin(t.caps1, t.caps2);
-    //     }
-    // };
-}
-
-TEST_CASE("Cylinder collision", "[World]") {
-    using namespace blast;
-
-    real TESTCOLL_EPSILON = 1e-2;
-
+    // capsule - cylinder collision tests
     struct collision_test_cyl {
         cylinder cyl;
         capsule caps;
         real expected_dist;
     };
-
-    collision_test_cyl test[] = {
+    collision_test_cyl test_cyl[] = {
         /*Test 1*/ { { { -13.46, -3.61, 189 }, { -12.46, -5.11, 190 }, 1 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, -0.538346 },
         /*Test 2*/ { { { -13.41, -2.79, 189 }, { -15.16, -3.2, 190 }, 1 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, 1.32728712 },
         /*Test 3*/ { { { -16.3, -3.97, 200.87 }, { -17.3, -2.47, 199.87 }, 1 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, 1.53080644 },
         /*Test 4*/ { { { -7.25, -10.11, 174.29 }, { -7.86, -9.44, 176.14 }, 2 }, { { -14.66, -13.24, 198.94 }, { -11.16, -7.94, 181.77 }, 1 }, 5.52119334 },
         /*Test 5*/ { { { -14.88, -2.74, 198.21 }, { -15.49, -2.08, 200.06 }, 2 }, { { -10.7, -8.99, 180.98 }, { -14.2, -3.19, 197.98 }, 1 }, -0.44703889 },
     };
-
-    for (auto t : test) {
+    for (auto t : test_cyl) {
         real dist = distmin(t.caps, t.cyl);
-        // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
     }
+    BENCHMARK("Capsule - Cylinder (5 objects)") {
+        for (auto t : test_cyl) {
+            real dist = distmin(t.caps, t.cyl);
+        }
+    };
 
-    // BENCHMARK("Cylinder collision") {
-    //     for (auto t : test) {
-    //         real dist = distmin(t.caps, t.cyl);
-    //     }
-    // };
-}
-
-TEST_CASE("OBB collision", "[World]") {
-    using namespace blast;
-
-    real TESTCOLL_EPSILON = 6e-4;
-
+    // capsule - OBB collision tests
     struct collision_test_box {
         OBB box;
         capsule caps;
         real expected_dist;
     };
-
-    collision_test_box test[] = {
+    collision_test_box test_obb[] = {
         /*Test1*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.21, -5.18, 18.05 }, { -3.89, 8.59, 6.3 }, 1 }, 1.63659624 },
         /*Test2*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.46, 0.97, 3.7 }, { 7.79, 14.74, -8.04 }, 1 }, 1.50169942 },
         /*Test3*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.05, 1.11, 12.87 }, { 7.37, 14.89, 1.13 }, 1 }, 0.33397901 },
@@ -2341,7 +2313,6 @@ TEST_CASE("OBB collision", "[World]") {
         /*Test13*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.48, -4.07, 0.76 }, { 8.64, -4.41, 18.58 }, 1 }, 3.06923695 },
         /*Test14*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 17.48, 2.95, 13.77 }, { -0.82, 3.11, 13.77 }, 1 }, 2.41054264 },
         /*Test15*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.18, 8.56, 4.82 }, { 11.04, -6.44, 15.29 }, 1 }, 0.09912546 },
-
         // OBB.R and caps.r changed
         /*Test16*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.94, -6.06, 5.74 }, { 4.01, -9.86, 0.98 }, 0.5 }, 1.00474115 },
         /*Test17*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.64, 9.52, 11.7 }, { 2.71, 5.72, 6.94 }, 0.5 }, 0.22669533 },
@@ -2359,81 +2330,41 @@ TEST_CASE("OBB collision", "[World]") {
         /*Test29*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 8.94, 3.63, 11.01 }, { 8.94, -2.55, 11.01 }, 0.5 }, 1.24844065 },
         /*Test30*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.91, 5.9, 7.39 }, { 4.14, 5.9, 13.32 }, 0.5 }, 0.40000000 },
     };
-
     // Minkowski sum method
-    for (auto t : test) {
+    for (auto t : test_obb) {
         real dist = distmin(t.box, t.caps);
         // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
     }
-
     // GJK Algorithm
-    for (auto t : test) {
+    for (auto t : test_obb) {
         gjkresult res = GJK_solve_gjk_simple(t.caps, t.box);
         CHECK(abs(res.minimal_distance - t.expected_dist) < TESTCOLL_EPSILON);
     }
-
-    // // points method
-    // for (auto t : test) {
-    //     real dist = dist_OBB_caps(t.box, t.caps);
-    //     CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
-    // }
-
     // boolean GJK algorithm
-    for (auto t : test) {
+    for (auto t : test_obb) {
         bool res = GJK_bool(t.caps, t.box);
         bool expected = (t.expected_dist < 0);
         CHECK(res == expected);
     }
-
-    // boolean GJK algorithm with depth
-    // for (auto t : test) {
-    //     bool_real res = GJK_bool_dist_pen(t.caps, t.box);
-    //     if (t.expected_dist >= 0) {
-    //         bool expected = (t.expected_dist < 0);
-    //         CHECK(res.intersection == expected);
-    //     }
-    //     else {
-    //         CHECK(abs(res.distance - t.expected_dist) < TESTCOLL_EPSILON);
-    //     }
-    // }
-
-
     // Benchmarks
-    BENCHMARK("OBB-caps without GJK") {
-        real dist;
-        for (auto t : test) {
-            dist = distmin(t.box, t.caps);
+    BENCHMARK("Capsule - OBB without GJK (30 objects)") {
+        for (auto t : test_obb) {
+            real dist = distmin(t.box, t.caps);
         }
         return dist;
     };
-    BENCHMARK("OBB-caps with GJK") {
-        gjkresult res;
-        for (auto t : test) {
-            res = GJK_solve_gjk_simple(t.caps, t.box);
+    BENCHMARK("Capsule - OBB with GJK (30 objects)") {
+        for (auto t : test_obb) {
+            gjkresult res = GJK_solve_gjk_simple(t.caps, t.box);
         }
-        return res;
     };
-    // BENCHMARK("OBB-caps with boolean GJK (no distance)") {
-    //     for (auto t : test) {
-    //     bool res = GJK_bool(t.caps, t.box);
-    //     bool expected = (t.expected_dist < 0);
-    //     }
-    // };
-
-
-    // BENCHMARK("OBB-caps with points method") {
-    //     for (auto t : test) {
-    //         real dist = dist_OBB_caps(t.box, t.caps);
-    //     }
-    // };
-    // BENCHMARK("OBB-caps with boolean GJK (with penetration depth))") {
-    //     for (auto t : test) {
-    //     bool res = GJK_bool(t.caps, t.box);
-    //     bool expected = (t.expected_dist < 0);
-    //     }
-    // };
+    BENCHMARK("Capsule - OBB with boolean GJK (30 objects)") {
+        for (auto t : test_obb) {
+            bool res = GJK_bool(t.caps, t.box);
+            bool expected = (t.expected_dist < 0);
+        }
+    };
 }
-
 
 #endif

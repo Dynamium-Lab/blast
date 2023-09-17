@@ -92,7 +92,6 @@ struct cuBspline {
 
 //------ FUNCTIONS ------------------------------------------------------------------------------------
 
-
 host_fn Bspline::Bspline(u32 ncontrol, u32 npoints, u32 P, u32 njoints) :
     traj(npoints, njoints),
     control(ncontrol, njoints),
@@ -169,6 +168,7 @@ host_fn void Bspline::compute_basis() {
 }
 
 host_fn void Bspline::compute_control(const Array &x, const Matrix &task) {
+    using std::isnan;
     Assert(nctrl >= 6);
     const real T = x[x.size - 1];
     const real du = 1.0f / (nctrl - p);
@@ -213,7 +213,7 @@ host_fn u32 Bspline::xlen(Matrix &task) {
     Assert(task.cols == 6);
     auto results = joints * (nctrl - 6) + 1;
     for (u32 i = 0; i < task.size; i++)
-        if (isnan(task.data[i]))
+        if (std::isnan(task.data[i]))
             results++;
     return results;
 }
@@ -257,9 +257,6 @@ host_fn void Bspline::compute_trajectory(const Array &x, Matrix &task) {
         }
     }
 }
-
-
-
 
 host_fn Trajectory compute_5order_trajectory(real T, Matrix &task) {
     const u32 joints = task.rows;
