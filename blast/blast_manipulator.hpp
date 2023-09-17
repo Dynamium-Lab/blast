@@ -109,6 +109,8 @@ struct Gen3_7DOF : public Manipulator {
     Array forward_kinematics(const Array &joint_position);
     Matrix forward_kinematics(const Matrix &joint_positions);
 
+    Array inverse_kinematics(const Array& pose, const Array& initial_joint_position);
+
     // compute jacobian matrix
     Matrix jacobian(const Array &joint_position);
 
@@ -1254,6 +1256,38 @@ host_fn Matrix Gen3_7DOF::forward_kinematics(const Matrix &joint_positions) {
         p += joints;
     }
     return pose;
+}
+
+host_fn Array Gen3_7DOF::inverse_kinematics(const Array& pose, const Array& initial_joint_position) {
+
+
+    const double tolerance = 0.001; // Tolerance for convergence
+    const int max_iter = 100; // Maximum number of iterations
+
+
+    Array current_joint_angles = initial_joint_position;
+
+
+
+    // Iterate until convergence or maximum iterations reached
+    for (int iter = 0; iter < max_iter; ++iter) {
+        // Calculate the current end effector position using forward kinematics
+        Array current_pose = forward_kinematics(current_joint_angles);
+        Array delta_pose = pose - current_pose;
+
+        // Check if the end effector is close enough to the desired position
+        if (close(pose, current_pose, tolerance))
+            break;
+
+        // Calculate the Jacobian matrix
+        Matrix jacobian_matrix = jacobian(current_joint_angles);
+
+        Matrix jacobian_pinv = pinv(jacobian_matrix);
+
+        //current_joint_angles = current_joint_angles + jacobian_pinv * delta_pose;
+    }
+
+    return current_joint_angles;
 }
 
 host_fn Matrix Gen3_7DOF::jacobian(const Array &joint_position) {
