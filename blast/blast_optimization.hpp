@@ -306,7 +306,6 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
     for (int i = 0; i < (int)host_con.size; i++)
         CHECK(abs(host_con[i] - device_manip.host_constraints[i]) < 0.0006);
 
-
     BENCHMARK("Objective function and constraints - CPU only") {
         // random optimization vector
         auto x = blast::random_array(device_pva.host->xlen(task), amp);
@@ -315,7 +314,6 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
         bspline.compute_trajectory(x, task);
         host_manip.constraints(bspline.traj);
     };
-
 
     // BENCHMARK("Objective function and constraints - GPU contraints and trajectory") {
     //     // random optimization vector
@@ -330,7 +328,6 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
     //     cudaDeviceSynchronize();
     // };
 
-
     // BENCHMARK("Objective function and constraints - GPU contraints only") {
     //     // random optimization vector
     //     auto x = blast::random_array(device_pva.host->xlen(task), amp);
@@ -343,72 +340,68 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
     //     cudaDeviceSynchronize();
     // };
 
-
     double in_41[41] {};
     double out[7] {};
     // BENCHMARK("Manipulator dynamics with MDA") {
     //     for (int i = 0; i < (int)points; i++) {
-    //         in_41[0] = host_bspline.traj.pos(0, i);
-    //         in_41[1] = host_bspline.traj.vel(0, i);
-    //         in_41[2] = host_bspline.traj.acc(0, i);
-    //         in_41[3] = host_bspline.traj.pos(1, i);
-    //         in_41[4] = host_bspline.traj.vel(1, i);
-    //         in_41[5] = host_bspline.traj.acc(1, i);
-    //         in_41[6] = host_bspline.traj.pos(2, i);
-    //         in_41[7] = host_bspline.traj.vel(2, i);
-    //         in_41[8] = host_bspline.traj.acc(2, i);
-    //         in_41[9] = host_bspline.traj.pos(3, i);
-    //         in_41[10] = host_bspline.traj.vel(3, i);
-    //         in_41[11] = host_bspline.traj.acc(3, i);
-    //         in_41[12] = host_bspline.traj.pos(4, i);
-    //         in_41[13] = host_bspline.traj.vel(4, i);
-    //         in_41[14] = host_bspline.traj.acc(4, i);
-    //         in_41[15] = host_bspline.traj.pos(5, i);
-    //         in_41[16] = host_bspline.traj.vel(5, i);
-    //         in_41[17] = host_bspline.traj.acc(5, i);
-    //         in_41[18] = host_bspline.traj.pos(6, i);
-    //         in_41[19] = host_bspline.traj.vel(6, i);
-    //         in_41[20] = host_bspline.traj.acc(6, i);
+    //         in_41[0] = bspline.traj.pos(0, i);
+    //         in_41[1] = bspline.traj.vel(0, i);
+    //         in_41[2] = bspline.traj.acc(0, i);
+    //         in_41[3] = bspline.traj.pos(1, i);
+    //         in_41[4] = bspline.traj.vel(1, i);
+    //         in_41[5] = bspline.traj.acc(1, i);
+    //         in_41[6] = bspline.traj.pos(2, i);
+    //         in_41[7] = bspline.traj.vel(2, i);
+    //         in_41[8] = bspline.traj.acc(2, i);
+    //         in_41[9] = bspline.traj.pos(3, i);
+    //         in_41[10] = bspline.traj.vel(3, i);
+    //         in_41[11] = bspline.traj.acc(3, i);
+    //         in_41[12] = bspline.traj.pos(4, i);
+    //         in_41[13] = bspline.traj.vel(4, i);
+    //         in_41[14] = bspline.traj.acc(4, i);
+    //         in_41[15] = bspline.traj.pos(5, i);
+    //         in_41[16] = bspline.traj.vel(5, i);
+    //         in_41[17] = bspline.traj.acc(5, i);
+    //         in_41[18] = bspline.traj.pos(6, i);
+    //         in_41[19] = bspline.traj.vel(6, i);
+    //         in_41[20] = bspline.traj.acc(6, i);
 
     //         dynamics_mda(in_41, out);
     //     }
     // };
 
-
     // BENCHMARK("Manipulator dynamics with MDA2") {
     //     for (int i = 0; i < (int)points; i++) {
-    //         in_41[0] = host_bspline.traj.pos(0, i);
-    //         in_41[1] = host_bspline.traj.vel(0, i);
-    //         in_41[2] = host_bspline.traj.acc(0, i);
-    //         in_41[3] = host_bspline.traj.pos(1, i);
-    //         in_41[4] = host_bspline.traj.vel(1, i);
-    //         in_41[5] = host_bspline.traj.acc(1, i);
-    //         in_41[6] = host_bspline.traj.pos(2, i);
-    //         in_41[7] = host_bspline.traj.vel(2, i);
-    //         in_41[8] = host_bspline.traj.acc(2, i);
-    //         in_41[9] = host_bspline.traj.pos(3, i);
-    //         in_41[10] = host_bspline.traj.vel(3, i);
-    //         in_41[11] = host_bspline.traj.acc(3, i);
-    //         in_41[12] = host_bspline.traj.pos(4, i);
-    //         in_41[13] = host_bspline.traj.vel(4, i);
-    //         in_41[14] = host_bspline.traj.acc(4, i);
-    //         in_41[15] = host_bspline.traj.pos(5, i);
-    //         in_41[16] = host_bspline.traj.vel(5, i);
-    //         in_41[17] = host_bspline.traj.acc(5, i);
-    //         in_41[18] = host_bspline.traj.pos(6, i);
-    //         in_41[19] = host_bspline.traj.vel(6, i);
-    //         in_41[20] = host_bspline.traj.acc(6, i);
+    //         in_41[0] = bspline.traj.pos(0, i);
+    //         in_41[1] = bspline.traj.vel(0, i);
+    //         in_41[2] = bspline.traj.acc(0, i);
+    //         in_41[3] = bspline.traj.pos(1, i);
+    //         in_41[4] = bspline.traj.vel(1, i);
+    //         in_41[5] = bspline.traj.acc(1, i);
+    //         in_41[6] = bspline.traj.pos(2, i);
+    //         in_41[7] = bspline.traj.vel(2, i);
+    //         in_41[8] = bspline.traj.acc(2, i);
+    //         in_41[9] = bspline.traj.pos(3, i);
+    //         in_41[10] = bspline.traj.vel(3, i);
+    //         in_41[11] = bspline.traj.acc(3, i);
+    //         in_41[12] = bspline.traj.pos(4, i);
+    //         in_41[13] = bspline.traj.vel(4, i);
+    //         in_41[14] = bspline.traj.acc(4, i);
+    //         in_41[15] = bspline.traj.pos(5, i);
+    //         in_41[16] = bspline.traj.vel(5, i);
+    //         in_41[17] = bspline.traj.acc(5, i);
+    //         in_41[18] = bspline.traj.pos(6, i);
+    //         in_41[19] = bspline.traj.vel(6, i);
+    //         in_41[20] = bspline.traj.acc(6, i);
 
     //         dynamics_mda2(in_41, out);
     //     }
     //     return out;
     // };
 
-
     // BENCHMARK("Manipulator dynamics with MDA3") {
-    //     return dynamics_mda3(host_bspline.traj, in_41, out);
+    //     return dynamics_mda3(bspline.traj, in_41, out);
     // };
-
 
     Array in_21 = random_array(21, 1.0);
     double out_7[7] {};
@@ -418,69 +411,66 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
         return out_7;
     };
 
-
     // BENCHMARK("Manipulator dynamics with MDA NoSimp Opt1") {
     //     for (int i = 0; i < (int)points; i++) {
-    //         in_41[0] = host_bspline.traj.pos(0, i);
-    //         in_41[1] = host_bspline.traj.vel(0, i);
-    //         in_41[2] = host_bspline.traj.acc(0, i);
-    //         in_41[3] = host_bspline.traj.pos(1, i);
-    //         in_41[4] = host_bspline.traj.vel(1, i);
-    //         in_41[5] = host_bspline.traj.acc(1, i);
-    //         in_41[6] = host_bspline.traj.pos(2, i);
-    //         in_41[7] = host_bspline.traj.vel(2, i);
-    //         in_41[8] = host_bspline.traj.acc(2, i);
-    //         in_41[9] = host_bspline.traj.pos(3, i);
-    //         in_41[10] = host_bspline.traj.vel(3, i);
-    //         in_41[11] = host_bspline.traj.acc(3, i);
-    //         in_41[12] = host_bspline.traj.pos(4, i);
-    //         in_41[13] = host_bspline.traj.vel(4, i);
-    //         in_41[14] = host_bspline.traj.acc(4, i);
-    //         in_41[15] = host_bspline.traj.pos(5, i);
-    //         in_41[16] = host_bspline.traj.vel(5, i);
-    //         in_41[17] = host_bspline.traj.acc(5, i);
-    //         in_41[18] = host_bspline.traj.pos(6, i);
-    //         in_41[19] = host_bspline.traj.vel(6, i);
-    //         in_41[20] = host_bspline.traj.acc(6, i);
+    //         in_41[0] = bspline.traj.pos(0, i);
+    //         in_41[1] = bspline.traj.vel(0, i);
+    //         in_41[2] = bspline.traj.acc(0, i);
+    //         in_41[3] = bspline.traj.pos(1, i);
+    //         in_41[4] = bspline.traj.vel(1, i);
+    //         in_41[5] = bspline.traj.acc(1, i);
+    //         in_41[6] = bspline.traj.pos(2, i);
+    //         in_41[7] = bspline.traj.vel(2, i);
+    //         in_41[8] = bspline.traj.acc(2, i);
+    //         in_41[9] = bspline.traj.pos(3, i);
+    //         in_41[10] = bspline.traj.vel(3, i);
+    //         in_41[11] = bspline.traj.acc(3, i);
+    //         in_41[12] = bspline.traj.pos(4, i);
+    //         in_41[13] = bspline.traj.vel(4, i);
+    //         in_41[14] = bspline.traj.acc(4, i);
+    //         in_41[15] = bspline.traj.pos(5, i);
+    //         in_41[16] = bspline.traj.vel(5, i);
+    //         in_41[17] = bspline.traj.acc(5, i);
+    //         in_41[18] = bspline.traj.pos(6, i);
+    //         in_41[19] = bspline.traj.vel(6, i);
+    //         in_41[20] = bspline.traj.acc(6, i);
 
     //         dynamics_mda_nosimp_opt1(in_41, out);
     //     }
     //     return out;
     // };
 
-
     BENCHMARK("Manipulator dynamics with MDA NoSimp Opt2") {
         for (int i = 0; i < (int)points; i++) {
-            in_41[0] = host_bspline.traj.pos(0, i);
-            in_41[1] = host_bspline.traj.vel(0, i);
-            in_41[2] = host_bspline.traj.acc(0, i);
-            in_41[3] = host_bspline.traj.pos(1, i);
-            in_41[4] = host_bspline.traj.vel(1, i);
-            in_41[5] = host_bspline.traj.acc(1, i);
-            in_41[6] = host_bspline.traj.pos(2, i);
-            in_41[7] = host_bspline.traj.vel(2, i);
-            in_41[8] = host_bspline.traj.acc(2, i);
-            in_41[9] = host_bspline.traj.pos(3, i);
-            in_41[10] = host_bspline.traj.vel(3, i);
-            in_41[11] = host_bspline.traj.acc(3, i);
-            in_41[12] = host_bspline.traj.pos(4, i);
-            in_41[13] = host_bspline.traj.vel(4, i);
-            in_41[14] = host_bspline.traj.acc(4, i);
-            in_41[15] = host_bspline.traj.pos(5, i);
-            in_41[16] = host_bspline.traj.vel(5, i);
-            in_41[17] = host_bspline.traj.acc(5, i);
-            in_41[18] = host_bspline.traj.pos(6, i);
-            in_41[19] = host_bspline.traj.vel(6, i);
-            in_41[20] = host_bspline.traj.acc(6, i);
+            in_41[0] = bspline.traj.pos(0, i);
+            in_41[1] = bspline.traj.vel(0, i);
+            in_41[2] = bspline.traj.acc(0, i);
+            in_41[3] = bspline.traj.pos(1, i);
+            in_41[4] = bspline.traj.vel(1, i);
+            in_41[5] = bspline.traj.acc(1, i);
+            in_41[6] = bspline.traj.pos(2, i);
+            in_41[7] = bspline.traj.vel(2, i);
+            in_41[8] = bspline.traj.acc(2, i);
+            in_41[9] = bspline.traj.pos(3, i);
+            in_41[10] = bspline.traj.vel(3, i);
+            in_41[11] = bspline.traj.acc(3, i);
+            in_41[12] = bspline.traj.pos(4, i);
+            in_41[13] = bspline.traj.vel(4, i);
+            in_41[14] = bspline.traj.acc(4, i);
+            in_41[15] = bspline.traj.pos(5, i);
+            in_41[16] = bspline.traj.vel(5, i);
+            in_41[17] = bspline.traj.acc(5, i);
+            in_41[18] = bspline.traj.pos(6, i);
+            in_41[19] = bspline.traj.vel(6, i);
+            in_41[20] = bspline.traj.acc(6, i);
 
             dynamics_mda_nosimp_opt2(in_41, out);
         }
         return out;
     };
 
-
     BENCHMARK("Manipulator dynamics with MDA NoSimp Opt2 with simd trig functions") {
-        dynamics_mda_nosimp_opt2_custom(host_bspline.traj, in_41, out);
+        dynamics_mda_nosimp_opt2_custom(bspline.traj, in_41, out);
         return out;
     };
 

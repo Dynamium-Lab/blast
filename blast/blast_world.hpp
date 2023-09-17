@@ -2349,21 +2349,25 @@ TEST_CASE("Collisions", "[World]") {
     }
     // Benchmarks
     BENCHMARK("Capsule - OBB without GJK (30 objects)") {
+        real dist = 0;
         for (auto t : test_obb) {
-            real dist = distmin(t.box, t.caps);
+            dist = distmin(t.box, t.caps);
         }
         return dist;
     };
     BENCHMARK("Capsule - OBB with GJK (30 objects)") {
+        gjkresult res;
         for (auto t : test_obb) {
-            gjkresult res = GJK_solve_gjk_simple(t.caps, t.box);
+            res = GJK_solve_gjk_simple(t.caps, t.box);
         }
+        return res;
     };
     BENCHMARK("Capsule - OBB with boolean GJK (30 objects)") {
+        bool res;
         for (auto t : test_obb) {
-            bool res = GJK_bool(t.caps, t.box);
-            bool expected = (t.expected_dist < 0);
+            res = GJK_bool(t.caps, t.box);
         }
+        return res;
     };
 }
 
