@@ -34,10 +34,19 @@ struct Bspline {
     // Compute a trajectory from the given optimization vector
     //  - note: fastest when 'ncontrol' is a multiple of 4 (SIMD)
     host_fn void compute_trajectory(const Array &x, Matrix &task);
-    host_fn u32 xlen(Matrix &task);
+    host_fn u32 xlen(const Matrix &task) {
+        Assert(task.rows == joints);
+        Assert(task.cols == 6);
+        auto results = joints * (nctrl - 6) + 1;
+        for (u32 i = 0; i < task.size; i++)
+            if (std::isnan(task.data[i]))
+                results++;
+        return results;
+    }
 
     host_fn void compute_basis();
     host_fn void compute_control(const Array &x, const Matrix &task);
+    host_fn void compute_control(const Array &x, const Matrix &task, real *dst);
 };
 
 //------ FUNCTIONS ------------------------------------------------------------------------------------
@@ -118,6 +127,10 @@ host_fn void Bspline::compute_basis() {
 }
 
 host_fn void Bspline::compute_control(const Array &x, const Matrix &task) {
+    compute_control(x, task, control.data);
+}
+
+host_fn void Bspline::compute_control(const Array &x, const Matrix &task, real *dst) {
     using std::isnan;
     Assert(nctrl >= 6);
     const real T = x[x.size - 1];
@@ -128,7 +141,7 @@ host_fn void Bspline::compute_control(const Array &x, const Matrix &task) {
 
     u32 ctr_i = 0;
     u32 x_i = 0;
-    auto ctr = control.data;
+    auto ctr = dst;
 
     const real Kv = T * du / p;
     const real Ka = 2 * T2 * du * du / (p * (p - 1));
@@ -156,16 +169,6 @@ host_fn void Bspline::compute_control(const Array &x, const Matrix &task) {
         ctr[ctr_i++] = Pn_minus_1;
         ctr[ctr_i++] = Pn;
     }
-}
-
-host_fn u32 Bspline::xlen(Matrix &task) {
-    Assert(task.rows == joints);
-    Assert(task.cols == 6);
-    auto results = joints * (nctrl - 6) + 1;
-    for (u32 i = 0; i < task.size; i++)
-        if (std::isnan(task.data[i]))
-            results++;
-    return results;
 }
 
 /**
