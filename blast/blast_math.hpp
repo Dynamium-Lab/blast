@@ -228,7 +228,7 @@ struct Array {
 
     // map the array to the data of the given std::vector<real>
     //  - note: becomes an alias
-    host_fn Array& alias(std::vector<real>&);
+    host_fn Array& alias(svector&);
 
     // map the array to the data of the given matrix
     //  - note: interpret all the data of the matrix as one long array, becomes an alias)
@@ -242,7 +242,7 @@ struct Array {
     // resize the array
     //  - note: old pointers (aliases) to this data may be invalidated
     //  - note: fails if the array is an alias
-    blast_fn void resize(u32 new_size);
+    host_fn void resize(u32 new_size);
 
     // access the last element
     blast_fn real& back();
@@ -1071,7 +1071,7 @@ blast_fn Array& Array::alias(const real* p, u32 n) {
     return *this;
 }
 
-blast_fn void Array::resize(u32 new_size) {
+host_fn void Array::resize(u32 new_size) {
     Assert(!is_alias);
     if (new_size > size) {
         data = (real*)realloc(data, new_size*sizeof(real));
@@ -1476,9 +1476,6 @@ blast_fn Matrix pinv(const Matrix& m) {
     return res;
 }
 
-
-
-
 //------ Collision ---------------------
 
 blast_fn real clamped_root(real slope, real h0, real h1) {
@@ -1844,7 +1841,6 @@ TEST_CASE("MatrixOperations", "[Math]") {
     REQUIRE(mT(1, 0) == m(0, 1));
     REQUIRE(mT(1, 1) == m(1, 1));
     REQUIRE(mT(1, 2) == m(2, 1));
-
 
     blast::Matrix m2(2, 3);
     for (int i = 0; i < m2.size; i++)
