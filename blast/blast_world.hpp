@@ -1614,7 +1614,9 @@ host_fn gjkresult GJK_solve_gjk_simple(capsule caps, OBB box) {
     return results;
 }
 
-// Boolean GJK algorithm
+// ======================================
+//      Boolean GJK algorithm
+// ======================================
 
 host_fn Vec3 GJK_find_direction2(bool_simplex& simplex) {
     Vec3 ab = simplex.b - simplex.a;
