@@ -1858,6 +1858,28 @@ TEST_CASE("MatrixOperations", "[Math]") {
         REQUIRE(mT(1, 2) == m(2, 1));
     }
 
+    SECTION("m * m2") {
+        Matrix m2(2, 3);
+        Matrix m(3, 2);
+        for (int i = 0; i < m.size; i++)
+            m.data[i] = i;
+        for (int i = 0; i < m2.size; i++)
+            m2.data[i] = i+1;
+
+        auto m3 = m * m2;
+        REQUIRE(m3.cols == 3);
+        REQUIRE(m3.rows == 3);
+        REQUIRE(m3(0, 0) == 6);
+        REQUIRE(m3(0, 1) == 12);
+        REQUIRE(m3(0, 2) == 18);
+        REQUIRE(m3(1, 0) == 9);
+        REQUIRE(m3(1, 1) == 19);
+        REQUIRE(m3(1, 2) == 29);
+        REQUIRE(m3(2, 0) == 12);
+        REQUIRE(m3(2, 1) == 26);
+        REQUIRE(m3(2, 2) == 40);
+    }
+
     SECTION("Identity matrix") {
         Matrix identity;
         identity = eye(4);
