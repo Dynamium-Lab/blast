@@ -22,11 +22,20 @@ int main() {
         for (u32 j = 0; j < task.cols; j++)
             task(i, j) = amp * get_random();
 
+    Optimisation opt{&manip, &task, &pva};
+
     // random optimization vector
     Array x(bspline.xlen(task));
     for (u32 i = 0; i < x.size; i++)
         x[i] = amp * get_random();
     x[x.size-1] = 5;
+
+    {
+        Array cstr(manip.ncon(npts));
+        auto f = obj_time(x.size, x.data, nullptr, nullptr);
+        cstr_manip(manip.ncon(npts), cstr.data, x.size, x.data, nullptr, &opt);
+        // add penalty for values in cstr that are positive
+    }
 
     // Compute trajectory
     bspline.compute_trajectory(x, task);

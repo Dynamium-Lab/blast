@@ -2,9 +2,7 @@
 #include "blast.hpp"
 #include "blast_math.hpp"
 
-
 namespace blast {
-
 
 struct Optimisation {
     blast::Manipulator*    manip;
@@ -12,12 +10,10 @@ struct Optimisation {
     blast::Bspline*        bspline;
 };
 
-
 //--------- OBJECTIVES AND CONSTRAINTS ----------------------------------------------------------
 
 host_fn double obj_time(unsigned n, const double* x, double* grad, void*);
 host_fn void cstr_manip(unsigned m, double *result, unsigned n, const double* x, double* grad, void* data);
-
 
 //--------- INITIAL GUESS GENERATION ----------------------------------------------------------
 
@@ -47,11 +43,6 @@ host_fn Array guess_shot_max(Gen3_7DOF& manip, Bspline& bspline, Matrix& task, i
 // Return the best vector
 host_fn Array guess_shot_mean(Gen3_7DOF& manip, Bspline& bspline, Matrix& task, int nshotgun);
 
-
-
-
-
-
 // note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
 // compute the trajectory and the constraints (slower, but access to trajectory)
@@ -60,8 +51,6 @@ __global__ void pva_constraints_kernel(cuBspline pva);
 // compute the constraints, but don't store the trajectory (faster, but no access to trajectory)
 __global__ void constraints_no_pva_kernel(cuBspline pva);
 #endif
-
-
 
 //--------- OBJECTIVES AND CONSTRAINTS ----------------------------------------------------------
 
@@ -90,7 +79,6 @@ host_fn void internal_cstr_manip_single(unsigned m, double* result, unsigned n, 
     opt->manip->constraints(opt->bspline->traj, result);
     // todo: add collision detection
 }
-
 
 // Simple manipulator defined constraints function.
 //  The given manipulator's constraints function is called and no additionnal constraints are added.
@@ -122,8 +110,6 @@ host_fn void cstr_manip(unsigned m, double *result, unsigned n, const double* x,
         }
     }
 }
-
-
 
 //--------- INITIAL GUESS GENERATION ----------------------------------------------------------
 host_fn Array guess_random(Gen3_7DOF& manip, Bspline& bspline, Matrix& task) {
@@ -167,9 +153,6 @@ host_fn Array guess_shot_mean(Gen3_7DOF& manip, Bspline& bspline, Matrix& task, 
     }
     return best_x;
 }
-
-
-
 
 // note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
@@ -220,7 +203,6 @@ __global__ void constraints_no_pva_kernel(cuBspline pva) {
     manip->compute_constraints(pos, vel, acc, manip->device_constraints + constraints_offset);
 }
 
-
 // kernel that uses shared memory to speed up constraint computation
 __global__ void constraints_shared_kernel(cuBspline pva) {
     const u32 point = blockIdx.x * blockDim.x + threadIdx.x;
@@ -263,7 +245,6 @@ __global__ void constraints_shared_kernel(cuBspline pva) {
     manip->compute_constraints(pos, vel, acc, manip->device_constraints + constraints_offset);
 }
 #endif
-
 
 } // namespace blast
 
@@ -334,43 +315,165 @@ TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
         host_manip.constraints(bspline.traj);
     };
 
-    BENCHMARK("Objective function and constraints - GPU contraints and trajectory") {
-        // random optimization vector
-        auto x = blast::random_array(device_pva.host->xlen(task), amp);
-        x.back() = std::abs(x.back());
-        // compute trajectory
-        device_pva.compute_control_and_send(x, task);
-        pva_constraints_kernel<<< nblocks, points/nblocks >>>(device_pva);
-        cuda_check_kernel;
-        device_pva.fetch_pva();
-        device_manip.fetch_constraints(points);
-        cudaDeviceSynchronize();
+    // BENCHMARK("Objective function and constraints - GPU contraints and trajectory") {
+    //     // random optimization vector
+    //     auto x = blast::random_array(device_pva.host->xlen(task), amp);
+    //     x.back() = std::abs(x.back());
+    //     // compute trajectory
+    //     device_pva.compute_control_and_send(x, task);
+    //     pva_constraints_kernel<<< nblocks, points/nblocks >>>(device_pva);
+    //     cuda_check_kernel;
+    //     device_pva.fetch_pva();
+    //     device_manip.fetch_constraints(points);
+    //     cudaDeviceSynchronize();
+    // };
+
+    // BENCHMARK("Objective function and constraints - GPU contraints only") {
+    //     // random optimization vector
+    //     auto x = blast::random_array(device_pva.host->xlen(task), amp);
+    //     x.back() = std::abs(x.back());
+    //     // compute trajectory
+    //     device_pva.compute_control_and_send(x, task);
+    //     constraints_no_pva_kernel<<< nblocks, points/nblocks >>>(device_pva);
+    //     cuda_check_kernel;
+    //     device_manip.fetch_constraints(points);
+    //     cudaDeviceSynchronize();
+    // };
+
+    double in_41[41] {};
+    double out[7] {};
+    // BENCHMARK("Manipulator dynamics with MDA") {
+    //     for (int i = 0; i < (int)points; i++) {
+    //         in_41[0] = bspline.traj.pos(0, i);
+    //         in_41[1] = bspline.traj.vel(0, i);
+    //         in_41[2] = bspline.traj.acc(0, i);
+    //         in_41[3] = bspline.traj.pos(1, i);
+    //         in_41[4] = bspline.traj.vel(1, i);
+    //         in_41[5] = bspline.traj.acc(1, i);
+    //         in_41[6] = bspline.traj.pos(2, i);
+    //         in_41[7] = bspline.traj.vel(2, i);
+    //         in_41[8] = bspline.traj.acc(2, i);
+    //         in_41[9] = bspline.traj.pos(3, i);
+    //         in_41[10] = bspline.traj.vel(3, i);
+    //         in_41[11] = bspline.traj.acc(3, i);
+    //         in_41[12] = bspline.traj.pos(4, i);
+    //         in_41[13] = bspline.traj.vel(4, i);
+    //         in_41[14] = bspline.traj.acc(4, i);
+    //         in_41[15] = bspline.traj.pos(5, i);
+    //         in_41[16] = bspline.traj.vel(5, i);
+    //         in_41[17] = bspline.traj.acc(5, i);
+    //         in_41[18] = bspline.traj.pos(6, i);
+    //         in_41[19] = bspline.traj.vel(6, i);
+    //         in_41[20] = bspline.traj.acc(6, i);
+
+    //         dynamics_mda(in_41, out);
+    //     }
+    // };
+
+    // BENCHMARK("Manipulator dynamics with MDA2") {
+    //     for (int i = 0; i < (int)points; i++) {
+    //         in_41[0] = bspline.traj.pos(0, i);
+    //         in_41[1] = bspline.traj.vel(0, i);
+    //         in_41[2] = bspline.traj.acc(0, i);
+    //         in_41[3] = bspline.traj.pos(1, i);
+    //         in_41[4] = bspline.traj.vel(1, i);
+    //         in_41[5] = bspline.traj.acc(1, i);
+    //         in_41[6] = bspline.traj.pos(2, i);
+    //         in_41[7] = bspline.traj.vel(2, i);
+    //         in_41[8] = bspline.traj.acc(2, i);
+    //         in_41[9] = bspline.traj.pos(3, i);
+    //         in_41[10] = bspline.traj.vel(3, i);
+    //         in_41[11] = bspline.traj.acc(3, i);
+    //         in_41[12] = bspline.traj.pos(4, i);
+    //         in_41[13] = bspline.traj.vel(4, i);
+    //         in_41[14] = bspline.traj.acc(4, i);
+    //         in_41[15] = bspline.traj.pos(5, i);
+    //         in_41[16] = bspline.traj.vel(5, i);
+    //         in_41[17] = bspline.traj.acc(5, i);
+    //         in_41[18] = bspline.traj.pos(6, i);
+    //         in_41[19] = bspline.traj.vel(6, i);
+    //         in_41[20] = bspline.traj.acc(6, i);
+
+    //         dynamics_mda2(in_41, out);
+    //     }
+    //     return out;
+    // };
+
+    // BENCHMARK("Manipulator dynamics with MDA3") {
+    //     return dynamics_mda3(bspline.traj, in_41, out);
+    // };
+
+    Array in_21 = random_array(21, 1.0);
+    double out_7[7] {};
+    BENCHMARK("Manipulator dynamics with MDA reduced NoSimp Opt1") {
+        for (int i = 0; i < (int)points; i++)
+            dynamics_mda_reduct_nosimp_opt1(in_21.data, out_7);
+        return out_7;
     };
 
-    BENCHMARK("Objective function and constraints - GPU contraints and trajectory") {
-        // random optimization vector
-        auto x = blast::random_array(device_pva.host->xlen(task), amp);
-        x.back() = std::abs(x.back());
-        // compute trajectory
-        device_pva.compute_control_and_send(x, task);
-        pva_constraints_kernel<<< nblocks, points/nblocks >>>(device_pva);
-        cuda_check_kernel;
-        device_pva.fetch_pva();
-        device_manip.fetch_constraints(points);
-        cudaDeviceSynchronize();
+    // BENCHMARK("Manipulator dynamics with MDA NoSimp Opt1") {
+    //     for (int i = 0; i < (int)points; i++) {
+    //         in_41[0] = bspline.traj.pos(0, i);
+    //         in_41[1] = bspline.traj.vel(0, i);
+    //         in_41[2] = bspline.traj.acc(0, i);
+    //         in_41[3] = bspline.traj.pos(1, i);
+    //         in_41[4] = bspline.traj.vel(1, i);
+    //         in_41[5] = bspline.traj.acc(1, i);
+    //         in_41[6] = bspline.traj.pos(2, i);
+    //         in_41[7] = bspline.traj.vel(2, i);
+    //         in_41[8] = bspline.traj.acc(2, i);
+    //         in_41[9] = bspline.traj.pos(3, i);
+    //         in_41[10] = bspline.traj.vel(3, i);
+    //         in_41[11] = bspline.traj.acc(3, i);
+    //         in_41[12] = bspline.traj.pos(4, i);
+    //         in_41[13] = bspline.traj.vel(4, i);
+    //         in_41[14] = bspline.traj.acc(4, i);
+    //         in_41[15] = bspline.traj.pos(5, i);
+    //         in_41[16] = bspline.traj.vel(5, i);
+    //         in_41[17] = bspline.traj.acc(5, i);
+    //         in_41[18] = bspline.traj.pos(6, i);
+    //         in_41[19] = bspline.traj.vel(6, i);
+    //         in_41[20] = bspline.traj.acc(6, i);
+
+    //         dynamics_mda_nosimp_opt1(in_41, out);
+    //     }
+    //     return out;
+    // };
+
+    BENCHMARK("Manipulator dynamics with MDA NoSimp Opt2") {
+        for (int i = 0; i < (int)points; i++) {
+            in_41[0] = bspline.traj.pos(0, i);
+            in_41[1] = bspline.traj.vel(0, i);
+            in_41[2] = bspline.traj.acc(0, i);
+            in_41[3] = bspline.traj.pos(1, i);
+            in_41[4] = bspline.traj.vel(1, i);
+            in_41[5] = bspline.traj.acc(1, i);
+            in_41[6] = bspline.traj.pos(2, i);
+            in_41[7] = bspline.traj.vel(2, i);
+            in_41[8] = bspline.traj.acc(2, i);
+            in_41[9] = bspline.traj.pos(3, i);
+            in_41[10] = bspline.traj.vel(3, i);
+            in_41[11] = bspline.traj.acc(3, i);
+            in_41[12] = bspline.traj.pos(4, i);
+            in_41[13] = bspline.traj.vel(4, i);
+            in_41[14] = bspline.traj.acc(4, i);
+            in_41[15] = bspline.traj.pos(5, i);
+            in_41[16] = bspline.traj.vel(5, i);
+            in_41[17] = bspline.traj.acc(5, i);
+            in_41[18] = bspline.traj.pos(6, i);
+            in_41[19] = bspline.traj.vel(6, i);
+            in_41[20] = bspline.traj.acc(6, i);
+
+            dynamics_mda_nosimp_opt2(in_41, out);
+        }
+        return out;
     };
 
-    BENCHMARK("Objective function and constraints - GPU contraints only") {
-        // random optimization vector
-        auto x = blast::random_array(device_pva.host->xlen(task), amp);
-        x.back() = std::abs(x.back());
-        // compute trajectory
-        device_pva.compute_control_and_send(x, task);
-        constraints_no_pva_kernel<<< nblocks, points/nblocks >>>(device_pva);
-        cuda_check_kernel;
-        device_manip.fetch_constraints(points);
-        cudaDeviceSynchronize();
+    BENCHMARK("Manipulator dynamics with MDA NoSimp Opt2 with simd trig functions") {
+        dynamics_mda_nosimp_opt2_custom(bspline.traj, in_41, out);
+        return out;
     };
+
 }
 #endif // nvcc
 #endif // tests

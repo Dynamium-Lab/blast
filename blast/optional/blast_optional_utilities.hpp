@@ -27,7 +27,7 @@ blast_fn void print(Mat3 m) {
            m(0, 0), m(0, 1), m(0, 2), m(1, 0), m(1, 1), m(1, 2), m(2, 0), m(2, 1), m(2, 2));
 }
 
-blast_fn void print(Array& a) {
+blast_fn void print(const Array& a) {
     using namespace std;
     if(a.size == 0)
         return;
@@ -37,7 +37,7 @@ blast_fn void print(Array& a) {
     printf("% 0.4f]\n", a[a.size-1]);
 }
 
-blast_fn void print(Matrix& m) {
+blast_fn void print(const Matrix& m) {
     if(m.size == 0)
         return;
     for (u32 i = 0; i < m.rows; i++) {

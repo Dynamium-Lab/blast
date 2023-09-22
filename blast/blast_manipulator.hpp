@@ -1,6 +1,7 @@
 #pragma once
 
 #include "blast_math.hpp"
+#include "dynamics/blast_dynamics_MDA.hpp"
 #include <vector>
 #include <cmath>
 
@@ -109,6 +110,8 @@ struct Gen3_7DOF : public Manipulator {
     Array forward_kinematics(const Array &joint_position);
     Matrix forward_kinematics(const Matrix &joint_positions);
 
+    Array inverse_kinematics(const Array& pose, const Array& initial_joint_position);
+
     // compute jacobian matrix
     Matrix jacobian(const Array &joint_position);
 
@@ -144,9 +147,6 @@ struct Gen3_7DOF : public Manipulator {
         return (5 + 2 + 7 * 2) * npoints;
     }
 };
-
-
-
 
 // note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
@@ -184,8 +184,6 @@ struct cuGen3_7DOF {
 };
 #endif
 
-
-
 //------ Universal Robots UR5e manipulator functions ---------------------------------
 
 host_fn void ManipulatorUR5::dynamics(const Trajectory &traj, Matrix &efforts) {
@@ -220,39 +218,44 @@ host_fn void ManipulatorUR5::dynamics(const Trajectory &traj, Matrix &efforts) {
         acc6 = traj.acc(5, i);
 
         // SIMD compute sines and cosines note: approx 10% faster
-        const auto p = &traj.pos.data[i * joints];
+        // const auto p = &traj.pos.data[i * joints];
 
-#if BLAST_SIZEOF_REAL == 8
-        real s[6];
-        real c[6];
-        // first 4
-        {
-            __m256d s_tmp;
-            __m256d c_tmp;
-            __m256d angle_v = _mm256_load_pd(p);
-            s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-            _mm256_storeu_pd(s, s_tmp);
-            _mm256_storeu_pd(c, c_tmp);
-        }
-        // 5 and 6
-        {
-            __m128d angle_v = _mm_load_pd(p + 4);
-            __m128d s_tmp;
-            __m128d c_tmp;
-            s_tmp = _mm_sincos_pd(&c_tmp, angle_v);
-            _mm_storeu_pd(s + 4, s_tmp);
-            _mm_storeu_pd(c + 4, c_tmp);
-        }
-#else
-        real s[8];
-        real c[8];
-        __m256 s_tmp;
-        __m256 c_tmp;
-        __m256 angle_v = _mm256_load_ps(p);
-        s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
-        _mm256_storeu_ps(s, s_tmp);
-        _mm256_storeu_ps(c, c_tmp);
-#endif
+        const auto p = traj.pos.col(i);
+        Array s(8);
+        Array c(8);
+        blast::sincos(p, s, c);
+
+// #if BLAST_SIZEOF_REAL == 8
+//         real s[6];
+//         real c[6];
+//         // first 4
+//         {
+//             __m256d s_tmp;
+//             __m256d c_tmp;
+//             __m256d angle_v = _mm256_load_pd(p);
+//             s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+//             _mm256_storeu_pd(s, s_tmp);
+//             _mm256_storeu_pd(c, c_tmp);
+//         }
+//         // 5 and 6
+//         {
+//             __m128d angle_v = _mm_load_pd(p + 4);
+//             __m128d s_tmp;
+//             __m128d c_tmp;
+//             s_tmp = _mm_sincos_pd(&c_tmp, angle_v);
+//             _mm_storeu_pd(s + 4, s_tmp);
+//             _mm_storeu_pd(c + 4, c_tmp);
+//         }
+// #else
+//         real s[8];
+//         real c[8];
+//         __m256 s_tmp;
+//         __m256 c_tmp;
+//         __m256 angle_v = _mm256_load_ps(p);
+//         s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
+//         _mm256_storeu_ps(s, s_tmp);
+//         _mm256_storeu_ps(c, c_tmp);
+// #endif
 
         Q1(0, 0) = c[0];
         Q1(1, 0) = s[0];
@@ -536,38 +539,42 @@ host_fn void Gen3Lite::dynamics(const Matrix &pos, const Matrix &vel, const Matr
         auto a = &acc.data[i * joints];
 
         // SIMD compute sines and cosines note: approx 10% faster
-        auto p = &pos.data[i * joints];
-#if BLAST_SIZEOF_REAL == 8 // double precision
-        real s[6];
-        real c[6];
-        // first 4
-        {
-            __m256d s_tmp;
-            __m256d c_tmp;
-            __m256d angle_v = _mm256_load_pd(p);
-            s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-            _mm256_storeu_pd(s, s_tmp);
-            _mm256_storeu_pd(c, c_tmp);
-        }
-        // 5 and 6
-        {
-            __m128d angle_v = _mm_load_pd(p + 4);
-            __m128d s_tmp;
-            __m128d c_tmp;
-            s_tmp = _mm_sincos_pd(&c_tmp, angle_v);
-            _mm_storeu_pd(s + 4, s_tmp);
-            _mm_storeu_pd(c + 4, c_tmp);
-        }
-#else
-        real s[8];
-        real c[8];
-        __m256 s_tmp;
-        __m256 c_tmp;
-        __m256 angle_v = _mm256_load_ps(p);
-        s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
-        _mm256_storeu_ps(s, s_tmp);
-        _mm256_storeu_ps(c, c_tmp);
-#endif
+        const auto p = pos.col(i);
+        Array s(8);
+        Array c(8);
+        blast::sincos(p, s, c);
+//         auto p = &pos.data[i * joints];
+// #if BLAST_SIZEOF_REAL == 8 // double precision
+//         real s[6];
+//         real c[6];
+//         // first 4
+//         {
+//             __m256d s_tmp;
+//             __m256d c_tmp;
+//             __m256d angle_v = _mm256_load_pd(p);
+//             s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+//             _mm256_storeu_pd(s, s_tmp);
+//             _mm256_storeu_pd(c, c_tmp);
+//         }
+//         // 5 and 6
+//         {
+//             __m128d angle_v = _mm_load_pd(p + 4);
+//             __m128d s_tmp;
+//             __m128d c_tmp;
+//             s_tmp = _mm_sincos_pd(&c_tmp, angle_v);
+//             _mm_storeu_pd(s + 4, s_tmp);
+//             _mm_storeu_pd(c + 4, c_tmp);
+//         }
+// #else
+//         real s[8];
+//         real c[8];
+//         __m256 s_tmp;
+//         __m256 c_tmp;
+//         __m256 angle_v = _mm256_load_ps(p);
+//         s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
+//         _mm256_storeu_ps(s, s_tmp);
+//         _mm256_storeu_ps(c, c_tmp);
+// #endif
 
         Q1 = {c[0],   s[0],     0,        -s[0],     c[0],      0,              0,      0,    1};
         Q2 = {c[1],      0,  s[1],        -s[1],        0,   c[1],              0,     -1,    0};
@@ -640,40 +647,44 @@ host_fn void Gen3Lite::dynamics(const Matrix &pos, const Matrix &vel, const Matr
 }
 
 host_fn Array Gen3Lite::forward_kinematics(Array &joint_position) {
-    auto p = joint_position.data;
+    // auto p = joint_position.data;
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
 
-#if BLAST_SIZEOF_REAL == 8 // double precision
-    real s[6];
-    real c[6];
-    // first 4
-    {
-        __m256d s_tmp;
-        __m256d c_tmp;
-        __m256d angle_v = _mm256_load_pd(p);
-        s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-        _mm256_storeu_pd(s, s_tmp);
-        _mm256_storeu_pd(c, c_tmp);
-    }
-    // 5 and 6
-    {
-        __m128d angle_v = _mm_load_pd(p + 4);
-        __m128d s_tmp;
-        __m128d c_tmp;
-        s_tmp = _mm_sincos_pd(&c_tmp, angle_v);
-        _mm_storeu_pd(s + 4, s_tmp);
-        _mm_storeu_pd(c + 4, c_tmp);
-    }
-#else // single precision
-    real s[8];
-    real c[8];
-    __m256 s_tmp;
-    __m256 c_tmp;
-    __m256 angle_v = _mm256_load_ps(p);
-    s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
-    _mm256_storeu_ps(s, s_tmp);
-    _mm256_storeu_ps(c, c_tmp);
-#endif
+    Array s(8);
+    Array c(8);
+    blast::sincos(joint_position, s, c);
+
+// #if BLAST_SIZEOF_REAL == 8 // double precision
+//     real s[6];
+//     real c[6];
+//     // first 4
+//     {
+//         __m256d s_tmp;
+//         __m256d c_tmp;
+//         __m256d angle_v = _mm256_load_pd(p);
+//         s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+//         _mm256_storeu_pd(s, s_tmp);
+//         _mm256_storeu_pd(c, c_tmp);
+//     }
+//     // 5 and 6
+//     {
+//         __m128d angle_v = _mm_load_pd(p + 4);
+//         __m128d s_tmp;
+//         __m128d c_tmp;
+//         s_tmp = _mm_sincos_pd(&c_tmp, angle_v);
+//         _mm_storeu_pd(s + 4, s_tmp);
+//         _mm_storeu_pd(c + 4, c_tmp);
+//     }
+// #else // single precision
+//     real s[8];
+//     real c[8];
+//     __m256 s_tmp;
+//     __m256 c_tmp;
+//     __m256 angle_v = _mm256_load_ps(p);
+//     s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
+//     _mm256_storeu_ps(s, s_tmp);
+//     _mm256_storeu_ps(c, c_tmp);
+// #endif
 
     // note: these are stored column-wise
     Q1 = {c[0], s[0], 0, -s[0], c[0], 0, 0, 0, 1};
@@ -705,30 +716,34 @@ host_fn Array Gen3Lite::forward_kinematics(Array &joint_position) {
 
 host_fn Matrix Gen3Lite::jacobian(const Array& joint_position) {
 
-    auto p = joint_position.data;
+    // auto p = joint_position.data;
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
 
-#if BLAST_USE_DOUBLES
-    real s[8];
-    real c[8];
-    __m256d s_tmp;
-    __m256d c_tmp;
-    for (u32 i = 0; i < 8; i += 4) {
-        __m256d angle_v = _mm256_load_pd(p + i);
-        s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-        _mm256_storeu_pd(s+i, s_tmp);
-        _mm256_storeu_pd(c+i, c_tmp);
-    }
-#else
-    real s[8];
-    real c[8];
-    __m256 s_tmp;
-    __m256 c_tmp;
-    __m256 angle_v = _mm256_load_ps(p);
-    s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
-    _mm256_storeu_ps(s, s_tmp);
-    _mm256_storeu_ps(c, c_tmp);
-#endif
+    Array s(8);
+    Array c(8);
+    blast::sincos(joint_position, s, c);
+
+// #if BLAST_USE_DOUBLES
+//     real s[8];
+//     real c[8];
+//     __m256d s_tmp;
+//     __m256d c_tmp;
+//     for (u32 i = 0; i < 8; i += 4) {
+//         __m256d angle_v = _mm256_load_pd(p + i);
+//         s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+//         _mm256_storeu_pd(s+i, s_tmp);
+//         _mm256_storeu_pd(c+i, c_tmp);
+//     }
+// #else
+//     real s[8];
+//     real c[8];
+//     __m256 s_tmp;
+//     __m256 c_tmp;
+//     __m256 angle_v = _mm256_load_ps(p);
+//     s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
+//     _mm256_storeu_ps(s, s_tmp);
+//     _mm256_storeu_ps(c, c_tmp);
+// #endif
 
     // note: these are stored column-wise
     Q1 = {c[0], s[0], 0, -s[0], c[0], 0, 0, 0, 1};
@@ -748,7 +763,7 @@ host_fn Matrix Gen3Lite::jacobian(const Array& joint_position) {
     e_1[4] = (Q_tmp *= Q5) * ev[4];
     e_1[5] = (Q_tmp *= Q6) * ev[5];
 
-    Vec3 r[6];
+    Vec3 r[7];
     r[5] = dv[5];
     r[4] = dv[4] + Q6 * r[6];
     r[3] = dv[3] + Q5 * r[5];
@@ -965,29 +980,33 @@ host_fn void Gen3_7DOF::dynamics(const Matrix &pos, const Matrix &vel, const Mat
         auto a = &acc.data[i * joints];
 
         // SIMD compute sines and cosines note: approx 10% faster
-        auto p = &pos.data[i * joints];
+        auto p = pos.col(i);
+        Array s(7);
+        Array c(7);
+        blast::sincos(p, s, c);
+//         auto p = &pos.data[i * joints];
 
-#if BLAST_SIZEOF_REAL == 8
-        real s[8];
-        real c[8];
-        __m256d s_tmp;
-        __m256d c_tmp;
-        for (u32 j = 0; j < 8; j += 4) {
-            __m256d angle_v = _mm256_load_pd(p + j);
-            s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-            _mm256_storeu_pd(s + j, s_tmp);
-            _mm256_storeu_pd(c + j, c_tmp);
-        }
-#else
-        real s[8];
-        real c[8];
-        __m256 s_tmp;
-        __m256 c_tmp;
-        __m256 angle_v = _mm256_load_ps(p);
-        s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
-        _mm256_storeu_ps(s, s_tmp);
-        _mm256_storeu_ps(c, c_tmp);
-#endif
+// #if BLAST_SIZEOF_REAL == 8
+//         real s[8];
+//         real c[8];
+//         __m256d s_tmp;
+//         __m256d c_tmp;
+//         for (u32 j = 0; j < 8; j += 4) {
+//             __m256d angle_v = _mm256_load_pd(p + j);
+//             s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+//             _mm256_storeu_pd(s + j, s_tmp);
+//             _mm256_storeu_pd(c + j, c_tmp);
+//         }
+// #else
+//         real s[8];
+//         real c[8];
+//         __m256 s_tmp;
+//         __m256 c_tmp;
+//         __m256 angle_v = _mm256_load_ps(p);
+//         s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
+//         _mm256_storeu_ps(s, s_tmp);
+//         _mm256_storeu_ps(c, c_tmp);
+// #endif
 
         // note: these are stored column-wise
         Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
@@ -1084,28 +1103,32 @@ host_fn void Gen3_7DOF::dynamics(const Matrix &pos, const Matrix &vel, const Mat
 host_fn Array Gen3_7DOF::forward_kinematics(const Array &joint_position) {
 
     //  - note: manual SIMD (10% better performance than using sincos function on arrays like commented below)
-    real s[8];
-    real c[8];
-    auto p = joint_position.data;
+    // real s[8];
+    // real c[8];
+    // auto p = joint_position.data;
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
 
-#if BLAST_SIZEOF_REAL == 8
-    __m256d s_tmp;
-    __m256d c_tmp;
-    for (u32 i = 0; i < 8; i += 4) {
-        __m256d angle_v = _mm256_load_pd(p + i);
-        s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-        _mm256_storeu_pd(s + i, s_tmp);
-        _mm256_storeu_pd(c + i, c_tmp);
-    }
-#else
-    __m256 s_tmp;
-    __m256 c_tmp;
-    __m256 angle_v = _mm256_load_ps(p);
-    s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
-    _mm256_storeu_ps(s, s_tmp);
-    _mm256_storeu_ps(c, c_tmp);
-#endif
+    Array s(8);
+    Array c(8);
+    blast::sincos(joint_position, s, c);
+
+// #if BLAST_SIZEOF_REAL == 8
+//     __m256d s_tmp;
+//     __m256d c_tmp;
+//     for (u32 i = 0; i < 8; i += 4) {
+//         __m256d angle_v = _mm256_load_pd(p + i);
+//         s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+//         _mm256_storeu_pd(s + i, s_tmp);
+//         _mm256_storeu_pd(c + i, c_tmp);
+//     }
+// #else
+//     __m256 s_tmp;
+//     __m256 c_tmp;
+//     __m256 angle_v = _mm256_load_ps(p);
+//     s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
+//     _mm256_storeu_ps(s, s_tmp);
+//     _mm256_storeu_ps(c, c_tmp);
+// #endif
 
     // todo: cleanup
     // create aliases instead of actual arrays to allocate the memory on the stack (1.7x performance)
@@ -1152,27 +1175,31 @@ host_fn Matrix Gen3_7DOF::forward_kinematics(const Matrix &joint_positions) {
 
     for (u32 point = 0; point < joint_positions.cols; point++) {
 
-#if BLAST_USE_DOUBLES
-        real s[8];
-        real c[8];
-        __m256d s_tmp;
-        __m256d c_tmp;
-        for (u32 i = 0; i < 8; i += 4) {
-            __m256d angle_v = _mm256_load_pd(p + i);
-            s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-            _mm256_storeu_pd(s + i, s_tmp);
-            _mm256_storeu_pd(c + i, c_tmp);
-        }
-#else
-        real s[8];
-        real c[8];
-        __m256 s_tmp;
-        __m256 c_tmp;
-        __m256 angle_v = _mm256_load_ps(p);
-        s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
-        _mm256_storeu_ps(s, s_tmp);
-        _mm256_storeu_ps(c, c_tmp);
-#endif
+        Array s(8);
+        Array c(8);
+        blast::sincos(joint_positions.col(point), s, c);
+
+// #if BLAST_USE_DOUBLES
+//         real s[8];
+//         real c[8];
+//         __m256d s_tmp;
+//         __m256d c_tmp;
+//         for (u32 i = 0; i < 8; i += 4) {
+//             __m256d angle_v = _mm256_load_pd(p + i);
+//             s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+//             _mm256_storeu_pd(s + i, s_tmp);
+//             _mm256_storeu_pd(c + i, c_tmp);
+//         }
+// #else
+//         real s[8];
+//         real c[8];
+//         __m256 s_tmp;
+//         __m256 c_tmp;
+//         __m256 angle_v = _mm256_load_ps(p);
+//         s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
+//         _mm256_storeu_ps(s, s_tmp);
+//         _mm256_storeu_ps(c, c_tmp);
+// #endif
 
 #if 1
         Mat3 Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
@@ -1232,32 +1259,64 @@ host_fn Matrix Gen3_7DOF::forward_kinematics(const Matrix &joint_positions) {
     return pose;
 }
 
+host_fn Array Gen3_7DOF::inverse_kinematics(const Array& pose, const Array& initial_joint_position) {
+
+    const double tolerance = 0.001; // Tolerance for convergence
+    const int max_iter = 100; // Maximum number of iterations
+
+    Array current_joint_angles = initial_joint_position;
+
+    // Iterate until convergence or maximum iterations reached
+    for (int iter = 0; iter < max_iter; ++iter) {
+        // Calculate the current end effector position using forward kinematics
+        Array current_pose = forward_kinematics(current_joint_angles);
+        Array delta_pose = pose - current_pose;
+
+        // Check if the end effector is close enough to the desired position
+        if (is_close(pose, current_pose, tolerance))
+            break;
+
+        // Calculate the Jacobian matrix
+        Matrix jacobian_matrix = jacobian(current_joint_angles);
+
+        Matrix jacobian_pinv = pinv(jacobian_matrix);
+
+        //current_joint_angles = current_joint_angles + jacobian_pinv * delta_pose;
+    }
+
+    return current_joint_angles;
+}
+
 host_fn Matrix Gen3_7DOF::jacobian(const Array &joint_position) {
 
-    auto p = joint_position.data;
+    // auto p = joint_position.data;
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
 
-#if BLAST_USE_DOUBLES
-    real s[8];
-    real c[8];
-    __m256d s_tmp;
-    __m256d c_tmp;
-    for (u32 i = 0; i < 8; i += 4) {
-        __m256d angle_v = _mm256_load_pd(p + i);
-        s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-        _mm256_storeu_pd(s + i, s_tmp);
-        _mm256_storeu_pd(c + i, c_tmp);
-    }
-#else
-    real s[8];
-    real c[8];
-    __m256 s_tmp;
-    __m256 c_tmp;
-    __m256 angle_v = _mm256_load_ps(p);
-    s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
-    _mm256_storeu_ps(s, s_tmp);
-    _mm256_storeu_ps(c, c_tmp);
-#endif
+    Array s(8);
+    Array c(8);
+    blast::sincos(joint_position, s, c);
+
+// #if BLAST_USE_DOUBLES
+//     real s[8];
+//     real c[8];
+//     __m256d s_tmp;
+//     __m256d c_tmp;
+//     for (u32 i = 0; i < 8; i += 4) {
+//         __m256d angle_v = _mm256_load_pd(p + i);
+//         s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+//         _mm256_storeu_pd(s + i, s_tmp);
+//         _mm256_storeu_pd(c + i, c_tmp);
+//     }
+// #else
+//     real s[8];
+//     real c[8];
+//     __m256 s_tmp;
+//     __m256 c_tmp;
+//     __m256 angle_v = _mm256_load_ps(p);
+//     s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
+//     _mm256_storeu_ps(s, s_tmp);
+//     _mm256_storeu_ps(c, c_tmp);
+// #endif
 
     // note: these are stored column-wise
     Q1 = {c[0], -s[0],  0, -s[0], -c[0],   0,   0,  0, -1};
@@ -1355,20 +1414,24 @@ host_fn Matrix Gen3_7DOF::jacobian(const Array &joint_position) {
 }
 
 host_fn Array Gen3_7DOF::collision_check(const Array &joint_position) {
-    real s[8];
-    real c[8];
-    auto p = joint_position.data;
+    // real s[8];
+    // real c[8];
+    // auto p = joint_position.data;
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
 
-    // todo: make it work with floats!
-    __m256d s_tmp;
-    __m256d c_tmp;
-    for (u32 i = 0; i < 8; i += 4) {
-        __m256d angle_v = _mm256_load_pd(p + i);
-        s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-        _mm256_storeu_pd(s + i, s_tmp);
-        _mm256_storeu_pd(c + i, c_tmp);
-    }
+    Array s(7);
+    Array c(7);
+    blast::sincos(joint_position, s, c);
+
+    // // todo: make it work with floats!
+    // __m256d s_tmp;
+    // __m256d c_tmp;
+    // for (u32 i = 0; i < 8; i += 4) {
+    //     __m256d angle_v = _mm256_load_pd(p + i);
+    //     s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+    //     _mm256_storeu_pd(s + i, s_tmp);
+    //     _mm256_storeu_pd(c + i, c_tmp);
+    // }
 
     // note: these are stored column-wise
     Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
@@ -1410,7 +1473,6 @@ host_fn Array Gen3_7DOF::collision_check(const Array &joint_position) {
     real dist2J2sqr = two_segment_distance_sqr(p_j2, p_j2, p_j6, p_ee) - r2sqr; // distance sqr from J2 to J6 EE line (sphere)
     real dist2Msqr = two_segment_distance_sqr(p_j2, p_j3, p_j6, p_ee) - r1sqr;  // distance sqr from J2 J3 line to J6 EE line (capsule)
     real dist2sqr = dist2J2sqr <= dist2Msqr ? dist2J2sqr : dist2Msqr;
-
 
     // todo: remove collision detection from here
 
@@ -1521,11 +1583,6 @@ host_fn bool Gen3_7DOF::validate_task(const Matrix &task) {
     auto cf = constraints(task.col(3), task.col(4), task.col(5));
     return array_max(ci) > 0 && array_max(cf) > 0 ? false: true;
 }
-
-
-
-
-
 
 // note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
@@ -1810,6 +1867,5 @@ TEST_CASE("SelfCollision", "Manipulator") {
     CHECK(dist_sqr_min_4[0] < 0);
     CHECK(dist_sqr_min_4[1] > 0);
 }
-
 #endif // tests
 } // namespace blast
