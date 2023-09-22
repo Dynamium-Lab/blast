@@ -429,11 +429,53 @@ blast_fn real array_min(const Array& a) {
     return result;
 }
 
+// return the argument of the minimum value of the array
+blast_fn unsigned array_min_id(const Array& a) {
+    real result = INF_REAL;
+    real result_old;
+    unsigned i_min;
+    for(u32 i = 0; i < a.size; i++) {
+        result_old = result;
+        result = a[i] < result ? a[i] : result;
+        i_min = a[i] < result_old ? i : i_min;
+    }
+    return i_min;
+}
+
 // return the maximum value of the array (sign matters)
 blast_fn real array_max(const Array& a) {
     real result = -INF_REAL;
     for(u32 i = 0; i < a.size; i++)
         result = a[i] > result ? a[i] : result;
+    return result;
+}
+
+// return the minimum value of the matrix (sign matters)
+blast_fn real matrix_min(const Matrix& m) {
+    real result = INF_REAL;
+    for(u32 i = 0; i < m.size; i++)
+        result = m.data[i] < result ? m.data[i] : result;
+    return result;
+}
+
+// return the argument of the minimum value of the matrix
+blast_fn unsigned matrix_min_id(const Matrix& m) {
+    real result = INF_REAL;
+    real result_old;
+    unsigned i_min;
+    for(u32 i = 0; i < m.size; i++) {
+        result_old = result;
+        result = m.data[i] < result ? m.data[i] : result;
+        i_min = m.data[i] < result_old ? i : i_min;
+    }
+    return i_min;
+}
+
+// return the maximum value of the matrix (sign matters)
+blast_fn real matrix_max(const Matrix& m) {
+    real result = -INF_REAL;
+    for(u32 i = 0; i < m.size; i++)
+        result = m.data[i] > result ? m.data[i] : result;
     return result;
 }
 
@@ -1105,6 +1147,13 @@ blast_fn Array operator-(const Array& v1, const Array& v2) {
     return r;
 }
 
+blast_fn Array operator+(const Array& v1, const Array& v2) {
+    Array r = v1;
+    for (u32 i = 0; i < v1.size; i++)
+        r[i] += v2[i];
+    return r;
+}
+
 blast_fn Array operator*(const Array& a, real b) {
     Array r(a);
     r *= b;
@@ -1346,6 +1395,23 @@ blast_fn Array Matrix::col(u32 c) const {
     return result;
 }
 
+blast_fn Matrix operator+(const Matrix& m1, const Matrix& m2) {
+    Assert(m1.cols == m2.cols && m1.rows == m2.rows);
+    Matrix result(m1.rows, m1.cols);
+    for (u32 i = 0; i < m1.size; i++)
+        result.data[i] = m1.data[i] + m2.data[i];
+
+    return result;
+}
+
+blast_fn Matrix operator-(const Matrix& m1, const Matrix& m2) {
+    Assert(m1.cols == m2.cols && m1.rows == m2.rows);
+    Matrix result(m1.rows, m1.cols);
+    for (u32 i = 0; i < m1.size; i++)
+        result.data[i] = m1.data[i] - m2.data[i];
+    return result;
+}
+
 blast_fn Matrix operator*(const Matrix& lhs, const Matrix& rhs) {
     Assert(lhs.cols == rhs.rows);
     Matrix result(lhs.rows, rhs.cols);
@@ -1371,6 +1437,22 @@ blast_fn Array operator*(const Matrix& m, const Array& v) {
         }
         result[i] = sum;
     }
+    return result;
+}
+
+blast_fn Matrix operator*(const Matrix& m, real& r) {
+    Matrix result(m.rows, m.cols);
+    for (u32 i = 0; i < m.size; i++)
+        result.data[i] = m.data[i]*r;
+    return result;
+}
+
+blast_fn Matrix pw_mult(const Matrix& m1, const Matrix& m2) {
+    Matrix result(m1.rows, m1.cols);
+    Assert(m1.size == m2.size);
+    for (u32 i = 0; i < m1.size; i++)
+        result.data[i] = m1.data[i] * m2.data[i];
+
     return result;
 }
 
@@ -1420,7 +1502,7 @@ blast_fn Matrix LU_decomp(const Matrix& m) {
     return LU;
 }
 
-Array solveLU(const Matrix& LU, const Array& b) {
+blast_fn Array solveLU(const Matrix& LU, const Array& b) {
     int n = LU.rows;
     Array x(n, 0.0);
 
@@ -1475,8 +1557,6 @@ blast_fn Matrix pinv(const Matrix& m) {
     }
     return res;
 }
-
-
 
 blast_fn Matrix eye(const u32 s) {
     Matrix result(s, s);
@@ -1858,7 +1938,56 @@ TEST_CASE("MatrixOperations", "[Math]") {
         REQUIRE(mT(1, 2) == m(2, 1));
     }
 
-    SECTION("m * m2") {
+    SECTION("Addition & substraction & real multiplication") {
+        Matrix m1(3, 3);
+        Matrix m2(3, 3);
+        real r = 2;
+        for (int i = 0; i < m1.size; i++) {
+            m1.data[i] = i;
+            m2.data[i] = i;
+        }
+        auto m3 = m1 + m2;
+        auto m4 = m1 - m2;
+
+        REQUIRE(m3.cols == 3);
+        REQUIRE(m3.rows == 3);
+        REQUIRE(m3(0, 0) == 0);
+        REQUIRE(m3(0, 1) == 6);
+        REQUIRE(m3(0, 2) == 12);
+        REQUIRE(m3(1, 0) == 2);
+        REQUIRE(m3(1, 1) == 8);
+        REQUIRE(m3(1, 2) == 14);
+        REQUIRE(m3(2, 0) == 4);
+        REQUIRE(m3(2, 1) == 10);
+        REQUIRE(m3(2, 2) == 16);
+
+        REQUIRE(m4.cols == 3);
+        REQUIRE(m4.rows == 3);
+        REQUIRE(m4(0, 0) == 0);
+        REQUIRE(m4(0, 1) == 0);
+        REQUIRE(m4(0, 2) == 0);
+        REQUIRE(m4(1, 0) == 0);
+        REQUIRE(m4(1, 1) == 0);
+        REQUIRE(m4(1, 2) == 0);
+        REQUIRE(m4(2, 0) == 0);
+        REQUIRE(m4(2, 1) == 0);
+        REQUIRE(m4(2, 2) == 0);
+
+        auto m5 = m3*r;
+        REQUIRE(m5.cols == 3);
+        REQUIRE(m5.rows == 3);
+        REQUIRE(m5(0, 0) == 0);
+        REQUIRE(m5(0, 1) == 12);
+        REQUIRE(m5(0, 2) == 24);
+        REQUIRE(m5(1, 0) == 4);
+        REQUIRE(m5(1, 1) == 16);
+        REQUIRE(m5(1, 2) == 28);
+        REQUIRE(m5(2, 0) == 8);
+        REQUIRE(m5(2, 1) == 20);
+        REQUIRE(m5(2, 2) == 32);
+    }
+
+    SECTION("Multiplication") {
         Matrix m2(2, 3);
         Matrix m(3, 2);
         for (int i = 0; i < m.size; i++)
@@ -1880,6 +2009,27 @@ TEST_CASE("MatrixOperations", "[Math]") {
         REQUIRE(m3(2, 2) == 40);
     }
 
+    SECTION("Piecewies multiplication") {
+        Matrix m1(3, 3);
+        Matrix m2(3, 3);
+        for (int i = 0; i < m1.size; i++) {
+            m1.data[i] = i;
+            m2.data[i] = i;
+        }
+
+        auto m3 = pw_mult(m1, m2);
+        REQUIRE(m3.cols == 3);
+        REQUIRE(m3.rows == 3);
+        REQUIRE(m3(0, 0) == 0);
+        REQUIRE(m3(0, 1) == 9);
+        REQUIRE(m3(0, 2) == 36);
+        REQUIRE(m3(1, 0) == 1);
+        REQUIRE(m3(1, 1) == 16);
+        REQUIRE(m3(1, 2) == 49);
+        REQUIRE(m3(2, 0) == 4);
+        REQUIRE(m3(2, 1) == 25);
+        REQUIRE(m3(2, 2) == 64);
+    }
     SECTION("Identity matrix") {
         Matrix identity;
         identity = eye(4);
@@ -1903,4 +2053,34 @@ TEST_CASE("MatrixOperations", "[Math]") {
     }
 }
 
+TEST_CASE("Min/Max") {
+    using namespace blast;
+
+    SECTION("min/max array") {
+        Array a(4);
+        a = {1, 2, 3, 0};
+
+        auto a_min = array_min(a);
+        REQUIRE(a_min == 0);
+        auto i_a_min = array_min_id(a);
+        REQUIRE(i_a_min == 3);
+        auto a_max = array_max(a);
+        REQUIRE(a_max == 3);
+    }
+
+    SECTION("min/max matrix") {
+        Matrix m(2, 2);
+        m(0, 0) = 1;
+        m(0, 1) = 2;
+        m(1, 0) = 3;
+        m(1, 1) = 0;
+
+        auto m_min = matrix_min(m);
+        REQUIRE(m_min == 0);
+        auto i_m_min = matrix_min_id(m);
+        REQUIRE(i_m_min == 3);
+        auto m_max = matrix_max(m);
+        REQUIRE(m_max == 3);
+    }
+}
 #endif
