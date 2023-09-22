@@ -1148,7 +1148,7 @@ blast_fn real dot(Array& a, Array& b) {
 // Compute the sine and the cosine of every element
 //  - note: fastest when the number of elements are a factor of 4 (or even 8 if real is float)
 blast_fn void sincos(const Array& angles, Array& sines, Array& cosines) {
-    Assert(angles.size == sines.size && angles.size == cosines.size);
+    Assert(sines.size >= angles.size && cosines.size >= angles.size);
 
 #if defined(__CUDA_ARCH__)
 #if BLAST_USE_DOUBLES
@@ -1158,13 +1158,7 @@ blast_fn void sincos(const Array& angles, Array& sines, Array& cosines) {
     for (int i = 0; i < angles.size; i++)
         ::sincosf(angles[i], &sines[i], &cosines[i]);
 #endif
-#elif defined(__GNUC__)
-    int i = 0;
-    for (; i < (int)angles.size; i++) {
-        sines[i] = sin(angles[i]);
-        cosines[i] = cos(angles[i]);
-    }
-#else
+#elif defined(__INTEL_COMPILER)
     int i = 0;
     // simd what you can
     mipp::Reg<real> a;
@@ -1179,6 +1173,11 @@ blast_fn void sincos(const Array& angles, Array& sines, Array& cosines) {
     }
     // serialize the rest
     for (; i < (int)angles.size; i++) {
+        sines[i] = sin(angles[i]);
+        cosines[i] = cos(angles[i]);
+    }
+#else
+    for (int i = 0; i < (int)angles.size; i++) {
         sines[i] = sin(angles[i]);
         cosines[i] = cos(angles[i]);
     }

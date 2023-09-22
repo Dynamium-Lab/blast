@@ -221,8 +221,8 @@ host_fn void ManipulatorUR5::dynamics(const Trajectory &traj, Matrix &efforts) {
         // const auto p = &traj.pos.data[i * joints];
 
         const auto p = traj.pos.col(i);
-        Array s(8);
-        Array c(8);
+        Array s(p.size);
+        Array c(p.size);
         blast::sincos(p, s, c);
 
 // #if BLAST_SIZEOF_REAL == 8
