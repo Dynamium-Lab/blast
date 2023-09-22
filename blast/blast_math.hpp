@@ -1467,8 +1467,15 @@ blast_fn Matrix transpose(const Matrix& m) {
     return result;
 }
 
-
-
+blast_fn Matrix eye(const u32 s) {
+    Matrix result(s, s);
+    for (u32 i = 0; i < s; ++i) {
+        for (u32 j = 0; j < s; ++j) {
+            result(j, i) = i == j ? 1 : 0;
+        }
+    }
+    return result;
+}
 
 //------ Collision ---------------------
 
@@ -1831,18 +1838,43 @@ TEST_CASE("TwoSegmentDist", "[Math]") {
 }
 
 TEST_CASE("MatrixOperations", "[Math]") {
-    blast::Matrix m(3, 2);
-    for (int i = 0; i < m.size; i++)
-        m.data[i] = i;
-    auto mT = blast::transpose(m);
+    using namespace blast;
 
-    REQUIRE(mT(0, 0) == m(0, 0));
-    REQUIRE(mT(0, 1) == m(1, 0));
-    REQUIRE(mT(0, 2) == m(2, 0));
-    REQUIRE(mT(1, 0) == m(0, 1));
-    REQUIRE(mT(1, 1) == m(1, 1));
-    REQUIRE(mT(1, 2) == m(2, 1));
+    SECTION("transpose") {
+        Matrix m(3, 2);
+        for (int i = 0; i < m.size; i++)
+            m.data[i] = i;
+        auto mT = transpose(m);
+
+        REQUIRE(mT(0, 0) == m(0, 0));
+        REQUIRE(mT(0, 1) == m(1, 0));
+        REQUIRE(mT(0, 2) == m(2, 0));
+        REQUIRE(mT(1, 0) == m(0, 1));
+        REQUIRE(mT(1, 1) == m(1, 1));
+        REQUIRE(mT(1, 2) == m(2, 1));
+    }
+
+    SECTION("Identity matrix") {
+        Matrix identity;
+        identity = eye(4);
+
+        REQUIRE(identity(0, 0) == 1);
+        REQUIRE(identity(0, 1) == 0);
+        REQUIRE(identity(0, 2) == 0);
+        REQUIRE(identity(0, 3) == 0);
+        REQUIRE(identity(1, 0) == 0);
+        REQUIRE(identity(1, 1) == 1);
+        REQUIRE(identity(1, 2) == 0);
+        REQUIRE(identity(1, 3) == 0);
+        REQUIRE(identity(2, 0) == 0);
+        REQUIRE(identity(2, 1) == 0);
+        REQUIRE(identity(2, 2) == 1);
+        REQUIRE(identity(2, 3) == 0);
+        REQUIRE(identity(3, 0) == 0);
+        REQUIRE(identity(3, 1) == 0);
+        REQUIRE(identity(3, 2) == 0);
+        REQUIRE(identity(3, 3) == 1);
+    }
 }
 
 #endif
-
