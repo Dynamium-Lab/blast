@@ -1450,7 +1450,7 @@ blast_fn Matrix operator*(const Matrix& m, real& r) {
 
 // Piecewise multiply the matrices
 blast_fn Matrix pw_mult(const Matrix& m1, const Matrix& m2) {
-    Assert(m1.size == m2.size);
+    Assert(m1.cols == m2.cols && m1.rows == m2.rows);
     for (u32 i = 0; i < m1.size; i++)
         result.data[i] *= m2.data[i];
 
