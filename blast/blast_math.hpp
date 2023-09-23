@@ -293,6 +293,7 @@ struct Matrix {
     blast_fn Matrix& operator=(Matrix&&);
 
     blast_fn bool operator==(Matrix&);
+    
     blast_fn bool operator!=(Matrix&);
 
     // map the Matrix to the data of the given Array
@@ -922,7 +923,6 @@ blast_fn Mat4& Mat4::operator*=(Mat4& rhs) {
         }
     }
     return *this;
-
 }
 
 blast_fn Mat4& Mat4::operator*=(real v) {
@@ -1356,8 +1356,7 @@ blast_fn bool Matrix::operator==(Matrix& m) {
 blast_fn bool Matrix::operator!=(Matrix& m) {
     Assert(cols == m.cols && rows == m.rows);
     auto result = is_close(*this, m);
-    result = true ? false : true;
-    return result;
+    return !result;
 }
 
 blast_fn Matrix& Matrix::alias(Array& a) {
