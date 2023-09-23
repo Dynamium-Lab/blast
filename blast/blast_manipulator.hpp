@@ -1,7 +1,7 @@
 #pragma once
 
 #include "blast_math.hpp"
-#include "dynamics/blast_dynamics_MDA.hpp"
+// #include "dynamics/blast_dynamics_MDA.hpp"
 #include <vector>
 #include <cmath>
 
