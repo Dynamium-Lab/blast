@@ -2033,7 +2033,6 @@ TEST_CASE("MatrixOperations", "[Math]") {
     }
     SECTION("Identity matrix") {
         const Matrix identity = eye(4);
-        identity = eye(4);
 
         REQUIRE(identity(0, 0) == 1);
         REQUIRE(identity(0, 1) == 0);
