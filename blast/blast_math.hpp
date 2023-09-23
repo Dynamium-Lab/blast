@@ -1452,7 +1452,7 @@ blast_fn Matrix pw_mult(const Matrix& m1, const Matrix& m2) {
     Matrix result(m1.rows, m1.cols);
     Assert(m1.size == m2.size);
     for (u32 i = 0; i < m1.size; i++)
-        result.data[i] = m1.data[i] * m2.data[i];
+        result.data[i] *= m2.data[i];
 
     return result;
 }
