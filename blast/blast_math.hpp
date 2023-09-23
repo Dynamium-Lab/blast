@@ -1398,7 +1398,7 @@ blast_fn Array Matrix::col(u32 c) const {
 
 blast_fn Matrix operator+(const Matrix& m1, const Matrix& m2) {
     Assert(m1.cols == m2.cols && m1.rows == m2.rows);
-    Matrix result(m1.rows, m1.cols);
+    Matrix result = m1;
     for (u32 i = 0; i < m1.size; i++)
         result.data[i] = m1.data[i] + m2.data[i];
 
