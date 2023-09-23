@@ -2032,7 +2032,7 @@ TEST_CASE("MatrixOperations", "[Math]") {
         REQUIRE(m3(2, 2) == 64);
     }
     SECTION("Identity matrix") {
-        Matrix identity;
+        const Matrix identity = eye(4);
         identity = eye(4);
 
         REQUIRE(identity(0, 0) == 1);
