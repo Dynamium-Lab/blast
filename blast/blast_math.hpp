@@ -1444,7 +1444,7 @@ blast_fn Array operator*(const Matrix& m, const Array& v) {
 blast_fn Matrix operator*(const Matrix& m, real& r) {
     Matrix result = m;
     for (u32 i = 0; i < m.size; i++)
-        result.data[i] = m.data[i]*r;
+        result.data[i] *= r;
     return result;
 }
 
