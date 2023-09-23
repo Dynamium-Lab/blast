@@ -1448,6 +1448,7 @@ blast_fn Matrix operator*(const Matrix& m, real& r) {
     return result;
 }
 
+// Piecewise multiply the matrices
 blast_fn Matrix pw_mult(const Matrix& m1, const Matrix& m2) {
     Matrix result(m1.rows, m1.cols);
     Assert(m1.size == m2.size);
