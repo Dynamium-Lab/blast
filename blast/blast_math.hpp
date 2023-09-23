@@ -292,6 +292,9 @@ struct Matrix {
     // move assignment
     blast_fn Matrix& operator=(Matrix&&);
 
+    blast_fn bool operator==(Matrix&);
+    blast_fn bool operator!=(Matrix&);
+
     // map the Matrix to the data of the given Array
     //  - note: interpret as a n x 1 matrix
     //  - note: becomes an alias
@@ -484,6 +487,15 @@ blast_fn bool is_close(const Array& a1, const Array& a2, real eps = 1e-05) {
     Assert(a1.size == a2.size);
     for (u32 i =0; i < a1.size; i++)
         if(a1[i] - a2[i] > eps || a1[i] - a2[i] < -eps)
+            return false;
+    return true;
+}
+
+// return true if the difference of all elements of each matrix are close to zero
+blast_fn bool is_close(const Matrix& m1, const Matrix& m2, real eps = 1e-05) {
+    Assert(m1.cols == m2.cols && m1.rows == m2.rows);
+    for (u32 i =0; i < m1.size; i++)
+        if(m1.data[i] - m2.data[i] > eps || m1.data[i] - m2.data[i] < -eps)
             return false;
     return true;
 }
@@ -1336,6 +1348,18 @@ blast_fn Matrix& Matrix::operator=(Matrix&& m) {
     return *this;
 }
 
+blast_fn bool Matrix::operator==(Matrix& m) {
+    Assert(cols == m.cols && rows == m.rows);
+    return is_close(*this, m);
+}
+
+blast_fn bool Matrix::operator!=(Matrix& m) {
+    Assert(cols == m.cols && rows == m.rows);
+    auto result = is_close(*this, m);
+    result = true ? false : true;
+    return result;
+}
+
 blast_fn Matrix& Matrix::alias(Array& a) {
     Assert(a.data);
     if (data && !is_alias)
@@ -1441,7 +1465,7 @@ blast_fn Array operator*(const Matrix& m, const Array& v) {
     return result;
 }
 
-blast_fn Matrix operator*(const Matrix& m, real& r) {
+blast_fn Matrix operator*(real& r, const Matrix& m) {
     Matrix result = m;
     for (u32 i = 0; i < m.size; i++)
         result.data[i] *= r;
@@ -1926,6 +1950,18 @@ TEST_CASE("TwoSegmentDist", "[Math]") {
 TEST_CASE("MatrixOperations", "[Math]") {
     using namespace blast;
 
+    SECTION("Equal && not equal") {
+        Matrix m(2, 2);
+        real r = 2;
+        for (int i = 0; i < m.size; i++)
+            m.data[i] = i;
+        auto m_eq = m;
+        auto m_n_eq = r*m;
+        REQUIRE(m.size == m_eq.size && m.size == m_n_eq.size);
+        REQUIRE(m == m_eq);
+        REQUIRE(m != m_n_eq);
+    }
+
     SECTION("transpose") {
         Matrix m(3, 2);
         for (int i = 0; i < m.size; i++)
@@ -1975,7 +2011,7 @@ TEST_CASE("MatrixOperations", "[Math]") {
         REQUIRE(m4(2, 1) == 0);
         REQUIRE(m4(2, 2) == 0);
 
-        auto m5 = m3*r;
+        auto m5 = r*m3;
         REQUIRE(m5.cols == 3);
         REQUIRE(m5.rows == 3);
         REQUIRE(m5(0, 0) == 0);

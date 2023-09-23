@@ -20,6 +20,7 @@ struct opt_result {
     Array       fval;
     unsigned    iter_val;
     Array       x_opt;
+    Array       x_init;
 };
 
 
@@ -136,10 +137,75 @@ void cstr_manip_active(const Array& x, real& f, Array& g, gradients& grad, real&
     }
 }
 
+// qp active set todo: in progress
+void qp_active_set(Matrix& H, Array& grad_f, Matrix& A, Matrix& b) {
+    unsigned iter_lim = 1000;
+    auto x0 = pinv(A)*b; // todo: Matrix of 1 col is Array ?
+    auto x = x0;
+
+    auto H_eye = eye(H.cols);
+    if( H == H_eye) {
+        x = -grad_f;
+        // todo: end here
+    }
+
+    // Active subset initialization
+    auto Ax_b = A*x - b;
+    auto vmax = matrix_max(Ax_b);
+    auto eps = 0.95*vmax;
+
+    Array nact_idx_tmp(b.size);
+    Array act_idx_tmp(b.size);
+    Array act_idx;
+    Array nact_idx;
+
+    Matrix W_tmp(A.rows, A.cols);
+    Matrix b_a_tmp(b.size, 1);
+    for (int i = 0; i < b.size; i++) {
+        nact_idx_tmp[i] = i;
+        act_idx_tmp[i] = Ax_b(i, 1) >= eps ? i : 0;
+    }
+    unsigned k = 0;
+    for (u32 i = 0; i < b.size; i++) {
+        if (act_idx_tmp[i] != 0.0) {
+            act_idx[k] = act_idx_tmp[i];
+            k++;
+        }
+    }// todo: Find better way to remove zeros
+    if(act_idx.size != 0) {
+        for (u32 i = 0; i < act_idx.size; i++) {
+            for (u32 j = 0; j < A.rows; j++)
+                W_tmp(act_idx[i], j) = -A(act_idx[i], j);
+            b_a_tmp(act_idx[i], 1) = -b(act_idx[i], 1);
+        }
+    }
+
+    // Main loop qp
+    for(u32 i = 0; i< iter_lim; i++) {
+        // todo: find better way to re-initialize active set
+        k = 0;
+        for (u32 i = 0; i < b.size; i++) {
+            if (act_idx_tmp[i] != 0.0) {
+                act_idx[k] = act_idx_tmp[i];
+                k++;
+            }
+        }// todo: Find better way to remove zeros
+        nact_idx = nact_idx_tmp - act_idx_tmp;
+        k = 0;
+        for (u32 i = 0; i < b.size; i++) {
+            if (nact_idx_tmp[i] != 0.0) {
+                nact_idx[k] = nact_idx_tmp[i];
+                k++;
+            }
+        }// todo: Find better way to remove zeros
+    }
+}
+
 void SQP_nocedal(unsigned iter_lim, opt_result& opt, const Array& x, real& f, Array& g, gradients& grad, real& vmax, Array& lambda) {
     unsigned iter;
     Array s;
     Array q;
+    opt.x_init = x;
     for(iter = 0; iter < iter_lim; iter++) {
 
         opt.fval[iter] = f;
@@ -155,11 +221,12 @@ void SQP_nocedal(unsigned iter_lim, opt_result& opt, const Array& x, real& f, Ar
         // todo: xtol & test if change in opt vector
 
         // todo: cstr_manip_act
-        // todo: H = hessien
+        // todo: H = hessien (H, s, q, v)
         //todo: auto grad_a_t = transpose(grad_a) (needs to be Matrix)
         //todo: auto lambda = inv(grad_a_t)
 
     }
+    opt.x_opt = x;
     opt.iter_val = iter;
 }
 int main() {
