@@ -1148,6 +1148,7 @@ blast_fn Array operator-(const Array& v1, const Array& v2) {
 }
 
 blast_fn Array operator+(const Array& v1, const Array& v2) {
+    Assert(v1.size == v2.size);
     Array r = v1;
     for (u32 i = 0; i < v1.size; i++)
         r[i] += v2[i];
