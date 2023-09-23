@@ -115,7 +115,7 @@ void cstr_manip_active(const Array& x, real& f, Array& g, gradients& grad, real&
     real f_plus;
     // todo: parallel?
     for (u32 j = 0; j < x.size; j++) {
-        memcpy(x_plus.data, x.data, x.size * sizeof(real));
+        x_plus = x;
         x_plus[j] += eps;
         // internal_cstr_manip_single(m, g_plus.data, n, x_plus.data, opt);
         rosensuzuki_fun(x_plus, f_plus, g_plus);
