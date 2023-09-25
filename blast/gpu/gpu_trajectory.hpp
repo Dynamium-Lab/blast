@@ -12,7 +12,7 @@ __global__ void compute_trajectories_kernel(cuManagedMultiBsplines bspline);
 // cuda gpu computed Bsplines with managed memory
 // note: this computes N trajectories in parallel
 struct cuManagedMultiBsplines {
-    bool is_copy = false;
+    bool is_alias = false;
     // data for both the host and the device
     unsigned points;
     unsigned joints;
@@ -64,25 +64,7 @@ struct cuManagedMultiBsplines {
 
     host_fn cuManagedMultiBsplines(const cuManagedMultiBsplines& other) {
         *this = other;
-        is_copy = true;
-    }
-
-    // free all device memory
-    host_fn ~cuManagedMultiBsplines() {
-        if (!is_copy) {
-            cudaFree(dev_basis_p);
-            cudaFree(dev_basis_v);
-            cudaFree(dev_basis_a);
-            cudaFree(pos);
-            cudaFree(vel);
-            cudaFree(acc);
-            cudaFree(t);
-            cudaFree(control);
-            cudaFree(dt);
-            cudaFree(one_over_T);
-            cudaFree(one_over_T2);
-            delete host;
-        }
+        is_alias = true;
     }
 
     host_fn void compute_control(const Array &x, const Matrix &task) {
@@ -129,6 +111,24 @@ struct cuManagedMultiBsplines {
             pos[id] = position;
             vel[id] = velocity * one_over_T[traj_id];
             acc[id] = acceleration * one_over_T2[traj_id];
+        }
+    }
+
+    // free all device memory but not if it's a copy
+    host_fn ~cuManagedMultiBsplines() {
+        if (!is_alias) {
+            cudaFree(dev_basis_p);
+            cudaFree(dev_basis_v);
+            cudaFree(dev_basis_a);
+            cudaFree(pos);
+            cudaFree(vel);
+            cudaFree(acc);
+            cudaFree(t);
+            cudaFree(control);
+            cudaFree(dt);
+            cudaFree(one_over_T);
+            cudaFree(one_over_T2);
+            delete host;
         }
     }
 };
