@@ -293,7 +293,7 @@ struct Matrix {
     blast_fn Matrix& operator=(Matrix&&);
 
     blast_fn bool operator==(Matrix&);
-    
+
     blast_fn bool operator!=(Matrix&);
 
     // map the Matrix to the data of the given Array
@@ -324,6 +324,10 @@ struct Matrix {
     // return an array accessing the given colum
     //  - note: new Array is aliasing our data
     blast_fn Array col(u32 c) const;
+
+    // return an array accessing the given row
+    //  - note: new Array is aliasing our data
+    blast_fn Array row(u32 r) const;
 };
 
 //------ MISC ---------------------
@@ -434,8 +438,8 @@ blast_fn real array_min(const Array& a) {
 }
 
 // return the argument of the minimum value of the array
-blast_fn unsigned array_min_id(const Array& a) {
-    real result = INF_REAL;
+blast_fn unsigned array_min_id(const Array& a, real& result) {
+    result = INF_REAL;
     real result_old;
     unsigned i_min;
     for(u32 i = 0; i < a.size; i++) {
@@ -463,8 +467,8 @@ blast_fn real matrix_min(const Matrix& m) {
 }
 
 // return the argument of the minimum value of the matrix
-blast_fn unsigned matrix_min_id(const Matrix& m) {
-    real result = INF_REAL;
+blast_fn unsigned matrix_min_id(const Matrix& m, real& result) {
+    result = INF_REAL;
     real result_old;
     unsigned i_min;
     for(u32 i = 0; i < m.size; i++) {
@@ -1418,6 +1422,15 @@ blast_fn Array Matrix::col(u32 c) const {
     return result;
 }
 
+blast_fn Array Matrix::row(u32 r) const {
+    Assert(r < this->rows);
+    Array result;
+    result.data = data + cols*r;
+    result.size = cols;
+    result.is_alias = true;
+    return result;
+}
+
 blast_fn Matrix operator+(const Matrix& m1, const Matrix& m2) {
     Assert(m1.cols == m2.cols && m1.rows == m2.rows);
     Matrix result = m1;
@@ -1467,6 +1480,13 @@ blast_fn Matrix operator*(real& r, const Matrix& m) {
     Matrix result = m;
     for (u32 i = 0; i < m.size; i++)
         result.data[i] *= r;
+    return result;
+}
+
+blast_fn Matrix operator/(const Matrix& m, real& r) {
+    Matrix result =  m;
+    for (u32 i = 0; i < m.size; i++)
+        result.data[i] /= r;
     return result;
 }
 
@@ -1948,7 +1968,7 @@ TEST_CASE("TwoSegmentDist", "[Math]") {
 TEST_CASE("MatrixOperations", "[Math]") {
     using namespace blast;
 
-    SECTION("Equal && not equal") {
+    SECTION("Equal & not equal") {
         Matrix m(2, 2);
         real r = 2;
         for (int i = 0; i < m.size; i++)
@@ -2045,6 +2065,44 @@ TEST_CASE("MatrixOperations", "[Math]") {
         REQUIRE(m3(2, 2) == 40);
     }
 
+    SECTION("Division") {
+        Matrix m(2, 2);
+        real r = 2;
+        for (int i = 0; i < m.size; i++)
+            m.data[i] = i;
+
+        auto m1 = m/r;
+
+        REQUIRE(m1.cols == m.cols && m1.rows == m.rows);
+        REQUIRE(m(0, 0) == 0);
+        REQUIRE(m(0, 1) == 2);
+        REQUIRE(m(1, 0) == 1);
+        REQUIRE(m(1, 1) == 3);
+        REQUIRE(m1(0, 0) == 0);
+        REQUIRE(m1(0, 1) == 1);
+        REQUIRE(m1(1, 0) == 0.5);
+        REQUIRE(m1(1, 1) == 1.5);
+    }
+
+    SECTION("col & row") {
+        Matrix m(2, 2);
+        for (u32 i = 0; i < m.size; i++)
+            m.data[i] = i;
+        auto mc = m.col(1);
+        auto mr = m.row(2);
+
+        REQUIRE(m(0, 0) == 0);
+        REQUIRE(m(0, 1) == 2);
+        REQUIRE(m(1, 0) == 1);
+        REQUIRE(m(1, 1) == 3);
+
+        REQUIRE(mc[1] == 0);
+        REQUIRE(mc[2] == 1);
+
+        REQUIRE(mr[1] == 1);
+        REQUIRE(mr[2] == 3);
+    }
+
     SECTION("Piecewies multiplication") {
         Matrix m1(3, 3);
         Matrix m2(3, 3);
@@ -2066,6 +2124,7 @@ TEST_CASE("MatrixOperations", "[Math]") {
         REQUIRE(m3(2, 1) == 25);
         REQUIRE(m3(2, 2) == 64);
     }
+
     SECTION("Identity matrix") {
         const Matrix identity = eye(4);
 
@@ -2097,7 +2156,8 @@ TEST_CASE("Min/Max") {
 
         auto a_min = array_min(a);
         REQUIRE(a_min == 0);
-        auto i_a_min = array_min_id(a);
+        auto i_a_min = array_min_id(a, a_min);
+        REQUIRE(a_min == 0);
         REQUIRE(i_a_min == 3);
         auto a_max = array_max(a);
         REQUIRE(a_max == 3);
@@ -2112,7 +2172,8 @@ TEST_CASE("Min/Max") {
 
         auto m_min = matrix_min(m);
         REQUIRE(m_min == 0);
-        auto i_m_min = matrix_min_id(m);
+        auto i_m_min = matrix_min_id(m, m_min);
+        REQUIRE(m_min == 0);
         REQUIRE(i_m_min == 3);
         auto m_max = matrix_max(m);
         REQUIRE(m_max == 3);

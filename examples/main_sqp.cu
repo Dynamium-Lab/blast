@@ -37,36 +37,39 @@ void rosensuzuki_fun(Array& x, real& f, Array& g) {
 // s(1, nv) = x - x0; (in main loop)
 // q(1,nv) = (grad_f_t + lambda*grad_g_t) - (grad_f_t_old + lambda*grad_g_t_old)
 // v(nv) = grad_g*g - grad_g_old*g_old
-Matrix& BFGS_hess(Matrix& H, Matrix& s, Matrix& q, Matrix& v) {
+Matrix& BFGS_hess(Matrix& H, Array& s, Array& q, Array& v) {
     auto H_t = transpose(H);
-    auto q_t = transpose(q); // q_t(nv,1)
+    auto q_t = transpose(q);
     auto s_t = transpose(s);
-    auto pos_def = q_t*s; // todo: Array/Matrix size 1 becomes a real ?
+    auto pos_def = dot(q, s);
 
-    if (pos_def(0, 0) >= 0) { // todo: proper fix
-        while (pos_def(0, 0) < 0) { // todo: proper fix
-            auto i_min = matrix_min_id(pw_mult(q, s));
-            q(0, i_min) = q(0, i_min)/2;
-            q_t = transpose(q);
-            pos_def = q_t*s;
+    if (pos_def >= 0) {
+        while (pos_def < 0) {
+            real m_min;
+            auto i_min = matrix_min_id(pw_mult(q, s), m_min); // todo: remove m_min when not used ?
+            q[i_min] = q[i_min]/2;
+            // q_t = transpose(q);
+            pos_def = dot(q, s);
 
-            if (pos_def(0, 0) >= -0.0001) { // todo: proper fix
+            if (pos_def >= -0.0001) {
                 real w = 1;
-                while (pos_def(0, 0) <= 0) { // todo: proper fix
+                while (pos_def <= 0) {
                     for (u32 i = 0; i < q.size; i++) {
-                        if (q(0, i)*w >= 0 && q(0, i)*s(0, i) >= 0)
-                            v(0, i) = 0;
+                        if (q[i]*w >= 0 && q[i]*s[i] >= 0)
+                            v[i] = 0;
                     }
-                    auto v_t = transpose(v);
-                    q = q + v_t*w;
-                    q_t = transpose(q);
-                    pos_def = q_t*s;
+                    // auto v_t = transpose(v);
+                    q = q + v*w;
+                    // q_t = transpose(q);
+                    pos_def = dot(q, s);
                     w *= 2;
                 }
             }
         }
     }
-    H = H + (q*q_t)*pinv(q_t*s) - H*(s*s_t)*H_t*pinv(s_t*H*s);
+    auto q_s = dot(q, s);
+    auto s_Hs = dot(s, H*s);
+    H = H + (q*q_t)/q_s - (H*(s*s_t)*H_t)/s_Hs;
 }
 
 // Activation function
@@ -137,8 +140,8 @@ void cstr_manip_active(const Array& x, real& f, Array& g, gradients& grad, real&
     }
 }
 
-// qp active set todo: in progress
-void qp_active_set(Matrix& H, Array& grad_f, Matrix& A, Matrix& b) {
+// qp active set
+Array qp_active_set(Matrix& H, Array& grad_f, Matrix& A, Array& b) {
     unsigned iter_lim = 1000;
     auto x0 = pinv(A)*b; // todo: Matrix of 1 col is Array ?
     auto x = x0;
@@ -146,58 +149,127 @@ void qp_active_set(Matrix& H, Array& grad_f, Matrix& A, Matrix& b) {
     auto H_eye = eye(H.cols);
     if( H == H_eye) {
         x = -grad_f;
-        // todo: end here
+        return x;
     }
 
     // Active subset initialization
     auto Ax_b = A*x - b;
-    auto vmax = matrix_max(Ax_b);
+    auto vmax = array_max(Ax_b);
     auto eps = 0.95*vmax;
 
-    Array nact_idx_tmp(b.size);
-    Array act_idx_tmp(b.size);
-    Array act_idx;
-    Array nact_idx;
-
-    Matrix W_tmp(A.rows, A.cols);
-    Matrix b_a_tmp(b.size, 1);
+    Array arr_act;
+    Array arr_nact;
+    int num_act = 0;
+    int num_nact = 0;
     for (int i = 0; i < b.size; i++) {
-        nact_idx_tmp[i] = i;
-        act_idx_tmp[i] = Ax_b(i, 1) >= eps ? i : 0;
-    }
-    unsigned k = 0;
-    for (u32 i = 0; i < b.size; i++) {
-        if (act_idx_tmp[i] != 0.0) {
-            act_idx[k] = act_idx_tmp[i];
-            k++;
+        if (Ax_b[i] >= -eps) {
+            arr_act[num_act] = i;
+            num_act++;
         }
-    }// todo: Find better way to remove zeros
-    if(act_idx.size != 0) {
-        for (u32 i = 0; i < act_idx.size; i++) {
-            for (u32 j = 0; j < A.rows; j++)
-                W_tmp(act_idx[i], j) = -A(act_idx[i], j);
-            b_a_tmp(act_idx[i], 1) = -b(act_idx[i], 1);
+        else {
+            arr_nact[num_nact] = i;
+            num_nact++;
         }
     }
+    Matrix A_a;
+    Matrix A_na;
+    Array b_a;
+    Array b_na;
 
     // Main loop qp
     for(u32 i = 0; i< iter_lim; i++) {
-        // todo: find better way to re-initialize active set
-        k = 0;
-        for (u32 i = 0; i < b.size; i++) {
-            if (act_idx_tmp[i] != 0.0) {
-                act_idx[k] = act_idx_tmp[i];
-                k++;
+        // Initialize A_a, A_na, b_a, b_na active and non active sets
+        for (u32 j = 0; j < x.size; j++) {
+            for (u32 i = 0; i < arr_act.size; i++) {
+                A_a(j, i) = A(j, arr_act[i]);
+                b_a[i] = b[arr_act[i]];
             }
-        }// todo: Find better way to remove zeros
-        nact_idx = nact_idx_tmp - act_idx_tmp;
-        k = 0;
-        for (u32 i = 0; i < b.size; i++) {
-            if (nact_idx_tmp[i] != 0.0) {
-                nact_idx[k] = nact_idx_tmp[i];
-                k++;
+            for (u32 i = 0; i < arr_nact.size; i++) {
+                A_na(j, i) = A(j, arr_nact[i]);
+                b_na[i] = b[arr_nact[i]];
             }
-        }// todo: Find better way to remove zeros
+        }
+
+        // Schur-complement method to find direction  p_k
+        auto A_a_Hinv   = A_a*pinv(H);
+        auto g          =  grad_f + H*x;
+        auto h          = A_a*x - b_a;
+        auto A_a_t      =  transpose(A_a);
+        auto lambda     = pinv(A_a_Hinv*A_a_t)*(A_a_Hinv*g - h);
+        auto p_k        = pinv(H)*(A_a_t*lambda - g);
+
+        // if p_k == 0
+        if (norm(p_k) < 1e-6) {
+            auto lambda_bar = pinv(A_a_t)*b; // todo: check is its ok
+            real lambda_min;
+            auto lambda_min_id = array_min_id(lambda_bar, lambda_min);
+            if(lambda_min >= 0)
+                return x;
+            else {  // remove lambda_min_id from arr_act
+                int num_act = 0;
+                int num_nact = 0;
+                for (u32  i = 0;  i < arr_act.size; i++) {
+                    if (arr_act[i] != lambda_min_id) {
+                        arr_act[num_act] = arr_act[i];
+                        num_act++;
+                    }
+                }
+                int j = 0;
+                for (u32 i = 0; i < b.size; i++) {
+                    if (arr_act[j] == i) {
+                        j++;
+                    }
+                    else {
+                        arr_nact[num_nact] = i;
+                        num_nact++;
+                    }
+                }
+            }
+        }
+        else {
+            real alpha_k;
+            real alpha_min;
+            unsigned alpha_min_id;
+            Array alpha_tmp;
+            if (A_na.size == 0)
+                alpha_k  = 1;
+            else {
+                for (u32 i = 0; i < A_na.size; i++) {
+                    auto a_na = A_na.row(i);
+                    alpha_tmp[i] = (b_na[i] - dot(a_na, x))/dot(a_na, p_k);
+                }
+                real alpha_min;
+                alpha_min_id = array_min_id(alpha_tmp, alpha_min);
+                alpha_k = alpha_min < 1 ? alpha_min : 1;
+            }
+            if (alpha_k < 0)
+                alpha_k = 0;
+
+            x = x + alpha_k*p_k;
+            if (alpha_k < 1) {
+                int num_act = 0;
+                int num_nact = 0;
+                for (u32  i = 0;  i < arr_nact.size; i++) {
+                    if (arr_nact[i] != alpha_min_id) {
+                        arr_nact[num_nact] = arr_nact[i];
+                        num_nact++;
+                    }
+                }
+                int j = 0;
+                for (u32 i = 0; i < b.size; i++) {
+                    if (arr_nact[j] == i) {
+                        j++;
+                    }
+                    else {
+                        arr_act[num_act] = i;
+                        num_act++;
+                    }
+                }
+            }
+            else {
+                return x;
+            }
+        }
     }
 }
 
@@ -229,6 +301,7 @@ void SQP_nocedal(unsigned iter_lim, opt_result& opt, const Array& x, real& f, Ar
     opt.x_opt = x;
     opt.iter_val = iter;
 }
+
 int main() {
     using namespace blast;
 
