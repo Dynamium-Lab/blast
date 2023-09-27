@@ -292,9 +292,9 @@ struct Matrix {
     // move assignment
     blast_fn Matrix& operator=(Matrix&&);
 
-    blast_fn bool operator==(Matrix&);
-    
-    blast_fn bool operator!=(Matrix&);
+    blast_fn bool operator==(const Matrix&);
+
+    blast_fn bool operator!=(const Matrix&);
 
     // map the Matrix to the data of the given Array
     //  - note: interpret as a n x 1 matrix
@@ -1347,12 +1347,12 @@ blast_fn Matrix& Matrix::operator=(Matrix&& m) {
     return *this;
 }
 
-blast_fn bool Matrix::operator==(Matrix& m) {
+blast_fn bool Matrix::operator==(const Matrix& m) {
     Assert(cols == m.cols && rows == m.rows);
     return is_close(*this, m);
 }
 
-blast_fn bool Matrix::operator!=(Matrix& m) {
+blast_fn bool Matrix::operator!=(const Matrix& m) {
     Assert(cols == m.cols && rows == m.rows);
     auto result = is_close(*this, m);
     return !result;
@@ -1955,9 +1955,9 @@ TEST_CASE("MatrixOperations", "[Math]") {
             m.data[i] = i;
         auto m_eq = m;
         auto m_n_eq = r*m;
-        REQUIRE(m.size == m_eq.size && m.size == m_n_eq.size);
-        REQUIRE(m == m_eq);
-        REQUIRE(m != m_n_eq);
+        REQUIRE((m.size == m_eq.size && m.size == m_n_eq.size));
+        REQUIRE((m == m_eq));
+        REQUIRE((m != m_n_eq));
     }
 
     SECTION("transpose") {
