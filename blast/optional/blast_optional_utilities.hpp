@@ -10,13 +10,10 @@
 #include <time.h>
 #endif
 #include <cmath>
-
+#include <string>
 #include "blast_math.hpp"
 
-
 namespace blast {
-
-
 
 blast_fn void print(Vec3 v) {
     printf("[% 0.4f, % 0.4f, % 0.4f]\n", v.x, v.y, v.z);
@@ -80,8 +77,6 @@ blast_fn void print(float* data, unsigned rows, unsigned cols) {
     }
 }
 
-
-
 // get the time
 host_fn int64_t get_tick_us() {
 #if defined(_MSC_VER)
@@ -96,14 +91,8 @@ host_fn int64_t get_tick_us() {
 #endif
 }
 
-
-
-
-
-
 // note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
-
 
 // print the properties of all connected GPUs
 host_fn void print_device_properties() {
@@ -127,12 +116,9 @@ host_fn void print_device_properties() {
         printf("  Memory Clock Rate (KHz): ................... %d\n", prop.memoryClockRate);
         printf("  Memory Bus Width (bits): ................... %d\n", prop.memoryBusWidth);
         printf("  Peak Memory Bandwidth (GB/s): .............. %f\n", 2.0*prop.memoryClockRate*(prop.memoryBusWidth/8)/1.0e6);
+        printf("  Compute capabilities : ..................... %d,%d\n", prop.major, prop.minor);
     }
 }
 #endif
 
-
-
-
 } // namespace blast
-

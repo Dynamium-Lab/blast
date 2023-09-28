@@ -228,7 +228,7 @@ struct Array {
 
     // map the array to the data of the given std::vector<real>
     //  - note: becomes an alias
-    host_fn Array& alias(std::vector<real>&);
+    host_fn Array& alias(svector&);
 
     // map the array to the data of the given matrix
     //  - note: interpret all the data of the matrix as one long array, becomes an alias)
@@ -242,7 +242,7 @@ struct Array {
     // resize the array
     //  - note: old pointers (aliases) to this data may be invalidated
     //  - note: fails if the array is an alias
-    blast_fn void resize(u32 new_size);
+    host_fn void resize(u32 new_size);
 
     // access the last element
     blast_fn real& back();
@@ -292,9 +292,9 @@ struct Matrix {
     // move assignment
     blast_fn Matrix& operator=(Matrix&&);
 
-    blast_fn bool operator==(Matrix&);
-    
-    blast_fn bool operator!=(Matrix&);
+    blast_fn bool operator==(const Matrix&);
+
+    blast_fn bool operator!=(const Matrix&);
 
     // map the Matrix to the data of the given Array
     //  - note: interpret as a n x 1 matrix
@@ -1125,7 +1125,7 @@ blast_fn Array& Array::alias(const real* p, u32 n) {
     return *this;
 }
 
-blast_fn void Array::resize(u32 new_size) {
+host_fn void Array::resize(u32 new_size) {
     Assert(!is_alias);
     if (new_size > size) {
         data = (real*)realloc(data, new_size*sizeof(real));
@@ -1347,12 +1347,12 @@ blast_fn Matrix& Matrix::operator=(Matrix&& m) {
     return *this;
 }
 
-blast_fn bool Matrix::operator==(Matrix& m) {
+blast_fn bool Matrix::operator==(const Matrix& m) {
     Assert(cols == m.cols && rows == m.rows);
     return is_close(*this, m);
 }
 
-blast_fn bool Matrix::operator!=(Matrix& m) {
+blast_fn bool Matrix::operator!=(const Matrix& m) {
     Assert(cols == m.cols && rows == m.rows);
     auto result = is_close(*this, m);
     return !result;
@@ -1955,9 +1955,9 @@ TEST_CASE("MatrixOperations", "[Math]") {
             m.data[i] = i;
         auto m_eq = m;
         auto m_n_eq = r*m;
-        REQUIRE(m.size == m_eq.size && m.size == m_n_eq.size);
-        REQUIRE(m == m_eq);
-        REQUIRE(m != m_n_eq);
+        REQUIRE((m.size == m_eq.size && m.size == m_n_eq.size));
+        REQUIRE((m == m_eq));
+        REQUIRE((m != m_n_eq));
     }
 
     SECTION("transpose") {
