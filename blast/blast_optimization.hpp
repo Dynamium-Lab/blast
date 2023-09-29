@@ -159,14 +159,14 @@ host_fn Array guess_shot_mean(Gen3_7DOF& manip, Bspline& bspline, Matrix& task, 
 // __global__ void pva_constraints_kernel(cuBspline pva) {
 //     const u32 point = blockIdx.x * blockDim.x + threadIdx.x;
 //     pva.compute_trajectory(point);
-//     blast::cuGen3_7DOF* manip = (blast::cuGen3_7DOF*)blast::manip_broadcast_arena;
+//     blast::cuGen3MultiTraj* manip = (blast::cuGen3MultiTraj*)blast::manip_broadcast_arena;
 //     const u32 pva_offset = point * 7;
 //     const u32 constraints_offset = point * 21;
 //     manip->compute_constraints(
 //         pva.device_pos+pva_offset,
 //         pva.device_vel+pva_offset,
 //         pva.device_acc+pva_offset,
-//         manip->device_constraints + constraints_offset
+//         manip->dev_constraints + constraints_offset
 //     );
 // }
 
@@ -198,9 +198,9 @@ host_fn Array guess_shot_mean(Gen3_7DOF& manip, Bspline& bspline, Matrix& task, 
 //         vel[joint] = velocity     * one_over_T;
 //         acc[joint] = acceleration * one_over_T2;
 //     }
-//     blast::cuGen3_7DOF* manip = (blast::cuGen3_7DOF*)blast::manip_broadcast_arena;
+//     blast::cuGen3MultiTraj* manip = (blast::cuGen3MultiTraj*)blast::manip_broadcast_arena;
 //     const u32 constraints_offset = point * 21;
-//     manip->compute_constraints(pos, vel, acc, manip->device_constraints + constraints_offset);
+//     manip->compute_constraints(pos, vel, acc, manip->dev_constraints + constraints_offset);
 // }
 
 // // kernel that uses shared memory to speed up constraint computation
@@ -240,9 +240,9 @@ host_fn Array guess_shot_mean(Gen3_7DOF& manip, Bspline& bspline, Matrix& task, 
 //         acc[joint] = acceleration * pva.one_over_T2;
 //     }
 
-//     blast::cuGen3_7DOF* manip = (blast::cuGen3_7DOF*)blast::manip_broadcast_arena;
+//     blast::cuGen3MultiTraj* manip = (blast::cuGen3MultiTraj*)blast::manip_broadcast_arena;
 //     const u32 constraints_offset = point * 21;
-//     manip->compute_constraints(pos, vel, acc, manip->device_constraints + constraints_offset);
+//     manip->compute_constraints(pos, vel, acc, manip->dev_constraints + constraints_offset);
 // }
 // #endif
 
@@ -265,7 +265,7 @@ host_fn Array guess_shot_mean(Gen3_7DOF& manip, Bspline& bspline, Matrix& task, 
 //     static_assert(points % nblocks == 0);
 
 //     cuBspline device_pva;
-//     cuGen3_7DOF device_manip;
+//     cuGen3MultiTraj device_manip;
 //     Bspline bspline(ncontrol, points, p, joints);
 //     Gen3_7DOF host_manip;
 

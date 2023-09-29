@@ -1,21 +1,18 @@
 #pragma once
 #include "blast.hpp"
 
+// note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
 
 #ifdef __CUDA_ARCH__
 #include <math_constants.h>
 #endif
 
+#include "gpu/gpu_trajectory.hpp"
+
 namespace blast {
 
-// note: CUDA stuff, only enabled if compiling for Nvidia GPUs
-// note: must be a global variable because it is __constant__
-// note: much faster if it's __constant__ because all threads access the same location (heavy use of broadcast operations)
-const int MANIP_BROADCAST_ARENA_SIZE = 256;
-__constant__ real manip_broadcast_arena[MANIP_BROADCAST_ARENA_SIZE];
-
-struct cuGen3_7DOF {
+struct cuGen3MultiTraj {
     // note: for the mapping to work, all the data must be on the stack!!
     Vec3 p_base;
     real m[7];
@@ -29,21 +26,59 @@ struct cuGen3_7DOF {
     real vmax[7];
     real tau_max[7];
 
-    real *device_constraints; // 21 * npoints
+    u32 ntrajectories = 0;
+    u32 npoints       = 0;
+    bool is_init = false;
 
-    real *host_constraints; // 21 * npoints
+    real *dev_constraints;
+    real *host_constraints;
 
-    // compute the parameters according to the mass
-    host_fn void init(real mass, u32 npoints);
+    // HOST
+    //----------
 
-    // fetch the latest computed constraints from the device to the host
-    host_fn void fetch_constraints(u32 npoints);
+    host_fn cuGen3MultiTraj(u32 _points, u32 _trajs = 1, real mass = 0.0);
+    // host_fn void compute_constraints(x, task); todo: complete
+    host_fn void fetch_constraints();
+    host_fn void _init(real mass);
+    host_fn ~cuGen3MultiTraj();
+
+    // GENERAL
+    //----------
+
+    // Get the start id of the constraint for a given point on a trajectory
+    blast_fn u32 con_id(u32 point, u32 traj);
+    // get the total number of constraints
+    blast_fn u32 nconstraints();
+
+    // DEVICE
+    //----------
 
     // compute the constraints based on the current trajectory point
     dev_fn void compute_constraints(const real pos[7], const real vel[7], const real acc[7], real *con);
 };
 
-host_fn void cuGen3_7DOF::init(real mass, u32 npoints) {
+// note: must be a global variable because it is __constant__
+// note: much faster if it's __constant__ because all threads access the same location (heavy use of broadcast operations)
+const int MANIP_BROADCAST_ARENA_SIZE = 256;
+__constant__ real manip_broadcast_arena[MANIP_BROADCAST_ARENA_SIZE];
+
+//------ HOST FUNCTIONS ------------------------------------------------------------------------------------
+
+host_fn cuGen3MultiTraj::cuGen3MultiTraj(u32 _points, u32 _trajs, real mass)
+    : npoints(_points), ntrajectories(_trajs) {
+
+    assert_buffer_size<cuGen3MultiTraj, sizeof(manip_broadcast_arena)>(); // compile time check
+    cuda_check(cudaMalloc(&dev_constraints, nconstraints() * sizeof(real)));
+    cuda_check(cudaMallocHost(&host_constraints, nconstraints() * sizeof(real)));
+
+    this->_init(mass);
+
+    // note: this must be done last
+    cuda_check(cudaMemcpyToSymbol(manip_broadcast_arena, this, sizeof(*this), 0));
+}
+
+host_fn void cuGen3MultiTraj::_init(real mass) {
+
     // position of the first joint with respect to the table in the center of the base
     p_base = {0, 0, 0.1564f};
 
@@ -131,19 +166,50 @@ host_fn void cuGen3_7DOF::init(real mass, u32 npoints) {
     tau_max[5] = 17;
     tau_max[6] = 17;
 
-    assert_buffer_size<cuGen3_7DOF, sizeof(manip_broadcast_arena)>(); // compile time check
-    cuda_check(cudaMalloc(&device_constraints, 21 * npoints * sizeof(real)));
-    cuda_check(cudaMallocHost(&host_constraints, 21 * npoints * sizeof(real)));
+    is_init = true;
+}
 
-    // note: this must be done last
+host_fn void cuGen3MultiTraj::fetch_constraints() {
+    cuda_check(cudaMemcpy(host_constraints, dev_constraints, 21 * npoints * sizeof(real), cudaMemcpyDeviceToHost));
+}
+
+host_fn cuGen3MultiTraj::~cuGen3MultiTraj() {
+    cuda_check(cudaFree(dev_constraints));      dev_constraints = nullptr;
+    cuda_check(cudaFreeHost(host_constraints)); host_constraints = nullptr;
+    is_init = false;
     cuda_check(cudaMemcpyToSymbol(manip_broadcast_arena, this, sizeof(*this), 0));
 }
 
-host_fn void cuGen3_7DOF::fetch_constraints(u32 npoints) {
-    cuda_check(cudaMemcpy(host_constraints, device_constraints, 21 * npoints * sizeof(real), cudaMemcpyDeviceToHost));
+//------ GENERAL FUNCTIONS ------------------------------------------------------------------------------------
+blast_fn u32 cuGen3MultiTraj::con_id(u32 point, u32 traj) {
+    return 21*(traj*npoints + point);
 }
 
-dev_fn void cuGen3_7DOF::compute_constraints(const real pos[7], const real vel[7], const real acc[7], real *con) {
+blast_fn u32 cuGen3MultiTraj::nconstraints() {
+    return 21*ntrajectories*npoints;
+}
+
+//------ KERNEL FUNCTIONS ------------------------------------------------------------------------------------
+
+__global__ void compute_constraints_kernel() {
+    cuMultiBsplines* bspline = (cuMultiBsplines*)bspline_broadcast_arena;
+    assert(bspline->is_init);
+    cuGen3MultiTraj* manip = (cuGen3MultiTraj*)manip_broadcast_arena;
+
+    const auto point = threadIdx.x;
+    const auto traj  = blockIdx.x;
+    //todo: this function accesses global memory, check difference with local variables
+    bspline->compute_trajectory_point(point, traj);
+
+    manip->compute_constraints(bspline->dev_pos,
+                               bspline->dev_vel,
+                               bspline->dev_acc,
+                               &manip->dev_constraints[manip->con_id(point, traj)]);
+}
+
+//------ DEVICE FUNCTIONS ------------------------------------------------------------------------------------
+
+dev_fn void cuGen3MultiTraj::compute_constraints(const real pos[7], const real vel[7], const real acc[7], real *con) {
 #if BLAST_USE_DOUBLES
     real s[7];
     real c[7];
@@ -293,4 +359,109 @@ dev_fn void cuGen3_7DOF::compute_constraints(const real pos[7], const real vel[7
 }
 
 } // namespace blast
-#endif
+
+#ifdef BLAST_ENABLE_TESTS
+#include "optional/blast_optional_utilities.hpp"
+TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
+    using namespace blast;
+
+    const u32 points = 256;
+    const u32 joints = 7;
+    const u32 p = 5;
+    const u32 ncontrol = 24;
+    const u32 ntrajectories = 80;
+
+    Bspline host_bspline(ncontrol, points, p, joints);
+    cuMultiBsplines dev_bsplines(points, joints, p, ncontrol, ntrajectories);
+
+    Gen3_7DOF manip;    manip.set_payload(4);
+    cuGen3MultiTraj dev_manip(points, ntrajectories, 4);
+
+    // random task
+    Matrix task(joints, 6);
+    real amp = 10;
+    for (u32 i = 0; i < task.rows; i++)
+        for (u32 j = 0; j < task.cols; j++)
+            task(i, j) = amp * get_random();
+
+    // random optimization vector
+    Array x(joints*(ncontrol-6) + 1);
+    for (u32 i = 0; i < x.size; i++)
+        x[i] = amp * get_random();
+    x.back() = abs(x.back());
+
+    // copy the 'x' Array 'ntrajectories' times for the gpu version
+    const u32 xlen = host_bspline.xlen(task);
+    Array x_multi(ntrajectories * host_bspline.xlen(task));
+    for (int i = 0; i < ntrajectories; i++) {
+        for (int j = 0; j < xlen; j++) {
+            x_multi[i*xlen + j] = x[j];
+        }
+    }
+
+    // Test correctness of the trajectory
+    for (int traj_id = 0; traj_id < ntrajectories; traj_id++) {
+        for (int i = 0; i < (int)points; i++) {
+            for (int j = 0; j < joints; j++) {
+                const auto id = traj_id*points*joints + i*joints + j;
+                CHECK((float)host_bspline.traj.pos(j, i) == (float)dev_bsplines.pos[id]);
+                CHECK((float)host_bspline.traj.vel(j, i) == (float)dev_bsplines.vel[id]);
+                CHECK((float)host_bspline.traj.acc(j, i) == (float)dev_bsplines.acc[id]);
+            }
+        }
+    }
+}
+
+TEST_CASE("GPU trajectory computation speed", "[Trajectory]") {
+    using namespace blast;
+
+    const u32 points = 256;
+    const u32 joints = 7;
+    const u32 p = 5;
+    const u32 ncontrol = 24;
+    const u32 ntrajectories = 80;
+    cuMultiBsplines dev_bsplines(points, joints, p, ncontrol, ntrajectories);
+    Bspline host_bspline(ncontrol, points, p, joints);
+
+    // random task
+    Matrix task(joints, 6);
+    real amp = 10;
+    for (u32 i = 0; i < task.rows; i++)
+        for (u32 j = 0; j < task.cols; j++)
+            task(i, j) = amp * get_random();
+
+    // random optimization vector
+    Array x(joints*(ncontrol-6) + 1);
+    for (u32 i = 0; i < x.size; i++)
+        x[i] = amp * get_random();
+    x.back() = abs(x.back());
+
+    // copy the 'x' Array 'ntrajectories' times for the gpu version
+    const u32 xlen = host_bspline.xlen(task);
+    Array x_multi(ntrajectories * host_bspline.xlen(task));
+    for (int i = 0; i < ntrajectories; i++) {
+        for (int j = 0; j < xlen; j++) {
+            x_multi[i*xlen + j] = x[j];
+        }
+    }
+
+    {
+        std::string msg = "Computing " + std::to_string(ntrajectories) + " trajectories on the CPU";
+        BENCHMARK(msg.c_str()) {
+            for (int i = 0; i < ntrajectories; i++)
+                host_bspline.compute_trajectory(x, task);
+            return host_bspline.traj.pos(0, 0);
+        };
+    }
+
+    {
+        std::string msg = "Computing " + std::to_string(ntrajectories) + " trajectories on the GPU";
+        BENCHMARK(msg.c_str()) {
+            dev_bsplines.compute_trajectories(x_multi, task);
+            dev_bsplines.fetch_trajectories();
+            return dev_bsplines.pos[0];
+        };
+    }
+}
+#endif // BLAST_ENABLE_TESTS
+#endif // __NVCC__
