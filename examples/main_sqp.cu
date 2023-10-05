@@ -6,14 +6,14 @@
 using namespace blast;
 
 struct gradients {
-    Array   grad_f;
-    Matrix  grad_g;
-    Matrix  grad_a;
-    Matrix  grad_na;
-    Array   arr_act;
-    Array   arr_nact;
-    Array   cstr_a;
-    Array   cstr_na;
+    Array           grad_f;
+    Matrix          grad_g;
+    Matrix          grad_a;
+    Matrix          grad_na;
+    vector<real>    arr_act;
+    vector<real>    arr_nact;
+    Array           cstr_a;
+    Array           cstr_na;
 };
 
 struct opt_result {
@@ -70,6 +70,7 @@ Matrix& BFGS_hess(Matrix& H, Array& s, Array& q, Array& v) {
     auto q_s = dot(q, s);
     auto s_Hs = dot(s, H*s);
     H = H + (q*q_t)/q_s - (H*(s*s_t)*H_t)/s_Hs;
+    return H;
 }
 
 // Activation function
@@ -81,22 +82,16 @@ Matrix& BFGS_hess(Matrix& H, Array& s, Array& q, Array& v) {
 //  num_act    = number of active constraints
 //  num_nact   = number of non active constraints
 //  vmax     = value of the worst violated constraint
-void active(Array &g, Array &arr_act, Array &arr_nact, double &vmax) {
+void active(Array& g, vector<real>& arr_act, vector<real>& arr_nact, double& vmax) {
     const real delta = 0.05;
-    int num_act = 0;
-    int num_nact = 0;
 
     vmax = array_max(g);
     const real eps = delta - vmax;
     for (u32 j = 0; j < g.size; j++) {
-        if (g[j] >= -eps) {
-            arr_act.data[num_act] = j;
-            num_act++;
-        }
-        else {
-            arr_nact.data[num_nact] = j;
-            num_nact++;
-        }
+        if (g[j] >= -eps)
+            arr_act.push_back(j);
+        else
+            arr_nact.push_back(j);
     }
 }
 
@@ -104,10 +99,11 @@ void active(Array &g, Array &arr_act, Array &arr_nact, double &vmax) {
 //
 // m = number of constraints
 // n = number of variables
-void cstr_manip_active(const Array& x, real& f, Array& g, gradients& grad, real& vmax) {
-
-    active(g, grad.arr_act, grad.arr_nact, vmax);
-    unsigned m_act = sizeof(grad.arr_act) / sizeof(grad.arr_act[0]);
+void cstr_manip_active(Array& x, real& f, Array& g, gradients& grad, real& vmax) {
+    vector<real> arr_act;
+    vector<real> arr_nact;
+    active(g, arr_act, arr_nact, vmax);
+    unsigned m_act = arr_act.size();
     auto m_nact = g.size - m_act;
 
     // Optimisation *opt = (Optimisation *)f_data;
@@ -115,29 +111,45 @@ void cstr_manip_active(const Array& x, real& f, Array& g, gradients& grad, real&
 
     const real eps = 1e-5;
     Array x_plus(x.size);
-    Array g_plus;
+    Array g_plus(g.size);
     real f_plus;
+
+    Array grad_f(x.size);
+    Matrix grad_g(x.size, g.size);
+    Matrix grad_a(x.size, m_act);
+    Matrix grad_na(x.size, m_nact);
+    Array cstr_a(m_act);
+    Array cstr_na(m_nact);
     // todo: parallel?
     for (u32 j = 0; j < x.size; j++) {
         x_plus = x;
         x_plus[j] += eps;
         // internal_cstr_manip_single(m, g_plus.data, n, x_plus.data, opt);
         rosensuzuki_fun(x_plus, f_plus, g_plus);
-        grad.grad_f[j] = (f_plus - f) / eps;
+        grad_f[j] = (f_plus - f) / eps;
         for (u32 i = 0; i < g.size; i++)
-            grad.grad_g(j, i) = (g_plus[i] - g[i]) / eps;
+            grad_g(j, i) = (g_plus[i] - g[i]) / eps;
     }
 
     for (u32 j = 0; j < x.size; j++) {
         for (u32 i = 0; i < m_act; i++) {
-            grad.grad_a(j, i) = grad.grad_g(j, grad.arr_act[i]);
-            grad.cstr_a[i] = g[grad.arr_act[i]];
+            grad_a(j, i) = grad_g(j, arr_act[i]);
+            cstr_a[i] = g[arr_act[i]];
         }
         for (u32 i = 0; i < m_nact; i++) {
-            grad.grad_na(j, i) = grad.grad_g(j, grad.arr_nact[i]);
-            grad.cstr_na[i] = g[grad.arr_nact[i]];
+            grad_na(j, i) = grad_g(j, arr_nact[i]);
+            cstr_na[i] = g[arr_nact[i]];
         }
     }
+
+    grad.grad_f = grad_f;
+    grad.grad_g = grad_g;
+    grad.grad_a = grad_a;
+    grad.grad_na = grad_na;
+    grad.arr_act = arr_act;
+    grad.arr_nact = arr_nact;
+    grad.cstr_a = cstr_a;
+    grad.cstr_na = cstr_na;
 }
 
 // qp active set
@@ -157,34 +169,33 @@ Array qp_active_set(Matrix& H, Array& grad_f, Matrix& A, Array& b) {
     auto vmax = array_max(Ax_b);
     auto eps = 0.95*vmax;
 
-    Array arr_act;
-    Array arr_nact;
-    int num_act = 0;
-    int num_nact = 0;
+    vector<real> arr_act;
+    vector<real> arr_nact;
     for (int i = 0; i < b.size; i++) {
         if (Ax_b[i] >= -eps) {
-            arr_act[num_act] = i;
-            num_act++;
+            arr_act.push_back(i);
         }
         else {
-            arr_nact[num_nact] = i;
-            num_nact++;
+            arr_nact.push_back(i);
         }
     }
-    Matrix A_a;
-    Matrix A_na;
-    Array b_a;
-    Array b_na;
+    unsigned m_act = sizeof(arr_act) / sizeof(arr_act[0]);
+    auto m_nact = b.size - m_act;
+
+    Matrix A_a(x.size, m_act);
+    Matrix A_na(x.size, m_nact);
+    Array b_a(m_act);
+    Array b_na(m_nact);
 
     // Main loop qp
     for(u32 i = 0; i< iter_lim; i++) {
         // Initialize A_a, A_na, b_a, b_na active and non active sets
         for (u32 j = 0; j < x.size; j++) {
-            for (u32 i = 0; i < arr_act.size; i++) {
+            for (u32 i = 0; i < m_act; i++) {
                 A_a(j, i) = A(j, arr_act[i]);
                 b_a[i] = b[arr_act[i]];
             }
-            for (u32 i = 0; i < arr_nact.size; i++) {
+            for (u32 i = 0; i < m_nact; i++) {
                 A_na(j, i) = A(j, arr_nact[i]);
                 b_na[i] = b[arr_nact[i]];
             }
@@ -206,23 +217,18 @@ Array qp_active_set(Matrix& H, Array& grad_f, Matrix& A, Array& b) {
             if(lambda_min >= 0)
                 return x;
             else {  // remove lambda_min_id from arr_act
-                int num_act = 0;
-                int num_nact = 0;
-                for (u32  i = 0;  i < arr_act.size; i++) {
-                    if (arr_act[i] != lambda_min_id) {
-                        arr_act[num_act] = arr_act[i];
-                        num_act++;
-                    }
+                arr_act.clear();
+                arr_nact.clear();
+                for (u32  i = 0;  i < m_act; i++) {
+                    if (arr_act[i] != lambda_min_id)
+                        arr_act.push_back(arr_act[i]);
                 }
                 int j = 0;
                 for (u32 i = 0; i < b.size; i++) {
-                    if (arr_act[j] == i) {
+                    if (arr_act[j] == i)
                         j++;
-                    }
-                    else {
-                        arr_nact[num_nact] = i;
-                        num_nact++;
-                    }
+                    else
+                        arr_nact.push_back(i);
                 }
             }
         }
@@ -230,11 +236,11 @@ Array qp_active_set(Matrix& H, Array& grad_f, Matrix& A, Array& b) {
             real alpha_k;
             real alpha_min;
             unsigned alpha_min_id;
-            Array alpha_tmp;
+            Array alpha_tmp(A_na.rows);
             if (A_na.size == 0)
                 alpha_k  = 1;
             else {
-                for (u32 i = 0; i < A_na.size; i++) {
+                for (u32 i = 0; i < A_na.rows; i++) {
                     auto a_na = A_na.row(i);
                     alpha_tmp[i] = (b_na[i] - dot(a_na, x))/dot(a_na, p_k);
                 }
@@ -244,16 +250,13 @@ Array qp_active_set(Matrix& H, Array& grad_f, Matrix& A, Array& b) {
             }
             if (alpha_k < 0)
                 alpha_k = 0;
-
             x = x + alpha_k*p_k;
             if (alpha_k < 1) {
-                int num_act = 0;
-                int num_nact = 0;
-                for (u32  i = 0;  i < arr_nact.size; i++) {
-                    if (arr_nact[i] != alpha_min_id) {
-                        arr_nact[num_nact] = arr_nact[i];
-                        num_nact++;
-                    }
+                arr_act.clear();
+                arr_nact.clear();
+                for (u32  i = 0;  i < m_nact; i++) {
+                    if (arr_nact[i] != alpha_min_id)
+                        arr_nact.push_back(arr_nact[i]);
                 }
                 int j = 0;
                 for (u32 i = 0; i < b.size; i++) {
@@ -261,8 +264,7 @@ Array qp_active_set(Matrix& H, Array& grad_f, Matrix& A, Array& b) {
                         j++;
                     }
                     else {
-                        arr_act[num_act] = i;
-                        num_act++;
+                        arr_act.push_back(i);
                     }
                 }
             }
@@ -271,33 +273,142 @@ Array qp_active_set(Matrix& H, Array& grad_f, Matrix& A, Array& b) {
             }
         }
     }
+    return x;
 }
 
-void SQP_nocedal(unsigned iter_lim, opt_result& opt, const Array& x, real& f, Array& g, gradients& grad, real& vmax, Array& lambda) {
+real step_size(Matrix& H, gradients& grad, Array& d, Array& x, real& f, Array& g, real& vmax) {
+    d = qp_active_set(H, grad.grad_f, -grad.grad_g, g);
+
+    auto x_new = x + d;
+    real f_new;
+    Array g_new(g.size);
+    gradients grad_new;
+    rosensuzuki_fun(x_new, f_new, g_new);
+    cstr_manip_active(x_new, f_new, g_new, grad_new, vmax);
+    auto g_new_max = array_max(g_new);
+    auto g_max = array_max(g);
+
+    auto grad_na = grad_new.grad_na;
+    auto g_na = grad_new.cstr_na;
+
+    real a_bar;
+    if(g_new_max <= g_max)
+        a_bar = 1;
+    else {
+        auto a_d = array_min(grad_na*d);
+        vector<real> a_tmp;
+        if (a_d < 0) {
+            for (u32 i = 0; i < grad_na.size; i++) {
+                auto a_na = grad_na.row(i);
+                a_tmp.push_back((g_na[i] - dot(a_na, x))/dot(a_na, d));
+            }
+        }
+        else {
+            a_tmp.push_back(1);
+        }
+        unsigned m_tmp_size = sizeof(a_tmp) / sizeof(a_tmp[0]);
+        for (u32 i = 0; i < m_tmp_size; i++) {
+            if (a_tmp[i] < 0)
+                a_tmp[i] = INF_REAL;
+        }
+        a_bar = array_min(a_tmp);
+    }
+    a_bar = a_bar < 1 ? 1: a_bar;
+
+    Array r(g.size);
+    Array r_new(g.size);
+    for(u32 i = 0; i < g.size; i++) {
+        r[i] = norm(grad.grad_f)/norm(grad.grad_g.row(i));
+        r_new[i] = norm(grad_new.grad_f)/norm(grad_new.grad_g.row(i));
+    }
+
+    auto grad_a_t = transpose(grad.grad_a);
+    auto lambda = pinv(grad_a_t)*(grad.grad_f + H*x);
+    real w = 0.5;
+    unsigned iter_lim = 100;
+    real a = a_bar;
+    for (u32 iter = 0; iter < iter_lim; iter++) {
+        x_new = x + a*d;
+        rosensuzuki_fun(x_new, f_new, g_new);
+        cstr_manip_active(x_new, f_new, g_new, grad_new, vmax);
+        auto grad_a_t_new = transpose(grad_new.grad_a);
+        auto lambda_new = pinv(grad_a_t_new)*(grad_new.grad_f + H*x_new);
+
+        Array g_array_max(g.size);
+        Array g_array_max_new(g.size);
+        Array r_g(g.size);
+        Array r_g_new(g.size);
+        for (u32 i = 0; i < g.size; i++) {
+            g_array_max[i] = 0.0 <= g[i] ? g[i]: 0.0;
+            g_array_max_new[i] = 0.0 <= g_new[i] ? g_new[i]: 0.0;
+
+            r_g[i] = r[i]*g_array_max[i];
+            r_g_new[i] = r_new[i]*g_array_max_new[i];
+
+            r[i] = lambda[i] < (r[i] + lambda[i])/2 ? (r[i] + lambda[i])/2 : lambda[i];
+            r_new[i] = lambda_new[i] < (r_new[i] + lambda_new[i])/2 ? (r_new[i] + lambda_new[i])/2 : lambda_new[i];
+        }
+
+        auto Psi = f + sum(r_g);
+        auto Psi_new = f_new + sum(r_g_new);
+        auto grad_f_t = transpose(grad.grad_f);
+        real coeff = 0.5;
+        auto Psi_comp = Psi + coeff*(a*grad_f_t)*d; // todo: Psi_comp 1d Array ?
+        if (Psi_new <= Psi_comp[0])
+            return a;
+        a *= w;
+    }
+    return a;
+}
+
+void SQP_nocedal(unsigned iter_lim, opt_result& opt, Array& x, real& f, Array& g, Matrix& H, gradients& grad, real& vmax, Array& lambda) {
     unsigned iter;
-    Array s;
-    Array q;
+    Array s(x.size);
+    Matrix q(x.size, 1);
+    Array v(x.size);
+    Array d(x.size);
     opt.x_init = x;
     for(iter = 0; iter < iter_lim; iter++) {
-
-        opt.fval[iter] = f;
         print(f);
-        // todo: opt.x_opt for optimal x
 
-        // todo: stepsize(*a, *d, *vmax)
-        // todo: dn = sqrt(d_transp*d) & test if dn == 0
+        real a = step_size(H, grad, d, x, f, g, vmax);
+        auto dn = norm(d);
+        if (dn == 0) {
+            break; // todo: will this work ?
+        }
 
-        // todo: x0 = x & find new x = x + a*d;
-        // todo: f, g, grad _old & f, g new
+        auto x0 = x;
+        x = x + a*d;
+        auto f_old = f;
+        auto g_old = g;
+        auto grad_g_old = grad.grad_g;
+        auto grad_f_old = grad.grad_f;
+        rosensuzuki_fun(x, f, g);
 
-        // todo: xtol & test if change in opt vector
+        auto xtol = norm(x)*1e-6 + 1e-12;
+        if (norm(x - x0) < xtol) {
+            break; // todo: will this work ?
+        }
 
-        // todo: cstr_manip_act
-        // todo: H = hessien (H, s, q, v)
-        //todo: auto grad_a_t = transpose(grad_a) (needs to be Matrix)
-        //todo: auto lambda = inv(grad_a_t)
+        auto ftol = abs(f)*1e-6 + 1e-12;
+        auto tolG = 1e-6;
+        if (abs(f - f_old) < ftol && vmax < tolG) {
+            break; // todo: will this work ?
+        }
 
+        cstr_manip_active(x, f, g, grad, vmax);
+        auto grad_g = grad.grad_g;
+        auto grad_f = grad.grad_f;
+
+        s = x - x0;
+        q = (transpose(grad_f) + lambda*transpose(grad_g)) - (transpose(grad_f_old) + lambda*transpose(grad_g_old));
+        v = grad_g*g - grad_g_old*g_old;
+        H = BFGS_hess(H, s, q.row(1), v); // todo: row or col for q ?
+
+        auto grad_a_t = transpose(grad.grad_a);
+        auto lambda = pinv(grad_a_t)*(grad.grad_f + H*x);
     }
+    opt.fval = f;
     opt.x_opt = x;
     opt.iter_val = iter;
 }
@@ -312,8 +423,12 @@ int main() {
     unsigned nv = 4;
     unsigned ncon = 3;
     Array x0(nv);
-    for (u32 i = 0; i < nv; i++)
-        x0[i] = get_random();
+    x0[0] = 1;
+    x0[1] = 1;
+    x0[2] = 1;
+    x0[3] = 1;
+    // for (u32 i = 0; i < nv; i++)
+    //     x0[i] = get_random();
     Matrix H = eye(nv);
     double f0;
     Array g0(ncon);
@@ -325,10 +440,22 @@ int main() {
 
     cstr_manip_active(x0, f0, g0, grad, vmax);
 
+    // todo: fix lambda pinv
+    Array lambda(g0.size);
     auto grad_a_t = transpose(grad.grad_a);
-    auto lambda = pinv(grad_a_t)*(grad.grad_f + H*x0);
+    auto grad_a = grad.grad_a;
+    auto lu_a = LU_decomp(grad_a*grad_a_t);
+    // auto p_inv_a = pinv(grad_a_t);
+    // print(grad_a);
+    print(lu_a);
 
-    //todo: SQP
+    // auto p_inv_a_array = p_inv_a.col(1);S
+    // auto lambda_tmp = dot(p_inv_a_array, (grad.grad_f + H*x0));
+    // for(u32 i = 0; i < grad.arr_act.size(); i++) {
+    //     lambda[grad.arr_act[i]] = lambda_tmp; //pinv(grad.grad_a)*(grad.grad_f + H*x0);
+    // }
+
+    // SQP_nocedal(iter_lim, opt, x0, f0, g0, H, grad, vmax, lambda);
 
     return 0;
 }

@@ -292,6 +292,8 @@ struct Matrix {
     // move assignment
     blast_fn Matrix& operator=(Matrix&&);
 
+    blast_fn Matrix operator-();
+
     blast_fn bool operator==(Matrix&);
 
     blast_fn bool operator!=(Matrix&);
@@ -1351,6 +1353,13 @@ blast_fn Matrix& Matrix::operator=(Matrix&& m) {
     return *this;
 }
 
+blast_fn Matrix Matrix::operator-() {
+    Matrix result(size);
+    for (u32 i = 0; i < size; i++)
+        result.data[i] = -data[i];
+    return std::move(result);
+}
+
 blast_fn bool Matrix::operator==(Matrix& m) {
     Assert(cols == m.cols && rows == m.rows);
     return is_close(*this, m);
@@ -1978,6 +1987,19 @@ TEST_CASE("MatrixOperations", "[Math]") {
         REQUIRE(m.size == m_eq.size && m.size == m_n_eq.size);
         REQUIRE(m == m_eq);
         REQUIRE(m != m_n_eq);
+    }
+
+    SECTION("Negative matrix") {
+        Matrix m(2, 2);
+        for (u32 i = 0; i < m.size; i++)
+            m.data[i] = i;
+        auto m1 = -m;
+
+        REQUIRE(m.cols == m1.cols && m.rows == m1.rows);
+        REQUIRE(m1(0, 0) == 0);
+        REQUIRE(m1(0, 1) == -2);
+        REQUIRE(m1(1, 0) == -1);
+        REQUIRE(m1(1, 1) == -3);
     }
 
     SECTION("transpose") {
