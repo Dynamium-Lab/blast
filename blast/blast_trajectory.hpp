@@ -34,10 +34,11 @@ struct Bspline {
     u32 p;
 
     host_fn Bspline(u32 ncontrol, u32 npoints, u32 P, u32 njoints);
+    Bspline() = delete;
 
     // Compute a trajectory from the given optimization vector
     //  - note: fastest when 'ncontrol' is a multiple of 4 (SIMD)
-    host_fn void compute_trajectory(const Array &x, Matrix &task);
+    host_fn void compute_trajectory(const Array &x, const Matrix &task);
     host_fn u32 xlen(const Matrix &task) {
         Assert(task.rows == joints);
         Assert(task.cols == 6);
@@ -56,6 +57,7 @@ struct Bspline {
 
 //------ FUNCTIONS ------------------------------------------------------------------------------------
 
+// constructor that makes sure enough memory is allocated
 host_fn Bspline::Bspline(u32 ncontrol, u32 npoints, u32 P, u32 njoints) :
     traj(npoints, njoints),
     control(ncontrol, njoints),
@@ -254,7 +256,7 @@ host_fn void Bspline::compute_control(const Array &x, const Matrix &task, real *
  * Finally, it computes the position, velocity, and acceleration of each joint at each point along the trajectory
  * using the computed control points and the basis functions for position, velocity, and acceleration.
  */
-host_fn void Bspline::compute_trajectory(const Array &x, Matrix &task) {
+host_fn void Bspline::compute_trajectory(const Array &x, const Matrix &task) {
     Assert(x.size == xlen(task));
     Assert(task.rows == joints);
     Assert(task.cols == 6);

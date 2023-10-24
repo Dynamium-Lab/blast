@@ -342,7 +342,7 @@ dev_fn void cuBspline::compute_trajectory(const unsigned point) {
 
 #ifdef BLAST_ENABLE_TESTS
 #include "optional/blast_optional_utilities.hpp"
-TEST_CASE("GpuCpuCorrectness", "[Trajectory]") {
+TEST_CASE("GpuCpuTrajCorrectness", "[Trajectory]") {
     using namespace blast;
 
     print_device_properties();
@@ -377,76 +377,26 @@ TEST_CASE("GpuCpuCorrectness", "[Trajectory]") {
 
     host_bspline.compute_trajectory(x, task);
 
-    cuMultiBsplines dev_bsplines(points, joints, p, ncontrol, ntrajectories);
+    cuMultiBsplines gpu_bsplines(points, joints, p, ncontrol, ntrajectories);
 
     // compute the baseline
-    dev_bsplines.compute_trajectories(x_multi, task);
-    dev_bsplines.fetch_trajectories();
+    gpu_bsplines.compute_trajectories(x_multi, task);
+    gpu_bsplines.fetch_trajectories();
 
     // Test correctness of the trajectory
     for (int traj_id = 0; traj_id < ntrajectories; traj_id++) {
         for (int i = 0; i < (int)points; i++) {
             for (int j = 0; j < joints; j++) {
                 const auto id = traj_id*points*joints + i*joints + j;
-                CHECK((float)host_bspline.traj.pos(j, i) == (float)dev_bsplines.pos[id]);
-                CHECK((float)host_bspline.traj.vel(j, i) == (float)dev_bsplines.vel[id]);
-                CHECK((float)host_bspline.traj.acc(j, i) == (float)dev_bsplines.acc[id]);
+                CHECK((float)host_bspline.traj.pos(j, i) == (float)gpu_bsplines.pos[id]);
+                CHECK((float)host_bspline.traj.vel(j, i) == (float)gpu_bsplines.vel[id]);
+                CHECK((float)host_bspline.traj.acc(j, i) == (float)gpu_bsplines.acc[id]);
             }
         }
     }
 }
 
-TEST_CASE("GPU trajectory computation speed", "[Trajectory]") {
-    using namespace blast;
 
-    const u32 points = 256;
-    const u32 joints = 7;
-    const u32 p = 5;
-    const u32 ncontrol = 24;
-    const u32 ntrajectories = 80;
-    cuMultiBsplines dev_bsplines(points, joints, p, ncontrol, ntrajectories);
-    Bspline host_bspline(ncontrol, points, p, joints);
-
-    // random task
-    Matrix task(joints, 6);
-    real amp = 10;
-    for (u32 i = 0; i < task.rows; i++)
-        for (u32 j = 0; j < task.cols; j++)
-            task(i, j) = amp * get_random();
-
-    // random optimization vector
-    Array x(joints*(ncontrol-6) + 1);
-    for (u32 i = 0; i < x.size; i++)
-        x[i] = amp * get_random();
-    x.back() = abs(x.back());
-
-    // copy the 'x' Array 'ntrajectories' times for the gpu version
-    const u32 xlen = host_bspline.xlen(task);
-    Array x_multi(ntrajectories * host_bspline.xlen(task));
-    for (int i = 0; i < ntrajectories; i++) {
-        for (int j = 0; j < xlen; j++) {
-            x_multi[i*xlen + j] = x[j];
-        }
-    }
-
-    {
-        std::string msg = "Computing " + std::to_string(ntrajectories) + " trajectories on the CPU";
-        BENCHMARK(msg.c_str()) {
-            for (int i = 0; i < ntrajectories; i++)
-                host_bspline.compute_trajectory(x, task);
-            return host_bspline.traj.pos(0, 0);
-        };
-    }
-
-    {
-        std::string msg = "Computing " + std::to_string(ntrajectories) + " trajectories on the GPU";
-        BENCHMARK(msg.c_str()) {
-            dev_bsplines.compute_trajectories(x_multi, task);
-            dev_bsplines.fetch_trajectories();
-            return dev_bsplines.pos[0];
-        };
-    }
-}
 #endif
 
 #endif
