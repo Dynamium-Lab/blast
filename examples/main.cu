@@ -22,7 +22,7 @@ int main() {
         for (u32 j = 0; j < task.cols; j++)
             task(i, j) = amp * get_random();
 
-    Optimisation opt{&manip, &task, &pva};
+    Optimisation opt{&manip, &task, &bspline};
 
     // random optimization vector
     Array x(bspline.xlen(task));

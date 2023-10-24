@@ -1420,7 +1420,7 @@ blast_fn Matrix LU_decomp(const Matrix& m) {
     return LU;
 }
 
-Array solveLU(const Matrix& LU, const Array& b) {
+blast_fn Array solveLU(const Matrix& LU, const Array& b) {
     int n = LU.rows;
     Array x(n, 0.0);
 
