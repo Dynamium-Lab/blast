@@ -1,6 +1,10 @@
 #pragma once
 #include "blast.hpp"
 
+#ifdef BLAST_DEBUG
+#include "optional/blast_optional_utilities.hpp"
+#endif
+
 namespace blast {
 
 struct Trajectory {
@@ -45,6 +49,7 @@ struct Bspline {
     }
 
     host_fn void compute_basis();
+    host_fn void compute_basis_open();
     host_fn void compute_control(const Array &x, const Matrix &task);
     host_fn void compute_control(const Array &x, const Matrix &task, real *dst);
 };
@@ -126,6 +131,70 @@ host_fn void Bspline::compute_basis() {
     }
 }
 
+host_fn void Bspline::compute_basis_open() {
+    u32 m = nctrl + p;
+
+    Array knots(m + 1);
+    knots[0] = 0.0;
+    knots.back() = 1.0;
+    {
+        const real du = 1.0f / (real)m;
+        for (u32 i = 1; i < m; i++)
+            knots[i] = i * du;
+    }
+
+#ifdef BLAST_DEBUG
+    print(knots);
+#endif
+
+    Matrix N(m, (p + 1));  // triangle basis function
+    const real du = 1.0f / (points - 1);
+    zero(basis_p);
+    zero(basis_v);
+    zero(basis_a);
+    real *basis_p_col = basis_p.data;
+    real *basis_v_col = basis_v.data;
+    real *basis_a_col = basis_a.data;
+    for (u32 point = 0; point < points; point++) {
+        const real u = point * du;
+
+        for (u32 i = 0; i < m; i++)
+            N(i, 0) = u >= knots[i] && u <= knots[i + 1] ? 1.0f : 0.0f;
+        for (u32 pi = 1; pi <= p; pi++) {
+            for (u32 i = 0; i < m - pi; i++) {
+                if (knots[i + pi] != knots[i])
+                    N(i, pi) = N(i, pi-1) * (u - knots[i]) / (knots[i + pi] - knots[i]);
+                else
+                    N(i, pi) = 0.0f;
+                if (knots[i + pi + 1] != knots[i + 1])
+                    N(i, pi) += N(i+1, pi-1) * (knots[i + pi + 1] - u) / (knots[i + pi + 1] - knots[i + 1]);
+            }
+        }
+
+        // position basis functions
+        for (u32 i = 0; i < nctrl; i++)
+            basis_p_col[i] = N(i, p);
+
+        // velocity basis functions
+        for (u32 i = 0; i < nctrl - 1; i++)
+            basis_v_col[i] = -(real)p * N(i+1, p-1) / (knots[i + p + 1] - knots[i + 1]);
+        for (u32 i = 1; i < nctrl; i++)
+            basis_v_col[i] += (real)p * N(i, p-1) / (knots[i + p] - knots[i]);
+
+        // acceleration basis functions
+        for (u32 i = 0; i < nctrl - 2; i++)
+            basis_a_col[i] = (real)(p * (p - 1)) * N(i+2, p-2) / ((knots[i + p + 1] - knots[i + 1]) * (knots[i + p + 1] - knots[i + 2]));
+        for (u32 i = 1; i < nctrl - 1; i++)
+            basis_a_col[i] -= (real)(p * (p - 1)) * N(i+1, p-2) * (1.0f / (knots[i + p] - knots[i]) + 1.0f / (knots[i + p + 1] - knots[i + 1])) / (knots[i + p] - knots[i + 1]);
+        for (u32 i = 2; i < nctrl; i++)
+            basis_a_col[i] += (p * (p - 1)) * N(i, p-2) / ((knots[i + p - 1] - knots[i]) * (knots[i + p] - knots[i]));
+
+        // increment pointers
+        basis_p_col += nctrl;
+        basis_v_col += nctrl;
+        basis_a_col += nctrl;
+    }
+}
 host_fn void Bspline::compute_control(const Array &x, const Matrix &task) {
     compute_control(x, task, control.data);
 }
