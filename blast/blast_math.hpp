@@ -292,6 +292,10 @@ struct Matrix {
     // move assignment
     blast_fn Matrix& operator=(Matrix&&);
 
+    blast_fn bool operator==(const Matrix&);
+
+    blast_fn bool operator!=(const Matrix&);
+
     // map the Matrix to the data of the given Array
     //  - note: interpret as a n x 1 matrix
     //  - note: becomes an alias
@@ -429,6 +433,19 @@ blast_fn real array_min(const Array& a) {
     return result;
 }
 
+// return the argument of the minimum value of the array
+blast_fn unsigned array_min_id(const Array& a) {
+    real result = INF_REAL;
+    real result_old;
+    unsigned i_min;
+    for(u32 i = 0; i < a.size; i++) {
+        result_old = result;
+        result = a[i] < result ? a[i] : result;
+        i_min = a[i] < result_old ? i : i_min;
+    }
+    return i_min;
+}
+
 // return the maximum value of the array (sign matters)
 blast_fn real array_max(const Array& a) {
     real result = -INF_REAL;
@@ -437,11 +454,49 @@ blast_fn real array_max(const Array& a) {
     return result;
 }
 
+// return the minimum value of the matrix (sign matters)
+blast_fn real matrix_min(const Matrix& m) {
+    real result = INF_REAL;
+    for(u32 i = 0; i < m.size; i++)
+        result = m.data[i] < result ? m.data[i] : result;
+    return result;
+}
+
+// return the argument of the minimum value of the matrix
+blast_fn unsigned matrix_min_id(const Matrix& m) {
+    real result = INF_REAL;
+    real result_old;
+    unsigned i_min;
+    for(u32 i = 0; i < m.size; i++) {
+        result_old = result;
+        result = m.data[i] < result ? m.data[i] : result;
+        i_min = m.data[i] < result_old ? i : i_min;
+    }
+    return i_min;
+}
+
+// return the maximum value of the matrix (sign matters)
+blast_fn real matrix_max(const Matrix& m) {
+    real result = -INF_REAL;
+    for(u32 i = 0; i < m.size; i++)
+        result = m.data[i] > result ? m.data[i] : result;
+    return result;
+}
+
 // return true if the difference of all elements of each array are close to zero
 blast_fn bool is_close(const Array& a1, const Array& a2, real eps = 1e-05) {
     Assert(a1.size == a2.size);
     for (u32 i =0; i < a1.size; i++)
         if(a1[i] - a2[i] > eps || a1[i] - a2[i] < -eps)
+            return false;
+    return true;
+}
+
+// return true if the difference of all elements of each matrix are close to zero
+blast_fn bool is_close(const Matrix& m1, const Matrix& m2, real eps = 1e-05) {
+    Assert(m1.cols == m2.cols && m1.rows == m2.rows);
+    for (u32 i =0; i < m1.size; i++)
+        if(m1.data[i] - m2.data[i] > eps || m1.data[i] - m2.data[i] < -eps)
             return false;
     return true;
 }
@@ -868,7 +923,6 @@ blast_fn Mat4& Mat4::operator*=(Mat4& rhs) {
         }
     }
     return *this;
-
 }
 
 blast_fn Mat4& Mat4::operator*=(real v) {
@@ -1105,6 +1159,14 @@ blast_fn Array operator-(const Array& v1, const Array& v2) {
     return r;
 }
 
+blast_fn Array operator+(const Array& v1, const Array& v2) {
+    Assert(v1.size == v2.size);
+    Array r = v1;
+    for (u32 i = 0; i < v1.size; i++)
+        r[i] += v2[i];
+    return r;
+}
+
 blast_fn Array operator*(const Array& a, real b) {
     Array r(a);
     r *= b;
@@ -1148,7 +1210,7 @@ blast_fn real dot(Array& a, Array& b) {
 // Compute the sine and the cosine of every element
 //  - note: fastest when the number of elements are a factor of 4 (or even 8 if real is float)
 blast_fn void sincos(const Array& angles, Array& sines, Array& cosines) {
-    Assert(angles.size == sines.size && angles.size == cosines.size);
+    Assert(sines.size >= angles.size && cosines.size >= angles.size);
 
 #if defined(__CUDA_ARCH__)
 #if BLAST_USE_DOUBLES
@@ -1158,13 +1220,7 @@ blast_fn void sincos(const Array& angles, Array& sines, Array& cosines) {
     for (int i = 0; i < angles.size; i++)
         ::sincosf(angles[i], &sines[i], &cosines[i]);
 #endif
-#elif defined(__GNUC__)
-    int i = 0;
-    for (; i < (int)angles.size; i++) {
-        sines[i] = sin(angles[i]);
-        cosines[i] = cos(angles[i]);
-    }
-#else
+#elif defined(__INTEL_COMPILER)
     int i = 0;
     // simd what you can
     mipp::Reg<real> a;
@@ -1179,6 +1235,11 @@ blast_fn void sincos(const Array& angles, Array& sines, Array& cosines) {
     }
     // serialize the rest
     for (; i < (int)angles.size; i++) {
+        sines[i] = sin(angles[i]);
+        cosines[i] = cos(angles[i]);
+    }
+#else
+    for (int i = 0; i < (int)angles.size; i++) {
         sines[i] = sin(angles[i]);
         cosines[i] = cos(angles[i]);
     }
@@ -1286,6 +1347,17 @@ blast_fn Matrix& Matrix::operator=(Matrix&& m) {
     return *this;
 }
 
+blast_fn bool Matrix::operator==(const Matrix& m) {
+    Assert(cols == m.cols && rows == m.rows);
+    return is_close(*this, m);
+}
+
+blast_fn bool Matrix::operator!=(const Matrix& m) {
+    Assert(cols == m.cols && rows == m.rows);
+    auto result = is_close(*this, m);
+    return !result;
+}
+
 blast_fn Matrix& Matrix::alias(Array& a) {
     Assert(a.data);
     if (data && !is_alias)
@@ -1346,6 +1418,23 @@ blast_fn Array Matrix::col(u32 c) const {
     return result;
 }
 
+blast_fn Matrix operator+(const Matrix& m1, const Matrix& m2) {
+    Assert(m1.cols == m2.cols && m1.rows == m2.rows);
+    Matrix result = m1;
+    for (u32 i = 0; i < m1.size; i++)
+        result.data[i] += m2.data[i];
+
+    return result;
+}
+
+blast_fn Matrix operator-(const Matrix& m1, const Matrix& m2) {
+    Assert(m1.cols == m2.cols && m1.rows == m2.rows);
+    Matrix result = m1;
+    for (u32 i = 0; i < m1.size; i++)
+        result.data[i] -= m2.data[i];
+    return result;
+}
+
 blast_fn Matrix operator*(const Matrix& lhs, const Matrix& rhs) {
     Assert(lhs.cols == rhs.rows);
     Matrix result(lhs.rows, rhs.cols);
@@ -1371,6 +1460,23 @@ blast_fn Array operator*(const Matrix& m, const Array& v) {
         }
         result[i] = sum;
     }
+    return result;
+}
+
+blast_fn Matrix operator*(real& r, const Matrix& m) {
+    Matrix result = m;
+    for (u32 i = 0; i < m.size; i++)
+        result.data[i] *= r;
+    return result;
+}
+
+// Piecewise multiply the matrices
+blast_fn Matrix pw_mult(const Matrix& m1, const Matrix& m2) {
+    Assert(m1.cols == m2.cols && m1.rows == m2.rows);
+    auto result = m1;
+    for (u32 i = 0; i < m1.size; i++)
+        result.data[i] *= m2.data[i];
+
     return result;
 }
 
@@ -1474,6 +1580,16 @@ blast_fn Matrix pinv(const Matrix& m) {
         res = inverse(transpose(m) * m) * transpose(m);
     }
     return res;
+}
+
+blast_fn Matrix eye(const u32 s) {
+    Matrix result(s, s);
+    for (u32 i = 0; i < s; ++i) {
+        for (u32 j = 0; j < s; ++j) {
+            result(j, i) = i == j ? 1 : 0;
+        }
+    }
+    return result;
 }
 
 //------ Collision ---------------------
@@ -1830,34 +1946,176 @@ TEST_CASE("TwoSegmentDist", "[Math]") {
 }
 
 TEST_CASE("MatrixOperations", "[Math]") {
-    blast::Matrix m(3, 2);
-    for (int i = 0; i < m.size; i++)
-        m.data[i] = i;
-    auto mT = blast::transpose(m);
+    using namespace blast;
 
-    REQUIRE(mT(0, 0) == m(0, 0));
-    REQUIRE(mT(0, 1) == m(1, 0));
-    REQUIRE(mT(0, 2) == m(2, 0));
-    REQUIRE(mT(1, 0) == m(0, 1));
-    REQUIRE(mT(1, 1) == m(1, 1));
-    REQUIRE(mT(1, 2) == m(2, 1));
+    SECTION("Equal && not equal") {
+        Matrix m(2, 2);
+        real r = 2;
+        for (int i = 0; i < m.size; i++)
+            m.data[i] = i;
+        auto m_eq = m;
+        auto m_n_eq = r*m;
+        REQUIRE((m.size == m_eq.size && m.size == m_n_eq.size));
+        REQUIRE((m == m_eq));
+        REQUIRE((m != m_n_eq));
+    }
 
-    blast::Matrix m2(2, 3);
-    for (int i = 0; i < m2.size; i++)
-        m2.data[i] = i+1;
+    SECTION("transpose") {
+        Matrix m(3, 2);
+        for (int i = 0; i < m.size; i++)
+            m.data[i] = i;
+        auto mT = transpose(m);
 
-    auto m3 = m * m2;
-    REQUIRE(m3.cols == 3);
-    REQUIRE(m3.rows == 3);
-    REQUIRE(m3(0, 0) == 6);
-    REQUIRE(m3(0, 1) == 12);
-    REQUIRE(m3(0, 2) == 18);
-    REQUIRE(m3(1, 0) == 9);
-    REQUIRE(m3(1, 1) == 19);
-    REQUIRE(m3(1, 2) == 29);
-    REQUIRE(m3(2, 0) == 12);
-    REQUIRE(m3(2, 1) == 26);
-    REQUIRE(m3(2, 2) == 40);
+        REQUIRE(mT(0, 0) == m(0, 0));
+        REQUIRE(mT(0, 1) == m(1, 0));
+        REQUIRE(mT(0, 2) == m(2, 0));
+        REQUIRE(mT(1, 0) == m(0, 1));
+        REQUIRE(mT(1, 1) == m(1, 1));
+        REQUIRE(mT(1, 2) == m(2, 1));
+    }
+
+    SECTION("Addition & substraction & real multiplication") {
+        Matrix m1(3, 3);
+        Matrix m2(3, 3);
+        real r = 2;
+        for (int i = 0; i < m1.size; i++) {
+            m1.data[i] = i;
+            m2.data[i] = i;
+        }
+        auto m3 = m1 + m2;
+        auto m4 = m1 - m2;
+
+        REQUIRE(m3.cols == 3);
+        REQUIRE(m3.rows == 3);
+        REQUIRE(m3(0, 0) == 0);
+        REQUIRE(m3(0, 1) == 6);
+        REQUIRE(m3(0, 2) == 12);
+        REQUIRE(m3(1, 0) == 2);
+        REQUIRE(m3(1, 1) == 8);
+        REQUIRE(m3(1, 2) == 14);
+        REQUIRE(m3(2, 0) == 4);
+        REQUIRE(m3(2, 1) == 10);
+        REQUIRE(m3(2, 2) == 16);
+
+        REQUIRE(m4.cols == 3);
+        REQUIRE(m4.rows == 3);
+        REQUIRE(m4(0, 0) == 0);
+        REQUIRE(m4(0, 1) == 0);
+        REQUIRE(m4(0, 2) == 0);
+        REQUIRE(m4(1, 0) == 0);
+        REQUIRE(m4(1, 1) == 0);
+        REQUIRE(m4(1, 2) == 0);
+        REQUIRE(m4(2, 0) == 0);
+        REQUIRE(m4(2, 1) == 0);
+        REQUIRE(m4(2, 2) == 0);
+
+        auto m5 = r*m3;
+        REQUIRE(m5.cols == 3);
+        REQUIRE(m5.rows == 3);
+        REQUIRE(m5(0, 0) == 0);
+        REQUIRE(m5(0, 1) == 12);
+        REQUIRE(m5(0, 2) == 24);
+        REQUIRE(m5(1, 0) == 4);
+        REQUIRE(m5(1, 1) == 16);
+        REQUIRE(m5(1, 2) == 28);
+        REQUIRE(m5(2, 0) == 8);
+        REQUIRE(m5(2, 1) == 20);
+        REQUIRE(m5(2, 2) == 32);
+    }
+
+    SECTION("Multiplication") {
+        Matrix m2(2, 3);
+        Matrix m(3, 2);
+        for (int i = 0; i < m.size; i++)
+            m.data[i] = i;
+        for (int i = 0; i < m2.size; i++)
+            m2.data[i] = i+1;
+
+        auto m3 = m * m2;
+        REQUIRE(m3.cols == 3);
+        REQUIRE(m3.rows == 3);
+        REQUIRE(m3(0, 0) == 6);
+        REQUIRE(m3(0, 1) == 12);
+        REQUIRE(m3(0, 2) == 18);
+        REQUIRE(m3(1, 0) == 9);
+        REQUIRE(m3(1, 1) == 19);
+        REQUIRE(m3(1, 2) == 29);
+        REQUIRE(m3(2, 0) == 12);
+        REQUIRE(m3(2, 1) == 26);
+        REQUIRE(m3(2, 2) == 40);
+    }
+
+    SECTION("Piecewies multiplication") {
+        Matrix m1(3, 3);
+        Matrix m2(3, 3);
+        for (int i = 0; i < m1.size; i++) {
+            m1.data[i] = i;
+            m2.data[i] = i;
+        }
+
+        auto m3 = pw_mult(m1, m2);
+        REQUIRE(m3.cols == 3);
+        REQUIRE(m3.rows == 3);
+        REQUIRE(m3(0, 0) == 0);
+        REQUIRE(m3(0, 1) == 9);
+        REQUIRE(m3(0, 2) == 36);
+        REQUIRE(m3(1, 0) == 1);
+        REQUIRE(m3(1, 1) == 16);
+        REQUIRE(m3(1, 2) == 49);
+        REQUIRE(m3(2, 0) == 4);
+        REQUIRE(m3(2, 1) == 25);
+        REQUIRE(m3(2, 2) == 64);
+    }
+    SECTION("Identity matrix") {
+        const Matrix identity = eye(4);
+
+        REQUIRE(identity(0, 0) == 1);
+        REQUIRE(identity(0, 1) == 0);
+        REQUIRE(identity(0, 2) == 0);
+        REQUIRE(identity(0, 3) == 0);
+        REQUIRE(identity(1, 0) == 0);
+        REQUIRE(identity(1, 1) == 1);
+        REQUIRE(identity(1, 2) == 0);
+        REQUIRE(identity(1, 3) == 0);
+        REQUIRE(identity(2, 0) == 0);
+        REQUIRE(identity(2, 1) == 0);
+        REQUIRE(identity(2, 2) == 1);
+        REQUIRE(identity(2, 3) == 0);
+        REQUIRE(identity(3, 0) == 0);
+        REQUIRE(identity(3, 1) == 0);
+        REQUIRE(identity(3, 2) == 0);
+        REQUIRE(identity(3, 3) == 1);
+    }
 }
 
+TEST_CASE("Min/Max") {
+    using namespace blast;
+
+    SECTION("min/max array") {
+        Array a(4);
+        a = {1, 2, 3, 0};
+
+        auto a_min = array_min(a);
+        REQUIRE(a_min == 0);
+        auto i_a_min = array_min_id(a);
+        REQUIRE(i_a_min == 3);
+        auto a_max = array_max(a);
+        REQUIRE(a_max == 3);
+    }
+
+    SECTION("min/max matrix") {
+        Matrix m(2, 2);
+        m(0, 0) = 1;
+        m(0, 1) = 2;
+        m(1, 0) = 3;
+        m(1, 1) = 0;
+
+        auto m_min = matrix_min(m);
+        REQUIRE(m_min == 0);
+        auto i_m_min = matrix_min_id(m);
+        REQUIRE(i_m_min == 3);
+        auto m_max = matrix_max(m);
+        REQUIRE(m_max == 3);
+    }
+}
 #endif
