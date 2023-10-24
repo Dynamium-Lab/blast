@@ -341,7 +341,7 @@ dev_fn void cuBspline::compute_trajectory(const unsigned point) {
 } // namespace blast
 
 #ifdef BLAST_ENABLE_TESTS
-#include "optional/blast_optional_utilities.hpp"
+#include "utilities/blast_utilities.hpp"
 TEST_CASE("GpuCpuTrajCorrectness", "[Trajectory]") {
     using namespace blast;
 

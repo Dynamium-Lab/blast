@@ -2,7 +2,7 @@
 #include "blast.hpp"
 
 #ifdef BLAST_DEBUG
-#include "optional/blast_optional_utilities.hpp"
+#include "utilities/blast_utilities.hpp"
 #endif
 
 namespace blast {

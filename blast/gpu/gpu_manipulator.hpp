@@ -375,7 +375,7 @@ dev_fn void cuGen3MultiTraj::compute_constraints_point(const real pos[7], const 
 } // namespace blast
 
 #ifdef BLAST_ENABLE_TESTS
-#include "optional/blast_optional_utilities.hpp"
+#include "utilities/blast_utilities.hpp"
 TEST_CASE("GpuCpuManipCorrectness", "[Manipulator]") {
     using namespace blast;
 
