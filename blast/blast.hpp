@@ -8,6 +8,8 @@
 #include "catch/catch.hpp"
 #endif
 
+#include "Eigen/Dense"
+
 //--- pre-processor directives to hand SIMD, CUDA, Etc
 
 // use doubles by default
