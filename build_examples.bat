@@ -3,7 +3,7 @@ echo 'building examples'
 
 cd examples/build
 
-set includes=-I "../../blast/" -I "../../blast/optional" -I "../nlopt/include/api" -I "../nlopt/include/algs" -I "multiple_compilation_units/"
+set includes=-I "../../blast/" -I "../../blast/optional" -I "../nlopt/include/api" -I "../nlopt/include/algs" -I "multiple_compilation_units/" -I "../../extern/"
 set options= --std c++17 -m64 -O2 -D BLAST_DEBUG -Xcompiler "-std:c++17 /EHsc /MT /Z7 /arch:AVX2 /fp:fast"
 set libr= -L "../nlopt/lib"
 @REM nvcc ../eval.cu nlopt.lib -o eval.exe %includes% %options% %libr%

@@ -193,7 +193,6 @@ blast_fn u32 cuGen3MultiTraj::nconstraints() {
 
 __global__ void compute_constraints_kernel() {
     cuMultiBsplines* bspline = (cuMultiBsplines*)bspline_broadcast_arena;
-    assert(bspline->is_init);
     cuGen3MultiTraj* manip = (cuGen3MultiTraj*)manip_broadcast_arena;
 
     const auto point = threadIdx.x;
