@@ -1,11 +1,15 @@
 #pragma once
 #include "blast.hpp"
+#include "Eigen/Dense"
 
 #ifdef BLAST_DEBUG
 #include "optional/blast_optional_utilities.hpp"
 #endif
 
 namespace blast {
+
+using Eigen::MatrixXd;
+using Eigen::VectorXd;
 
 struct Trajectory {
     Matrix pos; // njoints x npoints
@@ -53,6 +57,53 @@ struct Bspline {
     host_fn void compute_control(const Array &x, const Matrix &task);
     host_fn void compute_control(const Array &x, const Matrix &task, real *dst);
 };
+
+struct TrajectoryEigen {
+    MatrixXd pos; // njoints x npoints
+    MatrixXd vel; // njoints x npoints
+    MatrixXd acc; // njoints x npoints
+    VectorXd t;   // npoints
+
+    TrajectoryEigen(u32 npoints, u32 njoints) :
+        pos(njoints, npoints),
+        vel(njoints, npoints),
+        acc(njoints, npoints),
+        t(npoints) {}
+
+    TrajectoryEigen() = default;
+};
+
+struct BsplineEigen {
+    TrajectoryEigen traj;
+    MatrixXd control; // nctrl x njoints
+    MatrixXd basis_p; // nctrl x npoints
+    MatrixXd basis_v; // nctrl x npoints
+    MatrixXd basis_a; // nctrl x npoints
+    u32 joints;
+    u32 points;
+    u32 nctrl;
+    u32 p;
+
+    host_fn BsplineEigen(u32 ncontrol, u32 npoints, u32 P, u32 njoints);
+
+    // Compute a trajectory from the given optimization vector
+    //  - note: fastest when 'ncontrol' is a multiple of 4 (SIMD)
+    host_fn void compute_trajectory(const VectorXd &x, const MatrixXd &task);
+    host_fn u32 xlen(const MatrixXd &task) {
+        Assert(task.rows() == joints);
+        Assert(task.cols() == 6);
+        auto results = joints * (nctrl - 6) + 1;
+        for (u32 i = 0; i < task.size(); i++)
+            if (std::isnan(task.data()[i]))
+                results++;
+        return results;
+    }
+
+    host_fn void compute_basis();
+    host_fn void compute_control(const VectorXd &x, const MatrixXd &task);
+    host_fn void compute_control(const VectorXd &x, const MatrixXd &task, double * dst);
+};
+
 
 //------ FUNCTIONS ------------------------------------------------------------------------------------
 
@@ -195,6 +246,7 @@ host_fn void Bspline::compute_basis_open() {
         basis_a_col += nctrl;
     }
 }
+
 host_fn void Bspline::compute_control(const Array &x, const Matrix &task) {
     compute_control(x, task, control.data);
 }
@@ -280,6 +332,153 @@ host_fn void Bspline::compute_trajectory(const Array &x, Matrix &task) {
     }
 }
 
+host_fn BsplineEigen::BsplineEigen(u32 ncontrol, u32 npoints, u32 P, u32 njoints) :
+    traj(npoints, njoints),
+    control(ncontrol, njoints),
+    basis_p(ncontrol, npoints),
+    basis_v(ncontrol, npoints),
+    basis_a(ncontrol, npoints),
+    joints(njoints),
+    points(npoints),
+    nctrl(ncontrol),
+    p(P) {
+    compute_basis();
+}
+
+host_fn void BsplineEigen::compute_basis() {
+    const u32 m = nctrl + p;
+    VectorXd knots(m + 1);
+    knots.setZero();
+    {
+        for (u32 i = m; i > m - p - 1; i--)
+            knots[i] = 1.0f;
+        const double du = 1.0f / (double)(m + 1 - 2 * (p + 1) + 1);
+        for (u32 i = p + 1; i < m - p; i++)
+            knots[i] = knots[i - 1] + du;
+    }
+
+    VectorXd N(m * (p + 1)); // triangle basis function
+    N.setZero();
+    const double du = 1.0f / (points - 1);
+    basis_p.setZero();
+    basis_v.setZero();
+    basis_a.setZero();
+    double *basis_p_col = basis_p.data();
+    double *basis_v_col = basis_v.data();
+    double *basis_a_col = basis_a.data();
+    for (u32 point = 0; point < points; point++) {
+        const double u = point * du;
+
+        for (u32 i = 0; i < m; i++)
+            N[i] = u >= knots[i] && u < knots[i + 1] ? 1.0f : 0.0f;
+        if (point == points - 1)
+            N[nctrl - 1] = 1.0f;
+        for (u32 pi = 1; pi <= p; pi++) {
+            for (u32 i = 0; i < m - pi; i++) {
+                if (knots[i + pi] != knots[i])
+                    N[m * pi + i] = N[m * (pi - 1) + i] * (u - knots[i]) / (knots[i + pi] - knots[i]);
+                else
+                    N[m * pi + i] = 0.0f;
+                if (knots[i + pi + 1] != knots[i + 1])
+                    N[m * pi + i] += N[m * (pi - 1) + i + 1] * (knots[i + pi + 1] - u) / (knots[i + pi + 1] - knots[i + 1]);
+            }
+        }
+
+        // position basis functions
+        for (u32 i = 0; i < nctrl; i++)
+            basis_p_col[i] = N[m * p + i];
+
+        // velocity basis functions
+        for (u32 i = 0; i < nctrl - 1; i++)
+            basis_v_col[i] = -(double)p * N[m * (p - 1) + i + 1] / (knots[i + p + 1] - knots[i + 1]);
+        for (u32 i = 1; i < nctrl; i++)
+            basis_v_col[i] += (double)p * N[m * (p - 1) + i] / (knots[i + p] - knots[i]);
+
+        // acceleration basis functions
+        for (u32 i = 0; i < nctrl - 2; i++)
+            basis_a_col[i] = (p * (p - 1)) * N[m * (p - 2) + i + 2] / ((knots[i + p + 1] - knots[i + 1]) * (knots[i + p + 1] - knots[i + 2]));
+        for (u32 i = 1; i < nctrl - 1; i++)
+            basis_a_col[i] -= (p * (p - 1)) * N[m * (p - 2) + i + 1] * (1.0f / (knots[i + p] - knots[i]) + 1.0f / (knots[i + p + 1] - knots[i + 1])) / (knots[i + p] - knots[i + 1]);
+        for (u32 i = 2; i < nctrl; i++)
+            basis_a_col[i] += (p * (p - 1)) * N[m * (p - 2) + i] / ((knots[i + p - 1] - knots[i]) * (knots[i + p] - knots[i]));
+
+        // increment pointers
+        basis_p_col += nctrl;
+        basis_v_col += nctrl;
+        basis_a_col += nctrl;
+    }
+}
+
+host_fn void BsplineEigen::compute_control(const VectorXd& x, const MatrixXd& task) {
+    compute_control(x, task, control.data());
+}
+
+host_fn void BsplineEigen::compute_control(const VectorXd &x, const MatrixXd &task, double * dst) {
+    using std::isnan;
+    Assert(nctrl >= 6);
+    const double T = x[x.size()-1];
+    const double du = 1.0f / (nctrl - p);
+    const double T2 = T * T;
+    const double one_over_T = 1 / T;
+    const double one_over_T2 = one_over_T * one_over_T;
+
+    u32 ctr_i = 0;
+    u32 x_i = 0;
+
+    const double Kv = T * du / p;
+    const double Ka = 2 * T2 * du * du / (p * (p - 1));
+    for (u32 joint = 0; joint < joints; joint++) {
+        // Initial PVA
+        const auto pi = task(joint, 0);
+        const auto vi = task(joint, 1);
+        const auto ai = task(joint, 2);
+        dst[ctr_i++] = isnan(pi) ? x[x_i++] : pi;
+        dst[ctr_i++] = isnan(vi) ? x[x_i++] : Kv * vi + dst[ctr_i - 1];
+        dst[ctr_i++] = isnan(ai) ? x[x_i++] : Ka * ai + 3 * dst[ctr_i - 1] - 2 * dst[ctr_i - 2];
+
+        // From optimization vector
+        for (u32 i = 3; i < nctrl - 3; i++)
+            dst[ctr_i++] = x[x_i++];
+
+        // Final PVA
+        const auto pf = task(joint, 3);
+        const auto vf = task(joint, 4);
+        const auto af = task(joint, 5);
+        const double Pn = isnan(pf) ? x[x_i++] : pf;
+        const double Pn_minus_1 = isnan(vf) ? x[x_i++] : Pn - Kv * vf;
+        const double Pn_minus_2 = isnan(af) ? x[x_i++] : Ka * af - 2 * Pn + 3 * Pn_minus_1;
+        dst[ctr_i++] = Pn_minus_2;
+        dst[ctr_i++] = Pn_minus_1;
+        dst[ctr_i++] = Pn;
+    }
+}
+
+host_fn void BsplineEigen::compute_trajectory(const VectorXd &x, const MatrixXd &task) {
+    Assert(x.size() == xlen(task));
+    Assert(task.rows() == joints);
+    Assert(task.cols() == 6);
+
+    compute_control(x, task);
+
+    const real T = x[x.size()-1];
+    const real dt = T / (points - 1);
+    const real one_over_T = 1 / T;
+    const real one_over_T2 = one_over_T * one_over_T;
+
+    for (u32 point = 0; point < points; point++) {
+        traj.t[point] = dt * point;
+        auto bp = basis_p.col(point);
+        auto bv = basis_v.col(point);
+        auto ba = basis_a.col(point);
+        for (u32 joint = 0; joint < joints; joint++) {
+            auto c = control.col(joint);
+            traj.pos(joint, point) = c.dot(bp);
+            traj.vel(joint, point) = c.dot(bv) * one_over_T;
+            traj.acc(joint, point) = c.dot(ba) * one_over_T2;
+        }
+    }
+}
+
 host_fn Trajectory compute_5order_trajectory(real T, Matrix &task) {
     const u32 joints = task.rows;
     const u32 points = (u32)ceil(T * 1000 + 1);
@@ -357,11 +556,10 @@ TEST_CASE("SplineTest", "[Trajectory]") {
         x[i] = amp * get_random();
     x[x.size - 1] = 3.f;
 
-    // Compute basis functions
-
     // Compute trajectory
     Bspline bspline(nctrl, npts, p, njoints);
     bspline.compute_trajectory(x, task);
+
     auto& traj = bspline.traj;
 
     double init_max_pos_error = 0;
@@ -390,6 +588,40 @@ TEST_CASE("SplineTest", "[Trajectory]") {
             max_acc_error = std::max(max_acc_error, std::abs(diff_v - (double)traj.acc(i, j)));
         }
     }
+
+
+    MatrixXd task_eigen(njoints, 6);
+    for (u32 i = 0; i < task.size; i++)
+        task_eigen.data()[i] = task.data[i];
+
+    VectorXd x_eigen(njoints * (nctrl - 6) + 1);
+    for (u32 i = 0; i < x.size; i++)
+        x_eigen[i] = x[i];
+
+    BsplineEigen bspline_eigen(nctrl, npts, p, njoints);
+    bspline_eigen.compute_trajectory(x_eigen, task_eigen);
+
+    // print(bspline.basis_p);
+    // printf("\n");
+    // print(bspline_eigen.basis_p);
+
+    auto& traj_eigen = bspline_eigen.traj;
+    double max_perr = 0;
+    double max_verr = 0;
+    double max_aerr = 0;
+    for (u32 i = 0; i < npts; i++) {
+        for (int j = 0; j < njoints; j++) {
+            max_perr = std::max(max_perr, std::abs(traj.pos(j, i) - traj_eigen.pos(j, i)));
+            max_verr = std::max(max_verr, std::abs(traj.vel(j, i) - traj_eigen.vel(j, i)));
+            max_aerr = std::max(max_aerr, std::abs(traj.acc(j, i) - traj_eigen.acc(j, i)));
+        }
+    }
+    REQUIRE(max_perr < 0.001);
+    REQUIRE(max_verr < 0.001);
+    REQUIRE(max_aerr < 0.001);
+
+
+
 
     REQUIRE(init_max_pos_error < 0.2);
     REQUIRE(init_max_vel_error < 0.2);

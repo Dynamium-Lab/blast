@@ -15,9 +15,14 @@
 #include <math_constants.h>
 #endif
 
+#include "Eigen/Dense"
+
 #include "mipp/mipp.h"
 
 namespace blast {
+
+using Eigen::MatrixXd;
+using Eigen::VectorXd;
 
 // uses doubles by default unless BLAST_USE_DOUBLES is set to 0
 #if BLAST_USE_DOUBLES
