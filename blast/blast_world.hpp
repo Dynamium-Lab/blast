@@ -2240,7 +2240,7 @@ TEST_CASE("Collisions", "[World]") {
     BENCHMARK("Capsule - Sphere (4 objects)") {
         real dist = 0;
         for (auto t : test) {
-            dist = distmin(t.caps, t.sph);
+            dist += distmin(t.caps, t.sph);
         }
         return dist;
     };
@@ -2288,9 +2288,11 @@ TEST_CASE("Collisions", "[World]") {
         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
     }
     BENCHMARK("Capsule - Cylinder (5 objects)") {
+        real dist = 0;
         for (auto t : test_cyl) {
-            real dist = distmin(t.caps, t.cyl);
+            dist += distmin(t.caps, t.cyl);
         }
+        return dist;
     };
 
     // capsule - OBB collision tests
@@ -2353,21 +2355,23 @@ TEST_CASE("Collisions", "[World]") {
     BENCHMARK("Capsule - OBB without GJK (30 objects)") {
         real dist = 0;
         for (auto t : test_obb) {
-            dist = distmin(t.box, t.caps);
+            dist += distmin(t.box, t.caps);
         }
         return dist;
     };
     BENCHMARK("Capsule - OBB with GJK (30 objects)") {
         gjkresult res;
+        real dist = 0;
         for (auto t : test_obb) {
             res = GJK_solve_gjk_simple(t.caps, t.box);
+            dist += res.minimal_distance;
         }
-        return res;
+        return dist;
     };
     BENCHMARK("Capsule - OBB with boolean GJK (30 objects)") {
-        bool res;
+        u32 res;
         for (auto t : test_obb) {
-            res = GJK_bool(t.caps, t.box);
+            res += GJK_bool(t.caps, t.box);
         }
         return res;
     };
