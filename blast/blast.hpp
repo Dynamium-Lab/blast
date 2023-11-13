@@ -27,6 +27,11 @@
 #define host_fn inline
 #endif
 
+
+#ifdef BLAST_DEBUG
+#include "optional/blast_optional_utilities.hpp"
+#endif
+
 //--- Other headers ---
 #include "blast_error.hpp"
 #include "blast_math.hpp"

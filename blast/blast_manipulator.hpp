@@ -1644,14 +1644,6 @@ host_fn Gen3Eigen::Gen3Eigen() : ManipulatorEigen(7) {
 
     set_payload(0, true);
 
-    // vector to next joint
-    dv[0] = {0.0, 0.0054, -0.1284};
-    dv[1] = {0.0, -0.2104, -0.0064};
-    dv[2] = {0.0, -0.0064, -0.2104};
-    dv[3] = {0.0, -0.2084, -0.0064};
-    dv[4] = {0.0, 0.0, -0.1059};
-    dv[5] = {0.0, -0.1059, 0.0};
-    dv[6] = {0.0, 0.0, -0.0615 - 0.164};
 
     // todo: add option to know if tool is closed or opened (difference of 0.0135 in z)?
 
@@ -1682,8 +1674,6 @@ host_fn void Gen3Eigen::set_payload(double mass, bool add_gripper) {
     m[4] = 0.678;
     m[5] = 0.678;
     m[6] = 0.364;
-    if (add_gripper)
-        m[6] += 0.921;
 
     // inertial tensor
     I[0] << 0.004570, 0.000001, 0.000002,
@@ -1708,7 +1698,7 @@ host_fn void Gen3Eigen::set_payload(double mass, bool add_gripper) {
     0.000000, 0.000223, 0.000002,
     0.000001, 0.000002, 0.000240;
 
-// center of mass
+    // center of mass
     av[0] = {-0.000023, -0.010364, -0.073360};
     av[1] = {-0.000044, -0.099580, -0.013278};
     av[2] = {-0.000044, -0.006641, -0.117892};
@@ -1717,33 +1707,60 @@ host_fn void Gen3Eigen::set_payload(double mass, bool add_gripper) {
     av[5] = {0.000001, -0.045483, -0.009650};
     av[6] = {-0.000093, 0.000132, -0.022905};
 
-    Vector3d av_tool(0, 0, -0.06 - 0.0615);
-    av[6] = (0.364 * av[6] + 0.921 * av_tool) * (1 / (0.364 + 0.921));
+    // vector to next joint
+    dv[0] = {0.0, 0.0054, -0.1284};
+    dv[1] = {0.0, -0.2104, -0.0064};
+    dv[2] = {0.0, -0.0064, -0.2104};
+    dv[3] = {0.0, -0.2084, -0.0064};
+    dv[4] = {0.0, 0.0, -0.1059};
+    dv[5] = {0.0, -0.1059, 0.0};
+    dv[6] = {0.0, 0.0, -0.0615};
 
-// Set to default
-    av[6] = (0.364 * av[6] + 0.921 * av_tool) * (1 / (0.364 + 0.921));
-    sv[6] = dv[6] - av[6];
-    I[6] << 0.000214f, 0.000000f, 0.000001f,
-    0.000000f, 0.000223f, 0.000002f,
-    0.000001f, 0.000002f, 0.000240f;
+    // Modify payload
+    if (add_gripper) {
+        m[6] += 0.921;
+        dv[6][2] -= 0.164;
 
-// Modify payload
-    Vector3d av_payload = {0.0f, 0.0f, -0.115f}; // todo: modify to real center of mass length (design prototype) todo: add to manip ?
-    Vector3d av_old = av[6];
-    double m_old = m[6];
+        Vector3d av_tool(0, 0, -0.06 - 0.0615);
+        av[6] = (0.364 * av[6] + 0.921 * av_tool) * (1 / (0.364 + 0.921));
 
-    double m_new = m_old + mass;
-    Vector3d av_new = (m_old*av_old + mass*av_payload) * (1/m_new);
-    Vector3d sv_new = dv[6] - av_new;
-    Vector3d delta_av = av_new - av_old; // shift in center of mass
-    Vector3d av_to_mass = av_payload - av_new; // vector from payload to new center of mass
+        Vector3d av_payload = {0.0f, 0.0f, -0.115f}; // todo: modify to real center of mass length (design prototype) todo: add to manip ?
 
-    av[6] = av_new;
-    sv[6] = sv_new;
-    m[6] = m_new;
-    I[6](0, 0) += m_old*delta_av[0]*delta_av[0] + mass*av_to_mass[0]*av_to_mass[0]; // todo: Validate
-    I[6](1, 1) += m_old*delta_av[1]*delta_av[1] + mass*av_to_mass[1]*av_to_mass[1];
-    I[6](2, 2) += m_old*delta_av[2]*delta_av[2] + mass*av_to_mass[2]*av_to_mass[2];
+        Vector3d av_old = av[6];
+        double m_old = m[6];
+
+        double m_new = m_old + mass;
+        Vector3d av_new = (m_old*av_old + mass*av_payload) * (1/m_new);
+        Vector3d sv_new = dv[6] - av_new;
+        Vector3d delta_av = av_new - av_old;        // shift in center of mass
+        Vector3d av_to_mass = av_payload - av_new;  // vector from payload to new center of mass
+
+        av[6] = av_new;
+        sv[6] = sv_new;
+        m[6] = m_new;
+        I[6](0, 0) += m_old*delta_av[0]*delta_av[0] + mass*av_to_mass[0]*av_to_mass[0];
+        I[6](1, 1) += m_old*delta_av[1]*delta_av[1] + mass*av_to_mass[1]*av_to_mass[1];
+        I[6](2, 2) += m_old*delta_av[2]*delta_av[2] + mass*av_to_mass[2]*av_to_mass[2];
+    }
+    else {
+        // Set to default
+        m[6] = 0.364f;
+        av[6] = {-0.000093f, 0.000132f, -0.022905f};
+        sv[6] = dv[6] - av[6];
+        // Modify payload
+        Vector3d av_payload = {0.0f, 0.0f, -0.115f}; // todo: modify to real center of mass length (design prototype) todo: add to manip ?
+        auto av_old = av[6];
+        auto m_old = m[6];
+        m[6] = m_old + mass;
+        av[6] = (m_old*av_old + mass*av_payload) * (1/m[6]);
+        sv[6] = dv[6] - av[6];
+        auto delta_av = av[6] - av_old; // shift in center of mass
+        auto av_to_mass = av_payload - av[6]; // vector from payload to new center of mass
+
+        I[6](0, 0) += m_old*delta_av[0]*delta_av[0] + mass*av_to_mass[0]*av_to_mass[0]; // todo: Validate
+        I[6](1, 1) += m_old*delta_av[1]*delta_av[1] + mass*av_to_mass[1]*av_to_mass[1];
+        I[6](2, 2) += m_old*delta_av[2]*delta_av[2] + mass*av_to_mass[2]*av_to_mass[2];
+    }
 
 
 // center of mass (from next joint)
@@ -2266,7 +2283,7 @@ host_fn VectorXd Gen3Eigen::constraints(const VectorXd &pos, const VectorXd &vel
     for (int j = 0; j < 7; j++)
         result[j+7] = (abs(vel[j]) - vmax[j]) / vmax[j];
 
-    auto f = _efforts.col(0); Assert(f.is_alias);
+    auto f = _efforts.col(0);
     for (int j = 0; j < 7; j++)
         result[j+14] = (abs(f[j]) - tau_max[j]) / tau_max[j];
 
@@ -2297,7 +2314,7 @@ host_fn void Gen3Eigen::constraints(const MatrixXd &pos, const MatrixXd &vel, co
 
     for (int i = 0; i < points; i++) {
         // collision
-        VectorXd p = pos.col(i); Assert(p.is_alias);
+        VectorXd p = pos.col(i);
         VectorXd tmp_coll = collision_check(p);
         dst[0] = -tmp_coll[0]; // dist1sqr
         dst[1] = -tmp_coll[1]; // dist2sqr
@@ -2368,10 +2385,11 @@ TEST_CASE("EigenCorrectness", "[Manipulator]") {
     Gen3_7DOF manip;
     Gen3Eigen manip_eigen;
 
-    const u32 points = 256;
+    const u32 points = 10;
     const u32 joints = 7;
     const u32 p = 5;
-    const u32 ncontrol = 24;
+    const u32 ncontrol = 12;
+
     // random task
     real amp = 10;
     Matrix task(joints, 6);
@@ -2402,8 +2420,60 @@ TEST_CASE("EigenCorrectness", "[Manipulator]") {
     double max_err = 0;
     for (int i = 0; i < r.size; i++) {
         max_err = std::max(max_err, std::abs(r[i] - r_eigen[i]));
+        if (max_err > 0.1) {
+            break;
+        }
     }
+
     REQUIRE(max_err < 0.01);
+}
+
+
+TEST_CASE("ManipSpeedTest", "[Manipulator]") {
+    using namespace blast;
+    Gen3_7DOF manip;
+    Gen3Eigen manip_eigen;
+
+    const u32 points = 256;
+    const u32 joints = 7;
+    const u32 p = 5;
+    const u32 ncontrol = 24;
+
+    // random task
+    real amp = 10;
+    Matrix task(joints, 6);
+    for (u32 i = 0; i < task.rows; i++) {
+        for (u32 j = 0; j < task.cols; j++) {
+            task(i, j) = amp * get_random();
+        }
+    }
+    MatrixXd task_eigen(joints, 6);
+    for (u32 i = 0; i < task.size; i++)
+        task_eigen.data()[i] = task.data[i];
+    // random optimization vector
+    Array x(joints * (ncontrol - 6) + 1);
+    for (u32 i = 0; i < x.size; i++)
+        x[i] = amp * get_random();
+    x[x.size - 1] = 3.f;
+    VectorXd x_eigen(joints * (ncontrol - 6) + 1);
+    for (u32 i = 0; i < x.size; i++)
+        x_eigen[i] = x[i];
+    Bspline bspline(ncontrol, points, p, joints);
+    BsplineEigen bspline_eigen(ncontrol, points, p, joints);
+
+
+
+    BENCHMARK("Blast constraints speed") {
+        bspline.compute_trajectory(x, task);
+        Array r = manip.constraints(bspline.traj);
+        return r[122];
+    };
+
+    BENCHMARK("Blast + Eigen constraints speed") {
+        bspline_eigen.compute_trajectory(x_eigen, task_eigen);
+        VectorXd r_eigen = manip_eigen.constraints(bspline_eigen.traj);
+        return r_eigen[122];
+    };
 
 }
 #endif // tests

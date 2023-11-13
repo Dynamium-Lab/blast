@@ -649,16 +649,16 @@ TEST_CASE("SplineSpeedTest", "[Trajectory]") {
     BsplineEigen bspline_eigen(ncontrol, points, p, joints);
 
     {
-        BENCHMARK("Blast+Eigen trajectory speed") {
-            bspline_eigen.compute_trajectory(x_eigen, task_eigen);
-            return bspline_eigen.traj.pos(0, 0);
+        BENCHMARK("Blast trajectory speed") {
+            bspline.compute_trajectory(x, task);
+            return bspline.traj.pos(0, 0);
         };
     }
 
     {
-        BENCHMARK("Blast trajectory speed") {
-            bspline.compute_trajectory(x, task);
-            return bspline.traj.pos(0, 0);
+        BENCHMARK("Blast+Eigen trajectory speed") {
+            bspline_eigen.compute_trajectory(x_eigen, task_eigen);
+            return bspline_eigen.traj.pos(0, 0);
         };
     }
 
