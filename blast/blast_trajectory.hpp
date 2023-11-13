@@ -464,18 +464,10 @@ host_fn void BsplineEigen::compute_trajectory(const VectorXd &x, const MatrixXd 
     const real one_over_T = 1 / T;
     const real one_over_T2 = one_over_T * one_over_T;
 
-    for (int point = 0; point < points; point++) {
-        traj.t[point] = dt * point;
-        auto bp = basis_p.col(point);
-        auto bv = basis_v.col(point);
-        auto ba = basis_a.col(point);
-        for (int joint = 0; joint < joints; joint++) {
-            auto c = control.col(joint);
-            traj.pos(joint, point) = c.dot(bp);
-            traj.vel(joint, point) = c.dot(bv) * one_over_T;
-            traj.acc(joint, point) = c.dot(ba) * one_over_T2;
-        }
-    }
+    MatrixXd c = control.transpose();
+    traj.pos = c*basis_p;
+    traj.vel = c*basis_v * one_over_T;
+    traj.acc = c*basis_a * one_over_T2;
 }
 
 host_fn Trajectory compute_5order_trajectory(real T, Matrix &task) {
