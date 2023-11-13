@@ -2369,7 +2369,7 @@ TEST_CASE("Collisions", "[World]") {
         return dist;
     };
     BENCHMARK("Capsule - OBB with boolean GJK (30 objects)") {
-        u32 res;
+        u32 res = 0;
         for (auto t : test_obb) {
             res += GJK_bool(t.caps, t.box);
         }
