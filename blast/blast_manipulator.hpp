@@ -65,7 +65,6 @@ struct ManipulatorEigen {
     }
 };
 
-
 struct ManipulatorUR5 : public Manipulator {
     bool is_init = false;
 
@@ -1644,7 +1643,6 @@ host_fn Gen3Eigen::Gen3Eigen() : ManipulatorEigen(7) {
 
     set_payload(0, true);
 
-
     // todo: add option to know if tool is closed or opened (difference of 0.0135 in z)?
 
     // unit joint direction
@@ -1762,7 +1760,6 @@ host_fn void Gen3Eigen::set_payload(double mass, bool add_gripper) {
         I[6](2, 2) += m_old*delta_av[2]*delta_av[2] + mass*av_to_mass[2]*av_to_mass[2];
     }
 
-
 // center of mass (from next joint)
     sv[0] = dv[0] - av[0];
     sv[1] = dv[1] - av[1];
@@ -1772,29 +1769,6 @@ host_fn void Gen3Eigen::set_payload(double mass, bool add_gripper) {
     sv[5] = dv[5] - av[5];
     sv[6] = dv[6] - av[6];
 }
-
-// host_fn void Gen3Eigen::set_payload_without_gripper(const real mass) {
-//     // Set to default
-//     m[6] = 0.364f;
-//     av[6] = {-0.000093f, 0.000132f, -0.022905f};
-//     sv[6] = dv[6] - av[6];
-//     I[6] = {0.000214f, 0.000000f, 0.000001f, 0.000000f, 0.000223f, 0.000002f, 0.000001f, 0.000002f, 0.000240f};
-//     // Modify payload
-//     Vector3d av_payload = {0.0f, 0.0f, -0.115f}; // todo: modify to real center of mass length (design prototype) todo: add to manip ?
-//     auto av_old = av[6];
-//     auto m_old = m[6];
-//     auto m_new = m_old + mass;
-//     auto av_new = (m_old*av_old + mass*av_payload) * (1/m_new);
-//     auto sv_new = dv[6] - av_new;
-//     auto delta_av = av_new - av_old; // shift in center of mass
-//     auto av_to_mass = av_payload - av_new; // vector from payload to new center of mass
-//     av[6] = av_new;
-//     sv[6] = sv_new;
-//     m[6] = m_new;
-//     I[6](0, 0) += m_old*delta_av.x*delta_av.x + mass*av_to_mass.x*av_to_mass.x; // todo: Validate
-//     I[6](1, 1) += m_old*delta_av.y*delta_av.y + mass*av_to_mass.y*av_to_mass.y;
-//     I[6](2, 2) += m_old*delta_av.z*delta_av.z + mass*av_to_mass.z*av_to_mass.z;
-// }
 
 host_fn void Gen3Eigen::dynamics(const TrajectoryEigen &traj, MatrixXd &efforts) {
     dynamics(traj.pos, traj.vel, traj.acc, efforts);
@@ -2428,7 +2402,6 @@ TEST_CASE("EigenCorrectness", "[Manipulator]") {
     REQUIRE(max_err < 0.01);
 }
 
-
 TEST_CASE("ManipSpeedTest", "[Manipulator]") {
     using namespace blast;
     Gen3_7DOF manip;
@@ -2461,17 +2434,17 @@ TEST_CASE("ManipSpeedTest", "[Manipulator]") {
     Bspline bspline(ncontrol, points, p, joints);
     BsplineEigen bspline_eigen(ncontrol, points, p, joints);
 
-
-
+    Array r(manip.ncon(points));
     BENCHMARK("Blast constraints speed") {
         bspline.compute_trajectory(x, task);
-        Array r = manip.constraints(bspline.traj);
+        r = manip.constraints(bspline.traj);
         return r[122];
     };
 
+    VectorXd r_eigen(manip_eigen.ncon(points));
     BENCHMARK("Blast + Eigen constraints speed") {
         bspline_eigen.compute_trajectory(x_eigen, task_eigen);
-        VectorXd r_eigen = manip_eigen.constraints(bspline_eigen.traj);
+        r_eigen = manip_eigen.constraints(bspline_eigen.traj);
         return r_eigen[122];
     };
 
