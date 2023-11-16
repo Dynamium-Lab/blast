@@ -2,6 +2,7 @@
 #include "blast.hpp"
 #include "blast_optimization.hpp"
 #include "blast_optional_utilities.hpp"
+#include "nlopt.h"
 
 using namespace blast;
 
@@ -27,9 +28,12 @@ struct opt_result {
 
 void rosensuzuki_fun(Array& x, real& f, Array& g) {
     f = x[0]*x[0] + x[1]*x[1] + 2*x[2]*x[2] + x[3]*x[3] - 5*x[0] - 5*x[1] - 21*x[2] + 7*x[3];
-    g[0] = x[0]*x[0] + x[1]*x[1] + x[2]*x[2] + x[3]*x[3] + x[0] - x[1] + x[2] - x[3] - 8;
-    g[1] = x[0]*x[0] + 2*x[1]*x[1] + x[2]*x[2] + 2*x[3]*x[3] - x[0] - x[3] - 10;
-    g[2] = 2*x[0]*x[0] + x[1]*x[1] + x[2]*x[2] + 2*x[0] - x[1] - x[3] - 5;
+    if(g.size != 0) {
+
+        g[0] = x[0]*x[0] + x[1]*x[1] + x[2]*x[2] + x[3]*x[3] + x[0] - x[1] + x[2] - x[3] - 8;
+        g[1] = x[0]*x[0] + 2*x[1]*x[1] + x[2]*x[2] + 2*x[3]*x[3] - x[0] - x[3] - 10;
+        g[2] = 2*x[0]*x[0] + x[1]*x[1] + x[2]*x[2] + 2*x[0] - x[1] - x[3] - 5;
+    }
 }
 
 // Hessien approximation using BFGS
@@ -159,6 +163,75 @@ gradients cstr_manip_active(Array& x, real& f, Array& g, real& vmax) {
     return grad_r;
 }
 
+host_fn double obj_rs(unsigned n, const double* x, double* grad, void*) {
+    using namespace blast;
+    double result;
+
+    Array g;
+    Array g_plus;
+    Array x_alias ((real*)x, n);
+    Assert(x_alias.is_alias);
+
+    rosensuzuki_fun(x_alias, result, g);
+
+    Array cst(x_alias.size);
+    constant(cst, 1e-6);
+    auto eps = 0.001*x_alias + cst;
+
+    Array x_plus(x_alias.size);
+    real f_plus;
+
+    if (grad) {
+        for (u32 j = 0; j < x_alias.size; j++) {
+
+            x_plus = x_alias;
+            x_plus[j] += eps[j];
+            // internal_cstr_manip_single(m, g_plus.data, n, x_plus.data, opt);
+            rosensuzuki_fun(x_plus, f_plus, g_plus);
+            grad[j] = (f_plus - result) / eps[j];
+        }
+    }
+    return result;
+}
+
+// Simple manipulator defined constraints function.
+//  The given manipulator's constraints function is called and no additionnal constraints are added.
+//
+//  m      = number of constraints
+//  result = constraints are inserted here
+//  n      = number of elements in optimization vector
+//  x      = optimization vector
+//  grad   = if not NULL, gradient is inserted here
+//  data   = is cast to Optimization struct
+//
+// Returns nothing
+host_fn void cstr_manip_rs(unsigned m, double *result, unsigned n, const double* x, double* grad, void* f_data) {
+    // Optimisation* opt = (Optimisation*)f_data;
+
+    // internal_cstr_manip_single(m, result, n, x, opt);
+    // f_data = x[0]*x[0] + x[1]*x[1] + 2*x[2]*x[2] + x[3]*x[3] - 5*x[0] - 5*x[1] - 21*x[2] + 7*x[3];
+    result[0] = x[0]*x[0] + x[1]*x[1] + x[2]*x[2] + x[3]*x[3] + x[0] - x[1] + x[2] - x[3] - 8;
+    result[1] = x[0]*x[0] + 2*x[1]*x[1] + x[2]*x[2] + 2*x[3]*x[3] - x[0] - x[3] - 10;
+    result[2] = 2*x[0]*x[0] + x[1]*x[1] + x[2]*x[2] + 2*x[0] - x[1] - x[3] - 5;
+
+    if (grad) {
+        const real eps = 1e-5;
+        Array x_plus(n);
+        Array r_plus(m);
+        // todo: parallel?
+        for (u32 j = 0; j < n; j++) {
+            memcpy(x_plus.data, x, n * sizeof(real));
+            x_plus[j] += eps;
+            // internal_cstr_manip_single(m, r_plus.data, n, x_plus.data, opt);
+            r_plus[0] = x_plus[0]*x_plus[0] + x_plus[1]*x_plus[1] + x_plus[2]*x_plus[2] + x_plus[3]*x_plus[3] + x_plus[0] - x_plus[1] + x_plus[2] - x_plus[3] - 8;
+            r_plus[1] = x_plus[0]*x_plus[0] + 2*x_plus[1]*x_plus[1] + x_plus[2]*x_plus[2] + 2*x_plus[3]*x_plus[3] - x_plus[0] - x_plus[3] - 10;
+            r_plus[2] = 2*x_plus[0]*x_plus[0] + x_plus[1]*x_plus[1] + x_plus[2]*x_plus[2] + 2*x_plus[0] - x_plus[1] - x_plus[3] - 5;
+            for (u32 i = 0; i < m; i++)
+                grad[i*n + j] = (r_plus[i]-result[i])/eps;
+        }
+    }
+}
+
 // qp active set
 Array qp_active_set(Matrix& H, Array& grad_f, Matrix& A, Array& b) {
     unsigned iter_lim = 1000;
@@ -166,11 +239,11 @@ Array qp_active_set(Matrix& H, Array& grad_f, Matrix& A, Array& b) {
     auto x0 = pinv_svd(A_t)*b;
     auto x = x0;
 
-    auto H_eye = eye(H.cols);
-    if( H == H_eye) {
-        x = -grad_f;
-        return x;
-    }
+    // auto H_eye = eye(H.cols);
+    // if( H == H_eye) {
+    //     x = -grad_f;
+    //     return x;
+    // }
 
     // Active subset initialization
     Array Ax_b(b.size);
@@ -183,14 +256,18 @@ Array qp_active_set(Matrix& H, Array& grad_f, Matrix& A, Array& b) {
     unsigned m_act = arr_act.size();
     unsigned m_nact = b.size - m_act;
     u32 i = 0;
+    Matrix A_a(x.size, b.size);
+    Matrix A_na(x.size, b.size);
+    Array b_a(b.size);
+    Array b_na(b.size);
 
     // Main loop qp
     for(i = 0; i< iter_lim; i++) {
         // Initialize A_a, A_na, b_a, b_na active and non active sets
-        Matrix A_a(x.size, m_act);
-        Matrix A_na(x.size, m_nact);
-        Array b_a(m_act);
-        Array b_na(m_nact);
+        A_a.resize(x.size, m_act);
+        A_na.resize(x.size, m_nact);
+        b_a.resize(m_act);
+        b_na.resize(m_nact);
         for (u32 j = 0; j < x.size; j++) {
             for (u32 i = 0; i < m_act; i++) {
                 A_a(j, i) = -A(j, arr_act[i]);
@@ -216,8 +293,12 @@ Array qp_active_set(Matrix& H, Array& grad_f, Matrix& A, Array& b) {
             auto lambda_bar = pinv_svd(A_a_t)*b_a;
             real lambda_min;
             auto lambda_min_id = array_min_id(lambda_bar, lambda_min);
-            if(lambda_min >= 0)
+            if(lambda_min >= 0) {
+
+                arr_act.clear();
+                arr_nact.clear();
                 return x;
+            }
             else {  // remove lambda_min_id from arr_act
                 arr_nact.push_back(arr_act[lambda_min_id]);
                 arr_act.erase(arr_act.begin() + lambda_min_id);
@@ -253,6 +334,8 @@ Array qp_active_set(Matrix& H, Array& grad_f, Matrix& A, Array& b) {
                     sort(arr_nact.begin(), arr_nact.end());
             }
             else {
+                arr_act.clear();
+                arr_nact.clear();
                 return x;
             }
         }
@@ -266,7 +349,11 @@ Array qp_active_set(Matrix& H, Array& grad_f, Matrix& A, Array& b) {
 
 real step_size(Matrix& H, gradients& grad, Array& d, Array& x, real& f, Array& g, real& vmax) {
     auto negative_grad_g = - grad.grad_g;
+    auto T1 = get_tick_us();
     d = qp_active_set(H, grad.grad_f, negative_grad_g, g);
+    auto T2 = get_tick_us();
+    auto time = (T2 - T1)/1000.0;
+    // printf("%f\n", time);
     auto d_k = d;
 
     auto x_new = x + d_k;
@@ -281,7 +368,7 @@ real step_size(Matrix& H, gradients& grad, Array& d, Array& x, real& f, Array& g
     auto grad_na = grad_new.grad_na;
     auto g_na = grad_new.cstr_na;
 
-    real a_bar;
+    real a_bar = 1;
     if(g_new_max <= g_max)
         a_bar = 1;
     else {
@@ -405,11 +492,15 @@ opt_result SQP_nocedal(unsigned iter_lim, Array& x, real& f, Array& g, Matrix& H
 
     opt_r.x_init = x;
     for(iter = 0; iter < iter_lim; iter++) {
+        // auto T1_step = get_tick_us();
         real a = step_size(H, grad, d, x, f, g, vmax);
+        // auto T2_step = get_tick_us();
+        // auto time_step = (T2_step - T1_step)/1000.0;
+        // printf("time step %f\n", time_step);
         auto dn = norm(d);
         if (dn == 0) {
-            std::cout<<"dn == 0"<<std::endl;
-            std::cout<<dn<<std::endl;
+            // std::cout<<"dn == 0"<<std::endl;
+            // std::cout<<dn<<std::endl;
             break;
         }
 
@@ -423,10 +514,10 @@ opt_result SQP_nocedal(unsigned iter_lim, Array& x, real& f, Array& g, Matrix& H
 
         auto xtol = norm(x)*1e-12 + 1e-15;
         if (norm(x - x0) < xtol) {
-            std::cout<<"norm(x - x0)"<<std::endl;
-            std::cout<<norm(x - x0)<<std::endl;
-            std::cout<<xtol<<std::endl;
-            std::cout<<vmax<<std::endl;
+            // std::cout<<"norm(x - x0)"<<std::endl;
+            // std::cout<<norm(x - x0)<<std::endl;
+            // std::cout<<xtol<<std::endl;
+            // std::cout<<vmax<<std::endl;
             x = x0;
             f = f_old;
             break;
@@ -435,8 +526,8 @@ opt_result SQP_nocedal(unsigned iter_lim, Array& x, real& f, Array& g, Matrix& H
         auto ftol = abs(f)*1e-6 + 1e-12;
         auto tolG = 1e-6;
         if (abs(f - f_old) < ftol && vmax < tolG) {
-            std::cout<<"abs(f - f_old)"<<std::endl;
-            std::cout<<abs(f - f_old)<<std::endl;
+            // std::cout<<"abs(f - f_old)"<<std::endl;
+            // std::cout<<abs(f - f_old)<<std::endl;
             break;
         }
 
@@ -476,11 +567,12 @@ int main() {
     // Rosensuzuki Problem
     unsigned nv = 4;
     unsigned ncon = 3;
-    Array x0(nv);
-    x0[0] = 0;
-    x0[1] = 1;
-    x0[2] = 2;
-    x0[3] = -1;
+    Array x0 = random_array(nv, 10);
+    // Array x0(nv);
+    // x0[0] = 0;
+    // x0[1] = 1;
+    // x0[2] = 2;
+    // x0[3] = -1;
     // for (u32 i = 0; i < nv; i++)
     //     x0[i] = get_random();
     print(x0);
@@ -493,11 +585,51 @@ int main() {
     double vmax;
 
     grad = cstr_manip_active(x0, f0, g0, vmax);
+
+    auto T1_own = get_tick_us();
     auto opt = SQP_nocedal(iter_lim, x0, f0, g0, H, grad, vmax);
+    auto T2_own = get_tick_us();
+    auto time_own = (T2_own - T1_own)/1000.0;
 
     auto f_val = opt.fval;
     auto x_val = opt.x_opt;
-    std::cout<<f_val<<std::endl;
     print(x_val);
+    std::cout<<f_val<<std::endl;
+
+    opt_result optim;
+    nlopt_opt o = nlopt_create(nlopt_algorithm::NLOPT_LD_SLSQP, nv);
+    nlopt_result result;
+    Array con_tol(ncon, 0.001);
+    Array xtol(nv, 0.000001);
+
+    result = nlopt_add_inequality_mconstraint(o, ncon, cstr_manip_rs, &optim, con_tol.data);
+    Assert(result == NLOPT_SUCCESS);
+    result = nlopt_set_min_objective(o, obj_rs, &optim.fval);
+    Assert(result == NLOPT_SUCCESS);
+    result = nlopt_set_lower_bound(o, ncon, -100); //todo: ncon or nv ?
+    Assert(result == NLOPT_SUCCESS);
+    result = nlopt_set_upper_bound(o, ncon, 100); //todo: ncon or nv ?
+    Assert(result == NLOPT_SUCCESS);
+    result = nlopt_set_ftol_abs(o, 0.001);
+    Assert(result == NLOPT_SUCCESS);
+    result = nlopt_set_xtol_abs(o, xtol.data);
+    Assert(result == NLOPT_SUCCESS);
+    result = nlopt_set_maxtime(o, 5.0);
+    Assert(result == NLOPT_SUCCESS);
+    result = nlopt_set_maxeval(o, 10000);
+    Assert(result == NLOPT_SUCCESS);
+
+    double f;
+    auto T1_nlopt = get_tick_us();
+    result = nlopt_optimize(o, x0.data, &f);
+    auto T2_nlopt = get_tick_us();
+    auto time_nlopt = (T2_nlopt - T1_nlopt)/1000.0;
+
+    auto frac_time = time_own / time_nlopt;
+
+    printf("%f\n", frac_time);
+    printf("%f\n", f);
+    print(x0);
+
     return 0;
 }
