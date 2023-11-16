@@ -245,7 +245,7 @@ struct Array {
     // resize the array
     //  - note: old pointers (aliases) to this data may be invalidated
     //  - note: fails if the array is an alias
-    blast_fn void resize(u32 new_size);
+    host_fn void resize(u32 new_size);
 
     // access the last element
     blast_fn real& back();
@@ -297,9 +297,9 @@ struct Matrix {
 
     blast_fn Matrix operator-();
 
-    blast_fn bool operator==(Matrix&);
+    blast_fn bool operator==(const Matrix&) const;
 
-    blast_fn bool operator!=(Matrix&);
+    blast_fn bool operator!=(const Matrix&) const;
 
     // map the Matrix to the data of the given Array
     //  - note: interpret as a n x 1 matrix
@@ -329,10 +329,6 @@ struct Matrix {
     // return an array accessing the given colum
     //  - note: new Array is aliasing our data
     blast_fn Array col(u32 c) const;
-
-    // return an array accessing the given row
-    //  - note: new Array is aliasing our data
-    blast_fn Array row(u32 r) const;
 };
 
 //------ MISC ---------------------
@@ -1140,7 +1136,7 @@ blast_fn Array& Array::alias(const real* p, u32 n) {
     return *this;
 }
 
-blast_fn void Array::resize(u32 new_size) {
+host_fn void Array::resize(u32 new_size) {
     Assert(!is_alias);
     if (new_size > size) {
         data = (real*)realloc(data, new_size*sizeof(real));
@@ -1375,12 +1371,12 @@ blast_fn Matrix Matrix::operator-() {
     return result;
 }
 
-blast_fn bool Matrix::operator==(Matrix& m) {
+blast_fn bool Matrix::operator==(const Matrix& m) const {
     Assert(cols == m.cols && rows == m.rows);
     return is_close(*this, m);
 }
 
-blast_fn bool Matrix::operator!=(Matrix& m) {
+blast_fn bool Matrix::operator!=(const Matrix& m) const {
     Assert(cols == m.cols && rows == m.rows);
     auto result = is_close(*this, m);
     return !result;
@@ -1438,21 +1434,10 @@ blast_fn real* Matrix::address(u32 row, u32 col) const {
 }
 
 blast_fn Array Matrix::col(u32 c) const {
-    if (c >= this->cols)
-        Array test(1);
-    // Assert(c < this->cols);
+    Assert(c < this->cols);
     Array result;
     result.data = data + rows*c;
     result.size = rows;
-    result.is_alias = true;
-    return result;
-}
-
-blast_fn Array Matrix::row(u32 r) const {
-    Assert(r < this->rows);
-    Array result;
-    result.data = data + cols*r;
-    result.size = cols;
     result.is_alias = true;
     return result;
 }
@@ -2136,7 +2121,8 @@ TEST_CASE("MatrixOperations", "[Math]") {
             m.data[i] = i;
         auto m_eq = m;
         auto m_n_eq = r*m;
-        REQUIRE(m.size == m_eq.size && m.size == m_n_eq.size);
+        REQUIRE(m.size == m_eq.size);
+        REQUIRE(m.size == m_n_eq.size);
         REQUIRE(m == m_eq);
         REQUIRE(m != m_n_eq);
     }
@@ -2147,7 +2133,8 @@ TEST_CASE("MatrixOperations", "[Math]") {
             m.data[i] = i;
         auto m1 = -m;
 
-        REQUIRE(m.cols == m1.cols && m.rows == m1.rows);
+        REQUIRE(m.cols == m1.cols);
+        REQUIRE(m.rows == m1.rows);
         REQUIRE(m1(0, 0) == 0);
         REQUIRE(m1(1, 0) == -1);
         REQUIRE(m1(0, 1) == -2);
@@ -2247,7 +2234,8 @@ TEST_CASE("MatrixOperations", "[Math]") {
 
         auto m1 = m/r;
 
-        REQUIRE(m1.cols == m.cols && m1.rows == m.rows);
+        REQUIRE(m1.cols == m.cols);
+        REQUIRE(m1.rows == m.rows);
         REQUIRE(m(0, 0) == 0);
         REQUIRE(m(0, 1) == 2);
         REQUIRE(m(1, 0) == 1);
@@ -2258,23 +2246,19 @@ TEST_CASE("MatrixOperations", "[Math]") {
         REQUIRE(m1(1, 1) == 1.5);
     }
 
-    SECTION("col & row") {
+    SECTION("col") {
         Matrix m(2, 2);
         for (u32 i = 0; i < m.size; i++)
             m.data[i] = i;
-        auto mc = m.col(1);
-        auto mr = m.row(2);
+        auto mc = m.col(0);
 
         REQUIRE(m(0, 0) == 0);
         REQUIRE(m(0, 1) == 2);
         REQUIRE(m(1, 0) == 1);
         REQUIRE(m(1, 1) == 3);
 
-        REQUIRE(mc[1] == 0);
-        REQUIRE(mc[2] == 1);
-
-        REQUIRE(mr[1] == 1);
-        REQUIRE(mr[2] == 3);
+        REQUIRE(mc[0] == 0);
+        REQUIRE(mc[1] == 1);
     }
 
     SECTION("Piecewies multiplication") {

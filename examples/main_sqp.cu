@@ -414,8 +414,9 @@ real step_size(Matrix& H, gradients& grad, Array& d, Array& x, real& f, Array& g
     unsigned m_act = arr_act.size();
     // unsigned m_nact = g.size - m_act;
 
+    auto grad_a_inv_t = transpose(grad_a_inv);
     for (u32 i =0; i < m_act; i++) {
-        lambda[arr_act[i]] = dot(grad_a_inv.row(i), (grad.grad_f + H*x));
+        lambda[arr_act[i]] = dot(grad_a_inv_t.col(i), (grad.grad_f + H*x));
     }
 
     const real w = 0.5;
@@ -485,8 +486,9 @@ opt_result SQP_nocedal(unsigned iter_lim, Array& x, real& f, Array& g, Matrix& H
     auto arr_nact = grad.arr_nact;
     unsigned m_act = arr_act.size();
 
+    auto grad_a_inv_t = transpose(grad_a_inv);
     for (u32 i =0; i < m_act; i++) {
-        lambda[arr_act[i]] = dot(grad_a_inv.row(i), (grad.grad_f + H*x));
+        lambda[arr_act[i]] = dot(grad_a_inv_t.col(i), (grad.grad_f + H*x));
     }
     auto lambda_t = transpose(lambda);
 
@@ -528,6 +530,8 @@ opt_result SQP_nocedal(unsigned iter_lim, Array& x, real& f, Array& g, Matrix& H
         if (abs(f - f_old) < ftol && vmax < tolG) {
             // std::cout<<"abs(f - f_old)"<<std::endl;
             // std::cout<<abs(f - f_old)<<std::endl;
+            x = x0;
+            f = f_old;
             break;
         }
 
@@ -537,26 +541,30 @@ opt_result SQP_nocedal(unsigned iter_lim, Array& x, real& f, Array& g, Matrix& H
         auto grad_f = grad_new.grad_f;
 
         s = x - x0;
-        s = transpose(s);
+        // s = transpose(s);
         q =  (transpose(grad_f) + lambda_t*transpose(grad_g)) - (transpose(grad_f_old) + lambda_t*transpose(grad_g_old));
         v = grad_g*g - grad_g_old*g_old;
-        auto s_row = s.row(0);
-        auto q_row = q.row(0);
-        H = BFGS_hess(H, s_row, q_row, v);
+        // auto s_col = s.col(0);
+        // auto q_col = q.col(0);
+        Array tmp_s;
+        tmp_s.alias(s);
+        Array tmp_q;
+        tmp_q.alias(q);
+        H = BFGS_hess(H, tmp_s, tmp_q, v);
 
         grad_a_t = transpose(grad_new.grad_a);
         zero(lambda);
         arr_act = grad_new.arr_act;
         m_act = arr_act.size();
+        auto grad_tmp = transpose(pinv_svd(grad_new.grad_a));
         for (u32 i =0; i < m_act; i++) {
-            lambda[arr_act[i]] = dot(pinv_svd(grad_new.grad_a).row(i), (grad_new.grad_f + H*x));
+            lambda[arr_act[i]] = dot(grad_tmp.col(i), (grad_new.grad_f + H*x));
         }
         grad = grad_new;
     }
     opt_r.fval = f;
     opt_r.x_opt = x;
     opt_r.iter_val = iter;
-
     return opt_r;
 }
 
@@ -567,12 +575,12 @@ int main() {
     // Rosensuzuki Problem
     unsigned nv = 4;
     unsigned ncon = 3;
-    Array x0 = random_array(nv, 10);
-    // Array x0(nv);
-    // x0[0] = 0;
-    // x0[1] = 1;
-    // x0[2] = 2;
-    // x0[3] = -1;
+    // Array x0 = random_array(nv, 10);
+    Array x0(nv);
+    x0[0] = 0;
+    x0[1] = 1;
+    x0[2] = 2;
+    x0[3] = -1;
     // for (u32 i = 0; i < nv; i++)
     //     x0[i] = get_random();
     print(x0);
@@ -627,8 +635,8 @@ int main() {
 
     auto frac_time = time_own / time_nlopt;
 
-    printf("%f\n", frac_time);
-    printf("%f\n", f);
+    printf("fraction time : %f\n", frac_time);
+    printf("f nlopt : %f\n", f);
     print(x0);
 
     return 0;
