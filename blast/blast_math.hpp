@@ -231,7 +231,7 @@ struct Array {
 
     // map the array to the data of the given std::vector<real>
     //  - note: becomes an alias
-    host_fn Array& alias(std::vector<real>&);
+    host_fn Array& alias(svector&);
 
     // map the array to the data of the given matrix
     //  - note: interpret all the data of the matrix as one long array, becomes an alias)

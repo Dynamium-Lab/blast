@@ -1,6 +1,10 @@
 #pragma once
 #include "blast.hpp"
 
+#ifdef BLAST_DEBUG
+#include "optional/blast_optional_utilities.hpp"
+#endif
+
 namespace blast {
 
 struct Trajectory {
@@ -34,61 +38,21 @@ struct Bspline {
     // Compute a trajectory from the given optimization vector
     //  - note: fastest when 'ncontrol' is a multiple of 4 (SIMD)
     host_fn void compute_trajectory(const Array &x, Matrix &task);
-    host_fn u32 xlen(Matrix &task);
+    host_fn u32 xlen(const Matrix &task) {
+        Assert(task.rows == joints);
+        Assert(task.cols == 6);
+        auto results = joints * (nctrl - 6) + 1;
+        for (u32 i = 0; i < task.size; i++)
+            if (std::isnan(task.data[i]))
+                results++;
+        return results;
+    }
 
     host_fn void compute_basis();
+    host_fn void compute_basis_open();
     host_fn void compute_control(const Array &x, const Matrix &task);
+    host_fn void compute_control(const Array &x, const Matrix &task, real *dst);
 };
-
-// note: CUDA stuff, only enabled if compiling for Nvidia GPUs
-#ifdef __NVCC__
-struct cuBspline {
-    bool is_init = false;
-    // data for both the host and the device
-    unsigned points;
-    unsigned joints;
-    unsigned p;
-    unsigned ncontrol;
-
-    // data only for the device
-    // note: not in __constant__ memory because each thread accesses a different slice (no broadcast benefit)
-    real *device_pos = nullptr;     // joints x points
-    real *device_vel = nullptr;     // joints x points
-    real *device_acc = nullptr;     // joints x points
-    real *device_t = nullptr;       // points
-    real *device_basis_p = nullptr; // nccontrol x points
-    real *device_basis_v = nullptr; // nccontrol x points
-    real *device_basis_a = nullptr; // nccontrol x points
-    real *device_control = nullptr; // nccontrol x joints todo: should this be in constant memory??
-    real dt;
-    real one_over_T;
-    real one_over_T2;
-
-    // data only for the host
-    Bspline *host = nullptr;
-
-    // compute the basis functions
-    host_fn void init(u32 points, u32 joints, u32 p, u32 ncontrol);
-
-    // free all host and device memory
-    host_fn void clear();
-
-    // fetch the latest computed trajectory on the GPU to host_pva
-    host_fn void fetch_pva();
-
-    // compute the control points based on the optimization vector and the task
-    host_fn void compute_control(const Array &x, const Matrix &task);
-
-    // send the last computed control points to device memory
-    host_fn void send_control();
-
-    // compute control points on host and send to device
-    host_fn void compute_control_and_send(const Array &x, const Matrix &task);
-
-    // compute the trajectory for the given point
-    dev_fn void compute_trajectory(unsigned point);
-};
-#endif
 
 //------ FUNCTIONS ------------------------------------------------------------------------------------
 
@@ -167,7 +131,75 @@ host_fn void Bspline::compute_basis() {
     }
 }
 
+host_fn void Bspline::compute_basis_open() {
+    u32 m = nctrl + p;
+
+    Array knots(m + 1);
+    knots[0] = 0.0;
+    knots.back() = 1.0;
+    {
+        const real du = 1.0f / (real)m;
+        for (u32 i = 1; i < m; i++)
+            knots[i] = i * du;
+    }
+
+#ifdef BLAST_DEBUG
+    print(knots);
+#endif
+
+    Matrix N(m, (p + 1));  // triangle basis function
+    const real du = 1.0f / (points - 1);
+    zero(basis_p);
+    zero(basis_v);
+    zero(basis_a);
+    real *basis_p_col = basis_p.data;
+    real *basis_v_col = basis_v.data;
+    real *basis_a_col = basis_a.data;
+    for (u32 point = 0; point < points; point++) {
+        const real u = point * du;
+
+        for (u32 i = 0; i < m; i++)
+            N(i, 0) = u >= knots[i] && u <= knots[i + 1] ? 1.0f : 0.0f;
+        for (u32 pi = 1; pi <= p; pi++) {
+            for (u32 i = 0; i < m - pi; i++) {
+                if (knots[i + pi] != knots[i])
+                    N(i, pi) = N(i, pi-1) * (u - knots[i]) / (knots[i + pi] - knots[i]);
+                else
+                    N(i, pi) = 0.0f;
+                if (knots[i + pi + 1] != knots[i + 1])
+                    N(i, pi) += N(i+1, pi-1) * (knots[i + pi + 1] - u) / (knots[i + pi + 1] - knots[i + 1]);
+            }
+        }
+
+        // position basis functions
+        for (u32 i = 0; i < nctrl; i++)
+            basis_p_col[i] = N(i, p);
+
+        // velocity basis functions
+        for (u32 i = 0; i < nctrl - 1; i++)
+            basis_v_col[i] = -(real)p * N(i+1, p-1) / (knots[i + p + 1] - knots[i + 1]);
+        for (u32 i = 1; i < nctrl; i++)
+            basis_v_col[i] += (real)p * N(i, p-1) / (knots[i + p] - knots[i]);
+
+        // acceleration basis functions
+        for (u32 i = 0; i < nctrl - 2; i++)
+            basis_a_col[i] = (real)(p * (p - 1)) * N(i+2, p-2) / ((knots[i + p + 1] - knots[i + 1]) * (knots[i + p + 1] - knots[i + 2]));
+        for (u32 i = 1; i < nctrl - 1; i++)
+            basis_a_col[i] -= (real)(p * (p - 1)) * N(i+1, p-2) * (1.0f / (knots[i + p] - knots[i]) + 1.0f / (knots[i + p + 1] - knots[i + 1])) / (knots[i + p] - knots[i + 1]);
+        for (u32 i = 2; i < nctrl; i++)
+            basis_a_col[i] += (p * (p - 1)) * N(i, p-2) / ((knots[i + p - 1] - knots[i]) * (knots[i + p] - knots[i]));
+
+        // increment pointers
+        basis_p_col += nctrl;
+        basis_v_col += nctrl;
+        basis_a_col += nctrl;
+    }
+}
 host_fn void Bspline::compute_control(const Array &x, const Matrix &task) {
+    compute_control(x, task, control.data);
+}
+
+host_fn void Bspline::compute_control(const Array &x, const Matrix &task, real *dst) {
     using std::isnan;
     Assert(nctrl >= 6);
     const real T = x[x.size - 1];
@@ -178,7 +210,7 @@ host_fn void Bspline::compute_control(const Array &x, const Matrix &task) {
 
     u32 ctr_i = 0;
     u32 x_i = 0;
-    auto ctr = control.data;
+    auto ctr = dst;
 
     const real Kv = T * du / p;
     const real Ka = 2 * T2 * du * du / (p * (p - 1));
@@ -206,16 +238,6 @@ host_fn void Bspline::compute_control(const Array &x, const Matrix &task) {
         ctr[ctr_i++] = Pn_minus_1;
         ctr[ctr_i++] = Pn;
     }
-}
-
-host_fn u32 Bspline::xlen(Matrix &task) {
-    Assert(task.rows == joints);
-    Assert(task.cols == 6);
-    auto results = joints * (nctrl - 6) + 1;
-    for (u32 i = 0; i < task.size; i++)
-        if (std::isnan(task.data[i]))
-            results++;
-    return results;
 }
 
 /**
@@ -308,122 +330,6 @@ host_fn Trajectory compute_5order_trajectory(real T, Matrix &task) {
 
     return result;
 }
-
-// note: CUDA stuff, only enabled if compiling for Nvidia GPUs
-#ifdef __NVCC__
-
-host_fn void cuBspline::init(u32 _points, u32 _joints, u32 _p, u32 _ncontrol) {
-    if (is_init)
-        return;
-    is_init = true;
-
-    points = _points;
-    joints = _joints;
-    p = _p;
-    ncontrol = _ncontrol;
-
-    host = new Bspline(ncontrol, points, p, joints);
-
-    // prepare and send basis function values
-    const u32 basis_bytes = points * ncontrol * sizeof(real);
-    cuda_check(cudaMalloc(&device_basis_p, basis_bytes));
-    cuda_check(cudaMalloc(&device_basis_v, basis_bytes));
-    cuda_check(cudaMalloc(&device_basis_a, basis_bytes));
-    cuda_check(cudaMemcpy(device_basis_p, host->basis_p.data, basis_bytes, cudaMemcpyHostToDevice));
-    cuda_check(cudaMemcpy(device_basis_v, host->basis_v.data, basis_bytes, cudaMemcpyHostToDevice));
-    cuda_check(cudaMemcpy(device_basis_a, host->basis_a.data, basis_bytes, cudaMemcpyHostToDevice));
-
-    // prepare pos, vel, and acc matrices and t array
-    cuda_check(cudaMalloc(&device_pos, points * joints * sizeof(real)));
-    cuda_check(cudaMalloc(&device_vel, points * joints * sizeof(real)));
-    cuda_check(cudaMalloc(&device_acc, points * joints * sizeof(real)));
-    cuda_check(cudaMalloc(&device_t, points * sizeof(real)));
-    cuda_check(cudaMalloc(&device_control, joints * ncontrol * sizeof(real)));
-}
-
-host_fn void cuBspline::clear() {
-    printf("Clearing memory\n");
-    if (device_basis_p) {
-        cuda_check(cudaFree(device_basis_p));
-        device_basis_p = nullptr;
-    }
-    if (device_basis_v) {
-        cuda_check(cudaFree(device_basis_v));
-        device_basis_v = nullptr;
-    }
-    if (device_basis_a) {
-        cuda_check(cudaFree(device_basis_a));
-        device_basis_a = nullptr;
-    }
-    if (device_pos) {
-        cuda_check(cudaFree(device_pos));
-        device_pos = nullptr;
-    }
-    if (device_vel) {
-        cuda_check(cudaFree(device_vel));
-        device_vel = nullptr;
-    }
-    if (device_acc) {
-        cuda_check(cudaFree(device_acc));
-        device_acc = nullptr;
-    }
-    if (device_t) {
-        cuda_check(cudaFree(device_t));
-        device_t = nullptr;
-    }
-    delete (host);
-    host = nullptr;
-    is_init = false;
-}
-
-host_fn void cuBspline::fetch_pva() {
-    cuda_check(cudaMemcpy(host->traj.pos.data, device_pos, host->traj.pos.size * sizeof(real), cudaMemcpyDeviceToHost));
-    cuda_check(cudaMemcpy(host->traj.vel.data, device_vel, host->traj.vel.size * sizeof(real), cudaMemcpyDeviceToHost));
-    cuda_check(cudaMemcpy(host->traj.acc.data, device_acc, host->traj.acc.size * sizeof(real), cudaMemcpyDeviceToHost));
-    cuda_check(cudaMemcpy(host->traj.t.data, device_t, host->traj.t.size * sizeof(real), cudaMemcpyDeviceToHost));
-}
-
-host_fn void cuBspline::compute_control(const Array &x, const Matrix &task) {
-    Assert(host);
-    dt = x.back() / (real)(points - 1);
-    one_over_T = 1 / x.back();
-    one_over_T2 = one_over_T * one_over_T;
-    host->compute_control(x, task);
-}
-
-host_fn void cuBspline::send_control() {
-    cuda_check(cudaMemcpy(device_control, host->control.data, joints * ncontrol * sizeof(real), cudaMemcpyHostToDevice));
-}
-
-host_fn void cuBspline::compute_control_and_send(const Array &x, const Matrix &task) {
-    compute_control(x, task);
-    send_control();
-}
-
-//------ DEVICE FUNCTIONS ------------------------------------------------------------------------------------
-dev_fn void cuBspline::compute_trajectory(const unsigned point) {
-    device_t[point] = dt * point;
-    const auto bp = device_basis_p + point * ncontrol;
-    const auto bv = device_basis_v + point * ncontrol;
-    const auto ba = device_basis_a + point * ncontrol;
-    for (int joint = 0; joint < joints; joint++) {
-        const auto c = device_control + joint * ncontrol;
-        real position = 0;
-        real velocity = 0;
-        real acceleration = 0;
-        for (int i = 0; i < ncontrol; i++) {
-            position += c[i] * bp[i];
-            velocity += c[i] * bv[i];
-            acceleration += c[i] * ba[i];
-        }
-        device_pos[point * joints + joint] = position;
-        device_vel[point * joints + joint] = velocity * one_over_T;
-        device_acc[point * joints + joint] = acceleration * one_over_T2;
-    }
-
-}
-
-#endif
 
 } // namespace blast
 
