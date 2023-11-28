@@ -10,4 +10,5 @@ set libr= -L "../nlopt/lib"
 nvcc ../main.cu -o main.exe %includes% %options% %libr%
 @REM cl ../multiple_compilation_units/main.cpp ../multiple_compilation_units/second.cpp /EHsc %includes% -std:c++17 -O2 /nologo /link /out:example.exe
 
+
 cd ../
