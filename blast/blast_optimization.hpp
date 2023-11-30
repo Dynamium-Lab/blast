@@ -249,7 +249,7 @@ host_fn Array guess_shot_mean(Gen3_7DOF& manip, Bspline& bspline, Matrix& task, 
 } // namespace blast
 
 #ifdef BLAST_ENABLE_TESTS
-#include "optional/blast_optional_utilities.hpp"
+#include "utilities/blast_utilities.hpp"
 #ifdef __NVCC__
 // TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
 //     using namespace blast;

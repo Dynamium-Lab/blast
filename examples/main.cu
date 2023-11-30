@@ -1,7 +1,7 @@
 
 #include <stdio.h>
 #include "blast.hpp"
-#include "blast_optional_utilities.hpp"
+#include "utilities/blast_utilities.hpp"
 
 int main() {
     using namespace blast;
