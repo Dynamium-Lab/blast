@@ -45,6 +45,17 @@ blast_fn void print(const Matrix& m) {
     }
 }
 
+blast_fn void print(const MatrixXd &m) {
+    if(m.size() == 0)
+        return;
+    for (u32 i = 0; i < m.rows(); i++) {
+        printf("[");
+        for (u32 j = 0; j < m.cols()-1; j++)
+            printf("% 0.4f, ", m(i, j));
+        printf("% 0.4f]\n", m(i, m.cols()-1));
+    }
+}
+
 blast_fn void print(double* data, unsigned size) {
     printf("[");
     for (u32 i = 0; i < size-1; i++)

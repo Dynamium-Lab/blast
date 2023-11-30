@@ -39,6 +39,32 @@ struct Manipulator {
     }
 };
 
+struct ManipulatorEigen {
+    int joints;
+    VectorXd pmax;
+    VectorXd pmin;
+    VectorXd vmax;
+    VectorXd vmin;
+    VectorXd amax;
+    VectorXd amin;
+    VectorXd tau_max;
+    VectorXd tau_min;
+    ManipulatorEigen(int njoints) : joints(njoints), vmax(njoints), vmin(njoints), pmax(njoints), pmin(njoints), amax(njoints), amin(njoints), tau_max(njoints), tau_min(njoints) {}
+    // todo: remove?
+    virtual VectorXd constraints(const TrajectoryEigen &traj) {
+        return VectorXd();
+    }
+    virtual void constraints(const TrajectoryEigen &traj, real *dst) {}
+    // todo: remove?
+    virtual bool validate_task(const MatrixXd &task) {
+        return false;
+    }
+    // return the number of constraints with the given 'npoints'
+    virtual int ncon(int npoints) {
+        return 0;
+    }
+};
+
 struct ManipulatorUR5 : public Manipulator {
     bool is_init = false;
 
@@ -70,14 +96,11 @@ struct Gen3Lite : public Manipulator {
     Vec3 dv[6];
     Vec3 sv[6];
     Vec3 ev[6];
-
     // default constructor
     Gen3Lite();
-
     // compute joint torque as a function of trajector (traj)
     void dynamics(const Trajectory &traj, Matrix &efforts);
     void dynamics(const Matrix &pos, const Matrix &vel, const Matrix &acc, Matrix &efforts);
-
     // compute forward kinematics for 1 point
     Array forward_kinematics(Array& joint_position);
     Matrix jacobian(const Array& joint_position);
@@ -139,6 +162,70 @@ struct Gen3_7DOF : public Manipulator {
     virtual bool validate_task(const Matrix &task) override;
 
     virtual u32 ncon(u32 npoints) override {
+        // 5 collision results
+        // 2 position constraints
+        // 7 velocity constraints
+        // 7 torque constraints
+        //** (for each point in the trajectory) **
+        return (5 + 2 + 7 * 2) * npoints;
+    }
+};
+
+struct Gen3Eigen : public ManipulatorEigen {
+    Vector3d p_base;
+    double   m[7];
+    Matrix3d I[7];
+    Vector3d av[7];
+    Vector3d dv[7];
+    Vector3d sv[7];
+    Vector3d ev[7];
+
+    MatrixXd _efforts; // put the efforts temporarily when computing the constraints
+
+    // default constructor
+    Gen3Eigen();
+
+    // compute new center of mass and robot mass with payload
+    void set_payload(double mass = 0, bool add_gripper = false);
+
+    // compute joint torque as a function of trajector (traj)
+    void dynamics(const TrajectoryEigen &traj, MatrixXd &efforts);
+    void dynamics(const MatrixXd &pos, const MatrixXd &vel, const MatrixXd &acc, MatrixXd &efforts);
+    void dynamics(const MatrixXd &pos, const MatrixXd &vel, const MatrixXd &acc); // note: cache the results internally
+
+    // compute forward kinematics for 1 point
+    VectorXd forward_kinematics(const VectorXd &joint_position);
+
+    // todo: this is not implemented!!
+    VectorXd inverse_kinematics(const VectorXd& pose, const VectorXd& initial_joint_position);
+
+    // compute jacobian matrix
+    MatrixXd jacobian(const VectorXd &joint_position);
+
+    // check collision
+    VectorXd collision_check(const VectorXd &joint_position);
+
+    // check all constraints on the manipulator for 1 point
+    VectorXd constraints(const VectorXd &pos, const VectorXd &vel, const VectorXd &acc);
+
+    // check all constraints on the manipulator for a trajectory
+    VectorXd constraints(const MatrixXd &pos, const MatrixXd &vel, const MatrixXd &acc);
+
+    // check all constraints and put the result in 'dst'
+    void constraints(const MatrixXd &pos, const MatrixXd &vel, const MatrixXd &acc, double *dst);
+
+    // check all constraints on the manipulator for a trajectory.
+    // - note: any contraint that is positive is not respected.
+    virtual VectorXd constraints(const TrajectoryEigen &traj) override;
+
+    // check all constraints and put the result in 'dst'
+    // - note: any contraint that is positive is not respected.
+    virtual void constraints(const TrajectoryEigen &traj, double *dst) override;
+
+    // check that the task given is feasible (collision and joint limits)
+    virtual bool validate_task(const MatrixXd &task) override;
+
+    virtual int ncon(int npoints) override {
         // 5 collision results
         // 2 position constraints
         // 7 velocity constraints
@@ -1548,10 +1635,695 @@ host_fn bool Gen3_7DOF::validate_task(const Matrix &task) {
     return array_max(ci) > 0 && array_max(cf) > 0 ? false: true;
 }
 
+//------ Kinova Gen3 7DOF manipulator functions (using Eigen) ---------------------------------------
+
+host_fn Gen3Eigen::Gen3Eigen() : ManipulatorEigen(7) {
+    // position of the first joint with respect to the table in the center of the base
+    p_base = {0, 0, 0.1564f};
+
+    set_payload(0, true);
+
+    // todo: add option to know if tool is closed or opened (difference of 0.0135 in z)?
+
+    // unit joint direction
+    ev[0] = {0, 0, 1};
+    ev[1] = {0, 0, 1};
+    ev[2] = {0, 0, 1};
+    ev[3] = {0, 0, 1};
+    ev[4] = {0, 0, 1};
+    ev[5] = {0, 0, 1};
+    ev[6] = {0, 0, 1};
+
+    // kinematic and dynamic constraints
+    pmax << INF_REAL, INF_REAL, INF_REAL, 2.58, INF_REAL, 2.1, INF_REAL; // rad
+    // pmin = -pmax;
+    vmax << 1.745, 1.745, 1.745, 1.745, 2.443, 2.443, 2.443; // rad/s
+    // vmin = -vmax;
+    tau_max << 52, 52, 52, 52, 17, 17, 17; // Nm
+    // tau_min = -tau_max;
+}
+
+host_fn void Gen3Eigen::set_payload(double mass, bool add_gripper) {
+    // mass
+    m[0] = 1.377;
+    m[1] = 1.1636;
+    m[2] = 1.1636;
+    m[3] = 0.93;
+    m[4] = 0.678;
+    m[5] = 0.678;
+    m[6] = 0.364;
+
+    // inertial tensor
+    I[0] << 0.004570, 0.000001, 0.000002,
+    0.000001, 0.004831, 0.000448,
+    0.000002, 0.000448, 0.001409;
+    I[1] << 0.011088, 0.000005, 0.000000,
+    0.000005, 0.001072, 0.000691,
+    0.000000, 0.000691, 0.011255;
+    I[2] << 0.010932, 0.000000, 0.000007,
+    0.000000, 0.011127, 0.000606,
+    0.000007, 0.000606, 0.001043;
+    I[3] << 0.008147, 0.000001, 0.000000,
+    0.000001, 0.000631, 0.000500,
+    0.000000, 0.000500, 0.008316;
+    I[4] << 0.001596, 0.000000, 0.000000,
+    0.000000, 0.001607, 0.000256,
+    0.000000, 0.000256, 0.000399;
+    I[5] << 0.001641, 0.000000, 0.000000,
+    0.000000, 0.000410, 0.000278,
+    0.000000, 0.000278, 0.001641;
+    I[6] << 0.000214, 0.000000, 0.000001,
+    0.000000, 0.000223, 0.000002,
+    0.000001, 0.000002, 0.000240;
+
+    // center of mass
+    av[0] = {-0.000023, -0.010364, -0.073360};
+    av[1] = {-0.000044, -0.099580, -0.013278};
+    av[2] = {-0.000044, -0.006641, -0.117892};
+    av[3] = {-0.000018, -0.075478, -0.015006};
+    av[4] = {0.000001, -0.009432, -0.063883};
+    av[5] = {0.000001, -0.045483, -0.009650};
+    av[6] = {-0.000093, 0.000132, -0.022905};
+
+    // vector to next joint
+    dv[0] = {0.0, 0.0054, -0.1284};
+    dv[1] = {0.0, -0.2104, -0.0064};
+    dv[2] = {0.0, -0.0064, -0.2104};
+    dv[3] = {0.0, -0.2084, -0.0064};
+    dv[4] = {0.0, 0.0, -0.1059};
+    dv[5] = {0.0, -0.1059, 0.0};
+    dv[6] = {0.0, 0.0, -0.0615};
+
+    // Modify payload
+    if (add_gripper) {
+        m[6] += 0.921;
+        dv[6][2] -= 0.164;
+
+        Vector3d av_tool(0, 0, -0.06 - 0.0615);
+        av[6] = (0.364 * av[6] + 0.921 * av_tool) * (1 / (0.364 + 0.921));
+
+        Vector3d av_payload = {0.0f, 0.0f, -0.115f}; // todo: modify to real center of mass length (design prototype) todo: add to manip ?
+
+        Vector3d av_old = av[6];
+        double m_old = m[6];
+
+        double m_new = m_old + mass;
+        Vector3d av_new = (m_old*av_old + mass*av_payload) * (1/m_new);
+        Vector3d sv_new = dv[6] - av_new;
+        Vector3d delta_av = av_new - av_old;        // shift in center of mass
+        Vector3d av_to_mass = av_payload - av_new;  // vector from payload to new center of mass
+
+        av[6] = av_new;
+        sv[6] = sv_new;
+        m[6] = m_new;
+        I[6](0, 0) += m_old*delta_av[0]*delta_av[0] + mass*av_to_mass[0]*av_to_mass[0];
+        I[6](1, 1) += m_old*delta_av[1]*delta_av[1] + mass*av_to_mass[1]*av_to_mass[1];
+        I[6](2, 2) += m_old*delta_av[2]*delta_av[2] + mass*av_to_mass[2]*av_to_mass[2];
+    }
+    else {
+        // Set to default
+        m[6] = 0.364f;
+        av[6] = {-0.000093f, 0.000132f, -0.022905f};
+        sv[6] = dv[6] - av[6];
+        // Modify payload
+        Vector3d av_payload = {0.0f, 0.0f, -0.115f}; // todo: modify to real center of mass length (design prototype) todo: add to manip ?
+        auto av_old = av[6];
+        auto m_old = m[6];
+        m[6] = m_old + mass;
+        av[6] = (m_old*av_old + mass*av_payload) * (1/m[6]);
+        sv[6] = dv[6] - av[6];
+        auto delta_av = av[6] - av_old; // shift in center of mass
+        auto av_to_mass = av_payload - av[6]; // vector from payload to new center of mass
+
+        I[6](0, 0) += m_old*delta_av[0]*delta_av[0] + mass*av_to_mass[0]*av_to_mass[0]; // todo: Validate
+        I[6](1, 1) += m_old*delta_av[1]*delta_av[1] + mass*av_to_mass[1]*av_to_mass[1];
+        I[6](2, 2) += m_old*delta_av[2]*delta_av[2] + mass*av_to_mass[2]*av_to_mass[2];
+    }
+
+// center of mass (from next joint)
+    sv[0] = dv[0] - av[0];
+    sv[1] = dv[1] - av[1];
+    sv[2] = dv[2] - av[2];
+    sv[3] = dv[3] - av[3];
+    sv[4] = dv[4] - av[4];
+    sv[5] = dv[5] - av[5];
+    sv[6] = dv[6] - av[6];
+}
+
+host_fn void Gen3Eigen::dynamics(const TrajectoryEigen &traj, MatrixXd &efforts) {
+    dynamics(traj.pos, traj.vel, traj.acc, efforts);
+}
+
+host_fn void Gen3Eigen::dynamics(const MatrixXd &pos, const MatrixXd &vel, const MatrixXd &acc, MatrixXd &efforts) {
+
+    Matrix3d Q1, Q2, Q3, Q4, Q5, Q6, Q7;
+    Matrix3d Q1t, Q2t, Q3t, Q4t, Q5t, Q6t, Q7t;
+    Vector3d w1, w2, w3, w4, w5, w6, w7;
+    Vector3d wd1, wd2, wd3, wd4, wd5, wd6, wd7;
+    Vector3d cdd0 = {0, 0, 9.81f};
+    Vector3d cdd1, cdd2, cdd3, cdd4, cdd5, cdd6, cdd7;
+    Vector3d f1, f2, f3, f4, f5, f6, f7;
+    Vector3d n1, n2, n3, n4, n5, n6, n7;
+
+    const int joints = pos.rows();
+    const int points = pos.cols();
+
+    // loop all points
+    for (int i = 0; i < points; i++) {
+        ArrayXd p = pos.col(i);
+        auto v = &vel.data()[i * joints]; // todo: use blocks?
+        auto a = &acc.data()[i * joints]; // todo: use blocks?
+
+        ArrayXd s = p.sin();
+        ArrayXd c = p.cos();
+
+        Q1t <<
+            c[0], -s[0], 0,
+            -s[0], -c[0], 0,
+            0, 0, -1;
+        Q2t <<
+            c[1], 0,  s[1],
+            -s[1], 0,  c[1],
+            0, -1, 0;
+        Q3t <<
+            c[2], 0, -s[2],
+            -s[2], 0, -c[2],
+            0,  1, 0;
+        Q4t <<
+            c[3], 0,  s[3],
+            -s[3], 0,  c[3],
+            0, -1, 0;
+        Q5t <<
+            c[4], 0, -s[4],
+            -s[4], 0, -c[4],
+            0,  1, 0;
+        Q6t <<
+            c[5], 0,  s[5],
+            -s[5], 0,  c[5],
+            0, -1, 0;
+        Q7t <<
+            c[6], 0, -s[6],
+            -s[6], 0, -c[6],
+            0,  1, 0;
+
+        Q1 = Q1t.transpose();
+        Q2 = Q2t.transpose();
+        Q3 = Q3t.transpose();
+        Q4 = Q4t.transpose();
+        Q5 = Q5t.transpose();
+        Q6 = Q6t.transpose();
+        Q7 = Q7t.transpose();
+
+        // note: This is the Newton algorithm in 'Element de robotique' course notes.
+        //       Careful because some variables are named differently and uses a slightly different conventions.
+        //       For example, the ith coordinate frame turns with the ith joint, where in the course notes, the
+        //       joint turns with respect to the coordinate frame.
+        //-- kinematics
+        w1 = v[0] * ev[0];
+        w2 = Q2t * w1 + v[1] * ev[1];
+        w3 = Q3t * w2 + v[2] * ev[2];
+        w4 = Q4t * w3 + v[3] * ev[3];
+        w5 = Q5t * w4 + v[4] * ev[4];
+        w6 = Q6t * w5 + v[5] * ev[5];
+        w7 = Q7t * w6 + v[6] * ev[6];
+
+        wd1 = a[0] * ev[0];
+        cdd1 = Q1t * cdd0 + wd1.cross(av[0]) + w1.cross(w1.cross(av[0]));
+
+        wd2 = Q2t * wd1 + a[1] * ev[1] + v[1] * (Q2t * w1).cross(ev[1]);
+        cdd2 = Q2t * cdd1 + wd2.cross(av[1]) + w2.cross(w2.cross(av[1])) - Q2t * wd1.cross(sv[0]) - Q2t * w1.cross(w1.cross(sv[0]));
+
+        wd3 = Q3t * wd2 + a[2] * ev[2] + v[2] * (Q3t * w2).cross(ev[2]);
+        cdd3 = Q3t * cdd2 + wd3.cross(av[2]) + w3.cross(w3.cross(av[2])) - Q3t * wd2.cross(sv[1]) - Q3t * w2.cross(w2.cross(sv[1]));
+
+        wd4 = Q4t * wd3 + a[3] * ev[3] + v[3] * (Q4t * w3).cross(ev[3]);
+        cdd4 = Q4t * cdd3 + wd4.cross(av[3]) + w4.cross(w4.cross(av[3])) - Q4t * wd3.cross(sv[2]) - Q4t * w3.cross(w3.cross(sv[2]));
+
+        wd5 = Q5t * wd4 + a[4] * ev[4] + v[4] * (Q5t * w4).cross(ev[4]);
+        cdd5 = Q5t * cdd4 + wd5.cross(av[4]) + w5.cross(w5.cross(av[4])) - Q5t * wd4.cross(sv[3]) - Q5t * w4.cross(w4.cross(sv[3]));
+
+        wd6 = Q6t * wd5 + a[5] * ev[5] + v[5] * (Q6t * w5).cross(ev[5]);
+        cdd6 = Q6t * cdd5 + wd6.cross(av[5]) + w6.cross(w6.cross(av[5])) - Q6t * wd5.cross(sv[4]) - Q6t * w5.cross(w5.cross(sv[4]));
+
+        wd7 = Q7t * wd6 + a[6] * ev[6] + v[6] * (Q7t * w6).cross(ev[6]);
+        cdd7 = Q7t * cdd6 + wd7.cross(av[6]) + w7.cross(w7.cross(av[6])) - Q7t * wd6.cross(sv[5]) - Q7t * w6.cross(w6.cross(sv[5]));
+
+        //-- dynamics
+        f7 = m[6] * cdd7;
+        n7 = I[6] * wd7 + w7.cross(I[6] * w7) + av[6].cross(f7);
+
+        f6 = m[5] * cdd6 + Q7 * f7;
+        n6 = I[5] * wd6 + w6.cross(I[5] * w6) + Q7 * n7 + av[5].cross(f6) + sv[5].cross((Q7 * f7));
+
+        f5 = m[4] * cdd5 + Q6 * f6;
+        n5 = I[4] * wd5 + w5.cross(I[4] * w5) + Q6 * n6 + av[4].cross(f5) + sv[4].cross((Q6 * f6));
+
+        f4 = m[3] * cdd4 + Q5 * f5;
+        n4 = I[3] * wd4 + w4.cross(I[3] * w4) + Q5 * n5 + av[3].cross(f4) + sv[3].cross((Q5 * f5));
+
+        f3 = m[2] * cdd3 + Q4 * f4;
+        n3 = I[2] * wd3 + w3.cross(I[2] * w3) + Q4 * n4 + av[2].cross(f3) + sv[2].cross((Q4 * f4));
+
+        f2 = m[1] * cdd2 + Q3 * f3;
+        n2 = I[1] * wd2 + w2.cross(I[1] * w2) + Q3 * n3 + av[1].cross(f2) + sv[1].cross((Q3 * f3));
+
+        f1 = m[0] * cdd1 + Q2 * f2;
+        n1 = I[0] * wd1 + w1.cross(I[0] * w1) + Q2 * n2 + av[0].cross(f1) + sv[0].cross((Q2 * f2));
+
+        //-- extract torques (last element of each moment vector)
+        efforts(0, i) = n1[2];
+        efforts(1, i) = n2[2];
+        efforts(2, i) = n3[2];
+        efforts(3, i) = n4[2];
+        efforts(4, i) = n5[2];
+        efforts(5, i) = n6[2];
+        efforts(6, i) = n7[2];
+    }
+}
+
+host_fn void Gen3Eigen::dynamics(const MatrixXd &pos, const MatrixXd &vel, const MatrixXd &acc) {
+    const auto points = pos.cols();
+    const auto joints = pos.rows();
+    if (_efforts.cols() != points || _efforts.rows() != joints)
+        _efforts.resize(joints, points);
+
+    dynamics(pos, vel, acc, _efforts);
+}
+
+host_fn VectorXd Gen3Eigen::forward_kinematics(const VectorXd &joint_position) {
+
+    //  - note: manual SIMD (10% better performance than using sincos function on arrays like commented below)
+    // real s[8];
+    // real c[8];
+    // auto p = joint_position.data;
+    Matrix3d Q1, Q2, Q3, Q4, Q5, Q6, Q7;
+
+    ArrayXd p(joint_position);
+    ArrayXd s = p.sin();
+    ArrayXd c = p.cos();
+
+    // note: these are stored column-wise
+    Q1 <<
+       c[0], -s[0], 0,
+       -s[0], -c[0], 0,
+       0, 0, -1;
+    Q2 <<
+       c[1], 0,  s[1],
+       -s[1], 0,  c[1],
+       0, -1, 0;
+    Q3 <<
+       c[2], 0, -s[2],
+       -s[2], 0, -c[2],
+       0,  1, 0;
+    Q4 <<
+       c[3], 0,  s[3],
+       -s[3], 0,  c[3],
+       0, -1, 0;
+    Q5 <<
+       c[4], 0, -s[4],
+       -s[4], 0, -c[4],
+       0,  1, 0;
+    Q6 <<
+       c[5], 0,  s[5],
+       -s[5], 0,  c[5],
+       0, -1, 0;
+    Q7 <<
+       c[6], 0, -s[6],
+       -s[6], 0, -c[6],
+       0,  1, 0;
+    Q1.transposeInPlace();
+    Q2.transposeInPlace();
+    Q3.transposeInPlace();
+    Q4.transposeInPlace();
+    Q5.transposeInPlace();
+    Q6.transposeInPlace();
+    Q7.transposeInPlace();
+
+    auto p_tmp = p_base;
+    auto Q_tmp = Q1;
+    p_tmp += Q_tmp * dv[0];
+    p_tmp += (Q_tmp *= Q2) * dv[1];
+    p_tmp += (Q_tmp *= Q3) * dv[2];
+    p_tmp += (Q_tmp *= Q4) * dv[3];
+    p_tmp += (Q_tmp *= Q5) * dv[4];
+    p_tmp += (Q_tmp *= Q6) * dv[5];
+    p_tmp += (Q_tmp *= Q7) * dv[6];
+
+    VectorXd pose(6);
+    pose[0] = p_tmp[0];
+    pose[1] = p_tmp[1];
+    pose[2] = p_tmp[2];
+    // todo: Q_tmp(0, 0) and Q_tmp(2, 2) must not be zero!!
+    // pose[3] = atan2(Q_tmp(1, 0), Q_tmp(0, 0));
+    // pose[4] = atan2(-Q_tmp(2, 0), sqrt(Q_tmp(2, 1)*Q_tmp(2, 1) + Q_tmp(2, 2)*Q_tmp(2, 2)));
+    // pose[5] = atan2(Q_tmp(2, 1), Q_tmp(2, 2));
+    return pose;
+}
+
+host_fn VectorXd Gen3Eigen::inverse_kinematics(const VectorXd& pose, const VectorXd& initial_joint_position) {
+    const double tolerance = 0.001; // Tolerance for convergence
+    const int max_iter = 100; // Maximum number of iterations
+
+    VectorXd current_joint_angles = initial_joint_position;
+
+    // // Iterate until convergence or maximum iterations reached
+    // for (int iter = 0; iter < max_iter; ++iter) {
+    //     // Calculate the current end effector position using forward kinematics
+    //     VectorXd current_pose = forward_kinematics(current_joint_angles);
+    //     VectorXd delta_pose = pose - current_pose;
+    //     // Check if the end effector is close enough to the desired position
+    //     if (is_close(pose, current_pose, tolerance))
+    //         break;
+    //     // Calculate the Jacobian matrix
+    //     MatrixXd jacobian_matrix = jacobian(current_joint_angles);
+    //     MatrixXd jacobian_pinv = pinv(jacobian_matrix);
+    //     //current_joint_angles = current_joint_angles + jacobian_pinv * delta_pose;
+    // }
+
+    return current_joint_angles;
+}
+
+host_fn MatrixXd Gen3Eigen::jacobian(const VectorXd &joint_position) {
+
+    // auto p = joint_position.data;
+    Matrix3d Q1, Q2, Q3, Q4, Q5, Q6, Q7;
+
+    ArrayXd p(joint_position);
+    ArrayXd s = p.sin();
+    ArrayXd c = p.cos();
+
+    // note: these are stored column-wise
+    Q1 <<
+       c[0], -s[0], 0,
+       -s[0], -c[0], 0,
+       0, 0, -1;
+    Q2 <<
+       c[1], 0,  s[1],
+       -s[1], 0,  c[1],
+       0, -1, 0;
+    Q3 <<
+       c[2], 0, -s[2],
+       -s[2], 0, -c[2],
+       0,  1, 0;
+    Q4 <<
+       c[3], 0,  s[3],
+       -s[3], 0,  c[3],
+       0, -1, 0;
+    Q5 <<
+       c[4], 0, -s[4],
+       -s[4], 0, -c[4],
+       0,  1, 0;
+    Q6 <<
+       c[5], 0,  s[5],
+       -s[5], 0,  c[5],
+       0, -1, 0;
+    Q7 <<
+       c[6], 0, -s[6],
+       -s[6], 0, -c[6],
+       0,  1, 0;
+    Q1.transposeInPlace();
+    Q2.transposeInPlace();
+    Q3.transposeInPlace();
+    Q4.transposeInPlace();
+    Q5.transposeInPlace();
+    Q6.transposeInPlace();
+    Q7.transposeInPlace();
+
+    // unit vectors in 1st reference
+    Vector3d e_1[7];
+    auto Q_tmp = Q1;
+    e_1[0] = Q_tmp * ev[0];
+    e_1[1] = (Q_tmp *= Q2) * ev[1];
+    e_1[2] = (Q_tmp *= Q3) * ev[2];
+    e_1[3] = (Q_tmp *= Q4) * ev[3];
+    e_1[4] = (Q_tmp *= Q5) * ev[4];
+    e_1[5] = (Q_tmp *= Q6) * ev[5];
+    e_1[6] = (Q_tmp *= Q7) * ev[6];
+
+    Vector3d r[7];
+    r[6] = dv[6];
+    r[5] = dv[5] + Q7 * r[6];
+    r[4] = dv[4] + Q6 * r[5];
+    r[3] = dv[3] + Q5 * r[4];
+    r[2] = dv[2] + Q4 * r[3];
+    r[1] = dv[1] + Q3 * r[2];
+    r[0] = dv[0] + Q2 * r[1];
+
+    Q_tmp = Q1;
+    r[0] = (Q_tmp) * r[0];
+    r[1] = (Q_tmp *= Q2) * r[1];
+    r[2] = (Q_tmp *= Q3) * r[2];
+    r[3] = (Q_tmp *= Q4) * r[3];
+    r[4] = (Q_tmp *= Q5) * r[4];
+    r[5] = (Q_tmp *= Q6) * r[5];
+    r[6] = (Q_tmp *= Q7) * r[6];
+
+    auto cr0 = e_1[0].cross(r[0]);
+    auto cr1 = e_1[1].cross(r[1]);
+    auto cr2 = e_1[2].cross(r[2]);
+    auto cr3 = e_1[3].cross(r[3]);
+    auto cr4 = e_1[4].cross(r[4]);
+    auto cr5 = e_1[5].cross(r[5]);
+    auto cr6 = e_1[6].cross(r[6]);
+
+    // jacobian matrix
+    Eigen::Matrix<double, 6, 7> J;
+    J(0, 0) = e_1[0][0];
+    J(1, 0) = e_1[0][1];
+    J(2, 0) = e_1[0][2];
+    J(0, 1) = e_1[1][0];
+    J(1, 1) = e_1[1][1];
+    J(2, 1) = e_1[1][2];
+    J(0, 2) = e_1[2][0];
+    J(1, 2) = e_1[2][1];
+    J(2, 2) = e_1[2][2];
+    J(0, 3) = e_1[3][0];
+    J(1, 3) = e_1[3][1];
+    J(2, 3) = e_1[3][2];
+    J(0, 4) = e_1[4][0];
+    J(1, 4) = e_1[4][1];
+    J(2, 4) = e_1[4][2];
+    J(0, 5) = e_1[5][0];
+    J(1, 5) = e_1[5][1];
+    J(2, 5) = e_1[5][2];
+    J(0, 6) = e_1[6][0];
+    J(1, 6) = e_1[6][1];
+    J(2, 6) = e_1[6][2];
+
+    J(3, 0) = cr0[0];
+    J(4, 0) = cr0[1];
+    J(5, 0) = cr0[2];
+    J(3, 1) = cr1[0];
+    J(4, 1) = cr1[1];
+    J(5, 1) = cr1[2];
+    J(3, 2) = cr2[0];
+    J(4, 2) = cr2[1];
+    J(5, 2) = cr2[2];
+    J(3, 3) = cr3[0];
+    J(4, 3) = cr3[1];
+    J(5, 3) = cr3[2];
+    J(3, 4) = cr4[0];
+    J(4, 4) = cr4[1];
+    J(5, 4) = cr4[2];
+    J(3, 5) = cr5[0];
+    J(4, 5) = cr5[1];
+    J(5, 5) = cr5[2];
+    J(3, 6) = cr6[0];
+    J(4, 6) = cr6[1];
+    J(5, 6) = cr6[2];
+
+    return J;
+}
+
+host_fn VectorXd Gen3Eigen::collision_check(const VectorXd &joint_position) {
+    Matrix3d Q1, Q2, Q3, Q4, Q5, Q6, Q7;
+
+    ArrayXd p(joint_position);
+    ArrayXd s = p.sin();
+    ArrayXd c = p.cos();
+
+    // note: these are stored column-wise
+    Q1 <<
+       c[0], -s[0], 0,
+       -s[0], -c[0], 0,
+       0, 0, -1;
+    Q2 <<
+       c[1], 0,  s[1],
+       -s[1], 0,  c[1],
+       0, -1, 0;
+    Q3 <<
+       c[2], 0, -s[2],
+       -s[2], 0, -c[2],
+       0,  1, 0;
+    Q4 <<
+       c[3], 0,  s[3],
+       -s[3], 0,  c[3],
+       0, -1, 0;
+    Q5 <<
+       c[4], 0, -s[4],
+       -s[4], 0, -c[4],
+       0,  1, 0;
+    Q6 <<
+       c[5], 0,  s[5],
+       -s[5], 0,  c[5],
+       0, -1, 0;
+    Q7 <<
+       c[6], 0, -s[6],
+       -s[6], 0, -c[6],
+       0,  1, 0;
+    Q1.transposeInPlace();
+    Q2.transposeInPlace();
+    Q3.transposeInPlace();
+    Q4.transposeInPlace();
+    Q5.transposeInPlace();
+    Q6.transposeInPlace();
+    Q7.transposeInPlace();
+
+    Vector3d p_orig(0, 0, 0);
+    Vector3d p_j2;
+    Vector3d p_j3;
+    Vector3d p_j4;
+    Vector3d p_j6;
+    Vector3d p_ee;
+
+    auto p_tmp = p_base;
+    auto Q_tmp = Q1;
+    p_tmp += Q_tmp * dv[0];
+    p_j2 = p_tmp;
+    p_tmp += (Q_tmp *= Q2) * dv[1];
+    p_j3 = p_tmp;
+    p_tmp += (Q_tmp *= Q3) * dv[2];
+    p_j4 = p_tmp;
+    p_tmp += (Q_tmp *= Q4) * dv[3];
+    p_tmp += (Q_tmp *= Q5) * dv[4];
+    p_j6 = p_tmp;
+    p_tmp += (Q_tmp *= Q6) * dv[5];
+    p_tmp += (Q_tmp *= Q7) * dv[6];
+    p_ee = p_tmp;
+
+    const double r1sqr = 0.0875 * 0.0875;
+    const double r2sqr = 0.0875 * 0.0875;
+
+    // Self collisions sqr
+    double dist1sqr     = two_segment_distance_sqr(p_orig, p_j2, p_j6, p_ee) - r1sqr;
+    double dist2J2sqr   = two_segment_distance_sqr(p_j2, p_j2, p_j6, p_ee) - r2sqr; // distance sqr from J2 to J6 EE line (sphere)
+    double dist2Msqr    = two_segment_distance_sqr(p_j2, p_j3, p_j6, p_ee) - r1sqr;  // distance sqr from J2 J3 line to J6 EE line (capsule)
+    double dist2sqr = std::min(dist2J2sqr, dist2Msqr);
+
+    // todo: remove collision detection from here
+
+    // Collision with table sqr
+    const double r4table = 0.05; // todo: validate dimensions
+    const double r6table = 0.04; // todo: validate dimensions
+
+    const Vector3d p_table(0, 0, -0.0025); // todo: Correct coords (z or y) ??
+    double distTJ4 = p_j4[2] - p_table[2] - r4table;
+    double distTJ6 = p_j6[2] - p_table[2] - r6table;
+    double distTEE = p_ee[2] - p_table[2] - r6table;
+
+    // VectorXd of distance min sqr and distance from table sqr
+    VectorXd distMin(5);
+    distMin << dist1sqr, dist2sqr, distTJ4, distTJ6, distTEE;
+    // todo: Add collision_check function for more obstacles; VectorXd distMin(5) hard coded size
+
+    return distMin;
+}
+
+host_fn VectorXd Gen3Eigen::constraints(const VectorXd &pos, const VectorXd &vel, const VectorXd &acc) {
+    MatrixXd p(pos);
+    MatrixXd v(vel);
+    MatrixXd a(acc);
+
+    dynamics(p, v, a);
+    // 5 collision results
+    // 2 position constraints
+    // 7 velocity constraints
+    // 7 torque constraints
+    VectorXd result(5 + 2 + 7 * 2);
+
+    // distance to collision >= 0
+    auto tmp_coll = collision_check(pos);
+    result[0] = -tmp_coll[0]; // dist1sqr
+    result[1] = -tmp_coll[1]; // dist2sqr
+    result[2] = -tmp_coll[2]; // distTJ4
+    result[3] = -tmp_coll[3]; // distTJ6
+    result[4] = -tmp_coll[4]; // distTEE
+
+    // position
+    result[5] = (abs(pos[3]) - pmax[3]) / pmax[3];
+    result[6] = (abs(pos[5]) - pmax[5]) / pmax[5];
+
+    // velocity
+    for (int j = 0; j < 7; j++)
+        result[j+7] = (abs(vel[j]) - vmax[j]) / vmax[j];
+
+    auto f = _efforts.col(0);
+    for (int j = 0; j < 7; j++)
+        result[j+14] = (abs(f[j]) - tau_max[j]) / tau_max[j];
+
+    return result;
+}
+
+host_fn VectorXd Gen3Eigen::constraints(const MatrixXd &pos, const MatrixXd &vel, const MatrixXd &acc) {
+    const auto points = pos.cols();
+    VectorXd result(ncon(points));
+    constraints(pos, vel, acc, result.data());
+    return result;
+}
+
+host_fn VectorXd Gen3Eigen::constraints(const TrajectoryEigen &traj) {
+    VectorXd result(ncon(traj.t.size()));
+    constraints(traj.pos, traj.vel, traj.acc, result.data());
+    return result;
+}
+
+host_fn void Gen3Eigen::constraints(const TrajectoryEigen &traj, double *dst) {
+    constraints(traj.pos, traj.vel, traj.acc, dst);
+}
+
+host_fn void Gen3Eigen::constraints(const MatrixXd &pos, const MatrixXd &vel, const MatrixXd &acc, double *dst) {
+    const auto points = pos.cols();
+
+    dynamics(pos, vel, acc);
+
+    for (int i = 0; i < points; i++) {
+        // collision
+        VectorXd p = pos.col(i);
+        VectorXd tmp_coll = collision_check(p);
+        dst[0] = -tmp_coll[0]; // dist1sqr
+        dst[1] = -tmp_coll[1]; // dist2sqr
+        dst[2] = -tmp_coll[2]; // distTJ4
+        dst[3] = -tmp_coll[3]; // distTJ6
+        dst[4] = -tmp_coll[4]; // distTEE
+        dst += 5;
+
+        // position
+        dst[0] = (abs(pos(3, i)) - pmax[3]) / pmax[3];
+        dst[1] = (abs(pos(5, i)) - pmax[5]) / pmax[5];
+        dst += 2;
+
+        // velocity
+        for (int j = 0; j < 7; j++)
+            dst[j] = (abs(vel(j, i)) - vmax[j]) / vmax[j];
+        dst += 7;
+
+        auto f = _efforts.col(i);
+        for (int j = 0; j < 7; j++)
+            dst[j] = (abs(f[j]) - tau_max[j]) / tau_max[j];
+        dst += 7;
+    }
+}
+
+host_fn bool Gen3Eigen::validate_task(const MatrixXd &task) {
+    auto ci = constraints(VectorXd(task.col(0)), task.col(1), task.col(2));
+    auto cf = constraints(VectorXd(task.col(3)), task.col(4), task.col(5));
+    return (ArrayXd(ci) <= 0).all() && (ArrayXd(cf) <= 0).all(); // todo: verify
+}
+
 // note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 
 #ifdef BLAST_ENABLE_TESTS
-TEST_CASE("SelfCollision", "Manipulator") {
+TEST_CASE("SelfCollision", "[Manipulator]") {
     using namespace blast;
     Gen3_7DOF manip;
     Array theta1(7);
@@ -1580,6 +2352,102 @@ TEST_CASE("SelfCollision", "Manipulator") {
     CHECK(dist_sqr_min_3[1] < 0);
     CHECK(dist_sqr_min_4[0] < 0);
     CHECK(dist_sqr_min_4[1] > 0);
+}
+
+TEST_CASE("EigenCorrectness", "[Manipulator]") {
+    using namespace blast;
+    Gen3_7DOF manip;
+    Gen3Eigen manip_eigen;
+
+    const u32 points = 10;
+    const u32 joints = 7;
+    const u32 p = 5;
+    const u32 ncontrol = 12;
+
+    // random task
+    real amp = 10;
+    Matrix task(joints, 6);
+    for (u32 i = 0; i < task.rows; i++) {
+        for (u32 j = 0; j < task.cols; j++) {
+            task(i, j) = amp * get_random();
+        }
+    }
+    MatrixXd task_eigen(joints, 6);
+    for (u32 i = 0; i < task.size; i++)
+        task_eigen.data()[i] = task.data[i];
+    // random optimization vector
+    Array x(joints * (ncontrol - 6) + 1);
+    for (u32 i = 0; i < x.size; i++)
+        x[i] = amp * get_random();
+    x[x.size - 1] = 3.f;
+    VectorXd x_eigen(joints * (ncontrol - 6) + 1);
+    for (u32 i = 0; i < x.size; i++)
+        x_eigen[i] = x[i];
+    Bspline bspline(ncontrol, points, p, joints);
+    BsplineEigen bspline_eigen(ncontrol, points, p, joints);
+    bspline.compute_trajectory(x, task);
+    bspline_eigen.compute_trajectory(x_eigen, task_eigen);
+
+    Array r = manip.constraints(bspline.traj);
+    VectorXd r_eigen = manip_eigen.constraints(bspline_eigen.traj);
+
+    double max_err = 0;
+    for (int i = 0; i < r.size; i++) {
+        max_err = std::max(max_err, std::abs(r[i] - r_eigen[i]));
+        if (max_err > 0.1) {
+            break;
+        }
+    }
+
+    REQUIRE(max_err < 0.01);
+}
+
+TEST_CASE("ManipSpeedTest", "[Manipulator]") {
+    using namespace blast;
+    Gen3_7DOF manip;
+    Gen3Eigen manip_eigen;
+
+    const u32 points = 256;
+    const u32 joints = 7;
+    const u32 p = 5;
+    const u32 ncontrol = 24;
+
+    // random task
+    real amp = 10;
+    Matrix task(joints, 6);
+    for (u32 i = 0; i < task.rows; i++) {
+        for (u32 j = 0; j < task.cols; j++) {
+            task(i, j) = amp * get_random();
+        }
+    }
+    MatrixXd task_eigen(joints, 6);
+    for (u32 i = 0; i < task.size; i++)
+        task_eigen.data()[i] = task.data[i];
+    // random optimization vector
+    Array x(joints * (ncontrol - 6) + 1);
+    for (u32 i = 0; i < x.size; i++)
+        x[i] = amp * get_random();
+    x[x.size - 1] = 3.f;
+    VectorXd x_eigen(joints * (ncontrol - 6) + 1);
+    for (u32 i = 0; i < x.size; i++)
+        x_eigen[i] = x[i];
+    Bspline bspline(ncontrol, points, p, joints);
+    BsplineEigen bspline_eigen(ncontrol, points, p, joints);
+
+    Array r(manip.ncon(points));
+    BENCHMARK("Blast constraints speed") {
+        bspline.compute_trajectory(x, task);
+        r = manip.constraints(bspline.traj);
+        return r[122];
+    };
+
+    VectorXd r_eigen(manip_eigen.ncon(points));
+    BENCHMARK("Blast + Eigen constraints speed") {
+        bspline_eigen.compute_trajectory(x_eigen, task_eigen);
+        r_eigen = manip_eigen.constraints(bspline_eigen.traj);
+        return r_eigen[122];
+    };
+
 }
 #endif // tests
 } // namespace blast

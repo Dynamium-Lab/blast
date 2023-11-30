@@ -15,9 +15,17 @@
 #include <math_constants.h>
 #endif
 
+#include "Eigen/Dense"
+
 #include "mipp/mipp.h"
 
 namespace blast {
+
+using Eigen::MatrixXd;
+using Eigen::Matrix3d;
+using Eigen::VectorXd;
+using Eigen::Vector3d;
+using Eigen::ArrayXd;
 
 // uses doubles by default unless BLAST_USE_DOUBLES is set to 0
 #if BLAST_USE_DOUBLES
@@ -1961,6 +1969,77 @@ blast_fn real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
     return dot(diff, diff);
 }
 
+
+blast_fn double two_segment_distance_sqr(Vector3d P0, Vector3d P1, Vector3d Q0, Vector3d Q1) {
+// note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
+    const Vector3d P1mP0 = P1 - P0;
+    const Vector3d Q1mQ0 = Q1 - Q0;
+    const Vector3d P0mQ0 = P0 - Q0;
+    double a = P1mP0.dot(P1mP0);
+    double b = P1mP0.dot(Q1mQ0);
+    double c = Q1mQ0.dot(Q1mQ0);
+    double d = P1mP0.dot(P0mQ0);
+    double e = Q1mQ0.dot(P0mQ0);
+    double f00 = d;
+    double f10 = f00 + a;
+    double f01 = f00 - b;
+    double f11 = f10 - b;
+    double g00 = -e;
+    double g10 = g00 - b;
+    double g01 = g00 + c;
+    double g11 = g10 + c;
+    double parameter[2] = {0, 0};
+    if (a > 0 && c > 0) {
+        double sValue[2] = {
+            clamped_root(a, f00, f10),
+            clamped_root(a, f01, f11)
+        };
+        int classify[2] = {0, 0};
+        for (int i = 0; i < 2; ++i) {
+            if (sValue[i] <= 0)
+                classify[i] = -1;
+            else if (sValue[i] >= 1)
+                classify[i] = 1;
+            else
+                classify[i] = 0;
+        }
+        if (classify[0] == -1 && classify[1] == -1) {
+            parameter[0] = 0;
+            parameter[1] = clamped_root(c, g00, g01);
+        }
+        else if (classify[0] == +1 && classify[1] == +1) {
+            parameter[0] = 1;
+            parameter[1] = clamped_root(c, g10, g11);
+        }
+        else {
+            int edge[2] = { 0, 0 };
+            double end[2][2];
+            compute_intersection(sValue, classify, b, f00, f10, edge, end);
+            compute_minimum_parameters(edge, end, b, c, e, g00, g10, g01, g11, parameter);
+        }
+    }
+    else    {
+        if (a > 0) {
+            parameter[0] = clamped_root(a, f00, f10);
+            parameter[1] = 0;
+        }
+        else if (c > 0) {
+            parameter[0] = 0;
+            parameter[1] = clamped_root(c, g00, g01);
+        }
+        else {
+            parameter[0] = 0;
+            parameter[1] = 0;
+        }
+    }
+    Vector3d closest0 = P0 + parameter[0]*P1mP0;
+    Vector3d closest1 = Q0 + parameter[1]*Q1mQ0;
+    Vector3d diff = closest0 - closest1;
+
+    // auto result = sqrt(dot(diff, diff));
+    return diff.dot(diff);
+}
+
 } // namespace blast
 
 #ifdef BLAST_ENABLE_TESTS
@@ -2100,10 +2179,12 @@ TEST_CASE("Mat4Operations", "[Math]") {
 }
 
 TEST_CASE("TwoSegmentDist", "[Math]") {
-    auto dist_sqr_test1 = blast::two_segment_distance_sqr({1, 1, 1}, {2, 2, 2}, {1, 0, 0}, {2, 0, 0});
-    auto dist_sqr_test2 = blast::two_segment_distance_sqr({1, 1, 1}, {2, 2, 2}, {1, 0, 0}, {2, 3, 2});
-    auto dist_sqr_test3 = blast::two_segment_distance_sqr({1.5, 3, 2}, {7, 0, 4}, {8.2, 0, 5}, {2, 2, 0});
-    auto dist_sqr_test4 = blast::two_segment_distance_sqr({1, 1, 1}, {2, 2, 2}, {3, 3, 3}, {4, 4, 4});
+    using namespace blast;
+
+    double dist_sqr_test1 = two_segment_distance_sqr(Vec3({1, 1, 1}), {2, 2, 2}, {1, 0, 0}, {2, 0, 0});
+    double dist_sqr_test2 = two_segment_distance_sqr(Vec3({1, 1, 1}), {2, 2, 2}, {1, 0, 0}, {2, 3, 2});
+    double dist_sqr_test3 = two_segment_distance_sqr(Vec3({1.5, 3, 2}), {7, 0, 4}, {8.2, 0, 5}, {2, 2, 0});
+    double dist_sqr_test4 = two_segment_distance_sqr(Vec3({1, 1, 1}), {2, 2, 2}, {3, 3, 3}, {4, 4, 4});
 
     REQUIRE((float)dist_sqr_test1 == 2.f);
     REQUIRE((float)dist_sqr_test2 == 0.16666666666f);

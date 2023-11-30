@@ -8,6 +8,8 @@
 #include "catch/catch.hpp"
 #endif
 
+#include "Eigen/Dense"
+
 //--- pre-processor directives to hand SIMD, CUDA, Etc
 
 // use doubles by default
@@ -23,6 +25,11 @@
 #else
 #define blast_fn inline
 #define host_fn inline
+#endif
+
+
+#ifdef BLAST_DEBUG
+#include "optional/blast_optional_utilities.hpp"
 #endif
 
 //--- Other headers ---
