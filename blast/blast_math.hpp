@@ -1206,7 +1206,7 @@ blast_fn Array operator*(real b, const Array& a) {
 
 // Compute the dot product of the given arrays
 //  - note: fastest when the number of elements are a factor of 4 or even 8
-blast_fn real dot(Array& a, Array& b) {
+blast_fn real dot(const Array& a, const Array& b) {
     Assert(a.size == b.size);
     real r = 0;
 #if defined(__CUDA_ARCH__)
@@ -1221,8 +1221,8 @@ blast_fn real dot(Array& a, Array& b) {
     mipp::Reg<real> accum = 0.0;
     auto vecLoopSize = (a.size / mipp::N<real>()) * mipp::N<real>();
     for (; i < vecLoopSize; i += mipp::N<real>()) {
-        ra.load(&a[i]);
-        rb.load(&b[i]);
+        ra.load(&a.data[i]);
+        rb.load(&b.data[i]);
         accum = mipp::fmadd(ra, rb, accum);
     }
     r = accum.hadd();
