@@ -1,13 +1,16 @@
 #pragma once
 #include "blast.hpp"
 #include "blast_math.hpp"
+#include "blast_world.hpp"
 
 namespace blast {
 
 struct Optimisation {
-    blast::Manipulator*    manip;
-    blast::Matrix*         task;
-    blast::Bspline*        bspline;
+    Manipulator* manip   = nullptr;
+    Matrix*      task    = nullptr;
+    Bspline*     bspline = nullptr;
+    objlist*     world   = nullptr;
+    int          n_collision_constraints = 5;
 };
 
 //--------- OBJECTIVES AND CONSTRAINTS ----------------------------------------------------------
@@ -77,7 +80,6 @@ host_fn void internal_cstr_manip_single(unsigned m, double* result, unsigned n, 
     xv.alias(x, n);
     opt->bspline->compute_trajectory(xv, *opt->task);
     opt->manip->constraints(opt->bspline->traj, result);
-    // todo: add collision detection
 }
 
 // Simple manipulator defined constraints function.
@@ -91,23 +93,51 @@ host_fn void internal_cstr_manip_single(unsigned m, double* result, unsigned n, 
 //  data   = is cast to Optimization struct
 //
 // Returns nothing
-host_fn void cstr_manip(unsigned m, double *result, unsigned n, const double* x, double* grad, void* f_data) {
+host_fn void cstr_manip(unsigned m, double *result, unsigned xlen, const double* x, double* grad, void* f_data) {
     Optimisation* opt = (Optimisation*)f_data;
 
-    internal_cstr_manip_single(m, result, n, x, opt);
+    internal_cstr_manip_single(m, result, xlen, x, opt);
 
     if (grad) {
         const real eps = 1e-5;
-        Array x_plus(n);
+        Array x_plus(xlen);
         Array r_plus(m);
         // todo: parallel?
-        for (u32 j = 0; j < n; j++) {
-            memcpy(x_plus.data, x, n * sizeof(real));
+        for (u32 j = 0; j < xlen; j++) {
+            memcpy(x_plus.data, x, xlen * sizeof(real));
             x_plus[j] += eps;
-            internal_cstr_manip_single(m, r_plus.data, n, x_plus.data, opt);
+            internal_cstr_manip_single(m, r_plus.data, xlen, x_plus.data, opt);
             for (u32 i = 0; i < m; i++)
-                grad[i*n + j] = (r_plus[i]-result[i])/eps;
+                grad[i*xlen + j] = (r_plus[i]-result[i])/eps;
         }
+    }
+}
+
+host_fn void cstr_world_link6(unsigned m, double *result, unsigned xlen, const double* x, double* grad, void* f_data) {
+    Optimisation* opt = (Optimisation*)f_data;
+    const int points = opt->bspline->points;
+    internal_cstr_manip_single(m, result, xlen, x, opt);
+
+    capslist capsules;
+    capsules.caps.resize(points * 3); // 3 capsules for each point along the trajectory
+    for (int i = 0; i < points; i++){
+        // todo: compute the link capsule positions
+        // capsules.caps[i*3].p1 = ;
+        // capsules.caps[i*3].p2 = ;
+        // capsules.caps[i*3].r = ;
+        // capsules.caps[i*3 + 1].p1 = ;
+        // capsules.caps[i*3 + 1].p2 = ;
+        // capsules.caps[i*3 + 1].r = ;
+        // capsules.caps[i*3 + 2].p1 = ;
+        // capsules.caps[i*3 + 2].p2 = ;
+        // capsules.caps[i*3 + 2].r = ;
+    }
+    
+    double* r = &result[opt->manip->ncon(points)];
+    std::vector<real> collisions = test_collision(&capsules, opt->world, opt->n_collision_constraints);
+    for (int i = 0; i < opt->n_collision_constraints; i ++){
+        *r = collisions[i];
+        r++;
     }
 }
 

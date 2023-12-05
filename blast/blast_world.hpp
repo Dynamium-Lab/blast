@@ -78,7 +78,6 @@ struct objlist {
     std::vector<sphere> sphlist;
     std::vector<capsule> capslist;
 };
-static objlist world;
 
 struct capslist {
     std::vector<capsule> caps; // list of capsules
@@ -673,45 +672,45 @@ host_fn real distmin(OBB OBB, capsule caps) {
     return distcurrent - caps.r;
 }
 
-host_fn void add_OBB(Vec3 c, Vec3 e, Mat3 R) {
+host_fn void add_OBB(Vec3 c, Vec3 e, Mat3 R, objlist* world) {
     OBB new_OBB;
     new_OBB.c = c;
     new_OBB.e = e;
     new_OBB.R = R;
-    world.OBBlist.push_back(new_OBB);
+    world->OBBlist.push_back(new_OBB);
 }
 
-host_fn void add_sph(Vec3 c, real r) {
+host_fn void add_sphere(Vec3 c, real r, objlist* world) {
     sphere new_sph;
     new_sph.c = c;
     new_sph.r = r;
-    world.sphlist.push_back(new_sph);
+    world->sphlist.push_back(new_sph);
 }
 
-host_fn void add_cyl(Vec3 p1, Vec3 p2, real r) {
+host_fn void add_cylinder(Vec3 p1, Vec3 p2, real r, objlist* world) {
     cylinder new_cyl;
     new_cyl.p1 = p1;
     new_cyl.p1 = p2;
     new_cyl.r = r;
-    world.cyllist.push_back(new_cyl);
+    world->cyllist.push_back(new_cyl);
 }
 
-host_fn void add_caps(Vec3 p1, Vec3 p2, real r) {
+host_fn void add_capsule(Vec3 p1, Vec3 p2, real r, objlist* world) {
     capsule new_caps;
     new_caps.p1 = p1;
     new_caps.p1 = p2;
     new_caps.r = r;
-    world.capslist.push_back(new_caps);
+    world->capslist.push_back(new_caps);
 }
 
-host_fn std::vector<real> test_collision(capslist caps_list, objlist world, int n_var) {
-    std::vector<real> dist_min(n_var); // !Does this work?
+host_fn std::vector<real> test_collision(capslist* caps_list, objlist* world, int n_var) {
+    std::vector<real> dist_min(n_var, INF_REAL);
     real dist;
 
-    for (int c = 0; c < size(caps_list.caps); c++) {
+    for (int c = 0; c < caps_list->caps.size(); c++) {
         // OBB collisions
-        for (int i = 0; i < size(world.OBBlist); i++) {
-            dist = distmin(world.OBBlist[i], caps_list.caps[c]);
+        for (int i = 0; i < world->OBBlist.size(); i++) {
+            dist = distmin(world->OBBlist[i], caps_list->caps[c]);
             for (int j = 0; j < n_var; j++) {
                 if (dist < dist_min[j]) {
                     for (int k = n_var; k > j; k--) {
@@ -724,8 +723,8 @@ host_fn std::vector<real> test_collision(capslist caps_list, objlist world, int 
         }
 
         // Capsule collisions
-        for (int i = 0; i < size(world.capslist); i++) {
-            dist = distmin(caps_list.caps[c], world.capslist[i]);
+        for (int i = 0; i < world->capslist.size(); i++) {
+            dist = distmin(caps_list->caps[c], world->capslist[i]);
             for (int j = 0; j < n_var; j++) {
                 if (dist < dist_min[j]) {
                     for (int k = n_var; k > j; k--) {
@@ -738,8 +737,8 @@ host_fn std::vector<real> test_collision(capslist caps_list, objlist world, int 
         }
 
         // Cylinder collisions
-        for (int i = 0; i < size(world.cyllist); i++) {
-            dist = distmin(caps_list.caps[c], world.cyllist[i]);
+        for (int i = 0; i < world->cyllist.size(); i++) {
+            dist = distmin(caps_list->caps[c], world->cyllist[i]);
             for (int j = 0; j < n_var; j++) {
                 if (dist < dist_min[j]) {
                     for (int k = n_var; k > j; k--) {
@@ -752,8 +751,8 @@ host_fn std::vector<real> test_collision(capslist caps_list, objlist world, int 
         }
 
         // Sphere collisions
-        for (int i = 0; i < size(world.sphlist); i++) {
-            dist = distmin(caps_list.caps[c], world.sphlist[i]);
+        for (int i = 0; i < world->sphlist.size(); i++) {
+            dist = distmin(caps_list->caps[c], world->sphlist[i]);
             for (int j = 0; j < n_var; j++) {
                 if (dist < dist_min[j]) {
                     for (int k = n_var; k > j; k--) {
