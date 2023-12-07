@@ -120,7 +120,7 @@ host_fn void cstr_world_link6(unsigned m, double *result, unsigned xlen, const d
 
     capslist capsules;
     capsules.caps.resize(points * 3); // 3 capsules for each point along the trajectory
-    for (int i = 0; i < points; i++){
+    for (int i = 0; i < points; i++) {
         // todo: compute the link capsule positions
         // capsules.caps[i*3].p1 = ;
         // capsules.caps[i*3].p2 = ;
@@ -132,10 +132,10 @@ host_fn void cstr_world_link6(unsigned m, double *result, unsigned xlen, const d
         // capsules.caps[i*3 + 2].p2 = ;
         // capsules.caps[i*3 + 2].r = ;
     }
-    
+
     double* r = &result[opt->manip->ncon(points)];
     std::vector<real> collisions = test_collision(&capsules, opt->world, opt->n_collision_constraints);
-    for (int i = 0; i < opt->n_collision_constraints; i ++){
+    for (int i = 0; i < opt->n_collision_constraints; i ++) {
         *r = collisions[i];
         r++;
     }

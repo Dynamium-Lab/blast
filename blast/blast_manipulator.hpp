@@ -270,25 +270,25 @@ struct Link6 : public Manipulator {
     // check collision
     Array collision_check(const Array &joint_position);
 
-    // // check all constraints on the manipulator for 1 point
-    // Array constraints(const Array &pos, const Array &vel, const Array &acc);
+    // check all constraints on the manipulator for 1 point
+    Array constraints(const Array &pos, const Array &vel, const Array &acc);
 
-    // // check all constraints on the manipulator for a trajectory
-    // Array constraints(const Matrix &pos, const Matrix &vel, const Matrix &acc);
+    // check all constraints on the manipulator for a trajectory
+    Array constraints(const Matrix &pos, const Matrix &vel, const Matrix &acc);
 
-    // // check all constraints and put the result in 'dst'
-    // void constraints(const Matrix &pos, const Matrix &vel, const Matrix &acc, real *dst);
+    // check all constraints and put the result in 'dst'
+    void constraints(const Matrix &pos, const Matrix &vel, const Matrix &acc, real *dst);
 
-    // // check all constraints on the manipulator for a trajectory.
-    // // - note: any contraint that is positive is not respected.
-    // virtual Array constraints(const Trajectory &traj) override;
+    // check all constraints on the manipulator for a trajectory.
+    // - note: any contraint that is positive is not respected.
+    virtual Array constraints(const Trajectory &traj) override;
 
-    // // check all constraints and put the result in 'dst'
-    // // - note: any contraint that is positive is not respected.
-    // virtual void constraints(const Trajectory &traj, real *dst) override;
+    // check all constraints and put the result in 'dst'
+    // - note: any contraint that is positive is not respected.
+    virtual void constraints(const Trajectory &traj, real *dst) override;
 
-    // // check that the task given is feasible (collision and joint limits)
-    // virtual bool validate_task(const Matrix &task) override;
+    // check that the task given is feasible (collision and joint limits)
+    virtual bool validate_task(const Matrix &task) override;
 
     virtual u32 ncon(u32 npoints) override {
         // 5 collision results
@@ -2431,7 +2431,6 @@ host_fn Link6::Link6() : Manipulator(6) {
     sv[3] = dv[3] - av[3];
     sv[4] = dv[4] - av[4];
     sv[5] = dv[5] - av[5];
-    sv[6] = dv[6] - av[6];
 
     // unit joint direction
     ev[0] = {0, 0, 1};
@@ -2440,15 +2439,12 @@ host_fn Link6::Link6() : Manipulator(6) {
     ev[3] = {0, 0, 1};
     ev[4] = {0, 0, 1};
     ev[5] = {0, 0, 1};
-    ev[6] = {0, 0, 1};
 
     // kinematic and dynamic constraints
-    pmax = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL}; // rad todo: make sure this is true
-    // pmin = -pmax;
+    pmax = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL}; // rad todo: make sure this is true
     vmax = {3.4907f, 3.4907f, 3.4907f, 5.5851f, 5.5851f, 5.5851f}; // rad/s
-    // vmin = -vmax;
+    amax = {deg2rad(600), deg2rad(600), deg2rad(600), deg2rad(600), deg2rad(600), deg2rad(600)}; // rad/s^2
     tau_max = {210, 210, 210, 100, 100, 100}; // Nm
-    // tau_min = -tau_max;
 }
 
 host_fn void Link6::dynamics(const Trajectory &traj, Matrix &efforts) {
@@ -2653,44 +2649,19 @@ host_fn Array Link6::forward_kinematics(const Array &joint_position) {
 }
 
 host_fn Matrix Link6::forward_kinematics(const Matrix &joint_positions) {
-    auto p = joint_positions.data;
     Matrix pose(12, joint_positions.cols);
 
     for (u32 point = 0; point < joint_positions.cols; point++) {
-
         Array s(8);
         Array c(8);
         blast::sincos(joint_positions.col(point), s, c);
 
-// #if BLAST_USE_DOUBLES
-//         real s[8];
-//         real c[8];
-//         __m256d s_tmp;
-//         __m256d c_tmp;
-//         for (u32 i = 0; i < 8; i += 4) {
-//             __m256d angle_v = _mm256_load_pd(p + i);
-//             s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-//             _mm256_storeu_pd(s + i, s_tmp);
-//             _mm256_storeu_pd(c + i, c_tmp);
-//         }
-// #else
-//         real s[8];
-//         real c[8];
-//         __m256 s_tmp;
-//         __m256 c_tmp;
-//         __m256 angle_v = _mm256_load_ps(p);
-//         s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
-//         _mm256_storeu_ps(s, s_tmp);
-//         _mm256_storeu_ps(c, c_tmp);
-// #endif
-
-#if 1
         Mat3 Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
         Mat3 Q2 = {c[1], 0, -s[1], -s[1], 0, -c[1], 0, 1, 0};
         Mat3 Q3 = {c[2], -s[2], 0, -s[2], -c[2], 0, 0, 0, -1};
         Mat3 Q4 = {c[3], 0, -s[3], -s[3], 0, -c[3], 0, 1, 0};
         Mat3 Q5 = {c[4], 0, -s[4], -s[4], 0, -c[4], 0, 1, 0};
-        Mat3 Q6 = {0, s[5], c[5], 0, c[5], s[5], -1, 0, 0}; // todo: double check
+        Mat3 Q6 = {0, s[5], c[5], 0, c[5], s[5], -1, 0, 0};
         auto p_tmp = p_base;
         auto Q_tmp = Q1;
         p_tmp += Q_tmp * dv[0];
@@ -2711,32 +2682,6 @@ host_fn Matrix Link6::forward_kinematics(const Matrix &joint_positions) {
         pose(9, point) = Q_tmp[6];
         pose(10, point) = Q_tmp[7];
         pose(11, point) = Q_tmp[8];
-#else
-        // todo: Add this for Link6 ?
-        // mat4 implementation (not as fast as rotation matrix + vector)
-        // const auto p1 = p_base + dv[0];
-        // const Mat4 T1 = {c[0], -s[0], 0, 0, -s[0], -c[0], 0, 0, 0, 0, -1, 0, p1.x, p1.y, p1.z, 1};
-        // const Mat4 T2 = {c[1], 0, s[1], 0, -s[1], 0, c[1], 0, 0, -1, 0, 0, dv[1].x, dv[1].y, dv[1].z, 1};
-        // const Mat4 T3 = {c[2], 0, -s[2], 0, -s[2], 0, -c[2], 0, 0, 1, 0, 0, dv[2].x, dv[2].y, dv[2].z, 1};
-        // const Mat4 T4 = {c[3], 0, s[3], 0, -s[3], 0, c[3], 0, 0, -1, 0, 0, dv[3].x, dv[3].y, dv[3].z, 1};
-        // const Mat4 T5 = {c[4], 0, -s[4], 0, -s[4], 0, -c[4], 0, 0, 1, 0, 0, dv[4].x, dv[4].y, dv[4].z, 1};
-        // const Mat4 T6 = {c[5], 0, s[5], 0, -s[5], 0, c[5], 0, 0, -1, 0, 0, dv[5].x, dv[5].y, dv[5].z, 1};
-        // const Mat4 T7 = {c[6], 0, -s[6], 0, -s[6], 0, -c[6], 0, 0, 1, 0, 0, dv[6].x, dv[6].y, dv[6].z, 1};
-        // const auto T = T1 * T2 * T3 * T4 * T5 * T6 * T7;
-        // pose(0, point) = T(0, 3);
-        // pose(1, point) = T(1, 3);
-        // pose(2, point) = T(2, 3);
-        // pose(3, point) = T[0];
-        // pose(4, point) = T[1];
-        // pose(5, point) = T[2];
-        // pose(6, point) = T[4];
-        // pose(7, point) = T[5];
-        // pose(8, point) = T[6];
-        // pose(9, point) = T[8];
-        // pose(10, point) = T[9];
-        // pose(11, point) = T[10];
-#endif
-        p += joints;
     }
     return pose;
 }
@@ -2808,8 +2753,91 @@ host_fn Array Link6::collision_check(const Array &joint_position) {
 
     return distMin;
 }
-// note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 
+host_fn Array Link6::constraints(const Array &pos, const Array &vel, const Array &acc) {
+    Matrix p(pos);
+    Matrix v(vel);
+    Matrix a(acc);
+
+    dynamics(p, v, a);
+    // 5 collision results
+    // 0 position constraints
+    // 6 velocity constraints
+    // 6 torque constraints
+    Array result(ncon(1));
+
+    // distance to collision >= 0
+    auto tmp_coll = collision_check(pos);
+    result[0] = -tmp_coll[0]; // dist1sqr
+    result[1] = -tmp_coll[1]; // dist2sqr
+    result[2] = -tmp_coll[2]; // distTJ4
+    result[3] = -tmp_coll[3]; // distTJ6
+    result[4] = -tmp_coll[4]; // distTEE
+
+    // velocity
+    for (int j = 0; j < joints; j++)
+        result[j+5] = (abs(vel[j]) - vmax[j]) / vmax[j];
+
+    auto f = _efforts.col(0); Assert(f.is_alias);
+    for (int j = 0; j < joints; j++)
+        result[j+5+joints] = (abs(f[j]) - tau_max[j]) / tau_max[j];
+
+    return result;
+}
+
+host_fn Array Link6::constraints(const Matrix &pos, const Matrix &vel, const Matrix &acc) {
+    const auto points = pos.cols;
+    Array result(ncon(points));
+    constraints(pos, vel, acc, result.data);
+    return result;
+}
+
+host_fn Array Link6::constraints(const Trajectory &traj) {
+    Array result(ncon(traj.t.size));
+    constraints(traj.pos, traj.vel, traj.acc, result.data);
+    return result;
+}
+
+host_fn void Link6::constraints(const Trajectory &traj, real *dst) {
+    constraints(traj.pos, traj.vel, traj.acc, dst);
+}
+
+host_fn void Link6::constraints(const Matrix &pos, const Matrix &vel, const Matrix &acc, real *dst) {
+    const auto points = pos.cols;
+
+    dynamics(pos, vel, acc);
+
+    for (u32 i = 0; i < points; i++) {
+        // collision
+        Array p = pos.col(i); Assert(p.is_alias);
+        auto tmp_coll = collision_check(p);
+        dst[0] = -tmp_coll[0]; // dist1sqr
+        dst[1] = -tmp_coll[1]; // dist2sqr
+        dst[2] = -tmp_coll[2]; // distTJ4
+        dst[3] = -tmp_coll[3]; // distTJ6
+        dst[4] = -tmp_coll[4]; // distTEE
+        dst += 5;
+
+        // velocity
+        for (int j = 0; j < joints; j++)
+            dst[j] = (abs(vel(j, i)) - vmax[j]) / vmax[j];
+        dst += joints;
+
+        auto f = _efforts.col(i); Assert(f.is_alias);
+        for (int j = 0; j < joints; j++)
+            dst[j] = (abs(f[j]) - tau_max[j]) / tau_max[j];
+        dst += joints;
+    }
+}
+
+host_fn bool Link6::validate_task(const Matrix &task) {
+    auto ci = constraints(task.col(0), task.col(1), task.col(2));
+    auto cf = constraints(task.col(3), task.col(4), task.col(5));
+    return array_max(ci) > 0 && array_max(cf) > 0 ? false: true;
+}
+
+
+// note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef BLAST_ENABLE_TESTS
 TEST_CASE("SelfCollision", "[Manipulator]") {
     using namespace blast;
@@ -2840,6 +2868,32 @@ TEST_CASE("SelfCollision", "[Manipulator]") {
     CHECK(dist_sqr_min_3[1] < 0);
     CHECK(dist_sqr_min_4[0] < 0);
     CHECK(dist_sqr_min_4[1] > 0);
+}
+
+TEST_CASE("Link6Checks", "[Manipulator]") {
+    using namespace blast;
+    Link6 manip;
+
+    const u32 points = 10;
+    const u32 joints = 6;
+    const u32 p = 5;
+    const u32 ncontrol = 12;
+
+    real amp = 10;
+    Matrix task(joints, 6);
+    for (u32 i = 0; i < task.rows; i++) {
+        for (u32 j = 0; j < task.cols; j++) {
+            task(i, j) = amp * get_random();
+        }
+    }
+    // random optimization vector
+    Array x(joints * (ncontrol - 6) + 1);
+    for (u32 i = 0; i < x.size; i++)
+        x[i] = amp * get_random();
+    x[x.size - 1] = 3.f;
+    Bspline bspline(ncontrol, points, p, joints);
+    bspline.compute_trajectory(x, task);
+    Array r = manip.constraints(bspline.traj);
 }
 
 TEST_CASE("EigenCorrectness", "[Manipulator]") {
