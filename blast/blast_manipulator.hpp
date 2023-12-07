@@ -235,6 +235,71 @@ struct Gen3Eigen : public ManipulatorEigen {
     }
 };
 
+struct Link6 : public Manipulator {
+    Vec3 p_base;
+    real m[6];
+    Mat3 I[6];
+    Vec3 av[6];
+    Vec3 dv[6];
+    Vec3 sv[6];
+    Vec3 ev[6];
+
+    Matrix _efforts; // put the efforts temporarily when computing the constraints
+
+    // default constructor
+    Link6();
+
+    // // compute new center of mass and robot mass with payload
+    // void set_payload(const real mass);
+    // void set_payload_without_gripper(const real mass);
+
+    // // compute joint torque as a function of trajector (traj)
+    void dynamics(const Trajectory &traj, Matrix &efforts);
+    void dynamics(const Matrix &pos, const Matrix &vel, const Matrix &acc, Matrix &efforts);
+    void dynamics(const Matrix &pos, const Matrix &vel, const Matrix &acc); // note: cache the results internally
+
+    // compute forward kinematics for 1 point
+    Array forward_kinematics(const Array &joint_position);
+    Matrix forward_kinematics(const Matrix &joint_positions);
+
+    // Array inverse_kinematics(const Array& pose, const Array& initial_joint_position);
+
+    // // compute jacobian matrix
+    // Matrix jacobian(const Array &joint_position);
+
+    // check collision
+    Array collision_check(const Array &joint_position);
+
+    // // check all constraints on the manipulator for 1 point
+    // Array constraints(const Array &pos, const Array &vel, const Array &acc);
+
+    // // check all constraints on the manipulator for a trajectory
+    // Array constraints(const Matrix &pos, const Matrix &vel, const Matrix &acc);
+
+    // // check all constraints and put the result in 'dst'
+    // void constraints(const Matrix &pos, const Matrix &vel, const Matrix &acc, real *dst);
+
+    // // check all constraints on the manipulator for a trajectory.
+    // // - note: any contraint that is positive is not respected.
+    // virtual Array constraints(const Trajectory &traj) override;
+
+    // // check all constraints and put the result in 'dst'
+    // // - note: any contraint that is positive is not respected.
+    // virtual void constraints(const Trajectory &traj, real *dst) override;
+
+    // // check that the task given is feasible (collision and joint limits)
+    // virtual bool validate_task(const Matrix &task) override;
+
+    virtual u32 ncon(u32 npoints) override {
+        // 5 collision results
+        // 0 position constraints
+        // 6 velocity constraints
+        // 6 torque constraints
+        //** (for each point in the trajectory) **
+        return (5 + 6 * 2) * npoints;
+    }
+};
+
 //------ Universal Robots UR5e manipulator functions ---------------------------------
 
 host_fn void ManipulatorUR5::dynamics(const Trajectory &traj, Matrix &efforts) {
@@ -2320,6 +2385,429 @@ host_fn bool Gen3Eigen::validate_task(const MatrixXd &task) {
     return (ArrayXd(ci) <= 0).all() && (ArrayXd(cf) <= 0).all(); // todo: verify
 }
 
+//------ Kinova Gen3 7DOF manipulator functions ---------------------------------------
+
+host_fn Link6::Link6() : Manipulator(6) {
+    p_base = {0, 0, 0.0530f};
+
+    // mass
+    m[0] = 4.8257f;
+    m[1] = 5.9860f;
+    m[2] = 3.4159f;
+    m[3] = 2.0849f;
+    m[4] = 2.0076f;
+    m[5] = 1.5193f; // todo: modify with gripper (as of now, no gripper)
+
+    // inertial tensor
+    I[0] = {0.0192746f, -0.00239802f, -0.00896331f, -0.00239802f, 0.03087806f, 0.0016298f, -0.00896331f, 0.0016298f, 0.02134949f};
+    I[1] = {0.25899206f, -2.89E-05f, -1.23E-06f, -2.89E-05f, 0.01755445f, -0.02128064f, -1.23E-06f, -0.02128064f, 0.25291674f};
+    I[2] = {0.01742043f, -3.55E-06f, 8.4E-07f, -3.55E-06f, 0.01119175f, 0.00518163f, 8.4E-07f, 0.00518163f, 0.01212876f};
+    I[3] = {0.02454276f, 2.61E-06f, 1.799E-05f, 2.61E-06f, 0.02385702f, 0.00315758f, 1.799E-05f, 0.00315758f, 0.00294903f};
+    I[4] = {0.00734684f, 0.00124927f, -0.00090156f, 0.00124927f, 0.00464684f, -0.00236128f, -0.00090156f, -0.00236128f, 0.00589508f};
+    I[5] = {0.00390762f, -1.13E-06f, 1.16E-06f, -1.13E-06f, 0.00390722f, -2.21E-05f, 1.16E-06f, -2.21E-05f, 0.0013928f}; // todo: modify with gripper (as of now, no gripper)
+
+    // center of mass
+    av[0] = {0.03930119f, -0.00705889f, -0.08462154f};
+    av[1] = {2.53E-06f, 0.18829586f, -0.03988382f};
+    av[2] = {4.64E-06f, -0.02451414f, -0.02997969f};
+    av[3] = {-0.00010793f, -0.01056422f, -0.08091102f};
+    av[4] = {0.01243595f, 0.03284165f, -0.04091434f};
+    av[5] = {0.0f, 0.00050624f, -0.00388589f}; // todo: modify with gripper (as of now, no gripper)
+
+    // vector to next joint
+    dv[0] = {0.11024, -0.06926, -0.1375};   // 0 -> 1
+    dv[1] = {0.0, 0.4850, 0.0};             // 1 -> 2
+    dv[2] = {0.0, -0.15216, -0.0917};       // 2 -> 3
+    dv[3] = {0.0, -0.06296, -0.22275};      // 3 -> 4
+    dv[4] = {0.08703, 0.0860, -0.07692};    // 4 -> 5
+    dv[5] = {0.0, 0.0, -0.920};             // 5 -> endeffector (todo: add gripper)
+
+    // todo: add option to know if tool is closed or opened (difference of 0.0135 in z)
+
+    // center of mass (from next joint)
+    sv[0] = dv[0] - av[0];
+    sv[1] = dv[1] - av[1];
+    sv[2] = dv[2] - av[2];
+    sv[3] = dv[3] - av[3];
+    sv[4] = dv[4] - av[4];
+    sv[5] = dv[5] - av[5];
+    sv[6] = dv[6] - av[6];
+
+    // unit joint direction
+    ev[0] = {0, 0, 1};
+    ev[1] = {0, 0, 1};
+    ev[2] = {0, 0, 1};
+    ev[3] = {0, 0, 1};
+    ev[4] = {0, 0, 1};
+    ev[5] = {0, 0, 1};
+    ev[6] = {0, 0, 1};
+
+    // kinematic and dynamic constraints
+    pmax = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL}; // rad todo: make sure this is true
+    // pmin = -pmax;
+    vmax = {3.4907f, 3.4907f, 3.4907f, 5.5851f, 5.5851f, 5.5851f}; // rad/s
+    // vmin = -vmax;
+    tau_max = {210, 210, 210, 100, 100, 100}; // Nm
+    // tau_min = -tau_max;
+}
+
+host_fn void Link6::dynamics(const Trajectory &traj, Matrix &efforts) {
+    dynamics(traj.pos, traj.vel, traj.acc, efforts);
+}
+
+host_fn void Link6::dynamics(const Matrix &pos, const Matrix &vel, const Matrix &acc, Matrix &efforts) {
+
+    Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
+    Mat3 Q1t, Q2t, Q3t, Q4t, Q5t, Q6t;
+    Vec3 w1, w2, w3, w4, w5, w6;
+    Vec3 wd1, wd2, wd3, wd4, wd5, wd6;
+    Vec3 cdd0 = {0, 0, 9.81f};
+    Vec3 cdd1, cdd2, cdd3, cdd4, cdd5, cdd6;
+    Vec3 f1, f2, f3, f4, f5, f6;
+    Vec3 n1, n2, n3, n4, n5, n6;
+
+    const u32 joints = pos.rows;
+    const u32 points = pos.cols;
+
+    // loop all points
+    for (u32 i = 0; i < points; i++) {
+        auto v = &vel.data[i * joints];
+        auto a = &acc.data[i * joints];
+
+        // SIMD compute sines and cosines note: approx 10% faster
+        auto p = pos.col(i);
+        Array s(6);
+        Array c(6);
+        blast::sincos(p, s, c);
+//         auto p = &pos.data[i * joints];
+
+// #if BLAST_SIZEOF_REAL == 8
+//         real s[8];
+//         real c[8];
+//         __m256d s_tmp;
+//         __m256d c_tmp;
+//         for (u32 j = 0; j < 8; j += 4) {
+//             __m256d angle_v = _mm256_load_pd(p + j);
+//             s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+//             _mm256_storeu_pd(s + j, s_tmp);
+//             _mm256_storeu_pd(c + j, c_tmp);
+//         }
+// #else
+//         real s[8];
+//         real c[8];
+//         __m256 s_tmp;
+//         __m256 c_tmp;
+//         __m256 angle_v = _mm256_load_ps(p);
+//         s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
+//         _mm256_storeu_ps(s, s_tmp);
+//         _mm256_storeu_ps(c, c_tmp);
+// #endif
+
+        // note: these are stored column-wise
+        Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
+        Q2 = {c[1], 0, -s[1], -s[1], 0, -c[1], 0, 1, 0};
+        Q3 = {c[2], -s[2], 0, -s[2], -c[2], 0, 0, 0, -1};
+        Q4 = {c[3], 0, -s[3], -s[3], 0, -c[3], 0, 1, 0};
+        Q5 = {c[4], 0, -s[4], -s[4], 0, -c[4], 0, 1, 0};
+        Q6 = {0, s[5], c[5], 0, c[5], s[5], -1, 0, 0}; // todo: double check
+        Q1t = transpose(Q1);
+        Q2t = transpose(Q2);
+        Q3t = transpose(Q3);
+        Q4t = transpose(Q4);
+        Q5t = transpose(Q5);
+        Q6t = transpose(Q6);
+
+        // note: This is the Newton algorithm in 'Element de robotique' course notes.
+        //       Careful because some variables are named differently and uses a slightly different conventions.
+        //       For example, the ith coordinate frame turns with the ith joint, where in the course notes, the
+        //       joint turns with respect to the coordinate frame.
+        //-- kinematics
+        w1 = v[0] * ev[0];
+        w2 = Q2t * w1 + v[1] * ev[1];
+        w3 = Q3t * w2 + v[2] * ev[2];
+        w4 = Q4t * w3 + v[3] * ev[3];
+        w5 = Q5t * w4 + v[4] * ev[4];
+        w6 = Q6t * w5 + v[5] * ev[5];
+
+        wd1 = a[0] * ev[0];
+        cdd1 = Q1t * cdd0 + cross(wd1, av[0]) + cross(w1, cross(w1, av[0]));
+
+        wd2 = Q2t * wd1 + a[1] * ev[1] + v[1] * cross(Q2t * w1, ev[1]);
+        cdd2 = Q2t * cdd1 + cross(wd2, av[1]) + cross(w2, cross(w2, av[1])) - Q2t * cross(wd1, sv[0]) - Q2t * cross(w1, cross(w1, sv[0]));
+
+        wd3 = Q3t * wd2 + a[2] * ev[2] + v[2] * cross(Q3t * w2, ev[2]);
+        cdd3 = Q3t * cdd2 + cross(wd3, av[2]) + cross(w3, cross(w3, av[2])) - Q3t * cross(wd2, sv[1]) - Q3t * cross(w2, cross(w2, sv[1]));
+
+        wd4 = Q4t * wd3 + a[3] * ev[3] + v[3] * cross(Q4t * w3, ev[3]);
+        cdd4 = Q4t * cdd3 + cross(wd4, av[3]) + cross(w4, cross(w4, av[3])) - Q4t * cross(wd3, sv[2]) - Q4t * cross(w3, cross(w3, sv[2]));
+
+        wd5 = Q5t * wd4 + a[4] * ev[4] + v[4] * cross(Q5t * w4, ev[4]);
+        cdd5 = Q5t * cdd4 + cross(wd5, av[4]) + cross(w5, cross(w5, av[4])) - Q5t * cross(wd4, sv[3]) - Q5t * cross(w4, cross(w4, sv[3]));
+
+        wd6 = Q6t * wd5 + a[5] * ev[5] + v[5] * cross(Q6t * w5, ev[5]);
+        cdd6 = Q6t * cdd5 + cross(wd6, av[5]) + cross(w6, cross(w6, av[5])) - Q6t * cross(wd5, sv[4]) - Q6t * cross(w5, cross(w5, sv[4]));
+
+        //-- dynamics
+        f6 = m[5] * cdd6;
+        n6 = I[5] * wd6 + cross(w6, I[5] * w6) + cross(av[5], f6);
+
+        f5 = m[4] * cdd5 + Q6 * f6;
+        n5 = I[4] * wd5 + cross(w5, I[4] * w5) + Q6 * n6 + cross(av[4], f5) + cross(sv[4], (Q6 * f6));
+
+        f4 = m[3] * cdd4 + Q5 * f5;
+        n4 = I[3] * wd4 + cross(w4, I[3] * w4) + Q5 * n5 + cross(av[3], f4) + cross(sv[3], (Q5 * f5));
+
+        f3 = m[2] * cdd3 + Q4 * f4;
+        n3 = I[2] * wd3 + cross(w3, I[2] * w3) + Q4 * n4 + cross(av[2], f3) + cross(sv[2], (Q4 * f4));
+
+        f2 = m[1] * cdd2 + Q3 * f3;
+        n2 = I[1] * wd2 + cross(w2, I[1] * w2) + Q3 * n3 + cross(av[1], f2) + cross(sv[1], (Q3 * f3));
+
+        f1 = m[0] * cdd1 + Q2 * f2;
+        n1 = I[0] * wd1 + cross(w1, I[0] * w1) + Q2 * n2 + cross(av[0], f1) + cross(sv[0], (Q2 * f2));
+
+        //-- extract torques (last element of each moment vector)
+        efforts(0, i) = n1.z;
+        efforts(1, i) = n2.z;
+        efforts(2, i) = n3.z;
+        efforts(3, i) = n4.z;
+        efforts(4, i) = n5.z;
+        efforts(5, i) = n6.z;
+    }
+}
+
+host_fn void Link6::dynamics(const Matrix &pos, const Matrix &vel, const Matrix &acc) {
+    const auto points = pos.cols;
+    const auto joints = pos.rows;
+    if (_efforts.cols != points || _efforts.rows != joints)
+        _efforts.resize(joints, points);
+
+    dynamics(pos, vel, acc, _efforts);
+}
+
+host_fn Array Link6::forward_kinematics(const Array &joint_position) {
+
+    //  - note: manual SIMD (10% better performance than using sincos function on arrays like commented below)
+    // real s[8];
+    // real c[8];
+    // auto p = joint_position.data;
+    Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
+
+    Array s(8);
+    Array c(8);
+    blast::sincos(joint_position, s, c);
+
+// #if BLAST_SIZEOF_REAL == 8
+//     __m256d s_tmp;
+//     __m256d c_tmp;
+//     for (u32 i = 0; i < 8; i += 4) {
+//         __m256d angle_v = _mm256_load_pd(p + i);
+//         s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+//         _mm256_storeu_pd(s + i, s_tmp);
+//         _mm256_storeu_pd(c + i, c_tmp);
+//     }
+// #else
+//     __m256 s_tmp;
+//     __m256 c_tmp;
+//     __m256 angle_v = _mm256_load_ps(p);
+//     s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
+//     _mm256_storeu_ps(s, s_tmp);
+//     _mm256_storeu_ps(c, c_tmp);
+// #endif
+
+    // todo: cleanup
+    // create aliases instead of actual arrays to allocate the memory on the stack (1.7x performance)
+    // real s_data[8]; // nearest factor of 4
+    // real c_data[8]; // nearest factor of 4
+    // Array s(s_data, 8);
+    // Array c(c_data, 8);
+    // Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
+    // sincos(joint_position, s, c);
+
+    // note: these are stored column-wise
+    Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
+    Q2 = {c[1], 0, -s[1], -s[1], 0, -c[1], 0, 1, 0};
+    Q3 = {c[2], -s[2], 0, -s[2], -c[2], 0, 0, 0, -1};
+    Q4 = {c[3], 0, -s[3], -s[3], 0, -c[3], 0, 1, 0};
+    Q5 = {c[4], 0, -s[4], -s[4], 0, -c[4], 0, 1, 0};
+    Q6 = {0, s[5], c[5], 0, c[5], s[5], -1, 0, 0}; // todo: double check
+
+    auto p_tmp = p_base;
+    auto Q_tmp = Q1;
+    p_tmp += Q_tmp * dv[0];
+    p_tmp += (Q_tmp *= Q2) * dv[1];
+    p_tmp += (Q_tmp *= Q3) * dv[2];
+    p_tmp += (Q_tmp *= Q4) * dv[3];
+    p_tmp += (Q_tmp *= Q5) * dv[4];
+    p_tmp += (Q_tmp *= Q6) * dv[5];
+
+    Array pose(6);
+    pose[0] = p_tmp.x;
+    pose[1] = p_tmp.y;
+    pose[2] = p_tmp.z;
+    // todo: Q_tmp(0, 0) and Q_tmp(2, 2) must not be zero!!
+    // pose[3] = atan2(Q_tmp(1, 0), Q_tmp(0, 0));
+    // pose[4] = atan2(-Q_tmp(2, 0), sqrt(Q_tmp(2, 1)*Q_tmp(2, 1) + Q_tmp(2, 2)*Q_tmp(2, 2)));
+    // pose[5] = atan2(Q_tmp(2, 1), Q_tmp(2, 2));
+    return pose;
+}
+
+host_fn Matrix Link6::forward_kinematics(const Matrix &joint_positions) {
+    auto p = joint_positions.data;
+    Matrix pose(12, joint_positions.cols);
+
+    for (u32 point = 0; point < joint_positions.cols; point++) {
+
+        Array s(8);
+        Array c(8);
+        blast::sincos(joint_positions.col(point), s, c);
+
+// #if BLAST_USE_DOUBLES
+//         real s[8];
+//         real c[8];
+//         __m256d s_tmp;
+//         __m256d c_tmp;
+//         for (u32 i = 0; i < 8; i += 4) {
+//             __m256d angle_v = _mm256_load_pd(p + i);
+//             s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+//             _mm256_storeu_pd(s + i, s_tmp);
+//             _mm256_storeu_pd(c + i, c_tmp);
+//         }
+// #else
+//         real s[8];
+//         real c[8];
+//         __m256 s_tmp;
+//         __m256 c_tmp;
+//         __m256 angle_v = _mm256_load_ps(p);
+//         s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
+//         _mm256_storeu_ps(s, s_tmp);
+//         _mm256_storeu_ps(c, c_tmp);
+// #endif
+
+#if 1
+        Mat3 Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
+        Mat3 Q2 = {c[1], 0, -s[1], -s[1], 0, -c[1], 0, 1, 0};
+        Mat3 Q3 = {c[2], -s[2], 0, -s[2], -c[2], 0, 0, 0, -1};
+        Mat3 Q4 = {c[3], 0, -s[3], -s[3], 0, -c[3], 0, 1, 0};
+        Mat3 Q5 = {c[4], 0, -s[4], -s[4], 0, -c[4], 0, 1, 0};
+        Mat3 Q6 = {0, s[5], c[5], 0, c[5], s[5], -1, 0, 0}; // todo: double check
+        auto p_tmp = p_base;
+        auto Q_tmp = Q1;
+        p_tmp += Q_tmp * dv[0];
+        p_tmp += (Q_tmp *= Q2) * dv[1];
+        p_tmp += (Q_tmp *= Q3) * dv[2];
+        p_tmp += (Q_tmp *= Q4) * dv[3];
+        p_tmp += (Q_tmp *= Q5) * dv[4];
+        p_tmp += (Q_tmp *= Q6) * dv[5];
+        pose(0, point) = p_tmp.x;
+        pose(1, point) = p_tmp.y;
+        pose(2, point) = p_tmp.z;
+        pose(3, point) = Q_tmp[0];
+        pose(4, point) = Q_tmp[1];
+        pose(5, point) = Q_tmp[2];
+        pose(6, point) = Q_tmp[3];
+        pose(7, point) = Q_tmp[4];
+        pose(8, point) = Q_tmp[5];
+        pose(9, point) = Q_tmp[6];
+        pose(10, point) = Q_tmp[7];
+        pose(11, point) = Q_tmp[8];
+#else
+        // todo: Add this for Link6 ?
+        // mat4 implementation (not as fast as rotation matrix + vector)
+        // const auto p1 = p_base + dv[0];
+        // const Mat4 T1 = {c[0], -s[0], 0, 0, -s[0], -c[0], 0, 0, 0, 0, -1, 0, p1.x, p1.y, p1.z, 1};
+        // const Mat4 T2 = {c[1], 0, s[1], 0, -s[1], 0, c[1], 0, 0, -1, 0, 0, dv[1].x, dv[1].y, dv[1].z, 1};
+        // const Mat4 T3 = {c[2], 0, -s[2], 0, -s[2], 0, -c[2], 0, 0, 1, 0, 0, dv[2].x, dv[2].y, dv[2].z, 1};
+        // const Mat4 T4 = {c[3], 0, s[3], 0, -s[3], 0, c[3], 0, 0, -1, 0, 0, dv[3].x, dv[3].y, dv[3].z, 1};
+        // const Mat4 T5 = {c[4], 0, -s[4], 0, -s[4], 0, -c[4], 0, 0, 1, 0, 0, dv[4].x, dv[4].y, dv[4].z, 1};
+        // const Mat4 T6 = {c[5], 0, s[5], 0, -s[5], 0, c[5], 0, 0, -1, 0, 0, dv[5].x, dv[5].y, dv[5].z, 1};
+        // const Mat4 T7 = {c[6], 0, -s[6], 0, -s[6], 0, -c[6], 0, 0, 1, 0, 0, dv[6].x, dv[6].y, dv[6].z, 1};
+        // const auto T = T1 * T2 * T3 * T4 * T5 * T6 * T7;
+        // pose(0, point) = T(0, 3);
+        // pose(1, point) = T(1, 3);
+        // pose(2, point) = T(2, 3);
+        // pose(3, point) = T[0];
+        // pose(4, point) = T[1];
+        // pose(5, point) = T[2];
+        // pose(6, point) = T[4];
+        // pose(7, point) = T[5];
+        // pose(8, point) = T[6];
+        // pose(9, point) = T[8];
+        // pose(10, point) = T[9];
+        // pose(11, point) = T[10];
+#endif
+        p += joints;
+    }
+    return pose;
+}
+
+host_fn Array Link6::collision_check(const Array &joint_position) {
+    Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
+
+    Array s(6);
+    Array c(6);
+    blast::sincos(joint_position, s, c);
+
+    // note: these are stored column-wise
+    Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
+    Q2 = {c[1], 0, -s[1], -s[1], 0, -c[1], 0, 1, 0};
+    Q3 = {c[2], -s[2], 0, -s[2], -c[2], 0, 0, 0, -1};
+    Q4 = {c[3], 0, -s[3], -s[3], 0, -c[3], 0, 1, 0};
+    Q5 = {c[4], 0, -s[4], -s[4], 0, -c[4], 0, 1, 0};
+    Q6 = {0, s[5], c[5], 0, c[5], s[5], -1, 0, 0}; // todo: double check
+
+    Vec3 p_orig(0, 0, 0);
+    Vec3 p_j2;
+    Vec3 p_j3;
+    Vec3 p_j4;
+    Vec3 p_j6;
+    Vec3 p_ee;
+
+    auto p_tmp = p_base;
+    auto Q_tmp = Q1;
+    p_tmp += Q_tmp * dv[0];
+    p_j2 = p_tmp;
+    p_tmp += (Q_tmp *= Q2) * dv[1];
+    p_j3 = p_tmp;
+    p_tmp += (Q_tmp *= Q3) * dv[2];
+    p_j4 = p_tmp;
+    p_tmp += (Q_tmp *= Q4) * dv[3];
+    p_tmp += (Q_tmp *= Q5) * dv[4];
+    p_j6 = p_tmp;
+    p_tmp += (Q_tmp *= Q6) * dv[5];
+    p_ee = p_tmp;
+
+    const real r1sqr = 0.140 * 0.140; // size of capsule 1
+    const real r2sqr = 0.140 * 0.140; // size of capsule 2
+    const real r3sqr = 0.100 * 0.100; // size of capsule 3
+
+    // Self collisions sqr
+    real dist1sqr = two_segment_distance_sqr(p_j2, p_j3, p_j6, p_ee) - r1sqr; // todo: Fix and finish
+
+    // real dist1sqr = two_segment_distance_sqr(p_orig, p_j2, p_j6, p_ee) - r1sqr;
+    // // real dist2J2sqr = ((p_ee.x - p_j2.x) + (p_j6.x - p_j2.x)) * ((p_ee.x - p_j2.x) + (p_j6.x - p_j2.x)) + ((p_ee.y - p_j2.y) + (p_j6.y - p_j2.y)) * ((p_ee.y - p_j2.y) + (p_j6.y - p_j2.y)) + ((p_ee.z - p_j2.z) + (p_j6.z - p_j2.z)) * ((p_ee.z - p_j2.z) + (p_j6.z - p_j2.z)) - r2sqr;
+    // real dist2J2sqr = two_segment_distance_sqr(p_j2, p_j2, p_j6, p_ee) - r2sqr; // distance sqr from J2 to J6 EE line (sphere)
+    // real dist2Msqr = two_segment_distance_sqr(p_j2, p_j3, p_j6, p_ee) - r1sqr;  // distance sqr from J2 J3 line to J6 EE line (capsule)
+    // real dist2sqr = dist2J2sqr <= dist2Msqr ? dist2J2sqr : dist2Msqr;
+
+    // todo: remove collision detection from here
+
+    // Collision with table sqr
+    // const real r4table = 0.05; // todo: validate dimensions
+    // const real r6table = 0.04; // todo: validate dimensions
+
+    // const Vec3 p_table(0, 0, -0.0025); // todo: Correct coords (z or y) ??
+    // real distTJ4 = p_j4.z - p_table.z - r4table;
+    // real distTJ6 = p_j6.z - p_table.z - r6table;
+    // real distTEE = p_ee.z - p_table.z - r6table;
+
+    // Array of distance min sqr and distance from table sqr
+    Array distMin(2);
+    distMin = {dist1sqr};
+    // todo: Add collision_check function for more obstacles; Array distMin(5) hard coded size
+
+    return distMin;
+}
 // note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 
 #ifdef BLAST_ENABLE_TESTS
