@@ -38,6 +38,8 @@ std::mutex mut_result;
 
 void eval_function() {
     using namespace blast;
+    objlist world;
+    add_OBB({0.25, 0.2, 0.05}, {0.05, 0.05, 0.05}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world);
 
     for (;;) {
         mut_config.lock();
@@ -65,20 +67,21 @@ void eval_function() {
         Bspline bspline_more_points(nctrl, 10000, p, manip_more_points.joints);
 
         // prep optimization
-        Optimisation optim{&manip, &config.task, &bspline};
-        u32 ncon = manip.ncon(npts);
+        Optimisation optim{&manip, &config.task, &bspline, &world};
+        u32 ncon = manip.ncon(npts) + optim.n_collision_constraints; // todo: good ?
         Array con_tol(ncon, 0.001);
-        Array xtol(bspline.xlen(config.task), 0.000001);
+        const int xlen = bspline.xlen(config.task);
+        Array xtol(xlen, 0.000001);
 
-        nlopt_opt o = nlopt_create(nlopt_algorithm::NLOPT_LD_SLSQP, bspline.xlen(config.task));
+        nlopt_opt o = nlopt_create(nlopt_algorithm::NLOPT_LD_SLSQP, xlen);
         nlopt_result result;
-        result = nlopt_add_inequality_mconstraint(o, ncon, cstr_manip, &optim, con_tol.data);
+        result = nlopt_add_inequality_mconstraint(o, ncon, cstr_world_gen3, &optim, con_tol.data);
         Assert(result == NLOPT_SUCCESS);
         result = nlopt_set_min_objective(o, obj_time, &optim);
         Assert(result == NLOPT_SUCCESS);
-        result = nlopt_set_lower_bound(o, bspline.xlen(config.task) - 1, 0.1);
+        result = nlopt_set_lower_bound(o, xlen - 1, 0.1);
         Assert(result == NLOPT_SUCCESS);
-        result = nlopt_set_upper_bound(o, bspline.xlen(config.task) - 1, 60.0);
+        result = nlopt_set_upper_bound(o, xlen - 1, 60.0);
         Assert(result == NLOPT_SUCCESS);
         result = nlopt_set_ftol_abs(o, 0.001);
         Assert(result == NLOPT_SUCCESS);
@@ -105,11 +108,13 @@ void eval_function() {
 
             // check solution
             bspline.compute_trajectory(x, config.task);
-            auto max_con = array_max(manip.constraints(bspline.traj));
+            Array const_result(ncon);
+            cstr_world_gen3(ncon, const_result.data, xlen, x.data, NULL, &optim);
+            auto max_con = array_max(const_result);
             bool is_valid = max_con < 0.01;
 
             bspline_more_points.compute_trajectory(x, config.task);
-            auto max_con_more_points = array_max(manip_more_points.constraints(bspline_more_points.traj));
+            auto max_con_more_points = array_max(manip_more_points.constraints(bspline_more_points.traj)); // todo: check obstacle avoidance with more poiunts ?
             bool is_valid_more_points = max_con_more_points < 0.05;
 
             tmp_result_list[iter].success = is_valid && is_valid_more_points;
@@ -132,9 +137,9 @@ int main() {
     using namespace blast;
 
     // const real m_list[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-    const real m_list[] {5};
-    const u32 nctrl_list[] {8, 10, 12, 14, 16};
-    const u32 npts_list[] {25, 50, 75, 100, 128, 256};
+    const real m_list[] {0};
+    const u32 nctrl_list[] {10};
+    const u32 npts_list[] {50};
     const u32 nshot_list[] {50};
     Matrix task_list[6];
 

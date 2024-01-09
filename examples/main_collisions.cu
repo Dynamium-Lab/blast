@@ -1,14 +1,9 @@
-
 #include <stdio.h>
 #include "blast.hpp"
 #include "utilities/blast_utilities.hpp"
 #include "nlopt.h"
 #include "json.hpp"
 #include <fstream>
-#include <thread>
-#include <mutex>
-
-const int thread_count = 8;
 
 struct OptimConfig {
     blast::u32 npts;
@@ -22,7 +17,6 @@ struct OptimConfig {
 };
 std::vector<OptimConfig> config_list;
 int config_index = 0;
-std::mutex mut_config;
 
 struct Result {
     bool success;
@@ -34,107 +28,13 @@ struct Result {
 };
 std::vector<Result> result_list;
 int result_index = 0;
-std::mutex mut_result;
-
-void eval_function() {
-    using namespace blast;
-
-    for (;;) {
-        mut_config.lock();
-        if (config_index >= config_list.size()) {
-            mut_config.unlock();
-            break;
-        }
-        auto config = config_list[config_index];
-        printf("Worker %5lld, working on unit %4d of %4d\n", std::this_thread::get_id(), config_index, (int)config_list.size());
-        config_index++;
-        mut_config.unlock();
-
-        const u32 npts = config.npts;
-        const u32 nctrl = config.nctrl;
-        const u32 p = config.p;
-        const u32 noptim = config.noptim;
-        std::vector<Result> tmp_result_list(noptim);
-
-        Gen3_7DOF manip;
-        manip.set_payload_without_gripper(config.m);
-        Bspline bspline(nctrl, npts, p, manip.joints);
-
-        Gen3_7DOF manip_more_points;
-        manip_more_points.set_payload_without_gripper(config.m);
-        Bspline bspline_more_points(nctrl, 10000, p, manip_more_points.joints);
-
-        // prep optimization
-        Optimisation optim{&manip, &config.task, &bspline};
-        u32 ncon = manip.ncon(npts);
-        Array con_tol(ncon, 0.001);
-        Array xtol(bspline.xlen(config.task), 0.000001);
-
-        nlopt_opt o = nlopt_create(nlopt_algorithm::NLOPT_LD_SLSQP, bspline.xlen(config.task));
-        nlopt_result result;
-        result = nlopt_add_inequality_mconstraint(o, ncon, cstr_manip, &optim, con_tol.data);
-        Assert(result == NLOPT_SUCCESS);
-        result = nlopt_set_min_objective(o, obj_time, &optim);
-        Assert(result == NLOPT_SUCCESS);
-        result = nlopt_set_lower_bound(o, bspline.xlen(config.task) - 1, 0.1);
-        Assert(result == NLOPT_SUCCESS);
-        result = nlopt_set_upper_bound(o, bspline.xlen(config.task) - 1, 60.0);
-        Assert(result == NLOPT_SUCCESS);
-        result = nlopt_set_ftol_abs(o, 0.001);
-        Assert(result == NLOPT_SUCCESS);
-        result = nlopt_set_xtol_abs(o, xtol.data);
-        Assert(result == NLOPT_SUCCESS);
-        result = nlopt_set_maxtime(o, 5.0);
-        Assert(result == NLOPT_SUCCESS);
-        result = nlopt_set_maxeval(o, 10000);
-        Assert(result == NLOPT_SUCCESS);
-
-        auto start_time = get_tick_us();
-        for (int iter = 0; iter < noptim; iter++) {
-            auto T1 = get_tick_us();
-
-            // random optimization vector
-            auto x = config.nshot == 1 ? guess_random(manip, bspline, config.task) : guess_shot_mean(manip, bspline, config.task, config.nshot);
-            tmp_result_list[iter].x0 = x;
-
-            // launch optimization
-            double f;
-            result = nlopt_optimize(o, x.data, &f);
-            auto T2 = get_tick_us();
-            double time = (T2 - T1) / 1000.0;
-
-            // check solution
-            bspline.compute_trajectory(x, config.task);
-            auto max_con = array_max(manip.constraints(bspline.traj));
-            bool is_valid = max_con < 0.01;
-
-            bspline_more_points.compute_trajectory(x, config.task);
-            auto max_con_more_points = array_max(manip_more_points.constraints(bspline_more_points.traj));
-            bool is_valid_more_points = max_con_more_points < 0.05;
-
-            tmp_result_list[iter].success = is_valid && is_valid_more_points;
-            tmp_result_list[iter].success_false = is_valid && !is_valid_more_points;
-            tmp_result_list[iter].compute_time = time;
-            tmp_result_list[iter].config = config;
-            tmp_result_list[iter].x = x;
-
-        }
-        mut_result.lock();
-        result_list.insert(result_list.end(), tmp_result_list.begin(), tmp_result_list.end());
-        mut_result.unlock();
-
-        auto total_time = (get_tick_us() - start_time) / 1000.0;
-        // printf("total time: %f\n", total_time);
-    }
-}
 
 int main() {
     using namespace blast;
 
-    // const real m_list[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-    const real m_list[] {5};
-    const u32 nctrl_list[] {8, 10, 12, 14, 16};
-    const u32 npts_list[] {25, 50, 75, 100, 128, 256};
+    const real m_list[] {0};
+    const u32 nctrl_list[] {10};
+    const u32 npts_list[] {50};
     const u32 nshot_list[] {50};
     Matrix task_list[6];
 
@@ -183,13 +83,93 @@ int main() {
 
     result_list.reserve(config_list.size() * config_list[0].noptim);
 
-    std::vector<std::thread> workers;
+    objlist world;
+    add_OBB({0.25, 0.2, 0.05}, {0.05, 0.05, 0.05}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world);
 
-    for (int i = 0; i < thread_count; i++)
-        workers.push_back(std::thread(eval_function));
+    for (;;) {
+        if (config_index >= config_list.size()) {
+            break;
+        }
+        auto config = config_list[config_index];
+        config_index++;
 
-    for (auto &t : workers)
-        t.join();
+        const u32 npts = config.npts;
+        const u32 nctrl = config.nctrl;
+        const u32 p = config.p;
+        const u32 noptim = config.noptim;
+        std::vector<Result> tmp_result_list(noptim);
+
+        Gen3_7DOF manip;
+        manip.set_payload_without_gripper(config.m);
+        Bspline bspline(nctrl, npts, p, manip.joints);
+
+        Gen3_7DOF manip_more_points;
+        manip_more_points.set_payload_without_gripper(config.m);
+        Bspline bspline_more_points(nctrl, 10000, p, manip_more_points.joints);
+
+        // prep optimization
+        Optimisation optim{&manip, &config.task, &bspline, &world};
+        u32 ncon = manip.ncon(npts) + optim.n_collision_constraints; // todo: good ?
+        Array con_tol(ncon, 0.001);
+        const int xlen = bspline.xlen(config.task);
+        Array xtol(xlen, 0.000001);
+
+        nlopt_opt o = nlopt_create(nlopt_algorithm::NLOPT_LD_SLSQP, xlen);
+        nlopt_result result;
+        result = nlopt_add_inequality_mconstraint(o, ncon, cstr_world_gen3, &optim, con_tol.data);
+        Assert(result == NLOPT_SUCCESS);
+        result = nlopt_set_min_objective(o, obj_time, &optim);
+        Assert(result == NLOPT_SUCCESS);
+        result = nlopt_set_lower_bound(o, xlen - 1, 0.1);
+        Assert(result == NLOPT_SUCCESS);
+        result = nlopt_set_upper_bound(o, xlen - 1, 60.0);
+        Assert(result == NLOPT_SUCCESS);
+        result = nlopt_set_ftol_abs(o, 0.001);
+        Assert(result == NLOPT_SUCCESS);
+        result = nlopt_set_xtol_abs(o, xtol.data);
+        Assert(result == NLOPT_SUCCESS);
+        result = nlopt_set_maxtime(o, 5.0);
+        Assert(result == NLOPT_SUCCESS);
+        result = nlopt_set_maxeval(o, 10000);
+        Assert(result == NLOPT_SUCCESS);
+
+        auto start_time = get_tick_us();
+        for (int iter = 0; iter < noptim; iter++) {
+            auto T1 = get_tick_us();
+
+            // random optimization vector
+            auto x = config.nshot == 1 ? guess_random(manip, bspline, config.task) : guess_shot_mean(manip, bspline, config.task, config.nshot);
+            tmp_result_list[iter].x0 = x;
+
+            // launch optimization
+            double f;
+            result = nlopt_optimize(o, x.data, &f);
+            auto T2 = get_tick_us();
+            double time = (T2 - T1) / 1000.0;
+
+            // check solution
+            bspline.compute_trajectory(x, config.task);
+            Array const_result(ncon);
+            cstr_world_gen3(ncon, const_result.data, xlen, x.data, NULL, &optim);
+            auto max_con = array_max(const_result);
+            bool is_valid = max_con < 0.01;
+
+            bspline_more_points.compute_trajectory(x, config.task);
+            auto max_con_more_points = array_max(manip_more_points.constraints(bspline_more_points.traj)); // todo: check obstacle avoidance with more points ?
+            bool is_valid_more_points = max_con_more_points < 0.05;
+
+            tmp_result_list[iter].success = is_valid && is_valid_more_points;
+            tmp_result_list[iter].success_false = is_valid && !is_valid_more_points;
+            tmp_result_list[iter].compute_time = time;
+            tmp_result_list[iter].config = config;
+            tmp_result_list[iter].x = x;
+
+        }
+        result_list.insert(result_list.end(), tmp_result_list.begin(), tmp_result_list.end());
+
+        auto total_time = (get_tick_us() - start_time) / 1000.0;
+        // printf("total time: %f\n", total_time);
+    }
 
     auto end_time = get_tick_us();
     auto total_time = (end_time - start_time) / 1000.0;
@@ -224,7 +204,6 @@ int main() {
 
     std::ofstream file_handle_result("result_list.json");
     file_handle_result << j_result;
-
 
     return 0;
 }
