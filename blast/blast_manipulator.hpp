@@ -1540,8 +1540,6 @@ host_fn Array Gen3_7DOF::collision_check(const Array &joint_position) {
     Array c(7);
     blast::sincos(joint_position, s, c);
 
-    Array distMin(5);
-
     // // todo: make it work with floats!
     // __m256d s_tmp;
     // __m256d c_tmp;
@@ -1604,6 +1602,7 @@ host_fn Array Gen3_7DOF::collision_check(const Array &joint_position) {
     real distTEE = p_ee.z - p_table.z - r6table;
 
     // Array of distance min sqr and distance from table sqr
+    Array distMin(5);
     distMin = {dist1sqr, dist2sqr, distTJ4, distTJ6, distTEE};
     // todo: Add collision_check function for more obstacles; Array distMin(5) hard coded size
 
@@ -1669,7 +1668,7 @@ host_fn void Gen3_7DOF::constraints(const Matrix &pos, const Matrix &vel, const 
 
     for (u32 i = 0; i < points; i++) {
         // collision
-        Array p = pos.col(i); Assert(p.is_alias);
+        auto p = pos.col(i); Assert(p.is_alias);
         auto tmp_coll = collision_check(p);
         dst[0] = -tmp_coll[0]; // dist1sqr
         dst[1] = -tmp_coll[1]; // dist2sqr
