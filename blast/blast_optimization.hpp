@@ -147,10 +147,10 @@ host_fn void cstr_world_gen3(unsigned m, double *result, unsigned xlen, const do
         capsules.caps[i*3 + 2].p2 = p_ee;
         capsules.caps[i*3 + 2].r = radius;
     }
-    double* r = &result[ncon];
+    double* r = &result[ncon - 1]; // todo: last one is time ?
     std::vector<real> collisions = test_collision(&capsules, opt->world, opt->n_collision_constraints);
     for (int i = 0; i < opt->n_collision_constraints; i ++) {
-        *r = collisions[i] * collisions[i];
+        *r = collisions[i];
         r++;
     }
 
@@ -184,7 +184,7 @@ host_fn void cstr_world_gen3(unsigned m, double *result, unsigned xlen, const do
 
             collisions = test_collision(&capsules, opt->world, opt->n_collision_constraints);
             for (int i = 0; i < opt->n_collision_constraints; i ++) {
-                r_plus[ncon + i] = collisions[i] * collisions[i];
+                r_plus[ncon - 1 + i] = collisions[i]; // todo: last one is time ?
             }
             for (u32 i = 0; i < m; i++)
                 grad[i*xlen + j] = (r_plus[i]-result[i])/eps;
