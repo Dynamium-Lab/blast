@@ -1,7 +1,7 @@
 
 #include <stdio.h>
 #include "blast.hpp"
-#include "blast_optional_utilities.hpp"
+#include "utilities/blast_utilities.hpp"
 #include "nlopt.h"
 #include "json.hpp"
 #include <fstream>
