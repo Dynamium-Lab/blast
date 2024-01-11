@@ -1,0 +1,93 @@
+#pragma once
+#include "blast.hpp"
+#include "blast_optimization.hpp"
+
+namespace blast {
+
+struct PsoParticle {
+    Array x;          // Position of each particle i
+    Array v;          // Velocity of each particle i
+    Array best_x;     // Best known position of each particle i
+    real  best_f;     // Best known fitness of each particle i
+};
+
+real pso_optimize(Array& x, Optimisation& optim) {
+    Assert(x.size == optim.bspline->xlen(*optim.task));
+    const auto N_Dimensions = x.size;
+    const int N_particles  = 400;
+    const int N_iterations = 50;
+    const double w_min = 0.2;          
+    const double w_max = 0.9;      // Inertia Weight [0, 1]
+    //const double w = 0.5;
+    const double c = 2;            // Cognitive weight [0, 2]
+    const double s = 2;            // Social weight [0, 2]
+
+    Array gbest_x(N_Dimensions);
+    real  gbest_f = INF_REAL;
+
+    std::vector<PsoParticle> particle(N_particles);
+    for(int i = 0; i < N_particles; i++) {
+        particle[i].x = random_array(N_Dimensions, 1);
+        particle[i].x.back() = clamp(particle[i].x.back(), 0.1, 10); // time must be positive
+
+        particle[i].v = random_array(N_Dimensions, 1);
+
+        particle[i].best_x = particle[i].x; // Best position for Pi
+        particle[i].best_f = penalty_obj_time(particle[i].x, optim); // Best fitness for Pi
+    }
+
+    real fitness;
+    for (int j = 0; j < N_iterations; j++) {
+        auto r1 = 0.5 * get_random() + 0.5;
+        auto r2 = 0.5 * get_random() + 0.5;
+        //auto q = 0.5 * get_random() + 0.5;
+        if (j%20 == 0) {
+            // reset particles while keeping elite
+        }
+
+        real w = w_max - j * ((w_max - w_min) / N_iterations);
+
+        for(int i = 0; i < N_particles; i++) {
+            for (int k = 0; k < N_Dimensions; k++) {
+                //Updating Velocity
+                particle[i].v[k] = w * particle[i].v[k] + c * r1 * (particle[i].best_x[k]- particle[i].x[k]) + s* r2 * (gbest_x[k] - particle[i].x[k]);
+                //particle[i].v[k] = w * particle[i].v[k] + c * r1 * q + s* r2 * (gbest_x[k] - particle[i].x[k]);
+
+                particle[i].v[k] = clamp(particle[i].v[k], -1, 1);
+
+                // Updating position
+                particle[i].x[k] += particle[i].v[k];
+
+                // printf("Velocity of particle %d is:", i);
+                // printf("%f \n", particle[i].v[k]);
+                // printf("Position of  particle %d is:", i);
+                // printf("%f \n", particle[i].x[k]);
+            }
+            particle[i].x.back() = clamp(particle[i].x.back(), 0.1, 10);
+            // Evaluate fitness
+            fitness = penalty_obj_time(particle[i].x, optim);
+            // printf("fitness with penalty = %f \n", fitness);
+
+            // Updating local best
+            if (fitness < particle[i].best_f) {
+                particle[i].best_f = fitness;
+                particle[i].best_x = particle[i].x;
+            }
+            // Updating global best
+            if (fitness < gbest_f) {
+                gbest_f = fitness;
+                gbest_x = particle[i].best_x;
+            }
+        }
+    }
+
+    // printf("global best f: %f\n", gbest_f);
+    // printf("global best time: %f\n", x.back());
+    // printf("Global best x: ");
+    // print(x);
+
+    x = gbest_x;
+    return gbest_f;
+}
+
+}
