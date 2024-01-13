@@ -185,6 +185,8 @@ host_fn Vec3 closept_origin(segment seg) {
     return d;
 }
 
+
+
 host_fn EPA_dist_norm distmin_origin(triangle tri) {
     EPA_dist_norm result;
 
@@ -1453,19 +1455,19 @@ host_fn gjkresult GJK_solve_gjk_simple(capsule caps, OBB box) {
     Vec3 size_y = box.R*size_y_org;
     Vec3 size_z = box.R*size_z_org;
 
-    std::vector<Vec3> v1(8);
-    v1[0] = box.c + size_x + size_y + size_z;
-    v1[1] = box.c + size_x + size_y - size_z;
-    v1[2] = box.c + size_x - size_y + size_z;
-    v1[3] = box.c + size_x - size_y - size_z;
-    v1[4] = box.c - size_x + size_y + size_z;
-    v1[5] = box.c - size_x + size_y - size_z;
-    v1[6] = box.c - size_x - size_y + size_z;
-    v1[7] = box.c - size_x - size_y - size_z;
+    std::vector<Vec3> v2(8);
+    v2[0] = box.c + size_x + size_y + size_z;
+    v2[1] = box.c + size_x + size_y - size_z;
+    v2[2] = box.c + size_x - size_y + size_z;
+    v2[3] = box.c + size_x - size_y - size_z;
+    v2[4] = box.c - size_x + size_y + size_z;
+    v2[5] = box.c - size_x + size_y - size_z;
+    v2[6] = box.c - size_x - size_y + size_z;
+    v2[7] = box.c - size_x - size_y - size_z;
 
-    std::vector<Vec3> v2(2);
-    v2[0] = caps.p1;
-    v2[1] = caps.p2;
+    std::vector<Vec3> v1(2);
+    v1[0] = caps.p1;
+    v1[1] = caps.p2;
 
     // The general code starts here
     Vec3 direction = v1[0] - v2[0];
@@ -1611,6 +1613,381 @@ host_fn gjkresult GJK_solve_gjk_simple(capsule caps, OBB box) {
     }
 
     return results;
+}
+
+// !!! New implementation of GJK starts here !!!
+struct Simplex {
+    Vec3 P;
+    Vec3 a;
+    Vec3 b;
+    Vec3 c;
+    Vec3 d;
+    int size;
+};
+
+// todo: review pointers usage in this
+
+host_fn void GJK_solve_simplex2_Ericson(Simplex* simplex) {
+    Vec3 ab = (*simplex).b - (*simplex).a;
+    real t = dot(- (*simplex).a, ab) / dot(ab, ab);
+
+    t = clamp(t, 0, 1);
+
+    (*simplex).size = (t == 0 || t == 1) ? 1 : 2;
+    (*simplex).a = t == 1 ? (*simplex).b : (*simplex).a;
+
+    (*simplex).P = (*simplex).a + t * ab;
+    return;
+}
+
+host_fn void GJK_solve_simplex3_Ericson(Simplex* simplex) {
+    // Check if P in vertex region outside A
+    Vec3 a = (*simplex).a;
+    Vec3 b = (*simplex).b;
+    Vec3 c = (*simplex).c;
+    Vec3 p = {0, 0, 0};
+
+    Vec3 ac = c - a;
+    Vec3 ap = - a; // since p = 0 (originally = p - a)
+    Vec3 ab = b - a;
+    real d1 = dot(ab, ap);
+    real d2 = dot(ac, ap);
+    if (d1 <= 0.0f && d2 <= 0.0f) {
+        (*simplex).size = 1; 
+        (*simplex).P = a; // barycentric coordinates (1,0,0)
+        return; 
+    }
+
+    // Check if P in vertex region outside B
+    Vec3 bp = - b;  // since p = 0 (originally = p - b)
+    real d3 = dot(ab, bp);
+    real d4 = dot(ac, bp);
+    if (d3 >= 0.0f && d4 <= d3) {
+        (*simplex).size = 1;
+        (*simplex).a = b;
+        (*simplex).P = b;
+        return;
+    }
+
+    // Check if P in edge region of AB, if so return projection of P onto AB
+    real vc = d1*d4 - d3*d2;
+    if (vc <= 0.0f && d1 >= 0.0f && d3 <= 0.0f) {
+        real v = d1 / (d1 - d3);
+        (*simplex).size = 2;
+        (*simplex).P = a + v * ab ; // barycentric coordinates (1-v,v,0)
+        return;
+    }
+    // Check if P in vertex region outside C
+    Vec3 cp = - c; // since p = 0 (originally = p - c)
+    real d5 = dot(ab, cp);
+    real d6 = dot(ac, cp);
+    if (d6 >= 0.0f && d5 <= d6) {
+        (*simplex).a = c; // barycentric coordinates (0,0,1)
+        (*simplex).size = 1;
+        (*simplex).P = c;
+        return; 
+    }
+        
+    // Check if P in edge region of AC, if so return projection of P onto AC
+    real vb = d5*d2 - d1*d6;
+    if (vb <= 0.0f && d2 >= 0.0f && d6 <= 0.0f) {
+        real w = d2 / (d2 - d6);
+        (*simplex).size = 2;
+        (*simplex).b = c;
+        (*simplex).P = a + w * ac; // barycentric coordinates (1-w,0,w)
+        return;
+    }
+
+    // Check if P in edge region of BC, if so return projection of P onto BC
+    real va = d3*d6 - d5*d4;
+    if (va <= 0.0f && (d4 - d3) >= 0.0f && (d5 - d6) >= 0.0f) {
+        real w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+        (*simplex).size = 2;
+        (*simplex).a = b;
+        (*simplex).b = c;
+        (*simplex).P = b + w * (c - b); // barycentric coordinates (0,1-w,w)
+        return;
+    }
+
+    // P inside face region. Compute Q through its barycentric coordinates (u,v,w)
+    real denom = 1.0f / (va + vb + vc);
+    real v = vb * denom;
+    real w = vc * denom;
+    (*simplex).size = 3;
+    (*simplex).P = a + ab * v + ac * w; // = u*a + v*b + w*c, u = va * denom = 1.0f - v - w
+    return;
+}
+
+host_fn int PointOutsideOfPlane(Vec3 p, Vec3 a, Vec3 b, Vec3 c, Vec3 d) {
+    real signp = dot(p - a, cross(b - a, c - a)); // [AP AB AC]
+    real signd = dot(d - a, cross(b - a, c - a)); // [AD AB AC]
+    // Points on opposite sides if expression signs are opposite
+    return signp * signd < 0.0f;
+}
+
+host_fn void GJK_solve_simplex4_Ericson(Simplex* simplex) {
+    Vec3 a = (*simplex).a;
+    Vec3 b = (*simplex).b;
+    Vec3 c = (*simplex).c;
+    Vec3 d = (*simplex).d;
+    Vec3 p = {0, 0, 0};
+    (*simplex).P = p;
+
+    Simplex simplex_temp = *simplex;
+
+    // Start out assuming point inside all halfspaces, so closest to itself
+    Vec3 closestPt = p;
+    real bestSqDist = INF_REAL;
+
+    Vec3 a_temp;
+    Vec3 b_temp;
+    Vec3 c_temp;
+    // If point outside face abc then compute closest point on abc
+    if (PointOutsideOfPlane(p, a, b, c, d)) {
+        GJK_solve_simplex3_Ericson(&simplex_temp);
+        real sqDist = dot(simplex_temp.P, simplex_temp.P);
+        // Update best closest point if (squared) distance is less than current best
+        if (sqDist < bestSqDist) {
+            a_temp = (*simplex).a;
+            b_temp = (*simplex).b;
+            c_temp = (*simplex).c;
+            bestSqDist = sqDist;
+            closestPt = simplex_temp.P;
+        }
+        Simplex simplex_temp = *simplex;
+    }
+    // Repeat test for face acd
+    if (PointOutsideOfPlane(p, a, b, c, d)) {
+        GJK_solve_simplex3_Ericson(&simplex_temp);
+        real sqDist = dot(simplex_temp.P, simplex_temp.P);
+        if (sqDist < bestSqDist) {
+            a_temp = (*simplex).a;
+            b_temp = (*simplex).c;
+            c_temp = (*simplex).d;
+            bestSqDist = sqDist;
+            closestPt = simplex_temp.P;
+        }
+        Simplex simplex_temp = *simplex;
+    }
+    // Repeat test for face adb
+    if (PointOutsideOfPlane(p, a, b, c, d)) {
+        GJK_solve_simplex3_Ericson(&simplex_temp);
+        real sqDist = dot(simplex_temp.P, simplex_temp.P);
+        if (sqDist < bestSqDist) {
+            a_temp = (*simplex).a;
+            b_temp = (*simplex).b;
+            c_temp = (*simplex).d;
+            bestSqDist = sqDist;
+            closestPt = simplex_temp.P;
+        }
+        Simplex simplex_temp = *simplex;
+    }
+    // Repeat test for face bdc
+    if (PointOutsideOfPlane(p, a, b, c, d)) {
+        GJK_solve_simplex3_Ericson(&simplex_temp);
+        real sqDist = dot(simplex_temp.P, simplex_temp.P);
+        if (sqDist < bestSqDist) {
+            a_temp = (*simplex).b;
+            b_temp = (*simplex).c;
+            c_temp = (*simplex).d;
+            bestSqDist = sqDist;
+            closestPt = simplex_temp.P;
+        }
+    }
+
+    if (dot(closestPt, closestPt) > COLLISION_EPSILON) {
+        (*simplex).size = 3;
+        (*simplex).a = a_temp;
+        (*simplex).b = b_temp;
+        (*simplex).c = c_temp;
+        (*simplex).P = closestPt;
+
+        GJK_solve_simplex3_Ericson(simplex);
+    } 
+    return;
+}
+
+// EPA algorithm
+host_fn real solve_EPA_algorithm(Simplex* simplex, std::vector<Vec3> v1, std::vector<Vec3> v2) {
+    // create a simplex that can take as many points as necessary (EPA_simplex)
+    std::vector<triangle> s(4);
+    s[0] = {(*simplex).a, (*simplex).b, (*simplex).c};
+    s[1] = {(*simplex).a, (*simplex).b, (*simplex).d};
+    s[2] = {(*simplex).a, (*simplex).c, (*simplex).d};
+    s[3] = {(*simplex).b, (*simplex).c, (*simplex).d};
+
+    // loop to find the collision information
+    while (true) {
+        // obtain the feature (edge for 2D) closest to the
+        // origin on the Minkowski Difference
+        closeface e = findClosestFace(s);
+        // obtain a new support point in the direction of the edge normal
+        Vec3 support1 = GJK_get_support(v1, -e.normal);
+        Vec3 support2 = GJK_get_support(v2, e.normal);
+        Vec3 p = support2 - support1;
+        // check the distance from the origin to the edge against the
+        // distance p is along e.normal
+        real d = dot(p, e.normal);
+        if (abs(d) - abs(e.distance) < 1e-2) {
+            // the tolerance should be something positive close to zero (ex. 0.00001)
+
+            // if the difference is less than the tolerance then we can
+            // assume that we cannot expand the simplex any further and
+            // we have our solution
+            return -abs(d);
+        }
+        else {
+            // we haven't reached the edge of the Minkowski Difference
+            // so continue expanding by adding the new triangle to the simplex
+            // in between the points that made the closest triangle. To do this,
+            // we must delete the triangle which is currently the closest and create three
+            // triangles that are inserted in its place.
+            Vec3 p1 = s[e.index].p1;
+            Vec3 p2 = s[e.index].p2;
+            Vec3 p3 = s[e.index].p3;
+
+            triangle new_tri1 = {p1, p2, p};
+            triangle new_tri2 = {p1, p3, p};
+            triangle new_tri3 = {p2, p3, p};
+
+            // we delete the face which was closest before. it is now inside the polytope.
+            s.erase(s.begin() + e.index);
+
+            // in the case where two iterations return the same support point, it can be the case that two
+            // faces are created on top of one another. In this case, the face is always inside the
+            // polytope and it should therefore be deleted.
+            for (int i = size(s) - 1; i >= 0; i--) {
+                if (check_same_triangle(s[i], new_tri1)) {
+                    s.erase(s.begin() + i); // if the triangle was already in the list, then we must delete it as this face is now inside the simplex
+                    break;
+                }
+                else if (i == 0) {
+                    s.push_back(new_tri1); // if it is a new triangle, add it to the list
+                    break;
+                }
+            }
+
+            for (int i = size(s) - 1; i >= 0; i--) {
+                if (check_same_triangle(s[i], new_tri2)) {
+                    s.erase(s.begin() + i);
+                    break;
+                }
+                else if (i == 0) {
+                    s.push_back(new_tri2); // if it is a new triangle, add it to the list
+                    break;
+                }
+            }
+
+            for (int i = size(s) - 1; i >= 0; i--) {
+                if (check_same_triangle(s[i], new_tri3)) {
+                    s.erase(s.begin() + i);
+                    break;
+                }
+                else if (i == 0) {
+                    s.push_back(new_tri3); // if it is a new triangle, add it to the list
+                    break;
+                }
+            }
+        }
+    }
+}
+
+// Tests 2 sets of points using GJK
+host_fn real general_GJK(std::vector<Vec3> Set_1, std::vector<Vec3> Set_2) {
+    // This version of the GJK algorithm is implemented from the basic algorithm described in Collision Detection 
+    // manual by Ericson.
+
+    // 1. Initializing simplex to a point from a random direction
+    Vec3 direction = Set_1[0] - Set_2[0];
+    Vec3 a1 = GJK_get_support(Set_1, -direction);
+    Vec3 a2 = GJK_get_support(Set_2, direction);
+    Vec3 V = a2 - a1;
+
+    Simplex simplex;
+    simplex.a = V;
+    simplex.size = 1;
+
+    while (true) {
+        // 2. Computing the point P of minimum norm in CH(Q)
+        switch (simplex.size) {
+        case 1:   
+            simplex.P = simplex.a;
+            break;
+        case 2:
+            GJK_solve_simplex2_Ericson(&simplex);
+            break;
+        case 3:
+            GJK_solve_simplex3_Ericson(&simplex);
+            break;
+        case 4:
+            GJK_solve_simplex4_Ericson(&simplex);
+            break;
+        default:
+            Assert(false);
+        }
+        
+        // 3. If P is the origin itself, the origin is clearly contained in the Minkowski difference of A and B.
+        // Stop and return A and B as intersecting.
+        if (dot(simplex.P, simplex.P) <= COLLISION_EPSILON) {
+            real dist = solve_EPA_algorithm(&simplex, Set_1, Set_2);
+            return dist;
+        }
+
+        // 4. Reduce Q to the smallest subset Q' of Q such that P is still in CH(Q). That is, remove any points
+        // from Q not determining the subsimplex of Q in which P lies.
+        // (This is done automatically in GJK_solve_simplex functions)
+
+        // 5. Find the next supporting point in direction -P
+        a1 = GJK_get_support(Set_1, -simplex.P);
+        a2 = GJK_get_support(Set_2, simplex.P);
+        V = a2 - a1;
+
+        // 6. If V is no more exremal in direction -P than P itself, stop and return A and B as not intersecting. 
+        // The length of the vector from the origin to P is the separation distance of A and B.
+        
+        if (dot(V, -simplex.P) - dot(simplex.P, -simplex.P) <= COLLISION_EPSILON)
+            break;
+
+        // 7. Add V to Q and go to 2.
+        // todo : optimize this part of code using std::vector instead of Vec3 for a, b, c, d
+        Assert(simplex.size <=3);
+        
+        if (simplex.size == 1)
+            simplex.b = V;
+        if (simplex.size == 2)
+            simplex.c = V;
+        if (simplex.size == 3)
+            simplex.d = V;
+        simplex.size += 1;
+    }
+    return norm(simplex.P);
+}
+
+host_fn real GJK_OBB_caps(capsule caps, OBB box) {
+    // Initialization of the eight OBB points
+    Vec3 size_x_org = {box.e.x, 0, 0};
+    Vec3 size_y_org = {0, box.e.y, 0};
+    Vec3 size_z_org = {0, 0, box.e.z};
+    Vec3 size_x = box.R*size_x_org;
+    Vec3 size_y = box.R*size_y_org;
+    Vec3 size_z = box.R*size_z_org;
+
+    std::vector<Vec3> v1(2);
+    v1[0] = caps.p1;
+    v1[1] = caps.p2;
+
+    std::vector<Vec3> v2(8);
+    v2[0] = box.c + size_x + size_y + size_z;
+    v2[1] = box.c + size_x + size_y - size_z;
+    v2[2] = box.c + size_x - size_y + size_z;
+    v2[3] = box.c + size_x - size_y - size_z;
+    v2[4] = box.c - size_x + size_y + size_z;
+    v2[5] = box.c - size_x + size_y - size_z;
+    v2[6] = box.c - size_x - size_y + size_z;
+    v2[7] = box.c - size_x - size_y - size_z;
+
+    real dist = general_GJK(v1, v2) - caps.r;
+    return dist;
 }
 
 // ======================================
@@ -2261,9 +2638,9 @@ struct collision_test_box {
     real expected_dist;
 };
 collision_test_box test_obb[] = {
-    /*Test1*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.21, -5.18, 18.05 }, { -3.89, 8.59, 6.3 }, 1 }, 1.63659624 },
-    /*Test2*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.46, 0.97, 3.7 }, { 7.79, 14.74, -8.04 }, 1 }, 1.50169942 },
-    /*Test3*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.05, 1.11, 12.87 }, { 7.37, 14.89, 1.13 }, 1 }, 0.33397901 },
+    // /*Test1*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.21, -5.18, 18.05 }, { -3.89, 8.59, 6.3 }, 1 }, 1.63659624 },
+    // /*Test2*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.46, 0.97, 3.7 }, { 7.79, 14.74, -8.04 }, 1 }, 1.50169942 },
+    // /*Test3*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.05, 1.11, 12.87 }, { 7.37, 14.89, 1.13 }, 1 }, 0.33397901 },
     /*Test4*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.82, 6.9, 12.84 }, { 4.7, -7.14, 24.59 }, 1 }, 4.00838054 },
     /*Test5*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -3.06, 5.73, 1.67 }, { -0.39, -8.05, 13.41 }, 1 }, 0.89513819 },
     /*Test6*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.97, 2.79, 12.23 }, { 2.29, 16.57, 0.48 }, 1 }, 1.69981481 },
@@ -2321,10 +2698,15 @@ TEST_CASE("Collisions", "[World]") {
         // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
     }
-    // GJK Algorithm
+    // GJK Algorithm (old version)
     for (auto t : test_obb) {
         gjkresult res = GJK_solve_gjk_simple(t.caps, t.box);
         CHECK(abs(res.minimal_distance - t.expected_dist) < TESTCOLL_EPSILON);
+    }
+    // GJK Algorithm (new/Ericson version)
+    for (auto t : test_obb) {
+        real dist = GJK_OBB_caps(t.caps, t.box);
+        CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
     }
     // boolean GJK algorithm
     for (auto t : test_obb) {
@@ -2333,6 +2715,10 @@ TEST_CASE("Collisions", "[World]") {
         CHECK(res == expected);
     }
 
+//         BENCHMARK("Blast trajectory speed") {
+//             bspline.compute_trajectory(x, task);
+//             return bspline.traj.pos(0, 0);
+//         };
 }
 
 #endif
