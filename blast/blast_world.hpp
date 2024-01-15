@@ -663,6 +663,58 @@ host_fn real distmin(OBB OBB, capsule caps) {
     return distcurrent - caps.r;
 }
 
+host_fn real dist_min_new(OBB OBB, capsule caps) {
+    Mat3 Rtrans = transpose(OBB.R);
+
+    segment seg;
+    seg.p1 = Rtrans * (caps.p1 - OBB.c);
+    seg.p2 = Rtrans * (caps.p2 - OBB.c);
+
+    real xmin = - OBB.e[0];
+    real xmax = + OBB.e[0];
+    real ymin = - OBB.e[1];
+    real ymax = + OBB.e[1];
+    real zmin = - OBB.e[2];
+    real zmax = + OBB.e[2];
+
+    auto point = ptint(seg, {0, 0, 0});
+
+    auto signe_x = point.x > 0 ? 1.0 : -1.0;
+    auto signe_y = point.y > 0 ? 1.0 : -1.0;
+    auto signe_z = point.z > 0 ? 1.0 : -1.0;
+
+    Vec3 p1 = {signe_x*xmax, signe_y*ymax, signe_z*zmax};
+    Vec3 p2 = {-signe_x*xmax, signe_y*ymax, signe_z*zmax};
+    Vec3 p3 = {signe_x*xmax, -signe_y*ymax, signe_z*zmax};
+    Vec3 p4 = {signe_x*xmax, signe_y*ymax, -signe_z*zmax};
+
+    segment segOBB_12 = {p1, p2};
+    segment segOBB_13 = {p1, p3};
+    segment segOBB_14 = {p1, p4};
+
+    auto two_point_12 = closept(seg, segOBB_12);
+    auto two_point_13 = closept(seg, segOBB_13);
+    auto two_point_14 = closept(seg, segOBB_14);
+
+    Vec3 p1_OBB = {clamp(seg.p1.x, xmin, xmax), clamp(seg.p1.y, ymin, ymax), clamp(seg.p1.z, zmin, zmax)};
+    Vec3 p2_OBB = {clamp(seg.p2.x, xmin, xmax), clamp(seg.p2.y, ymin, ymax), clamp(seg.p2.z, zmin, zmax)};
+
+    vector<two_pts> collision_points(5);
+    collision_points = {two_point_12, two_point_13, two_point_14, {seg.p1, p1_OBB}, {seg.p2, p2_OBB}};
+
+    real dist_min = INF_REAL;
+    for (auto &two_point:collision_points) {
+        auto point = two_point.p1;
+        real inside = ((point.x <= OBB.e.x && point.x >= -OBB.e.x) && (point.y <= OBB.e.y && point.y >= -OBB.e.y) && (point.z <= OBB.e.z && point.z >= -OBB.e.z)) ? -1.0 : 1.0;
+
+        auto dist = inside*dot(two_point.p1 - two_point.p2, two_point.p1 - two_point.p2);
+        dist_min = ((dist >= 0 && dist < dist_min) || ((dist < 0) && ((dist > dist_min) || (dist_min > 0)))) ? dist : dist_min;
+    }
+
+    auto dist_min_sq = dist_min >= 0 ? sqrt(dist_min) : -sqrt(-dist_min);
+    return dist_min_sq - caps.r;
+}
+
 host_fn void add_OBB(Vec3 c, Vec3 e, Mat3 R, objlist* world) {
     OBB new_OBB;
     new_OBB.c = c;
@@ -1617,9 +1669,9 @@ host_fn void GJK_solve_simplex3_Ericson(Simplex* simplex) {
     real d1 = dot(ab, ap);
     real d2 = dot(ac, ap);
     if (d1 <= 0.0f && d2 <= 0.0f) {
-        (*simplex).size = 1; 
+        (*simplex).size = 1;
         (*simplex).P = a; // barycentric coordinates (1,0,0)
-        return; 
+        return;
     }
 
     // Check if P in vertex region outside B
@@ -1649,9 +1701,9 @@ host_fn void GJK_solve_simplex3_Ericson(Simplex* simplex) {
         (*simplex).a = c; // barycentric coordinates (0,0,1)
         (*simplex).size = 1;
         (*simplex).P = c;
-        return; 
+        return;
     }
-        
+
     // Check if P in edge region of AC, if so return projection of P onto AC
     real vb = d5*d2 - d1*d6;
     if (vb <= 0.0f && d2 >= 0.0f && d6 <= 0.0f) {
@@ -1768,7 +1820,7 @@ host_fn void GJK_solve_simplex4_Ericson(Simplex* simplex) {
         (*simplex).P = closestPt;
 
         GJK_solve_simplex3_Ericson(simplex);
-    } 
+    }
     return;
 }
 
@@ -1815,7 +1867,7 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
             current_triangle.p1 = faces[i].p1;
             current_triangle.p2 = faces[i].p2;
             current_triangle.p3 = faces[i].p3;
-            
+
             real current_dist = distmin_origin(current_triangle);
             if (current_dist < min_dist) {
                 min_dist = current_dist;
@@ -1827,14 +1879,14 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
         Vec3 support1 = GJK_get_support(v1, -faces[idx].n);
         Vec3 support2 = GJK_get_support(v2, faces[idx].n);
         Vec3 p = support2 - support1;
- 
-        // If the vertex does not expand the polytope in the direction of the normal, the minimum distance 
+
+        // If the vertex does not expand the polytope in the direction of the normal, the minimum distance
         // is with the closest face (unchanged). Compute and return.
         dist = dot(p, faces[idx].n);
         if (abs(dist) - abs(min_dist) < 1e-2) {
             break;
         }
-            
+
         else {
             // Delete all the triangles which are aligned with the new faces (they will be created after)
             for (int i = 0; i < size(faces); i++) {
@@ -1843,7 +1895,7 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
             }
 
             // Create new convex hull
-            
+
         }
     }
     return dist;
@@ -1851,7 +1903,7 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
 
 // Tests 2 sets of points using GJK
 host_fn real general_GJK(std::vector<Vec3> Set_1, std::vector<Vec3> Set_2) {
-    // This version of the GJK algorithm is implemented from the basic algorithm described in Collision Detection 
+    // This version of the GJK algorithm is implemented from the basic algorithm described in Collision Detection
     // manual by Ericson.
 
     // 1. Initializing simplex to a point from a random direction
@@ -1867,7 +1919,7 @@ host_fn real general_GJK(std::vector<Vec3> Set_1, std::vector<Vec3> Set_2) {
     while (true) {
         // 2. Computing the point P of minimum norm in CH(Q)
         switch (simplex.size) {
-        case 1:   
+        case 1:
             simplex.P = simplex.a;
             break;
         case 2:
@@ -1882,7 +1934,7 @@ host_fn real general_GJK(std::vector<Vec3> Set_1, std::vector<Vec3> Set_2) {
         default:
             Assert(false);
         }
-        
+
         // 3. If P is the origin itself, the origin is clearly contained in the Minkowski difference of A and B.
         // Stop and return A and B as intersecting.
         if (dot(simplex.P, simplex.P) < COLLISION_EPSILON) {
@@ -1899,9 +1951,9 @@ host_fn real general_GJK(std::vector<Vec3> Set_1, std::vector<Vec3> Set_2) {
         a2 = GJK_get_support(Set_2, -simplex.P);
         V = a2 - a1;
 
-        // 6. If V is no more exremal in direction -P than P itself, stop and return A and B as not intersecting. 
+        // 6. If V is no more exremal in direction -P than P itself, stop and return A and B as not intersecting.
         // The length of the vector from the origin to P is the separation distance of A and B.
-        
+
         real ans1 = dot(V, -simplex.P)/dot(simplex.P, simplex.P);
 
         if (ans1 + 1 <= COLLISION_EPSILON)   // No more progress is being made (<5 %). If we do not do this it can cause problems
@@ -1910,7 +1962,7 @@ host_fn real general_GJK(std::vector<Vec3> Set_1, std::vector<Vec3> Set_2) {
         // 7. Add V to Q and go to 2.
         // todo : optimize this part of code using std::vector instead of Vec3 for a, b, c, d
         Assert(simplex.size <=3);
-        
+
         if (simplex.size == 1)
             simplex.b = V;
         if (simplex.size == 2)
