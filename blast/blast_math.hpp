@@ -79,6 +79,7 @@ struct Vec3 {
     Vec3() = default;
 
     blast_fn real& operator[](u32 i);
+    blast_fn bool operator==(const Vec3&) const;
     blast_fn Vec3(real x, real y, real z);
 };
 
@@ -496,6 +497,11 @@ blast_fn real matrix_max(const Matrix& m) {
     return result;
 }
 
+// return true if the difference of all elements of each Vec3 are close to zero
+blast_fn bool is_close(const Vec3& a, const Vec3& b, real eps = 1e-05) {
+    return (abs(a.x - b.x) < eps) && (abs(a.y - b.y) < eps) && (abs(a.z - b.z) < eps);
+}
+
 // return true if the difference of all elements of each array are close to zero
 blast_fn bool is_close(const Array& a1, const Array& a2, real eps = 1e-05) {
     Assert(a1.size == a2.size);
@@ -761,6 +767,10 @@ blast_fn Vec3 operator*(Vec3 a, real b) {
         a.y * b,
         a.z * b
     };
+}
+
+blast_fn bool Vec3::operator==(const Vec3& a) const {
+    return is_close(*this, a);
 }
 
 blast_fn Vec3& operator+=(Vec3& v1, const Vec3& v2) {
@@ -2043,6 +2053,20 @@ blast_fn double two_segment_distance_sqr(Vector3d P0, Vector3d P1, Vector3d Q0, 
 } // namespace blast
 
 #ifdef BLAST_ENABLE_TESTS
+TEST_CASE("Vec3", "[Math]") {
+    using namespace blast;
+    SECTION("operator==") {
+        Vec3 a;
+        a = { 1, 1, 1};
+        Vec3 b;
+        b = { 1, 1, 1};
+        Vec3 c;
+        c = {1, 1, 2};
+        REQUIRE((a == b) == true);
+        REQUIRE_FALSE(a == c);
+    }
+}
+
 TEST_CASE("Arrays", "[Math]") {
     using namespace blast;
     SECTION("Basic operations") {
