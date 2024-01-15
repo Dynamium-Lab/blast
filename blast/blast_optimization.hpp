@@ -128,7 +128,7 @@ host_fn void cstr_world_gen3(unsigned m, double *result, unsigned xlen, const do
 
     capslist capsules;
     capsules.caps.resize(caps_size * 3); // 3 capsules for each point along the trajectory
-    real radius = 0.0875; // Hard coded radius of all robot capsules
+    real radius = 0.055; // Hard coded radius of all robot capsules
     for (int i = 0; i < caps_size; i++) {
         auto caps_tmp = caps_matrix.col(i);
 
@@ -150,7 +150,7 @@ host_fn void cstr_world_gen3(unsigned m, double *result, unsigned xlen, const do
     double* r = &result[ncon];
     std::vector<real> collisions = test_collision(&capsules, opt->world, opt->n_collision_constraints);
     for (int i = 0; i < opt->n_collision_constraints; i ++) {
-        *r = collisions[i] * collisions[i];
+        *r = -collisions[i];
         r++;
     }
 
@@ -184,7 +184,7 @@ host_fn void cstr_world_gen3(unsigned m, double *result, unsigned xlen, const do
 
             collisions = test_collision(&capsules, opt->world, opt->n_collision_constraints);
             for (int i = 0; i < opt->n_collision_constraints; i ++) {
-                r_plus[ncon + i] = collisions[i] * collisions[i];
+                r_plus[ncon + i] = -collisions[i];
             }
             for (u32 i = 0; i < m; i++)
                 grad[i*xlen + j] = (r_plus[i]-result[i])/eps;

@@ -306,8 +306,7 @@ host_fn two_pts closept(segment seg1, segment seg2) {
     // From : Real-Time Detection Collision (Christer Ericson)
 
     // Computes closest points C1 and C2 of S1(s)=P1+s*(Q1-P1) and
-    // S2(t)=P2+t*(Q2-P2), returning s and t. Function result is squared
-    // distance between between S1(s) and S2(t)
+    // S2(t)=P2+t*(Q2-P2), returning s and t.
 
     two_pts result;
     real s;
@@ -713,7 +712,7 @@ host_fn std::vector<real> test_collision(capslist* caps_list, objlist* world, in
             dist = distmin(world->OBBlist[i], caps_list->caps[c]);
             for (int j = 0; j < n_var; j++) {
                 if (dist < dist_min[j]) {
-                    for (int k = n_var; k > j; k--) {
+                    for (int k = n_var - 1; k > j; k--) {
                         dist_min[k] = dist_min[k-1];
                     }
                     dist_min[j] = dist;
@@ -727,7 +726,7 @@ host_fn std::vector<real> test_collision(capslist* caps_list, objlist* world, in
             dist = distmin(caps_list->caps[c], world->capslist[i]);
             for (int j = 0; j < n_var; j++) {
                 if (dist < dist_min[j]) {
-                    for (int k = n_var; k > j; k--) {
+                    for (int k = n_var - 1; k > j; k--) {
                         dist_min[k] = dist_min[k-1];
                     }
                     dist_min[j] = dist;
@@ -741,7 +740,7 @@ host_fn std::vector<real> test_collision(capslist* caps_list, objlist* world, in
             dist = distmin(caps_list->caps[c], world->cyllist[i]);
             for (int j = 0; j < n_var; j++) {
                 if (dist < dist_min[j]) {
-                    for (int k = n_var; k > j; k--) {
+                    for (int k = n_var - 1; k > j; k--) {
                         dist_min[k] = dist_min[k-1];
                     }
                     dist_min[j] = dist;
@@ -755,7 +754,7 @@ host_fn std::vector<real> test_collision(capslist* caps_list, objlist* world, in
             dist = distmin(caps_list->caps[c], world->sphlist[i]);
             for (int j = 0; j < n_var; j++) {
                 if (dist < dist_min[j]) {
-                    for (int k = n_var; k > j; k--) {
+                    for (int k = n_var - 1; k > j; k--) {
                         dist_min[k] = dist_min[k-1];
                     }
                     dist_min[j] = dist;

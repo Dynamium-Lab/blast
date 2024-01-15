@@ -1702,14 +1702,13 @@ host_fn bool Gen3_7DOF::validate_task(const Matrix &task) {
 
 host_fn Matrix Gen3_7DOF::robot_capsules(const Matrix &joint_positions, const int n_skip) {
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
-    int n_col = (joint_positions.cols - joint_positions.cols%n_skip)/n_skip + 1;
+    int n_col = joint_positions.cols/n_skip; // todo: Remove last capsule Find the amount of capsules caluclated by n_skip
     Matrix result_capsules(12, n_col);
 
     Array s(7);
     Array c(7);
     for (u32 col = 0; col < n_col; col++) {
-        int idx = col*n_skip < joint_positions.cols ? col*n_skip : joint_positions.cols - 1;
-        auto joint_position_tmp = joint_positions.col(idx); //todo: double check??
+        auto joint_position_tmp = joint_positions.col(col*n_skip);
         blast::sincos(joint_position_tmp, s, c);
 
         // note: these are stored column-wise

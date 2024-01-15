@@ -132,9 +132,9 @@ int main() {
     using namespace blast;
 
     // const real m_list[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-    const real m_list[] {5};
-    const u32 nctrl_list[] {8, 10, 12, 14, 16};
-    const u32 npts_list[] {25, 50, 75, 100, 128, 256};
+    const real m_list[] {0};
+    const u32 nctrl_list[] {10};
+    const u32 npts_list[] {50};
     const u32 nshot_list[] {50};
     Matrix task_list[6];
 
