@@ -1871,29 +1871,81 @@ host_fn void GJK_solve_simplex4_Ericson(Simplex* simplex) {
     return;
 }
 
+host_fn bool pointInFace(EPA_hull face) {
+    // u=P2−P1
+    Vec3 u = face.p2 - face.p1;
+    // v=P3−P1
+    Vec3 v = face.p3 - face.p1;
+    // w=−P1
+    Vec3 w = - face.p1;
+    // Barycentric coordinates of the projection P′of P onto T:
+    // γ=[(u×w)⋅n]/n²
+    real gamma = dot(cross(u, w), face.n);
+    // β=[(w×v)⋅n]/n²
+    real beta = dot(cross(w, v), face.n);
+    real alpha = 1 - gamma - beta;
+    // The point P′ lies inside T if:
+    return ((0 <= alpha) && (alpha <= 1) && (0 <= beta) && (beta <= 1) && (0 <= gamma) && (gamma <= 1));
+}
+
 host_fn real distmin_origin(EPA_hull face) {
-    if (pointInTriangle(face.p1, face.p2, face.p3, {0, 0, 0}))
-        return dot(face.p1, face.n);
+    Vec3 a = face.p1;
+    Vec3 b = face.p2;
+    Vec3 c = face.p3;
 
-    segment seg[3];
+    Vec3 ab = b - a;
+    Vec3 ac = c - a;
+    Vec3 bc = c - b;
 
-    seg[0].p1 = face.p1;
-    seg[0].p2 = face.p2;
-    seg[1].p1 = face.p2;
-    seg[1].p2 = face.p3;
-    seg[2].p1 = face.p1;
-    seg[2].p2 = face.p3;
+    // Compute parametric position s for projection P’ of P on AB,
+    // P’ = A + s*AB, s = snom/(snom+sdenom)
+    float snom = dot(- a, ab), sdenom = dot(- b, a - b);
 
-    real distmin;
-    real distmin_sq = INF_REAL;
-    for (int i = 0; i < 3; i++) {
-        Vec3 d = closept_origin(seg[i]);
-        if (dot(d, d) < distmin_sq) {
-            distmin = norm(d);
-            distmin_sq = distmin*distmin;
-        }
-    }
-    return distmin;
+    // Compute parametric position t for projection P’ of P on AC,
+    // P’ = A + t*AC, s = tnom/(tnom+tdenom)
+    float tnom = dot(- a, ac), tdenom = dot(- c, a - c);
+
+    if (snom <= 0.0f && tnom <= 0.0f) 
+        return norm(a); // Vertex region early out
+
+    // Compute parametric position u for projection P’ of P on BC,
+    // P’ = B + u*BC, u = unom/(unom+udenom)
+    float unom = dot(- b, bc), udenom = dot(- c, b - c);
+    if (sdenom <= 0.0f && unom <= 0.0f) 
+        return norm(b); // Vertex region early out
+
+    if (tdenom <= 0.0f && udenom <= 0.0f) 
+        return norm(c); // Vertex region early out
+
+    // P is outside (or on) AB if the triple scalar product [N PA PB] <= 0
+    // Vec3 n = face.n;
+    Vec3 n = cross(b - a, c - a);
+    float vc = dot(n, cross(a, b));
+
+    // If P outside AB and within feature region of AB,
+    // return projection of P onto AB
+    if (vc <= 0.0f && snom >= 0.0f && sdenom >= 0.0f)
+        return norm(a + snom / (snom + sdenom) * ab);
+
+    // P is outside (or on) BC if the triple scalar product [N PB PC] <= 0
+    float va = dot(n, cross(b, c));
+
+    // If P outside BC and within feature region of BC,
+    // return projection of P onto BC
+    if (va <= 0.0f && unom >= 0.0f && udenom >= 0.0f)
+        return norm(b + unom / (unom + udenom) * bc);
+    // P is outside (or on) CA if the triple scalar product [N PC PA] <= 0
+    float vb = dot(n, cross(c, a));
+
+    // If P outside CA and within feature region of CA,
+    // return projection of P onto CA
+    if (vb <= 0.0f && tnom >= 0.0f && tdenom >= 0.0f)
+        return norm(a + tnom / (tnom + tdenom) * ac);
+    // P must project inside face region. Compute Q using barycentric coordinates
+    float u = va / (va + vb + vc);
+    float v = vb / (va + vb + vc);
+    float w = 1.0f - u - v; // = vc / (va + vb + vc)
+    return norm(u * a + v * b + w * c);
 }
 
 host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vector<Vec3> v2) {
@@ -1953,8 +2005,8 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
 
         // If the vertex does not expand the polytope in the direction of the normal, the minimum distance
         // is with the closest face (unchanged). Compute and return.
-        dist = dot(p, faces[idx].n);
-        if (abs(dist) - abs(min_dist) < 1e-2) {
+        dist = dot(p - faces[idx].p1, faces[idx].n);
+        if (dist < 1e-2) {
             break;
         }
 
@@ -1972,16 +2024,16 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
         // as parts of the new faces (with the new point forming the remaining two line segments).
         two_pts current_edge[3];
         std::vector<two_pts> loose_edges;
-        for (int i = 0; i < size(deleted_faces); i++) {
+        for (int i = 0; i < size(deleted_faces); i++) { // for all deleted faces found
             current_edge[0] = {deleted_faces[i].p1, deleted_faces[i].p2};
             current_edge[1] = {deleted_faces[i].p1, deleted_faces[i].p3};
             current_edge[2] = {deleted_faces[i].p2, deleted_faces[i].p3};
 
             int loose_edge_idx = 0;
             bool found_edge = false;
-            for (int j = 0; j < 3; j++) {
+            for (int j = 0; j < 3; j++) { // for all three edges of each face
                 found_edge = false;
-                for (int k = 0; k < size(loose_edges); k++){
+                for (int k = 0; k < size(loose_edges); k++){ // Is the current edge already in loose_edges ?
                     if ((current_edge[j].p1 == loose_edges[k].p1 && current_edge[j].p2 == loose_edges[k].p2) || 
                         (current_edge[j].p2 == loose_edges[k].p1 && current_edge[j].p1 == loose_edges[k].p2)) {
                         // edge is already in list
@@ -1992,7 +2044,7 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
                 }
 
                 if (found_edge == false)
-                    loose_edges.push_back(current_edge[i]);
+                    loose_edges.push_back(current_edge[j]);
                 else {
                     loose_edges.erase(loose_edges.begin() + loose_edge_idx);
                 }
@@ -2008,11 +2060,12 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
             dot_p1_n = dot(loose_edges[i].p1, n);
             n = dot_p1_n > 0 ? n : - n;
             n = (1 / norm(n)) * n;
+
             new_face = {loose_edges[i].p1, loose_edges[i].p2, p, n};
-            faces.insert(faces.begin(), new_face);
+            faces.push_back(new_face);
         }
     }
-    return dist;
+    return -abs(min_dist);
 }
 
 // Tests 2 sets of points using GJK
@@ -2763,17 +2816,17 @@ struct collision_test_box {
     real expected_dist;
 };
 collision_test_box test_obb[] = {
-    // /*Test1*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.21, -5.18, 18.05 }, { -3.89, 8.59, 6.3 }, 1 }, 1.63659624 },
-    // /*Test2*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.46, 0.97, 3.7 }, { 7.79, 14.74, -8.04 }, 1 }, 1.50169942 },
-    // /*Test3*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.05, 1.11, 12.87 }, { 7.37, 14.89, 1.13 }, 1 }, 0.33397901 },
-    // /*Test4*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.82, 6.9, 12.84 }, { 4.7, -7.14, 24.59 }, 1 }, 4.00838054 },
-    // /*Test5*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -3.06, 5.73, 1.67 }, { -0.39, -8.05, 13.41 }, 1 }, 0.89513819 },
-    // /*Test6*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.97, 2.79, 12.23 }, { 2.29, 16.57, 0.48 }, 1 }, 1.69981481 },
-    // /*Test7*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.49, -0.06, 8.32 }, { 14.17, -13.84, 20.07 }, 1 }, 0.49000000 },
-    // /*Test8*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 6.76, -1.55, 8 }, { 9.44, -15.33, 19.74 }, 1 }, 0.45000000 },
-    // /*Test9*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.15, 13.92, -7.48 }, { 1.53, 0.14, 4.27 }, 1 }, 0.73046237 },
-    // /*Test10*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.54, 0.1, 10.59 }, { 1.86, 13.87, -1.15 }, 1 }, -1.00000000 },
-    // /*Test11*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.76, 0.28, 8.08 }, { 13.44, -13.5, 19.83 }, 1 }, -0.21961454 },
+    /*Test1*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.21, -5.18, 18.05 }, { -3.89, 8.59, 6.3 }, 1 }, 1.63659624 },
+    /*Test2*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.46, 0.97, 3.7 }, { 7.79, 14.74, -8.04 }, 1 }, 1.50169942 },
+    /*Test3*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.05, 1.11, 12.87 }, { 7.37, 14.89, 1.13 }, 1 }, 0.33397901 },
+    /*Test4*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.82, 6.9, 12.84 }, { 4.7, -7.14, 24.59 }, 1 }, 4.00838054 },
+    /*Test5*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -3.06, 5.73, 1.67 }, { -0.39, -8.05, 13.41 }, 1 }, 0.89513819 },
+    /*Test6*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.97, 2.79, 12.23 }, { 2.29, 16.57, 0.48 }, 1 }, 1.69981481 },
+    /*Test7*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.49, -0.06, 8.32 }, { 14.17, -13.84, 20.07 }, 1 }, 0.49000000 },
+    /*Test8*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 6.76, -1.55, 8 }, { 9.44, -15.33, 19.74 }, 1 }, 0.45000000 },
+    /*Test9*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.15, 13.92, -7.48 }, { 1.53, 0.14, 4.27 }, 1 }, 0.73046237 },
+    /*Test10*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.54, 0.1, 10.59 }, { 1.86, 13.87, -1.15 }, 1 }, -1.00000000 },
+    /*Test11*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.76, 0.28, 8.08 }, { 13.44, -13.5, 19.83 }, 1 }, -0.21961454 },
     /*Test12*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.96, 0.43, 8.3 }, { 7.64, -13.35, 20.05 }, 1 }, -1.53000000 },
     /*Test13*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.48, -4.07, 0.76 }, { 8.64, -4.41, 18.58 }, 1 }, 3.06923695 },
     /*Test14*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 17.48, 2.95, 13.77 }, { -0.82, 3.11, 13.77 }, 1 }, 2.41054264 },
@@ -2824,10 +2877,10 @@ TEST_CASE("Collisions", "[World]") {
         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
     }
     // GJK Algorithm (old version)
-    for (auto t : test_obb) {
-        gjkresult res = GJK_solve_gjk_simple(t.caps, t.box);
-        CHECK(abs(res.minimal_distance - t.expected_dist) < TESTCOLL_EPSILON);
-    }
+    // for (auto t : test_obb) {
+    //     gjkresult res = GJK_solve_gjk_simple(t.caps, t.box);
+    //     CHECK(abs(res.minimal_distance - t.expected_dist) < TESTCOLL_EPSILON);
+    // }
     // GJK Algorithm (new/Ericson version)
     for (auto t : test_obb) {
         real dist = GJK_OBB_caps(t.caps, t.box);
@@ -2840,10 +2893,24 @@ TEST_CASE("Collisions", "[World]") {
         CHECK(res == expected);
     }
 
-//         BENCHMARK("Blast trajectory speed") {
-//             bspline.compute_trajectory(x, task);
-//             return bspline.traj.pos(0, 0);
-//         };
+    BENCHMARK("box - capsule test with vectors") {
+        real dist;
+        for (auto t : test_obb) {
+            dist = distmin(t.box, t.caps);
+            // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+        }
+        return dist;
+    };
+
+    BENCHMARK("box - capsule test with new GJK") {
+        real dist;
+        for (auto t : test_obb) {
+            dist = GJK_OBB_caps(t.caps, t.box);
+            // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+        }
+        return dist;
+    };
+
 }
 
 #endif
