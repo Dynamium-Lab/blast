@@ -709,7 +709,7 @@ host_fn real dist_min_new(OBB OBB, capsule caps) {
     real dist_min = INF_REAL;
     for (auto &two_point:collision_points) {
         auto point = two_point.p1;
-        real inside = ((point.x <= OBB.e.x && point.x >= -OBB.e.x) && (point.y <= OBB.e.y && point.y >= -OBB.e.y) && (point.z <= OBB.e.z && point.z >= -OBB.e.z)) ? -1.0 : 1.0;
+        real inside = ((point.x < OBB.e.x && point.x > -OBB.e.x) && (point.y < OBB.e.y && point.y > -OBB.e.y) && (point.z < OBB.e.z && point.z > -OBB.e.z)) ? -1.0 : 1.0;
 
         auto dist = inside*dot(two_point.p1 - two_point.p2, two_point.p1 - two_point.p2);
         dist_min = ((dist >= 0 && dist < dist_min) || ((dist < 0) && ((dist > dist_min) || (dist_min > 0)))) ? dist : dist_min;
@@ -1684,7 +1684,7 @@ host_fn void GJK_solve_simplex2_Ericson(Simplex* simplex) {
     t = clamp(t, 0, 1);
 
     (*simplex).P = (*simplex).a + t * ab;
-    
+
     Vec3 a_temp = (*simplex).a;
     (*simplex).a = t == 1 ? (*simplex).b : (*simplex).a;
     (*simplex).b = t == 1 ? (*simplex).a : (*simplex).b;
@@ -1721,7 +1721,7 @@ host_fn void GJK_solve_simplex3_Ericson(Simplex* simplex) {
     // }
 
     // // Check if P in edge region of AB, if so return projection of P onto AB
-    real vc = d1*d4 - d3*d2;         
+    real vc = d1*d4 - d3*d2;
     // if (vc <= 0.0f && d1 >= 0.0f && d3 <= 0.0f) {    -> Impossible, or c would have been wrongly chosen
     //     real v = d1 / (d1 - d3);
     //     (*simplex).size = 2;
@@ -1734,7 +1734,7 @@ host_fn void GJK_solve_simplex3_Ericson(Simplex* simplex) {
     real d6 = dot(ac, - c);
     if (d6 >= 0.0f && d5 <= d6) {
         (*simplex).a = c; // barycentric coordinates (0,0,1)
-        (*simplex).c = a; 
+        (*simplex).c = a;
         (*simplex).size = 1;
         (*simplex).P = c;
         return;
@@ -1905,16 +1905,16 @@ host_fn real distmin_origin(EPA_hull face) {
     // P’ = A + t*AC, s = tnom/(tnom+tdenom)
     float tnom = dot(- a, ac), tdenom = dot(- c, a - c);
 
-    if (snom <= 0.0f && tnom <= 0.0f) 
+    if (snom <= 0.0f && tnom <= 0.0f)
         return norm(a); // Vertex region early out
 
     // Compute parametric position u for projection P’ of P on BC,
     // P’ = B + u*BC, u = unom/(unom+udenom)
     float unom = dot(- b, bc), udenom = dot(- c, b - c);
-    if (sdenom <= 0.0f && unom <= 0.0f) 
+    if (sdenom <= 0.0f && unom <= 0.0f)
         return norm(b); // Vertex region early out
 
-    if (tdenom <= 0.0f && udenom <= 0.0f) 
+    if (tdenom <= 0.0f && udenom <= 0.0f)
         return norm(c); // Vertex region early out
 
     // P is outside (or on) AB if the triple scalar product [N PA PB] <= 0
@@ -2018,7 +2018,7 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
                 faces.erase(faces.begin() + i);
             }
         }
-        
+
         // Create new convex hull by determining which line segments are contained in the deleted faces.
         // These segments must be deleted and the ones which are only contained in one face will be added
         // as parts of the new faces (with the new point forming the remaining two line segments).
@@ -2033,9 +2033,9 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
             bool found_edge = false;
             for (int j = 0; j < 3; j++) { // for all three edges of each face
                 found_edge = false;
-                for (int k = 0; k < size(loose_edges); k++){ // Is the current edge already in loose_edges ?
-                    if ((current_edge[j].p1 == loose_edges[k].p1 && current_edge[j].p2 == loose_edges[k].p2) || 
-                        (current_edge[j].p2 == loose_edges[k].p1 && current_edge[j].p1 == loose_edges[k].p2)) {
+                for (int k = 0; k < size(loose_edges); k++) { // Is the current edge already in loose_edges ?
+                    if ((current_edge[j].p1 == loose_edges[k].p1 && current_edge[j].p2 == loose_edges[k].p2) ||
+                            (current_edge[j].p2 == loose_edges[k].p1 && current_edge[j].p1 == loose_edges[k].p2)) {
                         // edge is already in list
                         found_edge = true;
                         loose_edge_idx = k;
@@ -2849,7 +2849,6 @@ collision_test_box test_obb[] = {
     /*Test30*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.91, 5.9, 7.39 }, { 4.14, 5.9, 13.32 }, 0.5 }, 0.40000000 },
 };
 
-
 TEST_CASE("Collisions", "[World]") {
     using namespace blast;
 
@@ -2870,6 +2869,12 @@ TEST_CASE("Collisions", "[World]") {
         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
     }
 
+    // new dist min method
+    for (auto t : test_obb) {
+        real dist = dist_min_new(t.box, t.caps);
+        // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+        CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+    }
     // Minkowski sum method
     for (auto t : test_obb) {
         real dist = distmin(t.box, t.caps);
