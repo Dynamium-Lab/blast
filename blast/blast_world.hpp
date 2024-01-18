@@ -666,6 +666,151 @@ host_fn real distmin(OBB OBB, capsule caps) {
     }
     return distcurrent - caps.r;
 }
+
+host_fn real distmin_pierce(OBB OBB, capsule caps) {
+    Mat3 Rtrans = transpose(OBB.R);
+
+    segment seg;
+    seg.p1 = Rtrans * (caps.p1 - OBB.c);
+    seg.p2 = Rtrans * (caps.p2 - OBB.c);
+
+    real xmin = - OBB.e[0];
+    real xmax = + OBB.e[0];
+    real ymin = - OBB.e[1];
+    real ymax = + OBB.e[1];
+    real zmin = - OBB.e[2];
+    real zmax = + OBB.e[2];
+
+    auto point = ptint(seg, {0, 0, 0});
+
+    auto signe_x = point.x > 0 ? 1.0 : -1.0;
+    auto signe_y = point.y > 0 ? 1.0 : -1.0;
+    auto signe_z = point.z > 0 ? 1.0 : -1.0;
+
+    Vec3 p1 = {signe_x*xmax, signe_y*ymax, signe_z*zmax};
+
+    real tx1 = (seg.p1.x - p1.x) / (seg.p1.x - seg.p2.x);
+    real tx2 = (seg.p1.x + p1.x) / (seg.p1.x - seg.p2.x);
+    real ty1 = (seg.p1.y - p1.y) / (seg.p1.y - seg.p2.y);
+    real ty2 = (seg.p1.y + p1.y) / (seg.p1.y - seg.p2.y);
+    real tz1 = (seg.p1.z - p1.z) / (seg.p1.z - seg.p2.z);
+    real tz2 = (seg.p1.z + p1.z) / (seg.p1.z - seg.p2.z);
+
+    Vec3 ab = seg.p2 - seg.p1;
+
+    Vec3 inter_x1 = seg.p1 + tx1 * ab;
+    Vec3 inter_x2 = seg.p1 + tx2 * ab;
+    Vec3 inter_y1 = seg.p1 + ty1 * ab;
+    Vec3 inter_y2 = seg.p1 + ty2 * ab;
+    Vec3 inter_z1 = seg.p1 + tz1 * ab;
+    Vec3 inter_z2 = seg.p1 + tz2 * ab;
+
+    Matrix inter_list(3, 6); // rows x, y, z by columns x, y, z plans (+/-)
+    inter_list(0, 0) = inter_x1.x;
+    inter_list(1, 0) = inter_x1.y;
+    inter_list(2, 0) = inter_x1.z;
+    inter_list(0, 1) = inter_x2.x;
+    inter_list(1, 1) = inter_x2.y;
+    inter_list(2, 1) = inter_x2.z;
+    inter_list(0, 2) = inter_y1.x;
+    inter_list(1, 2) = inter_y1.y;
+    inter_list(2, 2) = inter_y1.z;
+    inter_list(0, 3) = inter_y2.x;
+    inter_list(1, 3) = inter_y2.y;
+    inter_list(2, 3) = inter_y2.z;
+    inter_list(0, 4) = inter_z1.x;
+    inter_list(1, 4) = inter_z1.y;
+    inter_list(2, 4) = inter_z1.z;
+    inter_list(0, 5) = inter_z2.x;
+    inter_list(1, 5) = inter_z2.y;
+    inter_list(2, 5) = inter_z2.z;
+
+    bool pierce_x1 = (tx1 < 1 && tx1 > 0) && (inter_x1.y >= ymin && inter_x1.y <= ymax) && (inter_x1.z >= zmin && inter_x1.z <= zmax);
+    bool pierce_x2 = (tx2 < 1 && tx2 > 0) && (inter_x2.y >= ymin && inter_x2.y <= ymax) && (inter_x2.z >= zmin && inter_x2.z <= zmax);
+    bool pierce_y1 = (ty1 < 1 && ty1 > 0) && (inter_y1.x >= xmin && inter_y1.x <= xmax) && (inter_y1.z >= zmin && inter_y1.z <= zmax);
+    bool pierce_y2 = (ty2 < 1 && ty2 > 0) && (inter_y2.x >= xmin && inter_y2.x <= xmax) && (inter_y2.z >= zmin && inter_y2.z <= zmax);
+    bool pierce_z1 = (tz1 < 1 && tz1 > 0) && (inter_z1.y >= ymin && inter_z1.y <= ymax) && (inter_z1.x >= xmin && inter_z1.x <= xmax);
+    bool pierce_z2 = (tz2 < 1 && tz2 > 0) && (inter_z2.y >= ymin && inter_z2.y <= ymax) && (inter_z2.x >= xmin && inter_z2.x <= xmax);
+
+    bool pierce = pierce_x1 || pierce_x2 || pierce_y1 || pierce_y2 || pierce_z1 || pierce_z2;
+
+    real dist_min = INF_REAL;
+    if (pierce) {
+        // Define new segment (inner segment)
+        vector<Vec3> new_seg(2); // todo: turn into Matrix (2,3) pierced struct keeps info on which plan was pierced and some info
+        auto pierce_case = {pierce_x1, pierce_x2, pierce_y1, pierce_y2, pierce_z1, pierce_z2};
+
+        int idx = 0;
+        vector<real> t_active = {tx1, tx2, ty1, ty2, tz1, tz2};
+        int vec_count = 0;
+        int t_idx = 0;
+
+        // todo: maybe some optimization to do here (start)
+        for (auto& p_case:pierce_case) {
+            if (p_case) {
+                new_seg[vec_count] = {inter_list(0, idx), inter_list(1, idx), inter_list(2, idx)};
+                t_active.erase(t_active.begin() + idx);
+                vec_count++;
+            }
+            idx++;
+        }
+        new_seg[1] = ((seg.p1.x <= xmax && seg.p1.x >= xmin) && (seg.p1.y <= ymax && seg.p1.y >= ymin) && (seg.p1.z <= zmax && seg.p1.z >= zmin)) ? seg.p1 : seg.p2;
+
+        if (vec_count == 2) {
+            sort(t_active.begin(), t_active.end());
+            real t_current_plus = clamp(t_active[1], 0, 1);
+            real t_current_minus = clamp(t_active[2], 0, 1);
+
+            // todo: Verify that segment is tested if two faces side by side are pierced
+            new_seg[0] = (1 - t_current_plus) * seg.p1 + t_current_plus*seg.p2;
+            new_seg[1] = (1 - t_current_minus) * seg.p1 + t_current_minus*seg.p2;
+        }
+        // (end)
+
+        Array distance_face(3);
+        for (u32 i = 0; i < 3; i++) {
+            auto dist_1max = new_seg[0][i] - OBB.e[i];
+            auto dist_2max = new_seg[1][i] - OBB.e[i];
+            auto dist_1min = -(new_seg[0][i] + OBB.e[i]);
+            auto dist_2min = -(new_seg[1][i] + OBB.e[i]);
+            auto dist_1 = ((dist_1max < 0 && dist_2max < 0) && dist_1max < dist_2max) || (dist_1max < 0 && dist_2max >= 0) ? dist_1max : ((dist_1max < 0 && dist_2max < 0) && dist_1max > dist_2max) || (dist_1max >= 0 && dist_2max < 0) ? dist_2max : INF_REAL;
+            auto dist_2 = ((dist_1min < 0 && dist_2min < 0) && dist_1min < dist_2min) || (dist_1min < 0 && dist_2min >= 0) ? dist_1min : ((dist_1min < 0 && dist_2min < 0) && dist_1min > dist_2min) || (dist_1min >= 0 && dist_2min < 0) ? dist_2min : INF_REAL;
+            distance_face[i] = (((dist_1 < 0 && dist_2 < 0) && dist_1 <= dist_2) || (dist_1 < 0 && dist_2 >= 0)) ? dist_1 : (((dist_1 < 0 && dist_2 < 0) && dist_1 > dist_2) || (dist_1 >= 0 && dist_2 < 0)) ? dist_2 : -INF_REAL;
+        }
+        dist_min = array_max(distance_face);
+    }
+    else {
+        Vec3 p2 = {-signe_x*xmax, signe_y*ymax, signe_z*zmax};
+        Vec3 p3 = {signe_x*xmax, -signe_y*ymax, signe_z*zmax};
+        Vec3 p4 = {signe_x*xmax, signe_y*ymax, -signe_z*zmax};
+
+        segment segOBB_12 = {p1, p2};
+        segment segOBB_13 = {p1, p3};
+        segment segOBB_14 = {p1, p4};
+
+        auto two_point_12 = closept(seg, segOBB_12);
+        auto two_point_13 = closept(seg, segOBB_13);
+        auto two_point_14 = closept(seg, segOBB_14);
+
+        Vec3 p1_OBB = {clamp(seg.p1.x, xmin, xmax), clamp(seg.p1.y, ymin, ymax), clamp(seg.p1.z, zmin, zmax)};
+        Vec3 p2_OBB = {clamp(seg.p2.x, xmin, xmax), clamp(seg.p2.y, ymin, ymax), clamp(seg.p2.z, zmin, zmax)};
+
+        vector<two_pts> collision_points(5);
+        collision_points = {two_point_12, two_point_13, two_point_14, {seg.p1, p1_OBB}, {seg.p2, p2_OBB}};
+
+        for (auto &two_point:collision_points) {
+            auto point = two_point.p1;
+
+            auto dist = dot(two_point.p1 - two_point.p2, two_point.p1 - two_point.p2);
+            dist_min = (dist >= 0 && dist < dist_min) ? dist : dist_min;
+        }
+
+        dist_min = sqrt(dist_min);
+    }
+
+    return dist_min - caps.r;
+}
+
 host_fn void add_OBB(Vec3 c, Vec3 e, Mat3 R, objlist* world) {
     OBB new_OBB;
     new_OBB.c = c;
@@ -2240,7 +2385,7 @@ host_fn real dist_min_new(OBB OBB, capsule caps) {
             t_OBB = dot(ab, OBB_point[i]) / dot(ab, ab);
             points.push_back(OBB_point[i] - t_OBB*ab - seg.p1); // This sets the origin as seg.p1
         }
-        
+
         // Using Andrew's algorithm for computing the convex hull
         // Sort points lexicographically
         std::sort(points.begin(), points.end(), comparePoints);
@@ -2278,7 +2423,7 @@ host_fn real dist_min_new(OBB OBB, capsule caps) {
             min_dist = current_dist > min_dist ? current_dist : min_dist;
         }
         min_dist = - sqrt(-min_dist);
-        
+
         // The two endpoints could also get out of a plane.
         real t_current_plus;
         real t_current_minus;
@@ -2295,7 +2440,7 @@ host_fn real dist_min_new(OBB OBB, capsule caps) {
 
             t_current_plus = clamp(t_active[1], 0, 1);
             t_current_minus = clamp(t_active[2], 0, 1);
-            
+
             test_point_plus = (1 - t_current_plus) * seg.p1 + t_current_plus*seg.p2;
             test_point_minus = (1 - t_current_minus) * seg.p1 + t_current_minus*seg.p2;
             dist_points = (test_point_plus[i] + OBB_point[0][i]) < (test_point_minus[i] + OBB_point[0][i]) ? (test_point_plus[i] + OBB_point[0][i]) : (test_point_minus[i] + OBB_point[0][i]);
@@ -2305,7 +2450,8 @@ host_fn real dist_min_new(OBB OBB, capsule caps) {
         }
 
         return min_dist - caps.r;
-    } else {
+    }
+    else {
         segment segOBB_12 = {p1, p2};
         segment segOBB_13 = {p1, p3};
         segment segOBB_14 = {p1, p4};
@@ -3039,6 +3185,12 @@ TEST_CASE("Collisions", "[World]") {
         // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
     }
+    // new dist min pierce method
+    for (auto t : test_obb) {
+        real dist = distmin_pierce(t.box, t.caps);
+        // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+        CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+    }
     // Minkowski sum method
     for (auto t : test_obb) {
         real dist = distmin(t.box, t.caps);
@@ -3084,6 +3236,15 @@ TEST_CASE("Collisions", "[World]") {
         real dist;
         for (auto t : test_obb) {
             dist = dist_min_new(t.box, t.caps);
+            // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+        }
+        return dist;
+    };
+
+    BENCHMARK("box - capsule test dist min pierce") {
+        real dist;
+        for (auto t : test_obb) {
+            dist = distmin_pierce(t.box, t.caps);
             // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
         }
         return dist;
