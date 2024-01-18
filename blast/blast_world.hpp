@@ -666,102 +666,6 @@ host_fn real distmin(OBB OBB, capsule caps) {
     }
     return distcurrent - caps.r;
 }
-
-host_fn real dist_min_new(OBB OBB, capsule caps) {
-    Mat3 Rtrans = transpose(OBB.R);
-
-    segment seg;
-    seg.p1 = Rtrans * (caps.p1 - OBB.c);
-    seg.p2 = Rtrans * (caps.p2 - OBB.c);
-
-    real xmin = - OBB.e[0];
-    real xmax = + OBB.e[0];
-    real ymin = - OBB.e[1];
-    real ymax = + OBB.e[1];
-    real zmin = - OBB.e[2];
-    real zmax = + OBB.e[2];
-
-    auto point = ptint(seg, {0, 0, 0});
-
-    auto signe_x = point.x > 0 ? 1.0 : -1.0;
-    auto signe_y = point.y > 0 ? 1.0 : -1.0;
-    auto signe_z = point.z > 0 ? 1.0 : -1.0;
-
-    Vec3 p1 = {signe_x*xmax, signe_y*ymax, signe_z*zmax};
-    Vec3 p2 = {-signe_x*xmax, signe_y*ymax, signe_z*zmax};
-    Vec3 p3 = {signe_x*xmax, -signe_y*ymax, signe_z*zmax};
-    Vec3 p4 = {signe_x*xmax, signe_y*ymax, -signe_z*zmax};
-
-    segment segOBB_12 = {p1, p2};
-    segment segOBB_13 = {p1, p3};
-    segment segOBB_14 = {p1, p4};
-
-    auto two_point_12 = closept(seg, segOBB_12);
-    auto two_point_13 = closept(seg, segOBB_13);
-    auto two_point_14 = closept(seg, segOBB_14);
-
-    // todo : Unsure of this pierce detection
-    real tx = (seg.p1.x - p1.x) / (seg.p1.x - seg.p2.x);
-    real ty = (seg.p1.y - p1.y) / (seg.p1.y - seg.p2.y);
-    real tz = (seg.p1.z - p1.z) / (seg.p1.z - seg.p2.z);
-
-    Vec3 ab = seg.p2 - seg.p1;
-
-    Vec3 inter_x = seg.p1 + tx * ab;
-    Vec3 inter_y = seg.p1 + ty * ab;
-    Vec3 inter_z = seg.p1 + tz * ab;
-
-    bool pierce_x = (tx < 1 && tx > 0) && (inter_x.y >= ymin && inter_x.y <= ymax) && (inter_x.z >= zmin && inter_x.z <= zmax);
-    bool pierce_y = (ty < 1 && ty > 0) && (inter_y.x >= xmin && inter_y.x <= xmax) && (inter_y.z >= zmin && inter_y.z <= zmax);
-    bool pierce_z = (tz < 1 && tz > 0) && (inter_z.y >= ymin && inter_z.y <= ymax) && (inter_z.x >= xmin && inter_z.x <= zmax);
-
-    bool pierce = pierce_x || pierce_y || pierce_z;
-
-    if (pierce) {
-        // Define the OBB points in the plan where its normal is the capsule inner segment
-        
-
-    } else {
-        Vec3 p1_OBB = {clamp(seg.p1.x, xmin, xmax), clamp(seg.p1.y, ymin, ymax), clamp(seg.p1.z, zmin, zmax)};
-        Vec3 p2_OBB = {clamp(seg.p2.x, xmin, xmax), clamp(seg.p2.y, ymin, ymax), clamp(seg.p2.z, zmin, zmax)};
-
-        vector<two_pts> collision_points(5);
-        collision_points = {two_point_12, two_point_13, two_point_14, {seg.p1, p1_OBB}, {seg.p2, p2_OBB}};
-
-        real dist_min = INF_REAL;
-        for (auto &two_point:collision_points) {
-            auto point = two_point.p1;
-            real inside = ((point.x < OBB.e.x && point.x > -OBB.e.x) && (point.y < OBB.e.y && point.y > -OBB.e.y) && (point.z < OBB.e.z && point.z > -OBB.e.z)) ? -1.0 : 1.0;
-
-            auto dist = inside*dot(two_point.p1 - two_point.p2, two_point.p1 - two_point.p2);
-            dist_min = ((dist >= 0 && dist < dist_min) || ((dist < 0) && ((dist > dist_min) || (dist_min > 0)))) ? dist : dist_min;
-        }
-
-        real dist_min_sq = dist_min >= 0 ? sqrt(dist_min) : -sqrt(-dist_min);
-        return dist_min_sq - caps.r;
-    }
-
-    // if (dist_min < 0) {
-    //     real dist = INF_REAL;
-    //     for (u32 i=0; i < 3; i++) {
-    //         auto d1_max = p1[i] - OBB.e[i];
-    //         auto d1_min = - p1[i] - OBB.e[i];
-    //         auto d2_max = p2[i] - OBB.e[i];
-    //         auto d2_min = - p2[i] - OBB.e[i];
-
-    //         auto d1 = d1_max < d1_min ? d1_max : d1_min;
-    //         auto d2 = d2_max < d2_min ? d2_max : d2_min;
-    //         auto d_min = d1 < d2 ? d1 : d2;
-    //         dist = (d_min <= 0 && d_min > dist) ? d_min : dist;
-    //     }
-    //     dist_min = (dist <= 0 && dist < dist_min) ? dist : dist_min;
-    //     Assert(dist_min < 0);
-    // }
-
-    auto dist_min_sq = dist_min >= 0 ? sqrt(dist_min) : -sqrt(-dist_min);
-    return dist_min_sq - caps.r;
-}
-
 host_fn void add_OBB(Vec3 c, Vec3 e, Mat3 R, objlist* world) {
     OBB new_OBB;
     new_OBB.c = c;
@@ -2211,6 +2115,223 @@ host_fn real GJK_OBB_caps(capsule caps, OBB box) {
     return dist;
 }
 
+// host_fn real GJK_2D_precomputed_sum(std::vector<Vec3> Set_1) {
+//     // This version of the GJK algorithm is implemented from the basic algorithm described in Collision Detection
+//     // manual by Ericson.
+//     // 1. Initializing simplex to a point from a random direction
+//     Vec3 direction = Set_1[0];
+//     Vec3 V = GJK_get_support(Set_1, -direction);
+//     Simplex simplex;
+//     simplex.a = V;
+//     simplex.size = 1;
+//     while (true) {
+//         // 2. Computing the point P of minimum norm in CH(Q)
+//         switch (simplex.size) {
+//         case 1:
+//             simplex.P = simplex.a;
+//             break;
+//         case 2:
+//             GJK_solve_simplex2_Ericson(&simplex);
+//             break;
+//         case 3:
+//             GJK_solve_simplex3_Ericson(&simplex);
+//             break;
+//         default:
+//             Assert(false);
+//         }
+//         // 3. If P is the origin itself, the origin is clearly contained in the Minkowski difference of A and B.
+//         // Stop and return A and B as intersecting.
+//         if (dot(simplex.P, simplex.P) < COLLISION_EPSILON) {
+//             real dist = EPA_algorithm_2d_precumputed_sum(simplex, Set_1);
+//             return dist;
+//         }
+//         // 4. Reduce Q to the smallest subset Q' of Q such that P is still in CH(Q). That is, remove any points
+//         // from Q not determining the subsimplex of Q in which P lies.
+//         // (This is done automatically in GJK_solve_simplex functions)
+//         // 5. Find the next supporting point in direction -P
+//         V = GJK_get_support(Set_1, simplex.P);
+//         // 7. Add V to Q and go to 2.
+//         // todo : optimize this part of code using std::vector instead of Vec3 for a, b, c, d
+//         Assert(simplex.size <=2);
+//         if (simplex.size == 1)
+//             simplex.b = V;
+//         if (simplex.size == 2)
+//             simplex.c = V;
+//         simplex.size += 1;
+//     }
+// }
+
+bool comparePoints(const Vec3& a, const Vec3& b) {
+    return (a.x < b.x) || (a.x == b.x && a.y < b.y) || (a.x == b.x && a.y == b.y && a.z < b.z);
+}
+
+bool isLeftTurn(const Vec3& p, const Vec3& q, const Vec3& r) {
+    return (q.x - p.x) * (r.y - p.y) - (r.x - p.x) * (q.y - p.y) > 0;
+}
+
+host_fn real dist_min_new(OBB OBB, capsule caps) {
+    Mat3 Rtrans = transpose(OBB.R);
+
+    segment seg;
+    seg.p1 = Rtrans * (caps.p1 - OBB.c);
+    seg.p2 = Rtrans * (caps.p2 - OBB.c);
+
+    real xmin = - OBB.e[0];
+    real xmax = + OBB.e[0];
+    real ymin = - OBB.e[1];
+    real ymax = + OBB.e[1];
+    real zmin = - OBB.e[2];
+    real zmax = + OBB.e[2];
+
+    auto point = ptint(seg, {0, 0, 0});
+
+    auto signe_x = point.x > 0 ? 1.0 : -1.0;
+    auto signe_y = point.y > 0 ? 1.0 : -1.0;
+    auto signe_z = point.z > 0 ? 1.0 : -1.0;
+
+    //todo: use copysign function
+    Vec3 p1 = {signe_x*xmax, signe_y*ymax, signe_z*zmax};
+    Vec3 p2 = {-signe_x*xmax, signe_y*ymax, signe_z*zmax};
+    Vec3 p3 = {signe_x*xmax, -signe_y*ymax, signe_z*zmax};
+    Vec3 p4 = {signe_x*xmax, signe_y*ymax, -signe_z*zmax};
+
+    real t[6];
+    t[0] = (seg.p1.x - p1.x) / (seg.p1.x - seg.p2.x); // x+ plane
+    t[1] = (seg.p1.x + p1.x) / (seg.p1.x - seg.p2.x); // x- plane
+    t[2] = (seg.p1.y - p1.y) / (seg.p1.y - seg.p2.y); // y+ plane
+    t[3] = (seg.p1.y + p1.y) / (seg.p1.y - seg.p2.y); // y- plane
+    t[4] = (seg.p1.z - p1.z) / (seg.p1.z - seg.p2.z); // z+ plane
+    t[5] = (seg.p1.z + p1.z) / (seg.p1.z - seg.p2.z); // z- plane
+
+    Vec3 ab = seg.p2 - seg.p1;
+
+    Vec3 inter_x1 = seg.p1 + t[0] * ab;
+    Vec3 inter_x2 = seg.p1 + t[1] * ab;
+    Vec3 inter_y1 = seg.p1 + t[2] * ab;
+    Vec3 inter_y2 = seg.p1 + t[3] * ab;
+    Vec3 inter_z1 = seg.p1 + t[4] * ab;
+    Vec3 inter_z2 = seg.p1 + t[5] * ab;
+
+    bool pierce_x1 = (t[0] < 1 && t[0] > 0) && (inter_x1.y >= ymin && inter_x1.y <= ymax) && (inter_x1.z >= zmin && inter_x1.z <= zmax);
+    bool pierce_x2 = (t[1] < 1 && t[1] > 0) && (inter_x2.y >= ymin && inter_x2.y <= ymax) && (inter_x2.z >= zmin && inter_x2.z <= zmax);
+    bool pierce_y1 = (t[2] < 1 && t[2] > 0) && (inter_y1.x >= xmin && inter_y1.x <= xmax) && (inter_y1.z >= zmin && inter_y1.z <= zmax);
+    bool pierce_y2 = (t[3] < 1 && t[3] > 0) && (inter_y2.x >= xmin && inter_y2.x <= xmax) && (inter_y2.z >= zmin && inter_y2.z <= zmax);
+    bool pierce_z1 = (t[4] < 1 && t[4] > 0) && (inter_z1.y >= ymin && inter_z1.y <= ymax) && (inter_z1.x >= xmin && inter_z1.x <= xmax);
+    bool pierce_z2 = (t[5] < 1 && t[5] > 0) && (inter_z2.y >= ymin && inter_z2.y <= ymax) && (inter_z2.x >= xmin && inter_z2.x <= xmax);
+
+    bool pierce = pierce_x1 || pierce_x2 || pierce_y1 || pierce_y2 || pierce_z1 ||pierce_z2;
+
+    if (pierce) {
+        // Define the OBB points in the plan where its normal is the capsule inner segment
+        Vec3 OBB_point[8];
+
+        OBB_point[0] = {xmin, ymin, zmin};
+        OBB_point[1] = {xmin, ymin, zmax};
+        OBB_point[2] = {xmin, ymax, zmin};
+        OBB_point[3] = {xmin, ymax, zmax};
+        OBB_point[4] = {xmax, ymin, zmin};
+        OBB_point[5] = {xmax, ymin, zmax};
+        OBB_point[6] = {xmax, ymax, zmin};
+        OBB_point[7] = {xmax, ymax, zmax};
+
+        std::vector<Vec3> points;
+        real t_OBB;
+        for (int i = 0; i < 8; i++) {
+            t_OBB = dot(ab, OBB_point[i]) / dot(ab, ab);
+            points.push_back(OBB_point[i] - t_OBB*ab - seg.p1); // This sets the origin as seg.p1
+        }
+        
+        // Using Andrew's algorithm for computing the convex hull
+        // Sort points lexicographically
+        std::sort(points.begin(), points.end(), comparePoints);
+
+        // Lower hull
+        std::vector<Vec3> lower_hull;
+        for (int i = 0; i < points.size(); ++i) {
+            while (lower_hull.size() >= 2 && !isLeftTurn(lower_hull[lower_hull.size() - 2], lower_hull.back(), points[i]))
+                lower_hull.pop_back();
+            lower_hull.push_back(points[i]);
+        }
+
+        // Upper hull
+        std::vector<Vec3> upper_hull;
+        for (int i = points.size() - 1; i >= 0; --i) {
+            while (upper_hull.size() >= 2 && !isLeftTurn(upper_hull[upper_hull.size() - 2], upper_hull.back(), points[i]))
+                upper_hull.pop_back();
+            upper_hull.push_back(points[i]);
+        }
+
+        // Concatenate lower and upper hulls (excluding duplicate endpoints)
+        lower_hull.pop_back();  // Remove last point of lower hull as it's the same as the first point of upper hull
+        lower_hull.insert(lower_hull.end(), upper_hull.begin(), upper_hull.end() - 1);
+
+        // todo: change lower hull insert for hull[6]
+        Vec3 hull[6];
+        real current_dist;
+        real min_dist = -INF_REAL;
+        Vec3 closest_point;
+
+        for (int i = 0; i < 6; i++) {
+            closest_point = closept_origin({lower_hull[i], lower_hull[(i + 1) % 6]});
+            current_dist = - dot(closest_point, closest_point);
+            // Compare distance with min_dist
+            min_dist = current_dist > min_dist ? current_dist : min_dist;
+        }
+        min_dist = - sqrt(-min_dist);
+        
+        // The two endpoints could also get out of a plane.
+        real t_current_plus;
+        real t_current_minus;
+        Vec3 test_point_plus;
+        Vec3 test_point_minus;
+        real dist_points;
+
+        for (int i = 0; i < 3; i++) {
+            // t_current_plus = clamp(t[(i+2) % 6], 0, 1) < clamp(t[(i+3) % 6], 0, 1) ? clamp(t[(i+2) % 6], 0, 1) : clamp(t[(i+3) % 6], 0, 1);
+            // t_current_minus = clamp(t[(i+4) % 6], 0, 1) < clamp(t[(i+5) % 6], 0, 1) ? clamp(t[(i+4) % 6], 0, 1) : clamp(t[(i+5) % 6], 0, 1);
+            std::vector<real> t_active = {t[(i+2) % 6], t[(i+3) % 6], t[(i+4) % 6], t[(i+5) % 6]};
+
+            sort(t_active.begin(), t_active.end());
+
+            t_current_plus = clamp(t_active[1], 0, 1);
+            t_current_minus = clamp(t_active[2], 0, 1);
+            
+            test_point_plus = (1 - t_current_plus) * seg.p1 + t_current_plus*seg.p2;
+            test_point_minus = (1 - t_current_minus) * seg.p1 + t_current_minus*seg.p2;
+            dist_points = (test_point_plus[i] + OBB_point[0][i]) < (test_point_minus[i] + OBB_point[0][i]) ? (test_point_plus[i] + OBB_point[0][i]) : (test_point_minus[i] + OBB_point[0][i]);
+            min_dist = dist_points < 0 && dist_points > min_dist ? dist_points : min_dist;
+            dist_points = (OBB_point[0][i] - test_point_plus[i]) < (OBB_point[0][i] - test_point_minus[i]) ? (OBB_point[0][i] - test_point_plus[i]) : (OBB_point[0][i] - test_point_minus[i]);
+            min_dist = dist_points < 0 && dist_points > min_dist ? dist_points : min_dist;
+        }
+
+        return min_dist - caps.r;
+    } else {
+        segment segOBB_12 = {p1, p2};
+        segment segOBB_13 = {p1, p3};
+        segment segOBB_14 = {p1, p4};
+
+        two_pts two_point_12 = closept(seg, segOBB_12);
+        two_pts two_point_13 = closept(seg, segOBB_13);
+        two_pts two_point_14 = closept(seg, segOBB_14);
+
+        Vec3 p1_OBB = {clamp(seg.p1.x, xmin, xmax), clamp(seg.p1.y, ymin, ymax), clamp(seg.p1.z, zmin, zmax)};
+        Vec3 p2_OBB = {clamp(seg.p2.x, xmin, xmax), clamp(seg.p2.y, ymin, ymax), clamp(seg.p2.z, zmin, zmax)};
+
+        vector<two_pts> collision_points(5);
+        collision_points = {two_point_12, two_point_13, two_point_14, {seg.p1, p1_OBB}, {seg.p2, p2_OBB}};
+
+        real dist_min = INF_REAL;
+        real dist;
+        for (auto &two_point:collision_points) {
+            dist = dot(two_point.p1 - two_point.p2, two_point.p1 - two_point.p2);
+            dist_min = dist < dist_min ? dist : dist_min;
+        }
+
+        real dist_min_sqrt = sqrt(dist_min);
+        return dist_min_sqrt - caps.r;
+    }
+}
+
 // ======================================
 //      Boolean GJK algorithm
 // ======================================
@@ -2870,7 +2991,7 @@ collision_test_box test_obb[] = {
     /*Test9*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { -1.15, 13.92, -7.48 }, { 1.53, 0.14, 4.27 }, 1 }, 0.73046237 },
     /*Test10*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.54, 0.1, 10.59 }, { 1.86, 13.87, -1.15 }, 1 }, -1.00000000 },
     /*Test11*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 10.76, 0.28, 8.08 }, { 13.44, -13.5, 19.83 }, 1 }, -0.21961454 },
-    // /*Test12*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.96, 0.43, 8.3 }, { 7.64, -13.35, 20.05 }, 1 }, -1.53000000 },
+    /*Test12*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.96, 0.43, 8.3 }, { 7.64, -13.35, 20.05 }, 1 }, -1.53000000 },
     /*Test13*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.48, -4.07, 0.76 }, { 8.64, -4.41, 18.58 }, 1 }, 3.06923695 },
     /*Test14*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 17.48, 2.95, 13.77 }, { -0.82, 3.11, 13.77 }, 1 }, 2.41054264 },
     /*Test15*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.18, 8.56, 4.82 }, { 11.04, -6.44, 15.29 }, 1 }, 0.09912546 },
@@ -2884,7 +3005,7 @@ collision_test_box test_obb[] = {
     /*Test22*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.8, 3.83, 14.57 }, { 2.87, 0.03, 9.81 }, 0.5 }, 1.47889394 },
     /*Test23*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 4.28, 6.32, 8.33 }, { 3.21, 10.12, 13.09 }, 0.5 }, 0.82000000 },
     /*Test24*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.36, 2.3, 6.31 }, { 3.43, -1.5, 1.55 }, 0.5 }, 0.26887914 },
-    // /*Test25*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.93, 7.6, 12.29 }, { 4, 3.8, 7.53 }, 0.5 }, -0.93234019 },
+    /*Test25*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.93, 7.6, 12.29 }, { 4, 3.8, 7.53 }, 0.5 }, -0.93234019 },
     /*Test26*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 7.55, 0.92, 10.24 }, { 6.48, 4.72, 15 }, 0.5 }, -0.32852683 },
     /*Test27*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 6.79, 5, 13.29 }, { 7.86, 1.2, 8.52 }, 0.5 }, -0.40212621 },
     /*Test28*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.66, -0.92, 7.44 }, { 8.04, 4.16, 9.96 }, 0.5 }, 0.87078210 },
@@ -2913,11 +3034,11 @@ TEST_CASE("Collisions", "[World]") {
     }
 
     // new dist min method
-    // for (auto t : test_obb) {
-    //     real dist = dist_min_new(t.box, t.caps);
-    //     // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
-    //     CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
-    // }
+    for (auto t : test_obb) {
+        real dist = dist_min_new(t.box, t.caps);
+        // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+        CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+    }
     // Minkowski sum method
     for (auto t : test_obb) {
         real dist = distmin(t.box, t.caps);
@@ -2959,7 +3080,7 @@ TEST_CASE("Collisions", "[World]") {
         return dist;
     };
 
-    BENCHMARK("box - capsule tewst new dist min") {
+    BENCHMARK("box - capsule test new dist min") {
         real dist;
         for (auto t : test_obb) {
             dist = dist_min_new(t.box, t.caps);
