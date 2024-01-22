@@ -12,6 +12,7 @@ struct Optimisation {
     Bspline*     bspline = nullptr;
     objlist*     world   = nullptr;
     int          n_collision_constraints = 5;
+    int          n_collision_skip = 2;
 };
 
 //--------- OBJECTIVES AND CONSTRAINTS ----------------------------------------------------------
@@ -124,6 +125,83 @@ host_fn void cstr_manip(unsigned m, double *result, unsigned xlen, const double*
             memcpy(x_plus.data, x, xlen * sizeof(real));
             x_plus[j] += eps;
             internal_cstr_manip_single(m, r_plus.data, xlen, x_plus.data, opt);
+            for (u32 i = 0; i < m; i++)
+                grad[i*xlen + j] = (r_plus[i]-result[i])/eps;
+        }
+    }
+}
+
+host_fn void cstr_world_gen3(unsigned m, double *result, unsigned xlen, const double* x, double* grad, void* f_data) {
+    Optimisation* opt = (Optimisation*)f_data;
+    const int points = opt->bspline->points;
+    const auto ncon = opt->manip->ncon(points);
+
+    internal_cstr_manip_single(m, result, xlen, x, opt);
+
+    Gen3_7DOF* manip = (Gen3_7DOF*) opt->manip;
+    Matrix caps_matrix = manip->robot_capsules(opt->bspline->traj.pos, opt->n_collision_skip);
+    const int caps_size = caps_matrix.cols;
+
+    capslist capsules;
+    capsules.caps.resize(caps_size * 3); // 3 capsules for each point along the trajectory
+    real radius = 0.055; // Hard coded radius of all robot capsules
+    for (int i = 0; i < caps_size; i++) {
+        auto caps_tmp = caps_matrix.col(i);
+
+        Vec3 p_j2 = {caps_tmp[0], caps_tmp[1], caps_tmp[2]};
+        Vec3 p_j4 = {caps_tmp[3], caps_tmp[4], caps_tmp[5]};
+        Vec3 p_j6 = {caps_tmp[6], caps_tmp[7], caps_tmp[8]};
+        Vec3 p_ee = {caps_tmp[9], caps_tmp[10], caps_tmp[11]};
+
+        capsules.caps[i*3].p1 = p_j2;
+        capsules.caps[i*3].p2 = p_j4;
+        capsules.caps[i*3].r = radius;
+        capsules.caps[i*3 + 1].p1 = p_j4;
+        capsules.caps[i*3 + 1].p2 = p_j6;
+        capsules.caps[i*3 + 1].r = radius;
+        capsules.caps[i*3 + 2].p1 = p_j6;
+        capsules.caps[i*3 + 2].p2 = p_ee;
+        capsules.caps[i*3 + 2].r = radius;
+    }
+    double* r = &result[ncon];
+    std::vector<real> collisions = test_collision(&capsules, opt->world, opt->n_collision_constraints);
+    for (int i = 0; i < opt->n_collision_constraints; i ++) {
+        *r = -collisions[i];
+        r++;
+    }
+
+    if (grad) {
+        const real eps = 1e-5;
+        Array x_plus(xlen);
+        Array r_plus(m);
+        for (u32 j = 0; j < xlen; j++) {
+            memcpy(x_plus.data, x, xlen * sizeof(real));
+            x_plus[j] += eps;
+            internal_cstr_manip_single(m, r_plus.data, xlen, x_plus.data, opt);
+            caps_matrix = manip->robot_capsules(opt->bspline->traj.pos, opt->n_collision_skip);
+            for (int i = 0; i < caps_size; i++) {
+                auto caps_tmp = caps_matrix.col(i);
+
+                Vec3 p_j2 = {caps_tmp[0], caps_tmp[1], caps_tmp[2]};
+                Vec3 p_j4 = {caps_tmp[3], caps_tmp[4], caps_tmp[5]};
+                Vec3 p_j6 = {caps_tmp[6], caps_tmp[7], caps_tmp[8]};
+                Vec3 p_ee = {caps_tmp[9], caps_tmp[10], caps_tmp[11]};
+
+                capsules.caps[i*3].p1 = p_j2;
+                capsules.caps[i*3].p2 = p_j4;
+                capsules.caps[i*3].r = radius;
+                capsules.caps[i*3 + 1].p1 = p_j4;
+                capsules.caps[i*3 + 1].p2 = p_j6;
+                capsules.caps[i*3 + 1].r = radius;
+                capsules.caps[i*3 + 2].p1 = p_j6;
+                capsules.caps[i*3 + 2].p2 = p_ee;
+                capsules.caps[i*3 + 2].r = radius;
+            }
+
+            collisions = test_collision(&capsules, opt->world, opt->n_collision_constraints);
+            for (int i = 0; i < opt->n_collision_constraints; i ++) {
+                r_plus[ncon + i] = -collisions[i];
+            }
             for (u32 i = 0; i < m; i++)
                 grad[i*xlen + j] = (r_plus[i]-result[i])/eps;
         }

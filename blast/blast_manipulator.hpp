@@ -160,6 +160,7 @@ struct Gen3_7DOF : public Manipulator {
 
     // check that the task given is feasible (collision and joint limits)
     virtual bool validate_task(const Matrix &task) override;
+    virtual Matrix robot_capsules(const Matrix &joint_position, const int n_skip);
 
     virtual u32 ncon(u32 npoints) override {
         // 5 collision results
@@ -1585,7 +1586,6 @@ host_fn Array Gen3_7DOF::collision_check(const Array &joint_position) {
 
     // Self collisions sqr
     real dist1sqr = two_segment_distance_sqr(p_orig, p_j2, p_j6, p_ee) - r1sqr;
-    // real dist2J2sqr = ((p_ee.x - p_j2.x) + (p_j6.x - p_j2.x)) * ((p_ee.x - p_j2.x) + (p_j6.x - p_j2.x)) + ((p_ee.y - p_j2.y) + (p_j6.y - p_j2.y)) * ((p_ee.y - p_j2.y) + (p_j6.y - p_j2.y)) + ((p_ee.z - p_j2.z) + (p_j6.z - p_j2.z)) * ((p_ee.z - p_j2.z) + (p_j6.z - p_j2.z)) - r2sqr;
     real dist2J2sqr = two_segment_distance_sqr(p_j2, p_j2, p_j6, p_ee) - r2sqr; // distance sqr from J2 to J6 EE line (sphere)
     real dist2Msqr = two_segment_distance_sqr(p_j2, p_j3, p_j6, p_ee) - r1sqr;  // distance sqr from J2 J3 line to J6 EE line (capsule)
     real dist2sqr = dist2J2sqr <= dist2Msqr ? dist2J2sqr : dist2Msqr;
@@ -1668,7 +1668,7 @@ host_fn void Gen3_7DOF::constraints(const Matrix &pos, const Matrix &vel, const 
 
     for (u32 i = 0; i < points; i++) {
         // collision
-        Array p = pos.col(i); Assert(p.is_alias);
+        auto p = pos.col(i); Assert(p.is_alias);
         auto tmp_coll = collision_check(p);
         dst[0] = -tmp_coll[0]; // dist1sqr
         dst[1] = -tmp_coll[1]; // dist2sqr
@@ -1698,6 +1698,66 @@ host_fn bool Gen3_7DOF::validate_task(const Matrix &task) {
     auto ci = constraints(task.col(0), task.col(1), task.col(2));
     auto cf = constraints(task.col(3), task.col(4), task.col(5));
     return array_max(ci) > 0 && array_max(cf) > 0 ? false: true;
+}
+
+host_fn Matrix Gen3_7DOF::robot_capsules(const Matrix &joint_positions, const int n_skip) {
+    Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
+    int n_col = joint_positions.cols/n_skip; // todo: Remove last capsule Find the amount of capsules caluclated by n_skip
+    Matrix result_capsules(12, n_col);
+
+    Array s(7);
+    Array c(7);
+    for (u32 col = 0; col < n_col; col++) {
+        auto joint_position_tmp = joint_positions.col(col*n_skip);
+        blast::sincos(joint_position_tmp, s, c);
+
+        // note: these are stored column-wise
+        Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
+        Q2 = {c[1], 0, s[1], -s[1], 0, c[1], 0, -1, 0};
+        Q3 = {c[2], 0, -s[2], -s[2], 0, -c[2], 0, 1, 0};
+        Q4 = {c[3], 0, s[3], -s[3], 0, c[3], 0, -1, 0};
+        Q5 = {c[4], 0, -s[4], -s[4], 0, -c[4], 0, 1, 0};
+        Q6 = {c[5], 0, s[5], -s[5], 0, c[5], 0, -1, 0};
+        Q7 = {c[6], 0, -s[6], -s[6], 0, -c[6], 0, 1, 0};
+
+        Vec3 p_orig(0, 0, 0);
+        Vec3 p_j2;
+        Vec3 p_j4;
+        Vec3 p_j6;
+        Vec3 p_ee;
+
+        auto p_tmp = p_base;
+        auto Q_tmp = Q1;
+        p_tmp += Q_tmp * dv[0];
+        p_j2 = p_tmp;
+        p_tmp += (Q_tmp *= Q2) * dv[1];
+        p_tmp += (Q_tmp *= Q3) * dv[2];
+        p_j4 = p_tmp;
+        p_tmp += (Q_tmp *= Q4) * dv[3];
+        p_tmp += (Q_tmp *= Q5) * dv[4];
+        p_j6 = p_tmp;
+        p_tmp += (Q_tmp *= Q6) * dv[5];
+        p_tmp += (Q_tmp *= Q7) * dv[6];
+        p_ee = p_tmp;
+
+        result_capsules(0, col) = p_j2.x;
+        result_capsules(1, col) = p_j2.y;
+        result_capsules(2, col) = p_j2.z;
+
+        result_capsules(3, col) = p_j4.x;
+        result_capsules(4, col) = p_j4.y;
+        result_capsules(5, col) = p_j4.z;
+
+        result_capsules(6, col) = p_j6.x;
+        result_capsules(7, col) = p_j6.y;
+        result_capsules(8, col) = p_j6.z;
+
+        result_capsules(9, col) = p_ee.x;
+        result_capsules(10, col) = p_ee.y;
+        result_capsules(11, col) = p_ee.z;
+    }
+
+    return result_capsules;
 }
 
 //------ Kinova Gen3 7DOF manipulator functions (using Eigen) ---------------------------------------
@@ -2385,7 +2445,7 @@ host_fn bool Gen3Eigen::validate_task(const MatrixXd &task) {
     return (ArrayXd(ci) <= 0).all() && (ArrayXd(cf) <= 0).all(); // todo: verify
 }
 
-//------ Kinova Gen3 7DOF manipulator functions ---------------------------------------
+//------ Kinova Link6 6DOF manipulator functions ---------------------------------------
 
 host_fn Link6::Link6() : Manipulator(6) {
     p_base = {0, 0, 0.0530f};

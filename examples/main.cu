@@ -5,7 +5,6 @@
 
 int main() {
     using namespace blast;
-    world.OBBlist.clear();
     Gen3_7DOF manip;
 
     // init
