@@ -128,6 +128,146 @@ void eval_function() {
     }
 }
 
+
+void eval_function_pso() {
+    using namespace blast;
+    for (;;) {
+        // determine the config to execute
+        mut_config.lock();
+        if (config_index >= config_list.size()) {
+            mut_config.unlock();
+            break;
+        }
+        auto config = config_list[config_index];
+        printf("Worker %5lld, working on unit %4d of %4d\n", std::this_thread::get_id(), config_index, (int)config_list.size());
+        config_index++;
+        mut_config.unlock();
+
+        // extract the optimization configuration
+        const u32 npts = config.npts;
+        const u32 nctrl = config.nctrl;
+        const u32 p = config.p;
+        const u32 noptim = config.noptim;
+        std::vector<Result> tmp_result_list(noptim);
+
+        // Create the manipulator with given #points and #control points
+        Gen3_7DOF manip;
+        manip.set_payload_without_gripper(config.m);
+        Bspline bspline(nctrl, npts, p, manip.joints);
+
+        // Create a manipulator to check more constraints for validation
+        Gen3_7DOF manip_more_points;
+        manip_more_points.set_payload_without_gripper(config.m);
+        Bspline bspline_more_points(nctrl, 10000, p, manip_more_points.joints);
+
+        // prep optimization
+        Optimisation optim{&manip, &config.task, &bspline};
+
+        auto start_time = get_tick_us();
+
+        // optimization vector
+        Array x(optim.bspline->xlen(*optim.task));
+
+        for (int iter = 0; iter < noptim; iter++) {
+            // launch optimization
+            auto T1 = get_tick_us();
+            double f = pso_optimize(x, optim);
+            auto T2 = get_tick_us();
+            double time = (T2 - T1) / 1000.0;
+
+            // check solution
+            bspline.compute_trajectory(x, config.task);
+            auto max_con = array_max(manip.constraints(bspline.traj));
+            bool is_valid = max_con < 0.01;
+
+            bspline_more_points.compute_trajectory(x, config.task);
+            auto max_con_more_points = array_max(manip_more_points.constraints(bspline_more_points.traj));
+            bool is_valid_more_points = max_con_more_points < 0.05;
+
+            tmp_result_list[iter].success = is_valid && is_valid_more_points;
+            tmp_result_list[iter].success_false = is_valid && !is_valid_more_points;
+            tmp_result_list[iter].compute_time = time;
+            tmp_result_list[iter].config = config;
+            tmp_result_list[iter].x = x;
+        }
+        mut_result.lock();
+        result_list.insert(result_list.end(), tmp_result_list.begin(), tmp_result_list.end());
+        mut_result.unlock();
+
+        auto total_time = (get_tick_us() - start_time) / 1000.0;
+    }
+}
+
+void eval_function_gwo() {
+    using namespace blast;
+    for (;;) {
+        // determine the config to execute
+        mut_config.lock();
+        if (config_index >= config_list.size()) {
+            mut_config.unlock();
+            break;
+        }
+        auto config = config_list[config_index];
+        printf("Worker %5lld, working on unit %4d of %4d\n", std::this_thread::get_id(), config_index, (int)config_list.size());
+        config_index++;
+        mut_config.unlock();
+
+        // extract the optimization configuration
+        const u32 npts = config.npts;
+        const u32 nctrl = config.nctrl;
+        const u32 p = config.p;
+        const u32 noptim = config.noptim;
+        std::vector<Result> tmp_result_list(noptim);
+
+        // Create the manipulator with given #points and #control points
+        Gen3_7DOF manip;
+        manip.set_payload_without_gripper(config.m);
+        Bspline bspline(nctrl, npts, p, manip.joints);
+
+        // Create a manipulator to check more constraints for validation
+        Gen3_7DOF manip_more_points;
+        manip_more_points.set_payload_without_gripper(config.m);
+        Bspline bspline_more_points(nctrl, 10000, p, manip_more_points.joints);
+
+        // prep optimization
+        Optimisation optim{&manip, &config.task, &bspline};
+
+        auto start_time = get_tick_us();
+
+        // optimization vector
+        Array x(optim.bspline->xlen(*optim.task));
+
+        for (int iter = 0; iter < noptim; iter++) {
+            // launch optimization
+            auto T1 = get_tick_us();
+            double f = gwo_optimize(x, optim);
+            auto T2 = get_tick_us();
+            double time = (T2 - T1) / 1000.0;
+
+            // check solution
+            bspline.compute_trajectory(x, config.task);
+            auto max_con = array_max(manip.constraints(bspline.traj));
+            bool is_valid = max_con < 0.01;
+
+            bspline_more_points.compute_trajectory(x, config.task);
+            auto max_con_more_points = array_max(manip_more_points.constraints(bspline_more_points.traj));
+            bool is_valid_more_points = max_con_more_points < 0.05;
+
+            tmp_result_list[iter].success = is_valid && is_valid_more_points;
+            tmp_result_list[iter].success_false = is_valid && !is_valid_more_points;
+            tmp_result_list[iter].compute_time = time;
+            tmp_result_list[iter].config = config;
+            tmp_result_list[iter].x = x;
+        }
+        mut_result.lock();
+        result_list.insert(result_list.end(), tmp_result_list.begin(), tmp_result_list.end());
+        mut_result.unlock();
+
+        auto total_time = (get_tick_us() - start_time) / 1000.0;
+    }
+}
+
+
 int main() {
     using namespace blast;
 
@@ -186,7 +326,10 @@ int main() {
     std::vector<std::thread> workers;
 
     for (int i = 0; i < thread_count; i++)
-        workers.push_back(std::thread(eval_function));
+        //workers.push_back(std::thread(eval_function));
+        workers.push_back(std::thread(eval_function_pso));
+        //workers.push_back(std::thread(eval_function_gwo));
+
 
     for (auto &t : workers)
         t.join();

@@ -12,6 +12,8 @@
 #include <cmath>
 #include <string>
 #include "blast_math.hpp"
+#include <string>
+#include <fstream>
 
 namespace blast {
 
@@ -86,6 +88,17 @@ blast_fn void print(float* data, unsigned rows, unsigned cols) {
             printf("% 0.4f, ", data[i + rows*j]);
         printf("% 0.4f]\n", data[i + rows*(cols-1)]);
     }
+}
+
+host_fn void print_to_csv(const Matrix& m, const std::string &filename) {
+    std::ofstream file;
+    file.open(filename);
+    for (u32 i = 0; i < m.rows; i++) {
+        for (u32 j = 0; j < m.cols-1; j++)
+            file << m(i, j) << ",";
+        file << m(i, m.cols-1) << std::endl;
+    }
+    file.close();
 }
 
 // get the time

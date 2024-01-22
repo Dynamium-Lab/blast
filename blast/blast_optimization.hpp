@@ -76,7 +76,23 @@ host_fn double obj_time(unsigned n, const double* x, double* grad, void*) {
     }
     return result;
 }
+host_fn real penalty_obj_time(Array x, Optimisation optim) {
+    const auto points = optim.bspline->points;
 
+    Array cstr(optim.manip->ncon(points));
+    auto f = obj_time(x.size, x.data, nullptr, nullptr);
+    cstr_manip(optim.manip->ncon(points), cstr.data, x.size, x.data, nullptr, &optim);
+
+    for (int i = 0; i < cstr.size; i++)
+        // f += cstr[i] > 0 ? (cstr[i]* cstr[i]) : 0; // todo: explore alternatives
+        // f += cstr[i] > 0 ? (abs(cstr[i])) : 0; // todo: explore alternatives
+        // f += cstr[i] > 0 ? ((i+1) * cstr[i] * cstr[i]) : 0; // todo: explore alternatives
+        // logarithmic penalty of abs(cstr[i])
+        // exponential
+        f += cstr[i] > 0 ? ((i+1) * cstr[i]) : 0; // todo: explore alternatives
+
+    return f;
+}
 host_fn void internal_cstr_manip_single(unsigned m, double* result, unsigned n, const double* x, blast::Optimisation* opt) {
     Array xv;
     xv.alias(x, n);
