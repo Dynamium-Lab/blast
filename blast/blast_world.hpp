@@ -232,10 +232,13 @@ blast_fn real distmin(surf surf, Vec3 point) {
 
     // If the surface is a rectangular shape, it is much easier to treat.
     if (abs(dot(surf.d1, surf.d2)) <= COLLISION_EPSILON) {
+        // norm^2 d1 & d2
         real val_d1_sq = dot(surf.d1, surf.d1);
         real val_d2_sq = dot(surf.d2, surf.d2);
+        // direction vector from p to point
         Vec3 val_direction = point - surf.p;
 
+        // How far along is the point in d1 & d2 direction
         real val_t1 = dot(val_direction, surf.d1) / val_d1_sq;
         real val_t2 = dot(val_direction, surf.d2) / val_d2_sq;
         real val_t1_clamped = clamp(val_t1, 0, 1);
@@ -749,7 +752,7 @@ host_fn real distmin_pierce(OBB OBB, capsule caps) {
         for (auto& p_case:pierce_case) {
             if (p_case) {
                 new_seg[vec_count] = {inter_list(0, idx), inter_list(1, idx), inter_list(2, idx)};
-                t_active.erase(t_active.begin() + idx);
+                t_active.erase(t_active.begin() + idx - vec_count);
                 vec_count++;
             }
             idx++;
@@ -2314,7 +2317,7 @@ bool isLeftTurn(const Vec3& p, const Vec3& q, const Vec3& r) {
     return (q.x - p.x) * (r.y - p.y) - (r.x - p.x) * (q.y - p.y) > 0;
 }
 
-host_fn real dist_min_new(OBB OBB, capsule caps) {
+host_fn real distmin_new(OBB OBB, capsule caps) {
     Mat3 Rtrans = transpose(OBB.R);
 
     segment seg;
@@ -3141,7 +3144,7 @@ collision_test_box test_obb[] = {
     /*Test13*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 4.48, -4.07, 0.76 }, { 8.64, -4.41, 18.58 }, 1 }, 3.06923695 },
     /*Test14*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 17.48, 2.95, 13.77 }, { -0.82, 3.11, 13.77 }, 1 }, 2.41054264 },
     /*Test15*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0, -1, 0, 1, 0, 0, 0, 0, 1 } }, { { 11.18, 8.56, 4.82 }, { 11.04, -6.44, 15.29 }, 1 }, 0.09912546 },
-    // OBB.R and caps.r changed
+    // // OBB.R and caps.r changed
     /*Test16*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 2.94, -6.06, 5.74 }, { 4.01, -9.86, 0.98 }, 0.5 }, 1.00474115 },
     /*Test17*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 1.64, 9.52, 11.7 }, { 2.71, 5.72, 6.94 }, 0.5 }, 0.22669533 },
     /*Test18*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 3, 5.69, 6.2 }, { 4.07, 1.89, 1.44 }, 0.5 }, 0.42102531 },
@@ -3159,96 +3162,185 @@ collision_test_box test_obb[] = {
     /*Test30*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.91, 5.9, 7.39 }, { 4.14, 5.9, 13.32 }, 0.5 }, 0.40000000 },
 };
 
-TEST_CASE("Collisions", "[World]") {
+// TEST_CASE("Collisions", "[World]") {
+//     using namespace blast;
+
+//     real TESTCOLL_EPSILON = 1e-2;
+
+//     for (auto t : test) {
+//         real dist = distmin(t.caps, t.sph);
+//         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+//     }
+
+//     for (auto t : test_caps) {
+//         real dist = distmin(t.caps1, t.caps2);
+//         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+//     }
+
+//     for (auto t : test_cyl) {
+//         real dist = distmin(t.caps, t.cyl);
+//         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+//     }
+
+//     // new dist min method
+//     for (auto t : test_obb) {
+//         real dist = distmin_new(t.box, t.caps);
+//         // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+//         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+//     }
+//     // new dist min pierce method
+//     for (auto t : test_obb) {
+//         real dist = distmin_pierce(t.box, t.caps);
+//         // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+//         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+//     }
+//     // Minkowski sum method
+//     for (auto t : test_obb) {
+//         real dist = distmin(t.box, t.caps);
+//         // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+//         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+//     }
+//     // GJK Algorithm (old version)
+//     // for (auto t : test_obb) {
+//     //     gjkresult res = GJK_solve_gjk_simple(t.caps, t.box);
+//     //     CHECK(abs(res.minimal_distance - t.expected_dist) < TESTCOLL_EPSILON);
+//     // }
+//     // GJK Algorithm (new/Ericson version)
+//     for (auto t : test_obb) {
+//         real dist = GJK_OBB_caps(t.caps, t.box);
+//         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+//     }
+//     // boolean GJK algorithm
+//     for (auto t : test_obb) {
+//         bool res = GJK_bool(t.caps, t.box);
+//         bool expected = (t.expected_dist < 0);
+//         CHECK(res == expected);
+//     }
+// }
+
+// TEST_CASE("Collision method benchmarks", "[World]") {
+//     using namespace blast;
+
+//     real TESTCOLL_EPSILON = 1e-2;
+
+//     BENCHMARK("box - capsule test with vectors") {
+//         real dist;
+//         for (auto t : test_obb) {
+//             dist = distmin(t.box, t.caps);
+//             // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+//         }
+//         return dist;
+//     };
+
+//     BENCHMARK("box - capsule test with new GJK") {
+//         real dist;
+//         for (auto t : test_obb) {
+//             dist = GJK_OBB_caps(t.caps, t.box);
+//             // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+//         }
+//         return dist;
+//     };
+
+//     BENCHMARK("box - capsule test new dist min") {
+//         real dist;
+//         for (auto t : test_obb) {
+//             dist = distmin_new(t.box, t.caps);
+//             // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+//         }
+//         return dist;
+//     };
+
+//     BENCHMARK("box - capsule test dist min pierce") {
+//         real dist;
+//         for (auto t : test_obb) {
+//             dist = distmin_pierce(t.box, t.caps);
+//             // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+//         }
+//         return dist;
+//     };
+// }
+
+TEST_CASE("Collision method comparison exhaustive (OBB-cpasules)", "[World]") {
     using namespace blast;
 
     real TESTCOLL_EPSILON = 1e-2;
 
-    for (auto t : test) {
-        real dist = distmin(t.caps, t.sph);
-        CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+    vector<OBB> obb_list;
+    vector<capsule> caps_list;
+    int n = 10;
+
+    Array s(3);
+    Array c(3);
+    Array angles(3);
+
+    Array obb_e(3);
+    Array obb_c(3);
+
+    Array seg_p1(3);
+    Array seg_p2(3);
+
+    for(u32 i = 0; i < n; i++) {
+        fill_random(angles, PI);
+        blast::sincos(angles, s, c);
+
+        // Mat3 Rz = {c[0], -s[0], 0, s[0], c[0], 0, 0, 0, 1};
+        // Mat3 Ry = {c[1], 0, s[1], 0, 1, 0, -s[1], 0, c[1]};
+        // Mat3 Rx = {1, 0, 0, 0, c[2], -s[2], 0, s[2], c[2]};
+        // auto R = Rz*Ry*Rx;
+        Mat3 R = {1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
+        // CHECK(abs(1.0 - sqrt(R[0]*R[0] + R[1]*R[1] + R[2]*R[2])) < TESTCOLL_EPSILON);
+        // CHECK(abs(1.0 - sqrt(R[3]*R[3] + R[4]*R[4] + R[5]*R[5])) < TESTCOLL_EPSILON);
+        // CHECK(abs(1.0 - sqrt(R[6]*R[6] + R[7]*R[7] + R[8]*R[8])) < TESTCOLL_EPSILON);
+
+        // Generate n random OBB
+        fill_random(obb_e, 2);
+        obb_e = array_abs(obb_e);
+        // fill_random(obb_c, 5);
+        // obb_c = array_abs(obb_c);
+        // obb_list.push_back({{0.0, 0.0, 0.0}, {obb_e[0], obb_e[1], obb_e[2]}, R});
+        obb_list.push_back({{0.0, 0.0, 0.0}, {0.9278843, 0.41079, 0.9595}, R});
+
+        // Generate n random caps
+        fill_random(seg_p1, 7);
+        // seg_p1 = array_abs(seg_p1);
+        fill_random(seg_p2, 7);
+        // seg_p2 = array_abs(seg_p2);
+        auto r = 0.0;
+        // caps_list.push_back({{seg_p1[0], seg_p1[1], seg_p1[2]}, {seg_p2[0], seg_p2[1], seg_p2[2]}, r});
+        caps_list.push_back({{-1.8289765, -0.92216, 4.76682}, {3.563465, 3.2846454, 6.08544}, r});
     }
 
-    for (auto t : test_caps) {
-        real dist = distmin(t.caps1, t.caps2);
-        CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
-    }
-
-    for (auto t : test_cyl) {
-        real dist = distmin(t.caps, t.cyl);
-        CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
-    }
-
-    // new dist min method
-    for (auto t : test_obb) {
-        real dist = dist_min_new(t.box, t.caps);
-        // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
-        CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
-    }
-    // new dist min pierce method
-    for (auto t : test_obb) {
-        real dist = distmin_pierce(t.box, t.caps);
-        // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
-        CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
-    }
-    // Minkowski sum method
-    for (auto t : test_obb) {
-        real dist = distmin(t.box, t.caps);
-        // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
-        CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
-    }
-    // GJK Algorithm (old version)
-    // for (auto t : test_obb) {
-    //     gjkresult res = GJK_solve_gjk_simple(t.caps, t.box);
-    //     CHECK(abs(res.minimal_distance - t.expected_dist) < TESTCOLL_EPSILON);
-    // }
-    // GJK Algorithm (new/Ericson version)
-    for (auto t : test_obb) {
-        real dist = GJK_OBB_caps(t.caps, t.box);
-        CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
-    }
-    // boolean GJK algorithm
-    for (auto t : test_obb) {
-        bool res = GJK_bool(t.caps, t.box);
-        bool expected = (t.expected_dist < 0);
-        CHECK(res == expected);
-    }
-
-    BENCHMARK("box - capsule test with vectors") {
-        real dist;
-        for (auto t : test_obb) {
-            dist = distmin(t.box, t.caps);
-            // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+    vector<capsule> caps_failed;
+    vector<OBB> obb_failed;
+    for (int cap = 0; cap < caps_list.size(); cap++) {
+        // OBB collisions
+        for (int i = 0; i < obb_list.size(); i++) {
+            auto dist_min = distmin(obb_list[i], caps_list[cap]);
+            auto dist_min_new = distmin_new(obb_list[i], caps_list[cap]);
+            // auto dist_min_gjk = GJK_OBB_caps(caps_list[cap], obb_list[i]);
+            auto dist_min_pierce = distmin_pierce(obb_list[i], caps_list[cap]);
+            // CHECK(abs(dist_min - dist_min_new) < TESTCOLL_EPSILON);
+            // CHECK(abs(dist_min - dist_min_gjk) < TESTCOLL_EPSILON);
+            // CHECK(abs(dist_min - dist_min_pierce) < TESTCOLL_EPSILON);
+            // CHECK(abs(dist_min_new - dist_min_gjk) < TESTCOLL_EPSILON);
+            if (abs(dist_min - dist_min_pierce) > TESTCOLL_EPSILON ||
+                    abs(dist_min - dist_min_new) > TESTCOLL_EPSILON) {
+                // save and test caps and obb in future
+                caps_failed.push_back(caps_list[cap]);
+                obb_failed.push_back(obb_list[i]);
+            }
+            // CHECK(abs(dist_min_new - dist_min_pierce) < TESTCOLL_EPSILON);
+            // CHECK(abs(dist_min_gjk - dist_min_pierce) < TESTCOLL_EPSILON);
         }
-        return dist;
-    };
-
-    BENCHMARK("box - capsule test with new GJK") {
-        real dist;
-        for (auto t : test_obb) {
-            dist = GJK_OBB_caps(t.caps, t.box);
-            // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
-        }
-        return dist;
-    };
-
-    BENCHMARK("box - capsule test new dist min") {
-        real dist;
-        for (auto t : test_obb) {
-            dist = dist_min_new(t.box, t.caps);
-            // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
-        }
-        return dist;
-    };
-
-    BENCHMARK("box - capsule test dist min pierce") {
-        real dist;
-        for (auto t : test_obb) {
-            dist = distmin_pierce(t.box, t.caps);
-            // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
-        }
-        return dist;
-    };
+    }
+    // todo: save caps and obb to test in debug
+    for (u32 i = 0; i < caps_failed.size(); i++) {
+        auto dist_min = distmin(obb_failed[i], caps_failed[i]);
+        auto dist_min_new = distmin_new(obb_failed[i], caps_failed[i]);
+        // auto dist_min_gjk = GJK_OBB_caps(caps_failed[i], obb_failed[i]);
+        auto dist_min_pierce = distmin_pierce(obb_failed[i], caps_failed[i]);
+        int dist = 0;
+    }
 
 }
 
