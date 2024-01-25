@@ -255,49 +255,78 @@ blast_fn real distmin(surf surf, Vec3 point) {
     }
     else {
         real normaldist = dot(point - surf.p, n_unit);
-        Vec3 direction = (point - normaldist*n_unit) - surf.p;
+        Vec3 direction = point - normaldist*n_unit - surf.p;
 
-        Vec3 dy = cross(n_unit, surf.d1);
-        Vec3 dy_unit = 1 / norm(dy) * dy;
-
-        real t2 = dot(dy, direction) / dot(dy, surf.d2);
-        real t1 = (dot(surf.d1, direction) - t2*dot(surf.d1, surf.d2)) / dot(surf.d1, surf.d1);
-
-        // If the point projects on the face
-        if (t1 >= 0 && t1 <= 1 && t2 >= 0 && t2 <= 1) {
+        bool is_inside = pointInSurf(surf.d1, surf.d2, surf.p, point);
+        if (is_inside) {
             return normaldist;
         }
 
-        Vec3 empty3 = {0, 0, 0};
+        segment seg[4];
+        seg[0].p1 = surf.p;
+        seg[0].p2 = surf.p + surf.d1;
+        seg[1].p1 = surf.p;
+        seg[1].p2 = surf.p + surf.d2;
+        seg[2].p1 = surf.p + surf.d1;
+        seg[2].p2 = surf.p + surf.d1 + surf.d2;
+        seg[3].p1 = surf.p + surf.d2;
+        seg[3].p2 = surf.p + surf.d2 + surf.d1;
 
-        // If the point is closest to a corner of the shape
-        if ((t1 <= 0 || t1 >= 1) && (t2 <= 0 || t2 >= 1)) {
-            Vec3 testpoint = t1 <= 0 ? (t2 <= 0 ? empty3 :  surf.d2) : (t2 <= 0 ? surf.d1 : surf.d1 + surf.d2);
-            real distance = sqrt(dot(direction - testpoint, direction - testpoint) + normaldist*normaldist);
-            return normaldist < 0 ? -distance : distance;
+        real dist_min = INF_REAL;
+        for (u32 i = 0; i < 4; i++) {
+            auto dist_tmp = distmin(seg[i], point);
+            dist_min = dist_tmp < dist_min ? dist_tmp : dist_min;
         }
+        real resultant = normaldist < 0 ? -dist_min : dist_min;
 
-        real t1_clamped = clamp(t1, 0, 1);
-        real t2_clamped = clamp(t2, 0, 1);
-
-        Vec3 Projection_vector = (t1 < 1 && t1 > 0) ? dy_unit : cross(1/norm(surf.d2)*surf.d2, n_unit);
-        Projection_vector = dot(Projection_vector, direction) < 0 ? -Projection_vector : Projection_vector;
-        Vec3 testpoint = (t1 < 0 || t2 < 0) ? empty3 : (surf.d1 + surf.d2);
-
-        real dist_plan = dot(Projection_vector, direction - testpoint);
-        Vec3 projected_point = direction - dist_plan*Projection_vector;
-
-        Vec3 clamping_direction = (t1 < 0 || t2 < 0) ? ((t1 < 1 && t1 > 0) ? surf.d1 : surf.d2) : ((t1 < 1 && t1 > 0) ? -surf.d1 : -surf.d2);
-        real t_current = dot(direction - testpoint, clamping_direction) / dot(clamping_direction, clamping_direction);
-        real t_current_clamped = clamp(t_current, 0, 1);
-
-        real difference_t_current = (t_current - t_current_clamped);
-        real dist_current = difference_t_current*difference_t_current*dot(clamping_direction, clamping_direction);
-        real result = sqrt(dist_current + dist_plan*dist_plan + normaldist*normaldist);
-
-        real distance = (t1 >= 0 && t1 <= 1 && t2 >= 0 && t2 <= 1) ? normaldist : result;
-        return distance == normaldist ? normaldist : (normaldist < 0 ? -distance : distance);
+        return resultant;
     }
+
+    // else {
+    //     real normaldist = dot(point - surf.p, n_unit);
+    //     Vec3 direction = (point - normaldist*n_unit) - surf.p;
+
+    //     Vec3 dy = cross(n_unit, surf.d1);
+    //     Vec3 dy_unit = 1 / norm(dy) * dy;
+
+    //     real t2 = dot(dy, direction) / dot(dy, surf.d2);
+    //     real t1 = (dot(surf.d1, direction) - t2*dot(surf.d1, surf.d2)) / dot(surf.d1, surf.d1);
+
+    //     // If the point projects on the face
+    //     if (t1 >= 0 && t1 <= 1 && t2 >= 0 && t2 <= 1) {
+    //         return normaldist;
+    //     }
+
+    //     Vec3 empty3 = {0, 0, 0};
+
+    //     // If the point is closest to a corner of the shape
+    //     if ((t1 <= 0 || t1 >= 1) && (t2 <= 0 || t2 >= 1)) {
+    //         Vec3 testpoint = t1 <= 0 ? (t2 <= 0 ? empty3 :  surf.d2) : (t2 <= 0 ? surf.d1 : surf.d1 + surf.d2);
+    //         real distance = sqrt(dot(direction - testpoint, direction - testpoint) + normaldist*normaldist);
+    //         return normaldist < 0 ? -distance : distance;
+    //     }
+
+    //     real t1_clamped = clamp(t1, 0, 1);
+    //     real t2_clamped = clamp(t2, 0, 1);
+
+    //     Vec3 Projection_vector = (t1 < 1 && t1 > 0) ? dy_unit : cross(1/norm(surf.d2)*surf.d2, n_unit);
+    //     Projection_vector = dot(Projection_vector, direction) < 0 ? -Projection_vector : Projection_vector;
+    //     Vec3 testpoint = (t1 < 0 || t2 < 0) ? empty3 : (surf.d1 + surf.d2);
+
+    //     real dist_plan = dot(Projection_vector, direction - testpoint);
+    //     Vec3 projected_point = direction - dist_plan*Projection_vector;
+
+    //     Vec3 clamping_direction = (t1 < 0 || t2 < 0) ? ((t1 < 1 && t1 > 0) ? surf.d1 : surf.d2) : ((t1 < 1 && t1 > 0) ? -surf.d1 : -surf.d2);
+    //     real t_current = dot(direction - testpoint, clamping_direction) / dot(clamping_direction, clamping_direction);
+    //     real t_current_clamped = clamp(t_current, 0, 1);
+
+    //     real difference_t_current = (t_current - t_current_clamped);
+    //     real dist_current = difference_t_current*difference_t_current*dot(clamping_direction, clamping_direction);
+    //     real result = sqrt(dist_current + dist_plan*dist_plan + normaldist*normaldist);
+
+    //     real distance = (t1 >= 0 && t1 <= 1 && t2 >= 0 && t2 <= 1) ? normaldist : result;
+    //     return distance == normaldist ? normaldist : (normaldist < 0 ? -distance : distance);
+    // }
 }
 
 host_fn two_pts closept(segment seg1, segment seg2) {
@@ -656,16 +685,22 @@ host_fn real distmin(OBB OBB, capsule caps) {
 
     for (int i = 1; i < 12; i++) {
         dist[i] = distmin(face[i], point);
-        bool cond1 = dist[i] >= 0;
-        bool cond21 = (dist[i] - distcurrent < COLLISION_EPSILON);
-        bool cond22 = (distcurrent < 0);
-        bool cond2 = (cond21 || cond22);
-        if (cond1 && cond2) {
-            distcurrent = dist[i];
-        }
-        else if (dist[i] < 0 && dist[i] > distcurrent) {
-            distcurrent = dist[i];
-        }
+
+        bool dist_over = dist[i] >= 0;
+        bool dist_under = dist[i] < 0;
+        distcurrent = dist_over ? (dist[i] < distcurrent) || (distcurrent < 0) ? dist[i] : distcurrent
+                      : dist_under && (dist[i] > distcurrent) ? dist[i] : distcurrent;
+
+        // bool cond1 = dist[i] >= 0;
+        // bool cond21 = (dist[i] - distcurrent < COLLISION_EPSILON);
+        // bool cond22 = (distcurrent < 0);
+        // bool cond2 = (cond21 || cond22);
+        // if (cond1 && cond2) {
+        //     distcurrent = dist[i];
+        // }
+        // else if (dist[i] < 0 && dist[i] > distcurrent) {
+        //     distcurrent = dist[i];
+        // }
     }
     return distcurrent - caps.r;
 }
@@ -2433,6 +2468,7 @@ host_fn real distmin_new(OBB OBB, capsule caps) {
         Vec3 test_point_plus;
         Vec3 test_point_minus;
         real dist_points;
+        real dist_points_opp;
 
         for (int i = 0; i < 3; i++) {
             // t_current_plus = clamp(t[(i+2) % 6], 0, 1) < clamp(t[(i+3) % 6], 0, 1) ? clamp(t[(i+2) % 6], 0, 1) : clamp(t[(i+3) % 6], 0, 1);
@@ -2446,10 +2482,16 @@ host_fn real distmin_new(OBB OBB, capsule caps) {
 
             test_point_plus = (1 - t_current_plus) * seg.p1 + t_current_plus*seg.p2;
             test_point_minus = (1 - t_current_minus) * seg.p1 + t_current_minus*seg.p2;
-            dist_points = (test_point_plus[i] + OBB_point[0][i]) < (test_point_minus[i] + OBB_point[0][i]) ? (test_point_plus[i] + OBB_point[0][i]) : (test_point_minus[i] + OBB_point[0][i]);
+
+            auto dist_plus = test_point_plus[i] + OBB_point[0][i];
+            auto dist_minus = test_point_minus[i] + OBB_point[0][i];
+            dist_points = dist_plus < dist_minus ? dist_plus : dist_minus;
             min_dist = dist_points < 0 && dist_points > min_dist ? dist_points : min_dist;
-            dist_points = (OBB_point[0][i] - test_point_plus[i]) < (OBB_point[0][i] - test_point_minus[i]) ? (OBB_point[0][i] - test_point_plus[i]) : (OBB_point[0][i] - test_point_minus[i]);
-            min_dist = dist_points < 0 && dist_points > min_dist ? dist_points : min_dist;
+
+            auto dist_plus_opp = OBB_point[0][i] - test_point_plus[i];
+            auto dist_minus_opp = OBB_point[0][i] - test_point_minus[i];
+            dist_points_opp = dist_plus_opp < dist_minus_opp ? dist_plus_opp : dist_minus_opp;
+            min_dist = dist_points_opp < 0 && dist_points_opp > min_dist ? dist_points_opp : min_dist;
         }
 
         return min_dist - caps.r;
@@ -3189,11 +3231,11 @@ collision_test_box test_obb[] = {
 //         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
 //     }
 //     // new dist min pierce method
-//     for (auto t : test_obb) {
-//         real dist = distmin_pierce(t.box, t.caps);
-//         // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
-//         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
-//     }
+//     // for (auto t : test_obb) {
+//     //     real dist = distmin_pierce(t.box, t.caps);
+//     //     // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+//     //     CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+//     // }
 //     // Minkowski sum method
 //     for (auto t : test_obb) {
 //         real dist = distmin(t.box, t.caps);
@@ -3250,14 +3292,14 @@ collision_test_box test_obb[] = {
 //         return dist;
 //     };
 
-//     BENCHMARK("box - capsule test dist min pierce") {
-//         real dist;
-//         for (auto t : test_obb) {
-//             dist = distmin_pierce(t.box, t.caps);
-//             // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
-//         }
-//         return dist;
-//     };
+//     // BENCHMARK("box - capsule test dist min pierce") {
+//     //     real dist;
+//     //     for (auto t : test_obb) {
+//     //         dist = distmin_pierce(t.box, t.caps);
+//     //         // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+//     //     }
+//     //     return dist;
+//     // };
 // }
 
 TEST_CASE("Collision method comparison exhaustive (OBB-cpasules)", "[World]") {
@@ -3267,7 +3309,7 @@ TEST_CASE("Collision method comparison exhaustive (OBB-cpasules)", "[World]") {
 
     vector<OBB> obb_list;
     vector<capsule> caps_list;
-    int n = 10;
+    int n = 50;
 
     Array s(3);
     Array c(3);
@@ -3297,8 +3339,8 @@ TEST_CASE("Collision method comparison exhaustive (OBB-cpasules)", "[World]") {
         obb_e = array_abs(obb_e);
         // fill_random(obb_c, 5);
         // obb_c = array_abs(obb_c);
-        // obb_list.push_back({{0.0, 0.0, 0.0}, {obb_e[0], obb_e[1], obb_e[2]}, R});
-        obb_list.push_back({{0.0, 0.0, 0.0}, {0.9278843, 0.41079, 0.9595}, R});
+        obb_list.push_back({{0.0, 0.0, 0.0}, {obb_e[0], obb_e[1], obb_e[2]}, R});
+        // obb_list.push_back({{0.0, 0.0, 0.0}, {0.9278843, 0.41079, 0.9595}, R});
 
         // Generate n random caps
         fill_random(seg_p1, 7);
@@ -3306,8 +3348,8 @@ TEST_CASE("Collision method comparison exhaustive (OBB-cpasules)", "[World]") {
         fill_random(seg_p2, 7);
         // seg_p2 = array_abs(seg_p2);
         auto r = 0.0;
-        // caps_list.push_back({{seg_p1[0], seg_p1[1], seg_p1[2]}, {seg_p2[0], seg_p2[1], seg_p2[2]}, r});
-        caps_list.push_back({{-1.8289765, -0.92216, 4.76682}, {3.563465, 3.2846454, 6.08544}, r});
+        caps_list.push_back({{seg_p1[0], seg_p1[1], seg_p1[2]}, {seg_p2[0], seg_p2[1], seg_p2[2]}, r});
+        // caps_list.push_back({{-1.8289765, -0.92216, 4.76682}, {3.563465, 3.2846454, 6.08544}, r});
     }
 
     vector<capsule> caps_failed;
@@ -3318,13 +3360,12 @@ TEST_CASE("Collision method comparison exhaustive (OBB-cpasules)", "[World]") {
             auto dist_min = distmin(obb_list[i], caps_list[cap]);
             auto dist_min_new = distmin_new(obb_list[i], caps_list[cap]);
             // auto dist_min_gjk = GJK_OBB_caps(caps_list[cap], obb_list[i]);
-            auto dist_min_pierce = distmin_pierce(obb_list[i], caps_list[cap]);
+            // auto dist_min_pierce = distmin_pierce(obb_list[i], caps_list[cap]);
             // CHECK(abs(dist_min - dist_min_new) < TESTCOLL_EPSILON);
             // CHECK(abs(dist_min - dist_min_gjk) < TESTCOLL_EPSILON);
             // CHECK(abs(dist_min - dist_min_pierce) < TESTCOLL_EPSILON);
             // CHECK(abs(dist_min_new - dist_min_gjk) < TESTCOLL_EPSILON);
-            if (abs(dist_min - dist_min_pierce) > TESTCOLL_EPSILON ||
-                    abs(dist_min - dist_min_new) > TESTCOLL_EPSILON) {
+            if (abs(dist_min - dist_min_new) > TESTCOLL_EPSILON) {
                 // save and test caps and obb in future
                 caps_failed.push_back(caps_list[cap]);
                 obb_failed.push_back(obb_list[i]);
@@ -3338,7 +3379,7 @@ TEST_CASE("Collision method comparison exhaustive (OBB-cpasules)", "[World]") {
         auto dist_min = distmin(obb_failed[i], caps_failed[i]);
         auto dist_min_new = distmin_new(obb_failed[i], caps_failed[i]);
         // auto dist_min_gjk = GJK_OBB_caps(caps_failed[i], obb_failed[i]);
-        auto dist_min_pierce = distmin_pierce(obb_failed[i], caps_failed[i]);
+        // auto dist_min_pierce = distmin_pierce(obb_failed[i], caps_failed[i]);
         int dist = 0;
     }
 
