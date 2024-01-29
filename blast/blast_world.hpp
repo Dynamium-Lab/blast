@@ -2345,15 +2345,15 @@ host_fn real GJK_OBB_caps(capsule caps, OBB box) {
 //     }
 // }
 
-bool comparePoints(const Vec3& a, const Vec3& b) {
+host_fn bool comparePoints(const Vec3& a, const Vec3& b) {
     return (a.x < b.x) || (a.x == b.x && a.y < b.y) || (a.x == b.x && a.y == b.y && a.z < b.z);
 }
 
-bool sort_Vec3(const Vec3& a, const Vec3&b) {
+host_fn bool sort_Vec3(const Vec3& a, const Vec3&b) {
     return (dot(a,a) > dot(b,b));
 }
 
-bool isLeftTurn(const Vec3& p, const Vec3& q, const Vec3& r) {
+host_fn bool isLeftTurn(const Vec3& p, const Vec3& q, const Vec3& r) {
     return (q.x - p.x) * (r.y - p.y) - (r.x - p.x) * (q.y - p.y) > 0;
 }
 
@@ -2428,19 +2428,29 @@ host_fn real distmin_new(OBB OBB, capsule caps) {
         OBB_point[6] = {xmax, ymax, zmin};
         OBB_point[7] = {xmax, ymax, zmax};
 
-        std::vector<Vec3> points;
+        // std::vector<Vec3> points;
         std::vector<Vec3> hull_points;
         real t_OBB;
         t_OBB = dot(ab, - seg.p1) / dot(ab, ab);
         Vec3 OBB_center = - t_OBB*ab;
         for (int i = 0; i < 8; i++) {
             t_OBB = dot(ab, OBB_point[i] - seg.p1) / dot(ab, ab);
-            points.push_back(OBB_point[i] - t_OBB*ab - OBB_center); 
-            hull_points.push_back(OBB_point[i] - t_OBB*ab - seg.p1); 
+            // points.push_back(OBB_point[i] - t_OBB*ab - OBB_center); 
+            hull_points.push_back(OBB_point[i] - t_OBB*ab - OBB_center); 
         }
 
         // Using Andrew's algorithm for computing the convex hull
         // Sort points lexicographically
+        // We can find which two points should be deleted
+        std::sort(hull_points.begin(), hull_points.end(), sort_Vec3);
+
+        hull_points.pop_back();
+        hull_points.pop_back();
+
+        for (int i = 0; i < 6; i++) {
+            hull_points[i] = hull_points[i] + OBB_center - seg.p1; // Set the origin as seg.p1
+        }
+
         std::sort(hull_points.begin(), hull_points.end(), comparePoints);
         // Lower hull
         std::vector<Vec3> lower_hull;
@@ -2461,33 +2471,30 @@ host_fn real distmin_new(OBB OBB, capsule caps) {
         lower_hull.insert(lower_hull.end(), upper_hull.begin(), upper_hull.end() - 1);
         // todo: change lower hull insert for hull[6]
 
-        // Convex hull construction using dot products
-        std::sort(points.begin(), points.end(), sort_Vec3);
-
-        points.pop_back();
-        points.pop_back();
-
-        std::vector<Vec3> hull;
-        std::vector<Vec3> temp;
-        real min_dot2 = INF_REAL;
-        real min_dot1 = INF_REAL;
-        int idx1;
-        int idx2;
-        for (int i = 0; i < 6; i++) {
-            for (int j = 0; j < 6; j++) {
-                real current_dot = dot(points[i] - points[j], points[i] - points[j]);
-                if (current_dot < min_dot1 && current_dot != 0) {
-                    min_dot2 = min_dot_1;
-                    min_dot1 = current_dot;
-                    idx1 = idx2;
-                    idx2 = j;
-                    // todo: finish this
-                }
-
-            }
-        }
-
-        sort(points.begin(), points.end(), comparePoints);
+        // std::vector<Vec3> hull;
+        // hull.reserve(6);
+        // // std::vector<Vec3> temp.insert(temp.begin(), points.begin(), points.end());
+        // real min_dot = INF_REAL;
+        // int idx;
+        // Vec3 current_point = points.back();   // Initialize at last point
+        // hull.push_back(current_point);
+        // points.pop_back();
+        // // For every point, we will add the one which is closest to it next in (hull) and delete it from temp.
+        // for (int i = 5; i > 1; i--) {
+        //     min_dot = INF_REAL;
+        //     for (int j = points.size() - 1; j > 0; j--) {
+        //         real current_dot = dot(current_point - points[j], current_point - points[j]);
+        //         if (current_dot < min_dot) {
+        //             min_dot = current_dot;
+        //             idx = j;
+        //         }
+        //     }
+        //     hull.push_back(points[idx]);
+        //     points.erase(points.begin() + idx);
+        //     current_point = points.back();
+        // }
+        // hull.push_back(current_point);
+        // sort(points.begin(), points.end(), comparePoints);
 
         real current_dist;
         real current_dist_hull;
@@ -2497,22 +2504,20 @@ host_fn real distmin_new(OBB OBB, capsule caps) {
         Vec3 closest_point_hull;
         segment seg_OBB;
 
-        for (int i = 0; i < 6; i++) {
-            points[i] = points[i] + OBB_center - seg.p1; // Set the origin as seg.p1
-        }
+        
 
         for (int i = 0; i < 6; i++) {
             closest_point_hull = closept_origin({lower_hull[i], lower_hull[(i + 1) % 6]});
-            closest_point = closept_origin({points[i], points[(i + 1) % 6]});
+            // closest_point = closept_origin({hull[i], hull[(i + 1) % 6]});
             current_dist_hull = - dot(closest_point_hull, closest_point_hull);
-            current_dist = - dot(closest_point, closest_point);
+            // current_dist = - dot(closest_point, closest_point);
             // seg_OBB = {points[i], points[(i + 1) % 6]};
             // current_dist = - distmin(seg_OBB, seg.p1);
             // seg_OBB = {lower_hull[i], lower_hull[(i+1) %6]};
             // current_dist = - distmin(seg_OBB, seg.p1);
 
             // Compare distance with min_dist
-            min_dist = current_dist > min_dist ? current_dist : min_dist;
+            // min_dist = current_dist > min_dist ? current_dist : min_dist;
             min_dist_hull = current_dist_hull > min_dist_hull ? current_dist_hull : min_dist_hull;
         }
         min_dist = - sqrt(-min_dist_hull);
