@@ -2318,6 +2318,10 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
     // create a face vector that has three points and a normal
     std::vector<EPA_hull> faces;
 
+    if (dot(simplex.b, simplex.b) <= 1e-2 && simplex.size == 1) {
+        
+    }
+
     Vec3 ab = simplex.b - simplex.a;
     Vec3 ac = simplex.c - simplex.a;
     Vec3 ad = simplex.d - simplex.a;
@@ -2373,17 +2377,22 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
         // If the vertex does not expand the polytope in the direction of the normal, the minimum distance
         // is with the closest face (unchanged). Compute and return.
         dist = dot(p - faces[idx].p1, faces[idx].n);
-        if (dist < 1e-2) {
+        if (dist < 1e-3) {
             break;
         }
 
         // Get all the faces which are "seen" by the new point, add them to deleted_faces and delete them.
         std::vector<EPA_hull> deleted_faces;
+        int kept_face_idx = 0;
+        bool found_kept_face = false;
+        bool condition;
         for (int i = 0; i < size(faces); i++) {
+            condition = dot(faces[i].n, p - faces[i].p1) > 0;
             if (dot(faces[i].n, p - faces[i].p1) > 0) {
                 deleted_faces.push_back(faces[i]);
                 faces.erase(faces.begin() + i);
             }
+            kept_face_idx = (condition == false && kept_face_idx == 0) ? i : kept_face_idx;
         }
 
         // Create new convex hull by determining which line segments are contained in the deleted faces.
@@ -2425,12 +2434,17 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
         for (int i = 0; i < size(loose_edges); i++) {
             n = cross(p - loose_edges[i].p1, p - loose_edges[i].p2);
             dot_p1_n = dot(loose_edges[i].p1, n);
-            // n = dot_p1_n > 0 ? n : (dot_p1_n < 0 ? - n : (dot(n, simplex.d) >= 0 ? -n : n)); todo: FIXME Problem is here when dot_pi_n == 0
-            if(dot_p1_n == 0.0) {
+            n = dot_p1_n > 0 ? n : (dot_p1_n < 0 ? - n : (dot(n, faces[kept_face_idx].p1) >= 0 ? -n : n));
+            if (dot_p1_n == 0.0) {
                 int test = 0;
             }
-            n = dot_p1_n > 0 ? n : - n;
             n = (1 / norm(n)) * n;
+
+            real check1 = dot(n, loose_edges[i].p1);
+            real check2 = dot(n, loose_edges[i].p2);
+            real check3 = dot(n, p);
+            if ((abs(check1 - check2) >= 1e-2 || abs(check1 - check3) >= 1e-2))
+                real test = 1;
 
             new_face = {loose_edges[i].p1, loose_edges[i].p2, p, n};
             faces.push_back(new_face);
@@ -2475,7 +2489,7 @@ host_fn real general_GJK(std::vector<Vec3> Set_1, std::vector<Vec3> Set_2) {
 
         // 3. If P is the origin itself, the origin is clearly contained in the Minkowski difference of A and B.
         // Stop and return A and B as intersecting.
-        if (dot(simplex.P, simplex.P) < COLLISION_EPSILON) {
+        if (dot(simplex.P, simplex.P) < 1e-2) {
             real dist = solve_EPA_algorithm(simplex, Set_1, Set_2);
             return dist;
         }
@@ -3662,6 +3676,18 @@ TEST_CASE("Collisions", "[World]") {
 
     real TESTCOLL_EPSILON = 1e-2;
 
+    std::vector<Vec3> v1 = {    { -4.6607382574035014, -3.4686124971115451,  0.89349474531514073 }, 
+                                {  6.4517093458638977,  6.9310459212756506, -0.24683715666348305 } };
+    std::vector<Vec3> v2 = {    {  2.4373332611708229,  2.5910471347625212, -0.04489407117738407 }, 
+                                {  2.5547766616001675,  4.0525983620611852,  0.19409068785959360 },
+                                {  1.8335195262912714,  2.7351427068670993, -0.62940465909289878 },
+                                {  1.9509629267206159,  4.1966939341657632, -0.39041990005592114 },
+                                {  1.6790895426140411,  2.5264996514086859,  0.72247776841327949 },
+                                {  1.7965329430433856,  3.9880508787073494,  0.96146252745025707 },
+                                {  1.0752758077344895,  2.6705952235132639,  0.13796718049776469 },
+                                {  1.1927192081638340,  4.1321464508119279,  0.37695193953474238 } };
+    real dist = general_GJK(v1, v2);
+
 //     for (auto t : test) {
 //         real dist = distmin(t.caps, t.sph);
 //         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
@@ -3802,7 +3828,7 @@ TEST_CASE("Collision method comparison exhaustive (OBB-cpasules)", "[World]") {
 
     vector<OBB> obb_list;
     vector<capsule> caps_list;
-    int n = 10;
+    int n = 1000;
     bool error_info = false;
 
     Array s(3);
@@ -3853,14 +3879,14 @@ TEST_CASE("Collision method comparison exhaustive (OBB-cpasules)", "[World]") {
         for (int i = 0; i < obb_list.size(); i++) {
             // auto dist_min = distmin(obb_list[i], caps_list[cap]);
             // auto dist_min_new = distmin_new(obb_list[i], caps_list[cap]);
-            // auto dist_min_vector_acc = distmin_vectors_acc(obb_list[i], caps_list[cap]);
+            auto dist_min_vector_acc = distmin_vectors_acc(obb_list[i], caps_list[cap]);
             auto dist_min_gjk = GJK_OBB_caps(caps_list[cap], obb_list[i]);
 
-            // if (abs(dist_min - dist_min_vector_acc) > TESTCOLL_EPSILON) {
-            //     // save and test caps and obb in future
-            //     caps_failed.push_back(caps_list[cap]);
-            //     obb_failed.push_back(obb_list[i]);
-            // }
+            if (abs(dist_min_gjk - dist_min_vector_acc) > TESTCOLL_EPSILON) {
+                // save and test caps and obb in future
+                caps_failed.push_back(caps_list[cap]);
+                obb_failed.push_back(obb_list[i]);
+            }
         }
     }
     // todo: save caps and obb to test in debug
@@ -3872,8 +3898,8 @@ TEST_CASE("Collision method comparison exhaustive (OBB-cpasules)", "[World]") {
     // for (u32 i = 0; i < caps_failed.size(); i++) {
     //     auto dist_min = distmin(obb_failed[i], caps_failed[i]);
     //     auto dist_min_new = distmin_new(obb_failed[i], caps_failed[i]);
-    //     // auto dist_min_gjk = GJK_OBB_caps(caps_failed[i], obb_failed[i]);
-    //     // auto dist_min_pierce = distmin_pierce(obb_failed[i], caps_failed[i]);
+    //     auto dist_min_gjk = GJK_OBB_caps(caps_failed[i], obb_failed[i]);
+    //     auto dist_min_pierce = distmin_pierce(obb_failed[i], caps_failed[i]);
     //     real error = abs(dist_min_new - dist_min) * 100 / dist_min;
     //     total_error += error;
     //     int dist = 0;
