@@ -253,34 +253,34 @@ blast_fn real distmin(surf surf, Vec3 point) {
         real val_distance = (val_t1 >= 0 && val_t1 <= 1 && val_t2 >= 0 && val_t2 <= 1) ? val_normaldist : val_result;
         return val_distance == val_normaldist ? val_normaldist : (val_normaldist < 0 ? -val_distance : val_distance);
     }
-    else {
-        real normaldist = dot(point - surf.p, n_unit);
-        Vec3 direction = point - normaldist*n_unit - surf.p;
+    // else {
+    //     real normaldist = dot(point - surf.p, n_unit);
+    //     Vec3 direction = point - normaldist*n_unit - surf.p;
 
-        bool is_inside = pointInSurf(surf.d1, surf.d2, surf.p, point);
-        if (is_inside) {
-            return normaldist;
-        }
+    //     bool is_inside = pointInSurf(surf.d1, surf.d2, surf.p, point);
+    //     if (is_inside) {
+    //         return normaldist;
+    //     }
 
-        segment seg[4];
-        seg[0].p1 = surf.p;
-        seg[0].p2 = surf.p + surf.d1;
-        seg[1].p1 = surf.p;
-        seg[1].p2 = surf.p + surf.d2;
-        seg[2].p1 = surf.p + surf.d1;
-        seg[2].p2 = surf.p + surf.d1 + surf.d2;
-        seg[3].p1 = surf.p + surf.d2;
-        seg[3].p2 = surf.p + surf.d2 + surf.d1;
+    //     segment seg[4];
+    //     seg[0].p1 = surf.p;
+    //     seg[0].p2 = surf.p + surf.d1;
+    //     seg[1].p1 = surf.p;
+    //     seg[1].p2 = surf.p + surf.d2;
+    //     seg[2].p1 = surf.p + surf.d1;
+    //     seg[2].p2 = surf.p + surf.d1 + surf.d2;
+    //     seg[3].p1 = surf.p + surf.d2;
+    //     seg[3].p2 = surf.p + surf.d2 + surf.d1;
 
-        real dist_min = INF_REAL;
-        for (u32 i = 0; i < 4; i++) {
-            auto dist_tmp = distmin(seg[i], point);
-            dist_min = dist_tmp < dist_min ? dist_tmp : dist_min;
-        }
-        real resultant = normaldist < 0 ? -dist_min : dist_min;
+    //     real dist_min = INF_REAL;
+    //     for (u32 i = 0; i < 4; i++) {
+    //         auto dist_tmp = distmin(seg[i], point);
+    //         dist_min = dist_tmp < dist_min ? dist_tmp : dist_min;
+    //     }
+    //     real resultant = normaldist < 0 ? -dist_min : dist_min;
 
-        return resultant;
-    }
+    //     return resultant;
+    // }
 
     // else {
     //     real normaldist = dot(point - surf.p, n_unit);
@@ -326,7 +326,72 @@ blast_fn real distmin(surf surf, Vec3 point) {
 
     //     real distance = (t1 >= 0 && t1 <= 1 && t2 >= 0 && t2 <= 1) ? normaldist : result;
     //     return distance == normaldist ? normaldist : (normaldist < 0 ? -distance : distance);
-    // }
+    // } 
+    else {
+        real normaldist = dot(point - surf.p, n_unit);
+        Vec3 direction = point - normaldist*n_unit - surf.p;
+
+        bool is_inside = pointInSurf(surf.d1, surf.d2, surf.p, point);
+        if (is_inside) {
+            return normaldist;
+        }
+
+        segment seg[4];
+        seg[0].p1 = surf.p;
+        seg[0].p2 = surf.p + surf.d1;
+        seg[1].p1 = surf.p;
+        seg[1].p2 = surf.p + surf.d2;
+        seg[2].p1 = surf.p + surf.d1;
+        seg[2].p2 = surf.p + surf.d1 + surf.d2;
+        seg[3].p1 = surf.p + surf.d2;
+        seg[3].p2 = surf.p + surf.d2 + surf.d1;
+
+        real dist_min = INF_REAL;
+        int idx;
+        for (u32 i = 0; i < 4; i++) {
+            auto dist_tmp = distmin(seg[i], point);
+            dist_min = dist_tmp < dist_min ? dist_tmp : dist_min;
+            idx = dist_tmp < dist_min ? i : idx;
+        }
+        real resultant = normaldist < 0 ? -dist_min : dist_min;
+
+        // real dist;
+        // // real normaldist = dot(point - surf.p, n_unit);
+        // Vec3 proj = (point - normaldist*n_unit) - surf.p;
+
+        // Vec3 dy = cross(n_unit, surf.d1);
+        // real y_max = dot(dy, surf.d2);
+        // real y_pt = dot(dy, proj);
+        // real x_min =    y_pt < 0 ? 0 : 
+        //                 (y_pt > 1 ? dot(surf.d2, surf.d1) : 
+        //                 y_pt/y_max * dot(surf.d2, surf.d1));
+        // real x_max = x_min + dot(surf.d1, surf.d1);
+        // real x_pt = dot(surf.d1, proj);
+
+        // if (x_pt >= x_min && x_pt <= x_max) {
+        //     real diff_y = clamp(y_pt, 0, y_max);
+        //     real dist_plan = (y_pt - diff_y) / norm(dy);
+        //     dist = sqrt(dist_plan*dist_plan + normaldist*normaldist);
+        //     dist = normaldist < 0 ? -dist : dist;
+        // } else {
+        //     segment seg[2];
+        //     seg[0].p1 = surf.p;
+        //     seg[0].p2 = surf.p + surf.d2;
+        //     seg[1].p1 = surf.p + surf.d1;
+        //     seg[1].p2 = surf.p + surf.d1 + surf.d2;
+
+        //     int idx = x_pt < x_min ? 0 : 1;
+        //     dist = distmin(seg[idx], point);
+        //     dist = normaldist < 0 ? - dist : dist;
+        //     // Vec3 temp = x_pt > x_max ? proj - surf.d1 : proj;
+        //     // real t = dot(temp, surf.d2) / dot(surf.d2, surf.d2);
+        //     // t = clamp(t, 0, 1);
+        //     // Vec3 test_pt = x_pt > x_max ? t*surf.d2 + surf.d1 : t*surf.d2;
+        //     // dist = normaldist < 0 ? -norm(test_pt - point) : norm(test_pt - point);
+        // }
+
+        return resultant;
+    }
 }
 
 host_fn two_pts closept(segment seg1, segment seg2) {
@@ -703,6 +768,177 @@ host_fn real distmin(OBB OBB, capsule caps) {
         // }
     }
     return distcurrent - caps.r;
+}
+
+host_fn real distmin_vectors_acc(OBB OBB, capsule caps) {
+    segment seg;
+    seg.p1 = caps.p1;
+    seg.p2 = caps.p2;
+
+    Mat3 Rtrans = transpose(OBB.R);
+    // Mat3 Rtrans = OBB.R;
+
+    Vec3 p1 = Rtrans * (seg.p1 - OBB.c);
+    Vec3 p2 = Rtrans * (seg.p2 - OBB.c);
+
+    Vec3 vec = p2 - p1;
+    Vec3 point = p2;
+
+    if (vec.z < 0) {
+        vec = -vec;
+        point = p1;
+    }
+
+    real xmin = - OBB.e[0];
+    real xmax = + OBB.e[0];
+    real ymin = - OBB.e[1];
+    real ymax = + OBB.e[1];
+    real zmin = - OBB.e[2];
+    real zmax = + OBB.e[2];
+
+    // Creating the eight original vertices
+    Vec3 orgvert[8];
+
+    orgvert[0] = { xmin, ymin, zmin };
+    orgvert[1] = { xmin, ymax, zmin };
+    orgvert[2] = { xmax, ymin, zmin };
+    orgvert[3] = { xmax, ymax, zmin };
+    orgvert[4] = { xmin, ymin, zmax };
+    orgvert[5] = { xmin, ymax, zmax };
+    orgvert[6] = { xmax, ymin, zmax };
+    orgvert[7] = { xmax, ymax, zmax };
+
+    // Thus, we get the three main directions
+    Vec3 dir[3];
+
+    dir[0] = orgvert[2] - orgvert[0];
+    dir[1] = orgvert[1] - orgvert[0];
+    dir[2] = orgvert[4] - orgvert[0];
+
+    // Creating the added vertices
+    Vec3 vert[8];
+    for (int i = 0; i < 8; i++) {
+        vert[i] = orgvert[i] + vec;
+    }
+
+    // some faces depend only on the direction of vec in x
+    surf face[12];
+
+    // the top four vertices will always be extended, meaning that the top and bottom faces (faces 0-1) will always be of the same format:
+    face[0].p = vert[4];
+    face[0].d1 = dir[0];
+    face[0].d2 = dir[1];
+
+    face[1].p = orgvert[0];
+    face[1].d1 = dir[1];
+    face[1].d2 = dir[0];
+
+    // The other faces depend on the orientation of the vector either in x (faces 2-5),
+    // in y (faces 6-9), or a combination of both (faces 10-11)
+    bool vecx = vec.x >= 0;
+    bool vecy = vec.y >= 0;
+    bool vecz = vec.z >= 0;
+
+    // Faces 2-5 depend on the x coordinate
+    face[2].p = vecx ? orgvert[5] : orgvert[6];
+    face[2].d1 = vecx ? - dir[1] : dir[1];
+    face[2].d2 = vec;
+
+    face[3].p = vecx ? orgvert[1] : orgvert[2];
+    face[3].d1 = vecx ? - dir[1] : dir[1];
+    face[3].d2 = dir[2];
+
+    face[4].p = vecx ? vert[2] : vert[1];
+    face[4].d1 = vecx ? dir[1] : -dir[1];
+    face[4].d2 = dir[2];
+
+    face[5].p = vecx ? orgvert[2] : orgvert[1];
+    face[5].d1 = vecx ? dir[1] : -dir[1];
+    face[5].d2 = vec;
+
+    // Faces 6-9 depend on the y coordinate
+    face[6].p = vecy ? orgvert[4] : orgvert[7];
+    face[6].d1 = vecy ? dir[0] : -dir[0];
+    face[6].d2 = vec;
+
+    face[7].p = vecy ? orgvert[0] : orgvert[3];
+    face[7].d1 = vecy ? dir[0] : -dir[0];
+    face[7].d2 = dir[2];
+
+    face[8].p = vecy ? vert[3] : vert[0];
+    face[8].d1 = vecy ? -dir[0] : dir[0];
+    face[8].d2 = dir[2];
+
+    face[9].p = vecy ? orgvert[3] : orgvert[0];
+    face[9].d1 = vecy ? -dir[0] : dir[0];
+    face[9].d2 = vec;
+
+    // Faces 10-11 depend on the x and y coordinate
+    face[10].p = vecx ? (vecy ? orgvert[1] : orgvert[4]) : (vecy ? orgvert[7] : orgvert[2]);
+    face[10].d1 = vecx ? (vecy ? dir[2] : -dir[2]) : (vecy ? -dir[2] : dir[2]);
+    face[10].d2 = vec;
+
+    face[11].p = vecx ? (vecy ? orgvert[6] : orgvert[3]) : (vecy ? orgvert[0] : orgvert[5]);
+    face[11].d1 = vecx ? (vecy ? -dir[2] : dir[2]) : (vecy ? dir[2] : -dir[2]);
+    face[11].d2 = vec;
+
+    // surf active_faces[12];
+    segment active_edges[24];
+    int n_active_faces = 0;
+    int n_active_edges = 0;
+    Vec3 n_current;
+    real normaldist[12];
+    real max_normal_dist = -INF_REAL;
+    for (int i = 0; i < 12; i++) {
+        n_current = cross(face[i].d1, face[i].d2);
+        n_current = 1 / norm(n_current) * n_current;
+        normaldist[i] = dot(n_current, point - face[i].p);
+
+        max_normal_dist = normaldist[i] > max_normal_dist ? normaldist[i] : max_normal_dist;
+
+        if (normaldist[i] >= 0) {
+            bool is_inside = pointInSurf(face[i].d1, face[i].d2, face[i].p, point);
+            if (is_inside)
+                return normaldist[i] - caps.r;
+
+            segment seg_face[4];
+            seg_face[0].p1 = face[i].p;
+            seg_face[0].p2 = face[i].p + face[i].d1;
+            seg_face[1].p1 = face[i].p;
+            seg_face[1].p2 = face[i].p + face[i].d2;
+            seg_face[2].p1 = face[i].p + face[i].d1;
+            seg_face[2].p2 = face[i].p + face[i].d1 + face[i].d2;
+            seg_face[3].p1 = face[i].p + face[i].d2;
+            seg_face[3].p2 = face[i].p + face[i].d1 + face[i].d2;
+
+            // active_faces[n_active_faces++] = face[i];
+            for (int j = 0; j < 4; j++) {
+                bool is_in_list = false;
+                for (int k = 0; k < n_active_edges; k++) {
+                    if (seg_face[j].p1 == active_edges[k].p1 && seg_face[j].p2 == active_edges[k].p2 ||
+                        seg_face[j].p1 == active_edges[k].p2 && seg_face[j].p2 == active_edges[k].p1) {
+                            is_in_list = true;
+                            break;
+                    }
+                }
+                if (!is_in_list) 
+                    active_edges[n_active_edges++] = seg_face[j];
+            }
+        }
+    }
+
+    // If point is inside
+    if (n_active_edges == 0) {
+        return max_normal_dist - caps.r;
+    }
+
+    real dist_min = INF_REAL;
+    real distcurrent;
+    for (int i = 0; i < n_active_edges; i++) {
+        distcurrent = distmin(active_edges[i], point);
+        dist_min = distcurrent < dist_min ? distcurrent : dist_min;
+    }
+    return dist_min - caps.r;
 }
 
 host_fn real distmin_pierce(OBB OBB, capsule caps) {
@@ -3443,12 +3679,18 @@ TEST_CASE("Collisions", "[World]") {
             CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
         }
 
-        // new dist min method
         for (auto t : test_obb) {
-            real dist = distmin_new(t.box, t.caps);
+            real dist = distmin_vectors_acc(t.box, t.caps);
             // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
             CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
         }
+
+        // new dist min method
+        // for (auto t : test_obb) {
+        //     real dist = distmin_new(t.box, t.caps);
+        //     // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+        //     CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+        // }
 
         // // dist_min naive method
         // for (auto t : test_obb) {
@@ -3505,6 +3747,15 @@ TEST_CASE("Collision method benchmarks", "[World]") {
         return dist;
     };
 
+    BENCHMARK("box - capsule test with vectors acc") {
+        real dist;
+        for (auto t : test_obb) {
+            dist = distmin_vectors_acc(t.box, t.caps);
+            // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+        }
+        return dist;
+    };
+
     // BENCHMARK("box - capsule test with naive") {
     //     real dist;
     //     for (auto t : test_obb) {
@@ -3540,143 +3791,144 @@ TEST_CASE("Collision method benchmarks", "[World]") {
 //     // };
 }
 
-// TEST_CASE("Collision method comparison exhaustive (OBB-cpasules)", "[World]") {
-//     using namespace blast;
+TEST_CASE("Collision method comparison exhaustive (OBB-cpasules)", "[World]") {
+    using namespace blast;
 
-//     real TESTCOLL_EPSILON = 1e-2;
+    real TESTCOLL_EPSILON = 1e-2;
 
-//     vector<OBB> obb_list;
-//     vector<capsule> caps_list;
-//     int n = 10000;
-//     bool error_info = false;
+    vector<OBB> obb_list;
+    vector<capsule> caps_list;
+    int n = 1000;
+    bool error_info = false;
 
-//     Array s(3);
-//     Array c(3);
-//     Array angles(3);
+    Array s(3);
+    Array c(3);
+    Array angles(3);
 
-//     Array obb_e(3);
-//     Array obb_c(3);
+    Array obb_e(3);
+    Array obb_c(3);
 
-//     Array seg_p1(3);
-//     Array seg_p2(3);
+    Array seg_p1(3);
+    Array seg_p2(3);
 
-//     for(u32 i = 0; i < n; i++) {
-//         fill_random(angles, PI);
-//         blast::sincos(angles, s, c);
+    for(u32 i = 0; i < n; i++) {
+        fill_random(angles, PI);
+        blast::sincos(angles, s, c);
 
-//         Mat3 Rz = {c[0], -s[0], 0, s[0], c[0], 0, 0, 0, 1};
-//         Mat3 Ry = {c[1], 0, s[1], 0, 1, 0, -s[1], 0, c[1]};
-//         Mat3 Rx = {1, 0, 0, 0, c[2], -s[2], 0, s[2], c[2]};
-//         auto R = Rz*Ry*Rx;
-//         // R = {1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
-//         CHECK(abs(1.0 - sqrt(R[0]*R[0] + R[1]*R[1] + R[2]*R[2])) < TESTCOLL_EPSILON);
-//         CHECK(abs(1.0 - sqrt(R[3]*R[3] + R[4]*R[4] + R[5]*R[5])) < TESTCOLL_EPSILON);
-//         CHECK(abs(1.0 - sqrt(R[6]*R[6] + R[7]*R[7] + R[8]*R[8])) < TESTCOLL_EPSILON);
+        Mat3 Rz = {c[0], -s[0], 0, s[0], c[0], 0, 0, 0, 1};
+        Mat3 Ry = {c[1], 0, s[1], 0, 1, 0, -s[1], 0, c[1]};
+        Mat3 Rx = {1, 0, 0, 0, c[2], -s[2], 0, s[2], c[2]};
+        auto R = Rz*Ry*Rx;
+        // R = {1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
+        CHECK(abs(1.0 - sqrt(R[0]*R[0] + R[1]*R[1] + R[2]*R[2])) < TESTCOLL_EPSILON);
+        CHECK(abs(1.0 - sqrt(R[3]*R[3] + R[4]*R[4] + R[5]*R[5])) < TESTCOLL_EPSILON);
+        CHECK(abs(1.0 - sqrt(R[6]*R[6] + R[7]*R[7] + R[8]*R[8])) < TESTCOLL_EPSILON);
 
-//         // Generate n random OBB
-//         fill_random(obb_e, 2);
-//         obb_e = array_abs(obb_e);
-//         fill_random(obb_c, 5);
-//         obb_c = array_abs(obb_c);
-//         // obb_c = {0.0, 0.0, 0.0};
-//         obb_list.push_back({{obb_c[0], obb_c[1], obb_c[2]}, {obb_e[0], obb_e[1], obb_e[2]}, R});
-//         // obb_list.push_back({{0.0, 0.0, 0.0}, {0.9278843, 0.41079, 0.9595}, R});
+        // Generate n random OBB
+        fill_random(obb_e, 2);
+        obb_e = array_abs(obb_e);
+        fill_random(obb_c, 5);
+        obb_c = array_abs(obb_c);
+        // obb_c = {0.0, 0.0, 0.0};
+        obb_list.push_back({{obb_c[0], obb_c[1], obb_c[2]}, {obb_e[0], obb_e[1], obb_e[2]}, R});
+        // obb_list.push_back({{0.0, 0.0, 0.0}, {0.9278843, 0.41079, 0.9595}, R});
 
-//         // Generate n random caps
-//         fill_random(seg_p1, 7);
-//         // seg_p1 = array_abs(seg_p1);
-//         fill_random(seg_p2, 7);
-//         // seg_p2 = array_abs(seg_p2);
-//         auto r = 0.0;
-//         caps_list.push_back({{seg_p1[0], seg_p1[1], seg_p1[2]}, {seg_p2[0], seg_p2[1], seg_p2[2]}, r});
-//         // caps_list.push_back({{-1.8289765, -0.92216, 4.76682}, {3.563465, 3.2846454, 6.08544}, r});
-//     }
-//     vector<capsule> caps_failed;
-//     vector<OBB> obb_failed;
-//     for (int cap = 0; cap < caps_list.size(); cap++) {
-//         // OBB collisions
-//         for (int i = 0; i < obb_list.size(); i++) {
-//             auto dist_min = distmin(obb_list[i], caps_list[cap]);
-//             auto dist_min_new = distmin_new(obb_list[i], caps_list[cap]);
-//             // auto dist_min_gjk = GJK_OBB_caps(caps_list[cap], obb_list[i]);
-//             // auto dist_min_pierce = distmin_pierce(obb_list[i], caps_list[cap]);
-//             // CHECK(abs(dist_min - dist_min_new) < TESTCOLL_EPSILON);
-//             // CHECK(abs(dist_min - dist_min_gjk) < TESTCOLL_EPSILON);
-//             // CHECK(abs(dist_min - dist_min_pierce) < TESTCOLL_EPSILON);
-//             // CHECK(abs(dist_min_new - dist_min_gjk) < TESTCOLL_EPSILON);
-//             if (abs(dist_min - dist_min_new) > TESTCOLL_EPSILON) {
-//                 // save and test caps and obb in future
-//                 caps_failed.push_back(caps_list[cap]);
-//                 obb_failed.push_back(obb_list[i]);
-//             }
-//             // CHECK(abs(dist_min_new - dist_min_pierce) < TESTCOLL_EPSILON);
-//             // CHECK(abs(dist_min_gjk - dist_min_pierce) < TESTCOLL_EPSILON);
-//         }
-//     }
-//     // todo: save caps and obb to test in debug
-//     real total_error = 0;
-//     real max_error = 0;
-//     bool error_when_neg = false;
-//     bool error_when_pos = false;
-//     std::vector<Vec3> error_distmin_distminnew(caps_failed.size());
-//     for (u32 i = 0; i < caps_failed.size(); i++) {
-//         auto dist_min = distmin(obb_failed[i], caps_failed[i]);
-//         auto dist_min_new = distmin_new(obb_failed[i], caps_failed[i]);
-//         // auto dist_min_gjk = GJK_OBB_caps(caps_failed[i], obb_failed[i]);
-//         // auto dist_min_pierce = distmin_pierce(obb_failed[i], caps_failed[i]);
-//         real error = abs(dist_min_new - dist_min) * 100 / dist_min;
-//         total_error += error;
-//         int dist = 0;
-//         max_error = error > max_error ? error : max_error;
-//         if (error > 100)
-//             real found_error = 0;
-//         if (dist_min >=0)
-//             error_when_pos = true;
-//         if (dist_min < 0) {
-//             error_when_neg = true;
-//             real check = dist_min_new + dist_min;
-//         }
-//         if (error_info) {
-//             Vec3 error_point = { error, dist_min, dist_min_new };
-//             error_distmin_distminnew.push_back(error_point);
-//         }
-//     }
+        // Generate n random caps
+        fill_random(seg_p1, 7);
+        // seg_p1 = array_abs(seg_p1);
+        fill_random(seg_p2, 7);
+        // seg_p2 = array_abs(seg_p2);
+        auto r = 0.0;
+        caps_list.push_back({{seg_p1[0], seg_p1[1], seg_p1[2]}, {seg_p2[0], seg_p2[1], seg_p2[2]}, r});
+        // caps_list.push_back({{-1.8289765, -0.92216, 4.76682}, {3.563465, 3.2846454, 6.08544}, r});
+    }
+    vector<capsule> caps_failed;
+    vector<OBB> obb_failed;
+    for (int cap = 0; cap < caps_list.size(); cap++) {
+        // OBB collisions
+        for (int i = 0; i < obb_list.size(); i++) {
+            auto dist_min = distmin(obb_list[i], caps_list[cap]);
+            // auto dist_min_new = distmin_new(obb_list[i], caps_list[cap]);
+            auto dist_min_vector_acc = distmin_vectors_acc(obb_list[i], caps_list[cap]);
+            // auto dist_min_gjk = GJK_OBB_caps(caps_list[cap], obb_list[i]);
+            // auto dist_min_pierce = distmin_pierce(obb_list[i], caps_list[cap]);
+            // CHECK(abs(dist_min - dist_min_new) < TESTCOLL_EPSILON);
+            // CHECK(abs(dist_min - dist_min_gjk) < TESTCOLL_EPSILON);
+            // CHECK(abs(dist_min - dist_min_pierce) < TESTCOLL_EPSILON);
+            // CHECK(abs(dist_min_new - dist_min_gjk) < TESTCOLL_EPSILON);
+            if (abs(dist_min - dist_min_vector_acc) > TESTCOLL_EPSILON) {
+                // save and test caps and obb in future
+                caps_failed.push_back(caps_list[cap]);
+                obb_failed.push_back(obb_list[i]);
+            }
+            // CHECK(abs(dist_min_new - dist_min_pierce) < TESTCOLL_EPSILON);
+            // CHECK(abs(dist_min_gjk - dist_min_pierce) < TESTCOLL_EPSILON);
+        }
+    }
+    // todo: save caps and obb to test in debug
+    real total_error = 0;
+    real max_error = 0;
+    bool error_when_neg = false;
+    bool error_when_pos = false;
+    std::vector<Vec3> error_distmin_distminnew(caps_failed.size());
+    for (u32 i = 0; i < caps_failed.size(); i++) {
+        auto dist_min = distmin(obb_failed[i], caps_failed[i]);
+        auto dist_min_new = distmin_new(obb_failed[i], caps_failed[i]);
+        // auto dist_min_gjk = GJK_OBB_caps(caps_failed[i], obb_failed[i]);
+        // auto dist_min_pierce = distmin_pierce(obb_failed[i], caps_failed[i]);
+        real error = abs(dist_min_new - dist_min) * 100 / dist_min;
+        total_error += error;
+        int dist = 0;
+        max_error = error > max_error ? error : max_error;
+        if (error > 100)
+            real found_error = 0;
+        if (dist_min >=0)
+            error_when_pos = true;
+        if (dist_min < 0) {
+            error_when_neg = true;
+            real check = dist_min_new + dist_min;
+        }
+        if (error_info) {
+            Vec3 error_point = { error, dist_min, dist_min_new };
+            error_distmin_distminnew.push_back(error_point);
+        }
+    }
 
-//     real avg_error = total_error / caps_failed.size();
-//     real avg_error_over_all = total_error / (n*n);
-//     real percent_error = caps_failed.size() / (n*n);
-//     std::cout << caps_failed.size() << " failed out of " << n*n << " tests ( " << percent_error << " % ) \n";
-//     std::cout << "Average error of " << avg_error << "% and a max error of " << max_error << "%. \n";
-//     std::cout << "Counting the tests which passed, we find an average error of : " << avg_error_over_all << " %.  \n";
-//     std::cout << "Error when positive dist (true or false): " << error_when_pos << " \n";
-//     std::cout << "Error when negative dist (true or false): " << error_when_neg << " \n";
+    real avg_error = total_error / caps_failed.size();
+    real avg_error_over_all = total_error / (n*n);
+    real percent_error = caps_failed.size() / (n*n);
+    std::cout << caps_failed.size() << " failed out of " << n*n << " tests ( " << percent_error << " % ) \n";
+    std::cout << "Average error of " << avg_error << "% and a max error of " << max_error << "%. \n";
+    std::cout << "Counting the tests which passed, we find an average error of : " << avg_error_over_all << " %.  \n";
+    std::cout << "Error when positive dist (true or false): " << error_when_pos << " \n";
+    std::cout << "Error when negative dist (true or false): " << error_when_neg << " \n";
 
-//     if (error_info) {
-//         #include <fstream>
+    // if (error_info) {
+    //     #include <fstream>
 
-//         // Open a CSV file for writing
-//         std::ofstream csvFile("C:\\Users\\thoma\\Desktop\\example.csv");
+    //     // Open a CSV file for writing
+    //     std::ofstream csvFile("C:\\Users\\thoma\\Desktop\\example.csv");
 
-//         // Check if the file is open
-//         if (!csvFile.is_open()) {
-//             std::cerr << "Error opening file!" << std::endl;
-//         }
+    //     // Check if the file is open
+    //     if (!csvFile.is_open()) {
+    //         std::cerr << "Error opening file!" << std::endl;
+    //     }
 
-//         // Write headers to the CSV file
-//         csvFile << "error (%), dist_min, dist_min_new" << std::endl;
+    //     // Write headers to the CSV file
+    //     csvFile << "error (%), dist_min, dist_min_new" << std::endl;
 
-//         // Write data
-//         for (int i = 0; i < error_distmin_distminnew.size(); i++) {
-//             Vec3 error_pt = error_distmin_distminnew[i];
-//             csvFile << (error_pt).x << ";" << (error_pt).y << ";" << (error_pt).z << std::endl;
-//         }
+    //     // Write data
+    //     for (int i = 0; i < error_distmin_distminnew.size(); i++) {
+    //         Vec3 error_pt = error_distmin_distminnew[i];
+    //         csvFile << (error_pt).x << ";" << (error_pt).y << ";" << (error_pt).z << std::endl;
+    //     }
         
-//         // Close the file
-//         csvFile.close();
+    //     // Close the file
+    //     csvFile.close();
 
-//         std::cout << "CSV file created successfully." << std::endl;
-//     }
-// }
+    //     std::cout << "CSV file created successfully." << std::endl;
+    // }
+}
 
 #endif
 
