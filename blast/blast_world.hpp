@@ -326,7 +326,7 @@ blast_fn real distmin(surf surf, Vec3 point) {
 
     //     real distance = (t1 >= 0 && t1 <= 1 && t2 >= 0 && t2 <= 1) ? normaldist : result;
     //     return distance == normaldist ? normaldist : (normaldist < 0 ? -distance : distance);
-    // } 
+    // }
     else {
         real normaldist = dot(point - surf.p, n_unit);
         Vec3 direction = point - normaldist*n_unit - surf.p;
@@ -362,8 +362,8 @@ blast_fn real distmin(surf surf, Vec3 point) {
         // Vec3 dy = cross(n_unit, surf.d1);
         // real y_max = dot(dy, surf.d2);
         // real y_pt = dot(dy, proj);
-        // real x_min =    y_pt < 0 ? 0 : 
-        //                 (y_pt > 1 ? dot(surf.d2, surf.d1) : 
+        // real x_min =    y_pt < 0 ? 0 :
+        //                 (y_pt > 1 ? dot(surf.d2, surf.d1) :
         //                 y_pt/y_max * dot(surf.d2, surf.d1));
         // real x_max = x_min + dot(surf.d1, surf.d1);
         // real x_pt = dot(surf.d1, proj);
@@ -916,12 +916,12 @@ host_fn real distmin_vectors_acc(OBB OBB, capsule caps) {
                 bool is_in_list = false;
                 for (int k = 0; k < n_active_edges; k++) {
                     if (seg_face[j].p1 == active_edges[k].p1 && seg_face[j].p2 == active_edges[k].p2 ||
-                        seg_face[j].p1 == active_edges[k].p2 && seg_face[j].p2 == active_edges[k].p1) {
-                            is_in_list = true;
-                            break;
+                            seg_face[j].p1 == active_edges[k].p2 && seg_face[j].p2 == active_edges[k].p1) {
+                        is_in_list = true;
+                        break;
                     }
                 }
-                if (!is_in_list) 
+                if (!is_in_list)
                     active_edges[n_active_edges++] = seg_face[j];
             }
         }
@@ -2425,6 +2425,10 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
         for (int i = 0; i < size(loose_edges); i++) {
             n = cross(p - loose_edges[i].p1, p - loose_edges[i].p2);
             dot_p1_n = dot(loose_edges[i].p1, n);
+            // n = dot_p1_n > 0 ? n : (dot_p1_n < 0 ? - n : (dot(n, simplex.d) >= 0 ? -n : n)); todo: FIXME Problem is here when dot_pi_n == 0
+            if(dot_p1_n == 0.0) {
+                int test = 0;
+            }
             n = dot_p1_n > 0 ? n : - n;
             n = (1 / norm(n)) * n;
 
@@ -2586,7 +2590,7 @@ host_fn bool comparePoints(const Vec3& a, const Vec3& b) {
 }
 
 host_fn bool sort_Vec3(const Vec3& a, const Vec3&b) {
-    return (dot(a,a) > dot(b,b));
+    return (dot(a, a) > dot(b, b));
 }
 
 host_fn bool isLeftTurn(const Vec3& p, const Vec3& q, const Vec3& r) {
@@ -2671,8 +2675,8 @@ host_fn real distmin_new(OBB OBB, capsule caps) {
         Vec3 OBB_center = - t_OBB*ab;
         for (int i = 0; i < 8; i++) {
             t_OBB = dot(ab, OBB_point[i] - seg.p1) / dot(ab, ab);
-            // points.push_back(OBB_point[i] - t_OBB*ab - OBB_center); 
-            hull_points.push_back(OBB_point[i] - t_OBB*ab - OBB_center); 
+            // points.push_back(OBB_point[i] - t_OBB*ab - OBB_center);
+            hull_points.push_back(OBB_point[i] - t_OBB*ab - OBB_center);
         }
 
         // Using Andrew's algorithm for computing the convex hull
@@ -2740,7 +2744,7 @@ host_fn real distmin_new(OBB OBB, capsule caps) {
         Vec3 closest_point_hull;
         segment seg_OBB;
 
-        
+
 
         for (int i = 0; i < 6; i++) {
             closest_point_hull = closept_origin({lower_hull[i], lower_hull[(i + 1) % 6]});
@@ -3646,9 +3650,9 @@ collision_test_box test_obb[] = {
     /*Test30*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.91, 5.9, 7.39 }, { 4.14, 5.9, 13.32 }, 0.5 }, 0.40000000 },
 
     /*Test31*/ { { { 0, 0, 0 }, { 1.421459, 0.796365, 0.574752 }, { 1, 0, 0, 0, 1, 0, 0, 0, 1 } }, { { 2.447825, 6.30643376, -5.224298 }, { -5.4486154, -5.149872, 5.1825604 }, 0 }, -0.05877295 },
-    /*Test32*/ { { { 0, 0, 0 }, { 1.7236252662212059, 1.6611691154387149, 0.20442662553572166 } , { 1, 0, 0, 0, 1, 0, 0, 0, 1 } }, { { -4.6785661670641119, 1.5869561202501099, -4.7958108710825522 }, { 6.9379851583657839, -2.4864207406657761, 4.5569750611707658 }, 0 }, -0.438675 },
-    /*Test33*/ { { { 0, 0, 0 }, { 1.7865788377999734, 1.4615853859974308, 1.7957946652540584 } , {0.16899262598095025, 0.69208966716438747, -0.70175022976009782, -0.73366055668912455, 0.56377691511991157, 0.37933860538637498, 0.65816690886329632, 0.45074103716231956, 0.60303303184416857 } }, { { -0.050034305603475548, 0.40002630593895194, 2.3444724393109695 }, { 1.3614165219982919, 0.62636518062708535, -1.2242779633088015 }, 0 }, -1.3557069221709168 },
-    
+    /*Test32*/ { { { 0, 0, 0 }, { 1.7236252662212059, 1.6611691154387149, 0.20442662553572166 }, { 1, 0, 0, 0, 1, 0, 0, 0, 1 } }, { { -4.6785661670641119, 1.5869561202501099, -4.7958108710825522 }, { 6.9379851583657839, -2.4864207406657761, 4.5569750611707658 }, 0 }, -0.438675 },
+    /*Test33*/ { { { 0, 0, 0 }, { 1.7865788377999734, 1.4615853859974308, 1.7957946652540584 }, {0.16899262598095025, 0.69208966716438747, -0.70175022976009782, -0.73366055668912455, 0.56377691511991157, 0.37933860538637498, 0.65816690886329632, 0.45074103716231956, 0.60303303184416857 } }, { { -0.050034305603475548, 0.40002630593895194, 2.3444724393109695 }, { 1.3614165219982919, 0.62636518062708535, -1.2242779633088015 }, 0 }, -1.3557069221709168 },
+
     // The following test does not pass for dist_min_new
     // /*Test34*/ { { { 0, 0, 0 }, { 1.8543682561036101, 0.23108269265489501, 0.11287955803364236 } , { 1, 0, 0, 0, 1, 0, 0, 0, 1 } }, { { 4.4589046322448933, 6.1459446090413632, -5.0723802406288092 }, { -4.5833194312111516, -3.5836095282891645, 1.8703880978400422 }, 0 }, 0.33293883592789086 },
 };
@@ -3673,31 +3677,31 @@ TEST_CASE("Collisions", "[World]") {
 //         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
 //     }
 
-        for (auto t : test_obb) {
-            real dist = distmin(t.box, t.caps);
-            // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
-            CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
-        }
+    for (auto t : test_obb) {
+        real dist = distmin(t.box, t.caps);
+        // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+        CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+    }
 
-        for (auto t : test_obb) {
-            real dist = distmin_vectors_acc(t.box, t.caps);
-            // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
-            CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
-        }
+    for (auto t : test_obb) {
+        real dist = distmin_vectors_acc(t.box, t.caps);
+        // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+        CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+    }
 
-        // new dist min method
-        // for (auto t : test_obb) {
-        //     real dist = distmin_new(t.box, t.caps);
-        //     // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
-        //     CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
-        // }
+    // new dist min method
+    // for (auto t : test_obb) {
+    //     real dist = distmin_new(t.box, t.caps);
+    //     // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+    //     CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+    // }
 
-        // // dist_min naive method
-        // for (auto t : test_obb) {
-        //     real dist = distmin_naive(t.box, t.caps);
-        //     // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
-        //     CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
-        // }
+    // // dist_min naive method
+    // for (auto t : test_obb) {
+    //     real dist = distmin_naive(t.box, t.caps);
+    //     // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+    //     CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+    // }
 
 
 
@@ -3733,63 +3737,63 @@ TEST_CASE("Collisions", "[World]") {
 //     }
 }
 
-TEST_CASE("Collision method benchmarks", "[World]") {
-    using namespace blast;
+// TEST_CASE("Collision method benchmarks", "[World]") {
+//     using namespace blast;
 
-    real TESTCOLL_EPSILON = 1e-2;
+//     real TESTCOLL_EPSILON = 1e-2;
 
-    BENCHMARK("box - capsule test with vectors") {
-        real dist;
-        for (auto t : test_obb) {
-            dist = distmin(t.box, t.caps);
-            // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
-        }
-        return dist;
-    };
-
-    BENCHMARK("box - capsule test with vectors acc") {
-        real dist;
-        for (auto t : test_obb) {
-            dist = distmin_vectors_acc(t.box, t.caps);
-            // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
-        }
-        return dist;
-    };
-
-    // BENCHMARK("box - capsule test with naive") {
-    //     real dist;
-    //     for (auto t : test_obb) {
-    //         dist = distmin_naive(t.box, t.caps);
-    //         // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
-    //     }
-    //     return dist;
-    // };
-
-    BENCHMARK("box - capsule test new dist min") {
-        real dist;
-        for (auto t : test_obb) {
-            dist = distmin_new(t.box, t.caps);
-            // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
-        }
-        return dist;
-    };
-//  BENCHMARK("box - capsule test with new GJK") {
+//     BENCHMARK("box - capsule test with vectors") {
 //         real dist;
 //         for (auto t : test_obb) {
-//             dist = GJK_OBB_caps(t.caps, t.box);
+//             dist = distmin(t.box, t.caps);
 //             // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
 //         }
 //         return dist;
 //     };
-//     // BENCHMARK("box - capsule test dist min pierce") {
+
+//     BENCHMARK("box - capsule test with vectors acc") {
+//         real dist;
+//         for (auto t : test_obb) {
+//             dist = distmin_vectors_acc(t.box, t.caps);
+//             // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+//         }
+//         return dist;
+//     };
+
+//     // BENCHMARK("box - capsule test with naive") {
 //     //     real dist;
 //     //     for (auto t : test_obb) {
-//     //         dist = distmin_pierce(t.box, t.caps);
+//     //         dist = distmin_naive(t.box, t.caps);
 //     //         // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
 //     //     }
 //     //     return dist;
 //     // };
-}
+
+//     BENCHMARK("box - capsule test new dist min") {
+//         real dist;
+//         for (auto t : test_obb) {
+//             dist = distmin_new(t.box, t.caps);
+//             // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+//         }
+//         return dist;
+//     };
+// //  BENCHMARK("box - capsule test with new GJK") {
+// //         real dist;
+// //         for (auto t : test_obb) {
+// //             dist = GJK_OBB_caps(t.caps, t.box);
+// //             // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+// //         }
+// //         return dist;
+// //     };
+// //     // BENCHMARK("box - capsule test dist min pierce") {
+// //     //     real dist;
+// //     //     for (auto t : test_obb) {
+// //     //         dist = distmin_pierce(t.box, t.caps);
+// //     //         // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+// //     //     }
+// //     //     return dist;
+// //     // };
+// }
 
 TEST_CASE("Collision method comparison exhaustive (OBB-cpasules)", "[World]") {
     using namespace blast;
@@ -3798,7 +3802,7 @@ TEST_CASE("Collision method comparison exhaustive (OBB-cpasules)", "[World]") {
 
     vector<OBB> obb_list;
     vector<capsule> caps_list;
-    int n = 1000;
+    int n = 10;
     bool error_info = false;
 
     Array s(3);
@@ -3847,61 +3851,55 @@ TEST_CASE("Collision method comparison exhaustive (OBB-cpasules)", "[World]") {
     for (int cap = 0; cap < caps_list.size(); cap++) {
         // OBB collisions
         for (int i = 0; i < obb_list.size(); i++) {
-            auto dist_min = distmin(obb_list[i], caps_list[cap]);
+            // auto dist_min = distmin(obb_list[i], caps_list[cap]);
             // auto dist_min_new = distmin_new(obb_list[i], caps_list[cap]);
-            auto dist_min_vector_acc = distmin_vectors_acc(obb_list[i], caps_list[cap]);
-            // auto dist_min_gjk = GJK_OBB_caps(caps_list[cap], obb_list[i]);
-            // auto dist_min_pierce = distmin_pierce(obb_list[i], caps_list[cap]);
-            // CHECK(abs(dist_min - dist_min_new) < TESTCOLL_EPSILON);
-            // CHECK(abs(dist_min - dist_min_gjk) < TESTCOLL_EPSILON);
-            // CHECK(abs(dist_min - dist_min_pierce) < TESTCOLL_EPSILON);
-            // CHECK(abs(dist_min_new - dist_min_gjk) < TESTCOLL_EPSILON);
-            if (abs(dist_min - dist_min_vector_acc) > TESTCOLL_EPSILON) {
-                // save and test caps and obb in future
-                caps_failed.push_back(caps_list[cap]);
-                obb_failed.push_back(obb_list[i]);
-            }
-            // CHECK(abs(dist_min_new - dist_min_pierce) < TESTCOLL_EPSILON);
-            // CHECK(abs(dist_min_gjk - dist_min_pierce) < TESTCOLL_EPSILON);
+            // auto dist_min_vector_acc = distmin_vectors_acc(obb_list[i], caps_list[cap]);
+            auto dist_min_gjk = GJK_OBB_caps(caps_list[cap], obb_list[i]);
+
+            // if (abs(dist_min - dist_min_vector_acc) > TESTCOLL_EPSILON) {
+            //     // save and test caps and obb in future
+            //     caps_failed.push_back(caps_list[cap]);
+            //     obb_failed.push_back(obb_list[i]);
+            // }
         }
     }
     // todo: save caps and obb to test in debug
-    real total_error = 0;
-    real max_error = 0;
-    bool error_when_neg = false;
-    bool error_when_pos = false;
-    std::vector<Vec3> error_distmin_distminnew(caps_failed.size());
-    for (u32 i = 0; i < caps_failed.size(); i++) {
-        auto dist_min = distmin(obb_failed[i], caps_failed[i]);
-        auto dist_min_new = distmin_new(obb_failed[i], caps_failed[i]);
-        // auto dist_min_gjk = GJK_OBB_caps(caps_failed[i], obb_failed[i]);
-        // auto dist_min_pierce = distmin_pierce(obb_failed[i], caps_failed[i]);
-        real error = abs(dist_min_new - dist_min) * 100 / dist_min;
-        total_error += error;
-        int dist = 0;
-        max_error = error > max_error ? error : max_error;
-        if (error > 100)
-            real found_error = 0;
-        if (dist_min >=0)
-            error_when_pos = true;
-        if (dist_min < 0) {
-            error_when_neg = true;
-            real check = dist_min_new + dist_min;
-        }
-        if (error_info) {
-            Vec3 error_point = { error, dist_min, dist_min_new };
-            error_distmin_distminnew.push_back(error_point);
-        }
-    }
+    // real total_error = 0;
+    // real max_error = 0;
+    // bool error_when_neg = false;
+    // bool error_when_pos = false;
+    // std::vector<Vec3> error_distmin_distminnew(caps_failed.size());
+    // for (u32 i = 0; i < caps_failed.size(); i++) {
+    //     auto dist_min = distmin(obb_failed[i], caps_failed[i]);
+    //     auto dist_min_new = distmin_new(obb_failed[i], caps_failed[i]);
+    //     // auto dist_min_gjk = GJK_OBB_caps(caps_failed[i], obb_failed[i]);
+    //     // auto dist_min_pierce = distmin_pierce(obb_failed[i], caps_failed[i]);
+    //     real error = abs(dist_min_new - dist_min) * 100 / dist_min;
+    //     total_error += error;
+    //     int dist = 0;
+    //     max_error = error > max_error ? error : max_error;
+    //     if (error > 100)
+    //         real found_error = 0;
+    //     if (dist_min >=0)
+    //         error_when_pos = true;
+    //     if (dist_min < 0) {
+    //         error_when_neg = true;
+    //         real check = dist_min_new + dist_min;
+    //     }
+    //     if (error_info) {
+    //         Vec3 error_point = { error, dist_min, dist_min_new };
+    //         error_distmin_distminnew.push_back(error_point);
+    //     }
+    // }
 
-    real avg_error = total_error / caps_failed.size();
-    real avg_error_over_all = total_error / (n*n);
-    real percent_error = caps_failed.size() / (n*n);
-    std::cout << caps_failed.size() << " failed out of " << n*n << " tests ( " << percent_error << " % ) \n";
-    std::cout << "Average error of " << avg_error << "% and a max error of " << max_error << "%. \n";
-    std::cout << "Counting the tests which passed, we find an average error of : " << avg_error_over_all << " %.  \n";
-    std::cout << "Error when positive dist (true or false): " << error_when_pos << " \n";
-    std::cout << "Error when negative dist (true or false): " << error_when_neg << " \n";
+    // real avg_error = total_error / caps_failed.size();
+    // real avg_error_over_all = total_error / (n*n);
+    // real percent_error = caps_failed.size() / (n*n);
+    // std::cout << caps_failed.size() << " failed out of " << n*n << " tests ( " << percent_error << " % ) \n";
+    // std::cout << "Average error of " << avg_error << "% and a max error of " << max_error << "%. \n";
+    // std::cout << "Counting the tests which passed, we find an average error of : " << avg_error_over_all << " %.  \n";
+    // std::cout << "Error when positive dist (true or false): " << error_when_pos << " \n";
+    // std::cout << "Error when negative dist (true or false): " << error_when_neg << " \n";
 
     // if (error_info) {
     //     #include <fstream>
@@ -3922,7 +3920,7 @@ TEST_CASE("Collision method comparison exhaustive (OBB-cpasules)", "[World]") {
     //         Vec3 error_pt = error_distmin_distminnew[i];
     //         csvFile << (error_pt).x << ";" << (error_pt).y << ";" << (error_pt).z << std::endl;
     //     }
-        
+
     //     // Close the file
     //     csvFile.close();
 
