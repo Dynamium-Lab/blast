@@ -2317,10 +2317,11 @@ host_fn real distmin_origin(EPA_hull face) {
 host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vector<Vec3> v2) {
     // create a face vector that has three points and a normal
     std::vector<EPA_hull> faces;
+    faces.reserve(12);
 
-    if (dot(simplex.b, simplex.b) <= 1e-2 && simplex.size == 1) {
+    // if (dot(simplex.b, simplex.b) <= 1e-2 && simplex.size == 1) {
         
-    }
+    // }
 
     Vec3 ab = simplex.b - simplex.a;
     Vec3 ac = simplex.c - simplex.a;
@@ -2383,6 +2384,7 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
 
         // Get all the faces which are "seen" by the new point, add them to deleted_faces and delete them.
         std::vector<EPA_hull> deleted_faces;
+        deleted_faces.reserve(size(faces)-1);
         int kept_face_idx = 0;
         bool found_kept_face = false;
         bool condition;
@@ -2400,6 +2402,7 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
         // as parts of the new faces (with the new point forming the remaining two line segments).
         two_pts current_edge[3];
         std::vector<two_pts> loose_edges;
+        loose_edges.reserve(size(deleted_faces)+1);
         for (int i = 0; i < size(deleted_faces); i++) { // for all deleted faces found
             current_edge[0] = {deleted_faces[i].p1, deleted_faces[i].p2};
             current_edge[1] = {deleted_faces[i].p1, deleted_faces[i].p3};
