@@ -48,7 +48,7 @@ real pso_optimize(Array& x, Optimisation& optim) {
         real w = w_max - j * ((w_max - w_min) / N_iterations);
 
         for(int i = 0; i < N_particles; i++) {
-            for (int k = 0; k < N_Dimensions; k++) {
+            for (int k = 0; k < (int)N_Dimensions; k++) {
                 //Updating Velocity
                 particle[i].v[k] = w * particle[i].v[k] + c * r1 * (particle[i].best_x[k]- particle[i].x[k]) + s* r2 * (gbest_x[k] - particle[i].x[k]);
                 //particle[i].v[k] = w * particle[i].v[k] + c * r1 * q + s* r2 * (gbest_x[k] - particle[i].x[k]);

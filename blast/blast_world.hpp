@@ -1320,7 +1320,7 @@ host_fn real solve_EPA_algorithm(ComplexSimplex simplex, std::vector<Vec3> v1, s
             // in the case where two iterations return the same support point, it can be the case that two
             // faces are created on top of one another. In this case, the face is always inside the
             // polytope and it should therefore be deleted.
-            for (int i = size(s) - 1; i >= 0; i--) {
+            for (int i = (int)size(s) - 1; i >= 0; i--) {
                 if (check_same_triangle(s[i], new_tri1)) {
                     s.erase(s.begin() + i); // if the triangle was already in the list, then we must delete it as this face is now inside the simplex
                     break;
@@ -1331,7 +1331,7 @@ host_fn real solve_EPA_algorithm(ComplexSimplex simplex, std::vector<Vec3> v1, s
                 }
             }
 
-            for (int i = size(s) - 1; i >= 0; i--) {
+            for (int i = (int)size(s) - 1; i >= 0; i--) {
                 if (check_same_triangle(s[i], new_tri2)) {
                     s.erase(s.begin() + i);
                     break;
@@ -1342,7 +1342,7 @@ host_fn real solve_EPA_algorithm(ComplexSimplex simplex, std::vector<Vec3> v1, s
                 }
             }
 
-            for (int i = size(s) - 1; i >= 0; i--) {
+            for (int i = (int)size(s) - 1; i >= 0; i--) {
                 if (check_same_triangle(s[i], new_tri3)) {
                     s.erase(s.begin() + i);
                     break;
@@ -1404,7 +1404,7 @@ host_fn real solve_EPA_algorithm_bool(bool_simplex simplex, std::vector<Vec3> v1
             // in the case where two iterations return the same support point, it can be the case that two
             // faces are created on top of one another. In this case, the face is always inside the
             // polytope and it should therefore be deleted.
-            for (int i = size(s) - 1; i >= 0; i--) {
+            for (int i = (int)size(s) - 1; i >= 0; i--) {
                 if (check_same_triangle(s[i], new_tri1)) {
                     s.erase(s.begin() + i); // if the triangle was already in the list, then we must delete it as this face is now inside the simplex
                     break;
@@ -1415,7 +1415,7 @@ host_fn real solve_EPA_algorithm_bool(bool_simplex simplex, std::vector<Vec3> v1
                 }
             }
 
-            for (int i = size(s) - 1; i >= 0; i--) {
+            for (int i = (int)size(s) - 1; i >= 0; i--) {
                 if (check_same_triangle(s[i], new_tri2)) {
                     s.erase(s.begin() + i);
                     break;
@@ -1426,7 +1426,7 @@ host_fn real solve_EPA_algorithm_bool(bool_simplex simplex, std::vector<Vec3> v1
                 }
             }
 
-            for (int i = size(s) - 1; i >= 0; i--) {
+            for (int i = (int)size(s) - 1; i >= 0; i--) {
                 if (check_same_triangle(s[i], new_tri3)) {
                     s.erase(s.begin() + i);
                     break;
@@ -1770,7 +1770,7 @@ host_fn bool GJK_bool_gen(std::vector<Vec3> v1, std::vector<Vec3> v2, real radiu
     bool_simplex simplex;
     bool intersection;
 
-    int full_size = size(v1) * size(v2);
+    int full_size = (int)(size(v1) * size(v2));
     std::vector<Vec3> full_minkowski_list(full_size);
 
     // if (full_size > 32) {
