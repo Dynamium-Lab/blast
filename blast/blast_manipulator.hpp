@@ -1707,7 +1707,7 @@ host_fn Matrix Gen3_7DOF::robot_capsules(const Matrix &joint_positions, const in
 
     Array s(7);
     Array c(7);
-    for (u32 col = 0; col < n_col; col++) {
+    for (int col = 0; col < n_col; col++) {
         auto joint_position_tmp = joint_positions.col(col*n_skip);
         blast::sincos(joint_position_tmp, s, c);
 
@@ -1910,8 +1910,8 @@ host_fn void Gen3Eigen::dynamics(const MatrixXd &pos, const MatrixXd &vel, const
     Vector3d f1, f2, f3, f4, f5, f6, f7;
     Vector3d n1, n2, n3, n4, n5, n6, n7;
 
-    const int joints = pos.rows();
-    const int points = pos.cols();
+    const int joints = (int)pos.rows();
+    const int points = (int)pos.cols();
 
     // loop all points
     for (int i = 0; i < points; i++) {
@@ -2391,13 +2391,13 @@ host_fn VectorXd Gen3Eigen::constraints(const VectorXd &pos, const VectorXd &vel
 
 host_fn VectorXd Gen3Eigen::constraints(const MatrixXd &pos, const MatrixXd &vel, const MatrixXd &acc) {
     const auto points = pos.cols();
-    VectorXd result(ncon(points));
+    VectorXd result(ncon((int)points));
     constraints(pos, vel, acc, result.data());
     return result;
 }
 
 host_fn VectorXd Gen3Eigen::constraints(const TrajectoryEigen &traj) {
-    VectorXd result(ncon(traj.t.size()));
+    VectorXd result(ncon((int)traj.t.size()));
     constraints(traj.pos, traj.vel, traj.acc, result.data());
     return result;
 }
@@ -2835,11 +2835,11 @@ host_fn Array Link6::constraints(const Array &pos, const Array &vel, const Array
     result[4] = -tmp_coll[4]; // distTEE
 
     // velocity
-    for (int j = 0; j < joints; j++)
+    for (int j = 0; j < (int)joints; j++)
         result[j+5] = (abs(vel[j]) - vmax[j]) / vmax[j];
 
     auto f = _efforts.col(0); Assert(f.is_alias);
-    for (int j = 0; j < joints; j++)
+    for (int j = 0; j < (int)joints; j++)
         result[j+5+joints] = (abs(f[j]) - tau_max[j]) / tau_max[j];
 
     return result;
@@ -2879,12 +2879,12 @@ host_fn void Link6::constraints(const Matrix &pos, const Matrix &vel, const Matr
         dst += 5;
 
         // velocity
-        for (int j = 0; j < joints; j++)
+        for (int j = 0; j < (int)joints; j++)
             dst[j] = (abs(vel(j, i)) - vmax[j]) / vmax[j];
         dst += joints;
 
         auto f = _efforts.col(i); Assert(f.is_alias);
-        for (int j = 0; j < joints; j++)
+        for (int j = 0; j < (int)joints; j++)
             dst[j] = (abs(f[j]) - tau_max[j]) / tau_max[j];
         dst += joints;
     }

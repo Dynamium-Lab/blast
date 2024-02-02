@@ -83,7 +83,7 @@ host_fn real penalty_obj_time(Array x, Optimisation optim) {
     auto f = obj_time(x.size, x.data, nullptr, nullptr);
     cstr_manip(optim.manip->ncon(points), cstr.data, x.size, x.data, nullptr, &optim);
 
-    for (int i = 0; i < cstr.size; i++)
+    for (int i = 0; i < (int)cstr.size; i++)
         // f += cstr[i] > 0 ? (cstr[i]* cstr[i]) : 0; // todo: explore alternatives
         // f += cstr[i] > 0 ? (abs(cstr[i])) : 0; // todo: explore alternatives
         // f += cstr[i] > 0 ? ((i+1) * cstr[i] * cstr[i]) : 0; // todo: explore alternatives

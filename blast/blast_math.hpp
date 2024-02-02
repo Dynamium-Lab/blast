@@ -1220,7 +1220,7 @@ blast_fn real dot(const Array& a, const Array& b) {
     mipp::Reg<real> rb; // wide register for part of the 'b' array
     mipp::Reg<real> accum = 0.0;
     auto vecLoopSize = (a.size / mipp::N<real>()) * mipp::N<real>();
-    for (; i < vecLoopSize; i += mipp::N<real>()) {
+    for (; i < (int)vecLoopSize; i += mipp::N<real>()) {
         ra.load(&a.data[i]);
         rb.load(&b.data[i]);
         accum = mipp::fmadd(ra, rb, accum);
@@ -1646,7 +1646,7 @@ blast_fn void QR_decomp(const Matrix& A, Matrix& Q, Matrix& R) {
         Q(i, 0) = e[i];
     }
 
-    for (u32 j = 1; j < A.cols; j ++) {
+    for (int j = 1; j < (int)A.cols; j ++) {
         auto a = A.col(j);
 
         zero(sum);

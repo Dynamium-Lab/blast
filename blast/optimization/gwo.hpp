@@ -24,7 +24,7 @@ real gwo_optimize(Array& x, Optimisation& optim) {
     std::vector<Wolf> wolf(N_wolves);
     // Initialization of wolves' positions
     for (int i = 0; i < N_wolves; i++) {
-        for (int j = 0; j < N_Dimensions; j++) {
+        for (int j = 0; j < (int)N_Dimensions; j++) {
             wolf[i].x = random_array(N_Dimensions, 1); // Random values between -1 and 1
         }
     }
@@ -64,7 +64,7 @@ real gwo_optimize(Array& x, Optimisation& optim) {
             real C_beta = 2* (0.5 * get_random() + 0.5);
             real C_delta = 2* (0.5 * get_random() + 0.5);
                 
-            for (int j = 0; j < N_Dimensions; j++) {
+            for (int j = 0; j < (int)N_Dimensions; j++) {
                 // Search Agent updates its position
                 real D_alpha = abs(C_alpha * x_Alpha[j] - wolf[i].x[j]);;
                 real D_beta = abs(C_beta * x_Beta[j] - wolf[i].x[j]);;
