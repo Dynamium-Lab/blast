@@ -99,7 +99,7 @@ host_fn void internal_cstr_manip_single(unsigned m, double* result, unsigned n, 
     opt->manip->constraints(opt->bspline->traj, result);
 }
 
-// Simple manipulator defined constraints function.
+// Simple manipulator defined constraints function (without accelerated gradient).
 //  The given manipulator's constraints function is called and no additionnal constraints are added.
 //
 //  m      = number of constraints
@@ -122,6 +122,70 @@ host_fn void cstr_manip(unsigned m, double *result, unsigned xlen, const double*
         // todo: parallel?
         for (u32 j = 0; j < xlen; j++) {
             memcpy(x_plus.data, x, xlen * sizeof(real));
+            x_plus[j] += eps;
+            internal_cstr_manip_single(m, r_plus.data, xlen, x_plus.data, opt);
+            for (u32 i = 0; i < m; i++)
+                grad[i*xlen + j] = (r_plus[i]-result[i])/eps;
+        }
+    }
+}
+// Simple manipulator defined constraints function (with accelerated gradient).
+//  The given manipulator's constraints function is called and no additionnal constraints are added.
+//
+//  m      = number of constraints
+//  result = constraints are inserted here
+//  n      = number of elements in optimization vector
+//  x      = optimization vector
+//  grad   = if not NULL, gradient is inserted here
+//  data   = is cast to Optimization struct
+//
+// Returns nothing
+host_fn void cstr_manip_acc(unsigned m, double *result, unsigned xlen, const double* x, double* grad, void* f_data) {
+    Optimisation* opt = (Optimisation*)f_data;
+
+    internal_cstr_manip_single(m, result, xlen, x, opt);
+
+    if (grad) {
+        const real eps = 1e-5;
+        Array x_plus(xlen);
+        Array r_plus(m);
+        // todo: parallel?
+
+        // Computing the boundaries where the control points affect the constraints
+        int n_step = opt->bspline->nctrl - 2;
+        real step_u = 1 / (n_step);
+        real current_step = 0;
+        int low_bound = 0;
+        int high_bound = step_u;
+
+        // Creating gradient matrix (xlen x m)
+        memcpy(x_plus.data, x, xlen * sizeof(real));
+        for (int i = 0 ; i < n_step; i++) {
+            // todo: Fill all lines with zeros
+            
+            // Fill lines of the matrix which are active at this step for every constraint
+            for (int j = low_bound; j <= high_bound; j++) {
+                
+            }
+
+            // Add points one at a time, computing gradient every time, to a vector of length 5 until it is full,
+            // Push all points upwards, deleting the first and adding the next point to the end
+            // Do this until there is no more points to add (we are at the end of the gradient)
+            // Delete the first point and compute gradient
+            // Delete the first point again : compute for the last time and you are done.
+
+
+            
+            // // Increment line idx and bounds
+            // low_bound = high_bound + 1;
+            // current_step += step_u;
+            // high_bound = current_step*m;
+        }
+
+        // Finite difference for the torque and collisions
+        for (u32 j = 0; j < xlen; j++) {
+            memcpy(x_plus.data, x, xlen * sizeof(real));
+
             x_plus[j] += eps;
             internal_cstr_manip_single(m, r_plus.data, xlen, x_plus.data, opt);
             for (u32 i = 0; i < m; i++)
