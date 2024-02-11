@@ -36,6 +36,7 @@
 #include "blast_trajectory.hpp"
 #include "blast_manipulator.hpp"
 #include "blast_optimization.hpp"
+#include "manipulators/kinova_gen3.h"
 #include "blast_world.hpp"
 #include "optimization/gwo.hpp"
 #include "optimization/pso.hpp"
