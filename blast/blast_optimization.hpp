@@ -76,6 +76,7 @@ host_fn double obj_time(unsigned n, const double* x, double* grad, void*) {
     }
     return result;
 }
+
 host_fn real penalty_obj_time(Array x, Optimisation optim) {
     const auto points = optim.bspline->points;
 
@@ -93,6 +94,7 @@ host_fn real penalty_obj_time(Array x, Optimisation optim) {
 
     return f;
 }
+
 host_fn void internal_cstr_manip_single(unsigned m, double* result, unsigned n, const double* x, blast::Optimisation* opt) {
     Array xv;
     xv.alias(x, n);
@@ -374,7 +376,7 @@ host_fn Array guess_shot_mean(Gen3_7DOF& manip, Bspline& bspline, Matrix& task, 
 } // namespace blast
 
 #ifdef BLAST_ENABLE_TESTS
-#include "utilities/blast_utilities.hpp"
+#include "utilities/utilities.hpp"
 #ifdef __NVCC__
 // TEST_CASE("GpuCpuCorrectness", "[Manipulator]") {
 //     using namespace blast;
