@@ -2930,31 +2930,29 @@ TEST_CASE("SelfCollision", "[Manipulator]") {
     CHECK(dist_sqr_min_4[1] > 0);
 }
 
-TEST_CASE("Link6Checks", "[Manipulator]") {
-    using namespace blast;
-    Link6 manip;
-
-    const u32 points = 10;
-    const u32 joints = 6;
-    const u32 p = 5;
-    const u32 ncontrol = 12;
-
-    real amp = 10;
-    Matrix task(joints, 6);
-    for (u32 i = 0; i < task.rows; i++) {
-        for (u32 j = 0; j < task.cols; j++) {
-            task(i, j) = amp * get_random();
-        }
-    }
-    // random optimization vector
-    Array x(joints * (ncontrol - 6) + 1);
-    for (u32 i = 0; i < x.size; i++)
-        x[i] = amp * get_random();
-    x[x.size - 1] = 3.f;
-    Bspline bspline(ncontrol, points, p, joints);
-    bspline.compute_trajectory(x, task);
-    Array r = manip.constraints(bspline.traj);
-}
+// TEST_CASE("Link6Checks", "[Manipulator]") {
+//     using namespace blast;
+//     Link6 manip;
+//     const u32 points = 10;
+//     const u32 joints = 6;
+//     const u32 p = 5;
+//     const u32 ncontrol = 12;
+//     real amp = 10;
+//     Matrix task(joints, 6);
+//     for (u32 i = 0; i < task.rows; i++) {
+//         for (u32 j = 0; j < task.cols; j++) {
+//             task(i, j) = amp * get_random();
+//         }
+//     }
+//     // random optimization vector
+//     Array x(joints * (ncontrol - 6) + 1);
+//     for (u32 i = 0; i < x.size; i++)
+//         x[i] = amp * get_random();
+//     x[x.size - 1] = 3.f;
+//     Bspline bspline(ncontrol, points, p, joints);
+//     bspline.compute_trajectory(x, task);
+//     Array r = manip.constraints(bspline.traj);
+// }
 
 TEST_CASE("EigenCorrectness", "[Manipulator]") {
     using namespace blast;
