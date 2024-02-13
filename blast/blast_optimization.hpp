@@ -144,6 +144,7 @@ host_fn void cstr_manip_acc(unsigned m, double *result, unsigned xlen, const dou
     Optimisation* opt = (Optimisation*)f_data;
 
     internal_cstr_manip_single(m, result, xlen, x, opt);
+    const auto points = opt->bspline->points;
 
     if (grad) {
         const real eps = 1e-5;
@@ -157,29 +158,43 @@ host_fn void cstr_manip_acc(unsigned m, double *result, unsigned xlen, const dou
         real current_step = 0;
         int low_bound = 0;
         int high_bound = step_u;
+        const real T = x[xlen-1];
+        const real dt = T / (points - 1);
+        const real one_over_T = 1 / T;
+        const real one_over_T2 = one_over_T * one_over_T;
 
-        // Creating gradient matrix (xlen x m)
+        // Creating gradient matrix (xlen * m)
         memcpy(x_plus.data, x, xlen * sizeof(real));
-        for (int i = 0 ; i < n_step; i++) {
-            // todo: Fill all lines with zeros
-            
-            // Fill lines of the matrix which are active at this step for every constraint
-            for (int j = low_bound; j <= high_bound; j++) {
-                
+        // todo: Fill all lines with zeros
+        // todo: All indices which are marked by 'q' should be changed to the actual value. 'q' is a placeholder only and means nothing
+        // todo: 1_over_T and 1_over_T_sq are precomputed, therefore we will use that. Change variable name
+        for (int j = 0 ; j < n_step; j++) { // For each influence step
+            for (int k = 0; k < opt->manip->joints; k++) { // For each affected variable
+                for (int i = low_bound; i < low_bound + opt->manip->joints; i++) { // Compute each position constraint
+                    // Analytical solution
+                    grad[q] = sign(result[q]) * opt->bspline->basis_p(q, q);
+                }
+                for (int i = low_bound + opt->manip->joints; i < low_bound + 2*opt->manip->joints; i++) { // Compute each velocity constraint
+                    // Analytical solution
+                    grad[q] = sign(result[q]) * opt->bspline->basis_v(q, q) * 1_over_T;
+                }
+                for (int i = low_bound + 2*opt->manip->joints; i < low_bound + 3*opt->manip->joints; i++) { // Compute each acceleration constraint
+                    // Analytical solution
+                    grad[q] = sign(result[q]) * opt->bspline->basis_a(q, q) * 1_over_T_sq;
+                }
             }
 
+            // Wrote this last week, not sure what it`s for? :
             // Add points one at a time, computing gradient every time, to a vector of length 5 until it is full,
             // Push all points upwards, deleting the first and adding the next point to the end
             // Do this until there is no more points to add (we are at the end of the gradient)
             // Delete the first point and compute gradient
             // Delete the first point again : compute for the last time and you are done.
 
-
-            
-            // // Increment line idx and bounds
-            // low_bound = high_bound + 1;
-            // current_step += step_u;
-            // high_bound = current_step*m;
+            // Increment line idx and bounds
+            low_bound = high_bound + 1;
+            current_step += step_u;
+            high_bound += step_u;
         }
 
         // Finite difference for the torque and collisions
@@ -191,6 +206,7 @@ host_fn void cstr_manip_acc(unsigned m, double *result, unsigned xlen, const dou
             for (u32 i = 0; i < m; i++)
                 grad[i*xlen + j] = (r_plus[i]-result[i])/eps;
         }
+        // todo: Compute constraints for T (last x)
     }
 }
 
