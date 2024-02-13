@@ -10,8 +10,6 @@
 
 #include "Eigen/Dense"
 
-//--- pre-processor directives to hand SIMD, CUDA, Etc
-
 // use doubles by default
 #ifndef BLAST_USE_DOUBLES
 #define BLAST_USE_DOUBLES 1
@@ -21,7 +19,6 @@
 #ifdef __NVCC__
 #define blast_fn __host__ __device__ inline
 #define host_fn __host__ inline
-#define dev_fn __device__ inline
 #else
 #define blast_fn inline
 #define host_fn inline
