@@ -84,7 +84,7 @@ struct Vec3 {
 
 // 3x3 matrix
 struct Mat3 {
-    real data[9];
+    real data[9] = {0};
 
     Mat3() = default;
     blast_fn Mat3(const Mat3& m);
@@ -99,7 +99,7 @@ struct Mat3 {
 
 // 4x4 matrix
 struct alignas(32) Mat4 {
-    real data[16];
+    real data[16] = {0};
 
     // default
     Mat4() = default;
@@ -195,6 +195,9 @@ struct Array {
 
     // move constructor
     blast_fn Array(Array&&);
+
+    // initializer constructor
+    Array(const std::initializer_list<real>&);
 
     // create an Array from pre-existing data
     //  - note: becomes an alias
@@ -763,6 +766,14 @@ blast_fn Vec3 operator*(Vec3 a, real b) {
     };
 }
 
+blast_fn Vec3 operator/(Vec3& a, real b) {
+    return Vec3 {
+        a.x / b,
+        a.y / b,
+        a.z / b
+    };
+}
+
 blast_fn Vec3& operator+=(Vec3& v1, const Vec3& v2) {
     v1.x += v2.x;
     v1.y += v2.y;
@@ -1017,6 +1028,13 @@ blast_fn Array::Array(const Array& a) : size(a.size) {
 
 blast_fn Array::Array(Array&& a) : data(a.data), size(a.size), is_alias(a.is_alias) {
     a.is_alias = true;
+}
+
+blast_fn Array::Array(const std::initializer_list<real>& list) : size(list.size()) {
+    if (size) {
+        data = (real*)malloc(size * sizeof(real));
+        memcpy(data, list.begin(), list.size() * sizeof(real));
+    }
 }
 
 blast_fn Array::Array(real* d, u32 n) {

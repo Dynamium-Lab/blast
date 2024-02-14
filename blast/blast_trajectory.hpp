@@ -2,10 +2,6 @@
 #include "blast.hpp"
 #include "Eigen/Dense"
 
-#ifdef BLAST_DEBUG
-#include "utilities/blast_utilities.hpp"
-#endif
-
 namespace blast {
 
 using Eigen::MatrixXd;
