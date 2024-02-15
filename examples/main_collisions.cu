@@ -84,18 +84,38 @@ int main() {
     result_list.reserve(config_list.size() * config_list[0].noptim);
 
     objlist world;
-    // Add bins for bin picking tasks (paper 1)
-    add_OBB({0.6, 0.0, 0.05},       {0.1, 0.5, 0.05},   Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // bottom ledge
-    add_OBB({0.6, 0.0, 0.1025},     {0.1, 0.5, 0.0025}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // bottom of bins (horiz)
-    add_OBB({0.6, 0.0, 0.3},        {0.1, 0.5, 0.005},  Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // middle of bins (horiz)
-    add_OBB({0.6, 0.0, 0.4975},     {0.1, 0.5, 0.0025}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // top of bins (horiz)
-    add_OBB({0.6925, 0.0, 0.3},     {0.0025, 0.5, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // behind of bins (vert)
-    add_OBB({0.6, 0.4925, 0.3},     {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // first (left) of bins (vert)
-    add_OBB({0.6, 0.2925, 0.3},     {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // second (left) of bins (vert)
-    add_OBB({0.6, 0.0925, 0.3},     {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // third (left) of bins (vert)
-    add_OBB({0.6, -0.0925, 0.3},    {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // fourth (left) of bins (vert)
-    add_OBB({0.6, -0.2925, 0.3},    {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // fifth (left) of bins (vert)
-    add_OBB({0.6, -0.4925, 0.3},    {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // sixth (left) of bins (vert)
+    // // Add bins for bin picking tasks (paper 1)
+    // add_OBB({0.6, 0.0, 0.05},       {0.1, 0.5, 0.05},   Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // bottom ledge
+    // add_OBB({0.6, 0.0, 0.1025},     {0.1, 0.5, 0.0025}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // bottom of bins (horiz)
+    // add_OBB({0.6, 0.0, 0.3},        {0.1, 0.5, 0.005},  Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // middle of bins (horiz)
+    // add_OBB({0.6, 0.0, 0.4975},     {0.1, 0.5, 0.0025}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // top of bins (horiz)
+    // add_OBB({0.6925, 0.0, 0.3},     {0.0025, 0.5, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // behind of bins (vert)
+    // add_OBB({0.6, 0.4925, 0.3},     {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // first (left) of bins (vert)
+    // add_OBB({0.6, 0.2925, 0.3},     {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // second (left) of bins (vert)
+    // add_OBB({0.6, 0.0925, 0.3},     {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // third (left) of bins (vert)
+    // add_OBB({0.6, -0.0925, 0.3},    {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // fourth (left) of bins (vert)
+    // add_OBB({0.6, -0.2925, 0.3},    {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // fifth (left) of bins (vert)
+    // add_OBB({0.6, -0.4925, 0.3},    {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // sixth (left) of bins (vert)
+
+    // DEMO 1 - COMMENT ONE BOX TYPE (simple or complex)
+    // // Bins for demo 1 (simple)
+    // add_OBB({0.4114, -0.3784, 0.01785}, {0.2125, 0.155, 0.075}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world);
+    // add_OBB({0.8716, -0.3784, 0.01785}, {0.2125, 0.155, 0.075}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world);
+
+    // Bins for demo 1 (complex)
+    // bin 1
+    add_OBB({0.4114, -0.3784, -0.04465}, {0.2125, 0.155, 0.0125}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //bottom
+    add_OBB({0.2114, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //front
+    add_OBB({0.6114, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //back
+    add_OBB({0.4114, -0.2359, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //left
+    add_OBB({0.4114, -0.5209, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //right
+
+    // bin 2
+    add_OBB({0.8716, -0.3784, -0.04465}, {0.2125, 0.155, 0.0125}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //bottom
+    add_OBB({0.6716, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //front
+    add_OBB({1.0716, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //back
+    add_OBB({0.8716, -0.2359, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //left
+    add_OBB({0.8716, -0.5209, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //right
 
     // Add obstacles
 
