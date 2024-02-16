@@ -60,11 +60,6 @@ struct circle {
     real r;
 };
 
-struct EPA_dist_norm {
-    Vec3 normal;
-    real distance;
-};
-
 struct triangle {
     Vec3 p1;
     Vec3 p2;
@@ -83,58 +78,10 @@ struct capslist {
     std::vector<capsule> caps; // list of capsules
 };
 
-struct EPA_simplex {
-    std::vector<triangle> triangles;
-};
+// ======================================
+//            Basic functions
+// ======================================
 
-struct edge {
-    real distance;
-    Vec3 normal;
-    int index;
-};
-
-struct closeface {
-    real distance;
-    Vec3 normal;
-    int index;
-};
-
-struct three_pts {
-    Vec3 p1;
-    Vec3 p2;
-    Vec3 p3;
-};
-
-struct bool_simplex {
-    Vec3 a;
-    Vec3 b;
-    Vec3 c;
-    Vec3 d;
-    int count;
-};
-
-struct bool_Vec3 {
-    bool intersection;
-    Vec3 direction;
-};
-
-struct bool_real {
-    bool intersection;
-    real distance;
-};
-
-struct bool_simplex_2stdvec {
-    bool intersection;
-    bool_simplex simplex;
-    std::vector<Vec3> v1;
-    std::vector<Vec3> v2;
-};
-
-host_fn Vec3 normalize(Vec3 a) {
-    return (1/norm(a))*a;
-}
-
-// A paper in 2005 suggested an elegant solution to the problem of the point in the triangle. This is this solution (adapted from https://gamedev.stackexchange.com/questions/28781/easy-way-to-project-point-onto-triangle-or-plane)
 host_fn bool pointInTriangle(Vec3 V1, Vec3 V2, Vec3 o, Vec3 P) {
     // u=P2−P1
     Vec3 u = V1;
@@ -185,45 +132,6 @@ host_fn Vec3 closept_origin(segment seg) {
     return d;
 }
 
-host_fn EPA_dist_norm distmin_origin(triangle tri) {
-    EPA_dist_norm result;
-
-    Vec3 o = tri.p1;
-    Vec3 v1 = tri.p2 - tri.p1;
-    Vec3 v2 = tri.p3 - tri.p1;
-    Vec3 n = cross(v1, v2);
-    if (dot(n, o) < 0)
-        n = -n;
-
-    real distmin = INF_REAL;
-    if (pointInTriangle(v1, v2, o, {0, 0, 0})) {
-        Vec3 n_unit = normalize(n);
-        real d = dot(o, n_unit);
-        result.normal = n_unit;
-        result.distance = d;
-        return result;
-    }
-
-    segment seg[3];
-
-    seg[0].p1 = tri.p1;
-    seg[0].p2 = tri.p2;
-    seg[1].p1 = tri.p2;
-    seg[1].p2 = tri.p3;
-    seg[2].p1 = tri.p3;
-    seg[2].p2 = tri.p1;
-
-    for (int i = 0; i < 3; i++) {
-        Vec3 d = closept_origin(seg[i]);
-        if (dot(d, d) < distmin*distmin) {
-            distmin = norm(d);
-            result.normal = d;
-        }
-    }
-    result.distance = distmin;
-    return result;
-}
-
 host_fn Vec3 ClosestPtPointPlane(Vec3 q, plane p) {
     return q - (dot(p.n, q - p.p) / dot(p.n, p.n)) * p.n;;
 }
@@ -237,10 +145,13 @@ blast_fn real distmin(surf surf, Vec3 point) {
 
     // If the surface is a rectangular shape, it is much easier to treat.
     if (abs(dot(surf.d1, surf.d2)) <= COLLISION_EPSILON) {
+        // norm^2 d1 & d2
         real val_d1_sq = dot(surf.d1, surf.d1);
         real val_d2_sq = dot(surf.d2, surf.d2);
+        // direction vector from p to point
         Vec3 val_direction = point - surf.p;
 
+        // How far along is the point in d1 & d2 direction
         real val_t1 = dot(val_direction, surf.d1) / val_d1_sq;
         real val_t2 = dot(val_direction, surf.d2) / val_d2_sq;
         real val_t1_clamped = clamp(val_t1, 0, 1);
@@ -255,50 +166,144 @@ blast_fn real distmin(surf surf, Vec3 point) {
         real val_distance = (val_t1 >= 0 && val_t1 <= 1 && val_t2 >= 0 && val_t2 <= 1) ? val_normaldist : val_result;
         return val_distance == val_normaldist ? val_normaldist : (val_normaldist < 0 ? -val_distance : val_distance);
     }
+    // else {
+    //     real normaldist = dot(point - surf.p, n_unit);
+    //     Vec3 direction = point - normaldist*n_unit - surf.p;
+
+    //     bool is_inside = pointInSurf(surf.d1, surf.d2, surf.p, point);
+    //     if (is_inside) {
+    //         return normaldist;
+    //     }
+
+    //     segment seg[4];
+    //     seg[0].p1 = surf.p;
+    //     seg[0].p2 = surf.p + surf.d1;
+    //     seg[1].p1 = surf.p;
+    //     seg[1].p2 = surf.p + surf.d2;
+    //     seg[2].p1 = surf.p + surf.d1;
+    //     seg[2].p2 = surf.p + surf.d1 + surf.d2;
+    //     seg[3].p1 = surf.p + surf.d2;
+    //     seg[3].p2 = surf.p + surf.d2 + surf.d1;
+
+    //     real dist_min = INF_REAL;
+    //     for (u32 i = 0; i < 4; i++) {
+    //         auto dist_tmp = distmin(seg[i], point);
+    //         dist_min = dist_tmp < dist_min ? dist_tmp : dist_min;
+    //     }
+    //     real resultant = normaldist < 0 ? -dist_min : dist_min;
+
+    //     return resultant;
+    // }
+
+    // else {
+    //     real normaldist = dot(point - surf.p, n_unit);
+    //     Vec3 direction = (point - normaldist*n_unit) - surf.p;
+
+    //     Vec3 dy = cross(n_unit, surf.d1);
+    //     Vec3 dy_unit = 1 / norm(dy) * dy;
+
+    //     real t2 = dot(dy, direction) / dot(dy, surf.d2);
+    //     real t1 = (dot(surf.d1, direction) - t2*dot(surf.d1, surf.d2)) / dot(surf.d1, surf.d1);
+
+    //     // If the point projects on the face
+    //     if (t1 >= 0 && t1 <= 1 && t2 >= 0 && t2 <= 1) {
+    //         return normaldist;
+    //     }
+
+    //     Vec3 empty3 = {0, 0, 0};
+
+    //     // If the point is closest to a corner of the shape
+    //     if ((t1 <= 0 || t1 >= 1) && (t2 <= 0 || t2 >= 1)) {
+    //         Vec3 testpoint = t1 <= 0 ? (t2 <= 0 ? empty3 :  surf.d2) : (t2 <= 0 ? surf.d1 : surf.d1 + surf.d2);
+    //         real distance = sqrt(dot(direction - testpoint, direction - testpoint) + normaldist*normaldist);
+    //         return normaldist < 0 ? -distance : distance;
+    //     }
+
+    //     real t1_clamped = clamp(t1, 0, 1);
+    //     real t2_clamped = clamp(t2, 0, 1);
+
+    //     Vec3 Projection_vector = (t1 < 1 && t1 > 0) ? dy_unit : cross(1/norm(surf.d2)*surf.d2, n_unit);
+    //     Projection_vector = dot(Projection_vector, direction) < 0 ? -Projection_vector : Projection_vector;
+    //     Vec3 testpoint = (t1 < 0 || t2 < 0) ? empty3 : (surf.d1 + surf.d2);
+
+    //     real dist_plan = dot(Projection_vector, direction - testpoint);
+    //     Vec3 projected_point = direction - dist_plan*Projection_vector;
+
+    //     Vec3 clamping_direction = (t1 < 0 || t2 < 0) ? ((t1 < 1 && t1 > 0) ? surf.d1 : surf.d2) : ((t1 < 1 && t1 > 0) ? -surf.d1 : -surf.d2);
+    //     real t_current = dot(direction - testpoint, clamping_direction) / dot(clamping_direction, clamping_direction);
+    //     real t_current_clamped = clamp(t_current, 0, 1);
+
+    //     real difference_t_current = (t_current - t_current_clamped);
+    //     real dist_current = difference_t_current*difference_t_current*dot(clamping_direction, clamping_direction);
+    //     real result = sqrt(dist_current + dist_plan*dist_plan + normaldist*normaldist);
+
+    //     real distance = (t1 >= 0 && t1 <= 1 && t2 >= 0 && t2 <= 1) ? normaldist : result;
+    //     return distance == normaldist ? normaldist : (normaldist < 0 ? -distance : distance);
+    // }
     else {
         real normaldist = dot(point - surf.p, n_unit);
-        Vec3 direction = (point - normaldist*n_unit) - surf.p;
+        Vec3 direction = point - normaldist*n_unit - surf.p;
 
-        Vec3 dy = cross(n_unit, surf.d1);
-        Vec3 dy_unit = 1 / norm(dy) * dy;
-
-        real t2 = dot(dy, direction) / dot(dy, surf.d2);
-        real t1 = (dot(surf.d1, direction) - t2*dot(surf.d1, surf.d2)) / dot(surf.d1, surf.d1);
-
-        // If the point projects on the face
-        if (t1 >= 0 && t1 <= 1 && t2 >= 0 && t2 <= 1) {
+        bool is_inside = pointInSurf(surf.d1, surf.d2, surf.p, point);
+        if (is_inside) {
             return normaldist;
         }
 
-        Vec3 empty3 = {0, 0, 0};
+        segment seg[4];
+        seg[0].p1 = surf.p;
+        seg[0].p2 = surf.p + surf.d1;
+        seg[1].p1 = surf.p;
+        seg[1].p2 = surf.p + surf.d2;
+        seg[2].p1 = surf.p + surf.d1;
+        seg[2].p2 = surf.p + surf.d1 + surf.d2;
+        seg[3].p1 = surf.p + surf.d2;
+        seg[3].p2 = surf.p + surf.d2 + surf.d1;
 
-        // If the point is closest to a corner of the shape
-        if ((t1 <= 0 || t1 >= 1) && (t2 <= 0 || t2 >= 1)) {
-            Vec3 testpoint = t1 <= 0 ? (t2 <= 0 ? empty3 :  surf.d2) : (t2 <= 0 ? surf.d1 : surf.d1 + surf.d2);
-            real distance = sqrt(dot(direction - testpoint, direction - testpoint) + normaldist*normaldist);
-            return normaldist < 0 ? -distance : distance;
+        real dist_min = INF_REAL;
+        int idx;
+        for (u32 i = 0; i < 4; i++) {
+            auto dist_tmp = distmin(seg[i], point);
+            dist_min = dist_tmp < dist_min ? dist_tmp : dist_min;
+            idx = dist_tmp < dist_min ? i : idx;
         }
+        real resultant = normaldist < 0 ? -dist_min : dist_min;
 
-        real t1_clamped = clamp(t1, 0, 1);
-        real t2_clamped = clamp(t2, 0, 1);
+        // real dist;
+        // // real normaldist = dot(point - surf.p, n_unit);
+        // Vec3 proj = (point - normaldist*n_unit) - surf.p;
 
-        Vec3 Projection_vector = (t1 < 1 && t1 > 0) ? dy_unit : cross(1/norm(surf.d2)*surf.d2, n_unit);
-        Projection_vector = dot(Projection_vector, direction) < 0 ? -Projection_vector : Projection_vector;
-        Vec3 testpoint = (t1 < 0 || t2 < 0) ? empty3 : (surf.d1 + surf.d2);
+        // Vec3 dy = cross(n_unit, surf.d1);
+        // real y_max = dot(dy, surf.d2);
+        // real y_pt = dot(dy, proj);
+        // real x_min =    y_pt < 0 ? 0 :
+        //                 (y_pt > 1 ? dot(surf.d2, surf.d1) :
+        //                 y_pt/y_max * dot(surf.d2, surf.d1));
+        // real x_max = x_min + dot(surf.d1, surf.d1);
+        // real x_pt = dot(surf.d1, proj);
 
-        real dist_plan = dot(Projection_vector, direction - testpoint);
-        Vec3 projected_point = direction - dist_plan*Projection_vector;
+        // if (x_pt >= x_min && x_pt <= x_max) {
+        //     real diff_y = clamp(y_pt, 0, y_max);
+        //     real dist_plan = (y_pt - diff_y) / norm(dy);
+        //     dist = sqrt(dist_plan*dist_plan + normaldist*normaldist);
+        //     dist = normaldist < 0 ? -dist : dist;
+        // } else {
+        //     segment seg[2];
+        //     seg[0].p1 = surf.p;
+        //     seg[0].p2 = surf.p + surf.d2;
+        //     seg[1].p1 = surf.p + surf.d1;
+        //     seg[1].p2 = surf.p + surf.d1 + surf.d2;
 
-        Vec3 clamping_direction = (t1 < 0 || t2 < 0) ? ((t1 < 1 && t1 > 0) ? surf.d1 : surf.d2) : ((t1 < 1 && t1 > 0) ? -surf.d1 : -surf.d2);
-        real t_current = dot(direction - testpoint, clamping_direction) / dot(clamping_direction, clamping_direction);
-        real t_current_clamped = clamp(t_current, 0, 1);
+        //     int idx = x_pt < x_min ? 0 : 1;
+        //     dist = distmin(seg[idx], point);
+        //     dist = normaldist < 0 ? - dist : dist;
+        //     // Vec3 temp = x_pt > x_max ? proj - surf.d1 : proj;
+        //     // real t = dot(temp, surf.d2) / dot(surf.d2, surf.d2);
+        //     // t = clamp(t, 0, 1);
+        //     // Vec3 test_pt = x_pt > x_max ? t*surf.d2 + surf.d1 : t*surf.d2;
+        //     // dist = normaldist < 0 ? -norm(test_pt - point) : norm(test_pt - point);
+        // }
 
-        real difference_t_current = (t_current - t_current_clamped);
-        real dist_current = difference_t_current*difference_t_current*dot(clamping_direction, clamping_direction);
-        real result = sqrt(dist_current + dist_plan*dist_plan + normaldist*normaldist);
-
-        real distance = (t1 >= 0 && t1 <= 1 && t2 >= 0 && t2 <= 1) ? normaldist : result;
-        return distance == normaldist ? normaldist : (normaldist < 0 ? -distance : distance);
+        return resultant;
     }
 }
 
@@ -377,7 +382,7 @@ host_fn two_pts closept(segment seg1, segment seg2) {
 }
 
 // returns squared distance
-host_fn real distmin(segment seg1, segment seg2) {
+host_fn real distmin_sq(segment seg1, segment seg2) {
     two_pts close_pt = closept(seg1, seg2);
     return dot(close_pt.p1 - close_pt.p2, close_pt.p1 - close_pt.p2); // ATTENTION! CECI DONNE LE RESULTAT AU CARRE
 }
@@ -422,6 +427,10 @@ host_fn two_pts intersection(circle circ, segment seg) {
     Vec3 p_2 = circ.p + x_2 * d1_unit + y_2 * d2_unit;
     return { p_1, p_2 };
 }
+
+// ======================================
+//            Primitive tests
+// ======================================
 
 host_fn real distmin(capsule caps, cylinder cyl) {
     segment seg1;
@@ -470,29 +479,6 @@ host_fn real distmin(capsule caps, cylinder cyl) {
         // if one point projects on the circle plane, it is necessary to check the normal distance as well
         real testnormal = (rad_sq1 <= cyl.r * cyl.r) ? dist_norm_sq1 : (rad_sq2 <= cyl.r * cyl.r) ? dist_norm_sq2 : INF_REAL;
 
-        // // To find the point on the side of the circle : (This was an attempt at fixing the current mistake,
-        // // which leads to only a very small error. Thus it was deemed ok and this attempt scrapped)
-        // Vec3 caps_segment = caps.p2 - caps.p1;
-        // Vec3 caps_segment_unit = 1 / norm(caps_segment) * caps_segment;
-        // Vec3 cross_prod = cross(n, caps_segment);
-        // //Vec3 cross_prod = cross(n_unit, caps_segment_unit);
-        // Vec3 cross_prod_unit = 1 / norm(cross_prod) * cross_prod;
-        // Vec3 pt_direction = cross(caps_segment, cross_prod);
-        // // Vec3 pt_direction = cross(caps_segment_unit, cross_prod_unit);
-        // Vec3 pt_direction_unit = 1 / norm(pt_direction) * pt_direction;
-        // pt_direction = (dot(pt_direction, points.p1 - points.p2) > 0) ? pt_direction : -pt_direction;
-        // pt_direction_unit = 1 / norm(pt_direction) * pt_direction;
-        // Vec3 projected_direction = ClosestPtPointPlane(pt_direction_unit, face1);
-        // Vec3 projected_direction_unit = 1 / norm(projected_direction - cent) * (projected_direction - cent);
-        // real verification_direction = dot(projected_direction_unit, n);
-        // Vec3 testpoint = cent + (projected_direction_unit)*cyl.r;
-        // Vec3 point_caps = ptint(seg1, testpoint);
-        // real dist_point = norm(testpoint - point_caps);
-        // // real dist_point = distmin(seg1, testpoint);
-        // // dist_point = (dot(point_caps - cent, testpoint - cent) < dot(testpoint - cent, testpoint - cent)) ? -dist_point : dist_point;
-        // real distance = dist_point < testnormal ? dist_point - caps.r : testnormal - caps.r;
-        // // return distance;
-
         // project the points on the plan
         segment proj;
         proj.p1 = proj1;
@@ -534,11 +520,12 @@ host_fn real distmin(capsule caps1, capsule caps2) {
     seg1.p2 = caps1.p1;
     seg2.p1 = caps2.p2;
     seg2.p2 = caps2.p1;
-    real dist_seg_seg = /*two_segment_distance_sqr(caps1.p1, caps1.p2, caps2.p1, caps2.p2);*/ sqrt(distmin(seg1, seg2));
+    real dist_seg_seg = /*two_segment_distance_sqr(caps1.p1, caps1.p2, caps2.p1, caps2.p2);*/ sqrt(distmin_sq(seg1, seg2));
     return dist_seg_seg - caps1.r - caps2.r;
 }
 
-host_fn real distmin(OBB OBB, capsule caps) {
+// OBB caps tests basic
+host_fn real distmin_vec(OBB OBB, capsule caps) {
     segment seg;
     seg.p1 = caps.p1;
     seg.p2 = caps.p2;
@@ -657,19 +644,419 @@ host_fn real distmin(OBB OBB, capsule caps) {
 
     for (int i = 1; i < 12; i++) {
         dist[i] = distmin(face[i], point);
-        bool cond1 = dist[i] >= 0;
-        bool cond21 = (dist[i] - distcurrent < COLLISION_EPSILON);
-        bool cond22 = (distcurrent < 0);
-        bool cond2 = (cond21 || cond22);
-        if (cond1 && cond2) {
-            distcurrent = dist[i];
-        }
-        else if (dist[i] < 0 && dist[i] > distcurrent) {
-            distcurrent = dist[i];
-        }
+
+        bool dist_over = dist[i] >= 0;
+        bool dist_under = dist[i] < 0;
+        // When dist_over , distcurrent == the closest positive value to 0
+        // When dist_under, distcurrent == the closest negative value to 0
+        distcurrent = dist_over && ((dist[i] < distcurrent) || (distcurrent < 0)) ? dist[i] :
+                      dist_under && (dist[i] > distcurrent) ? dist[i] : distcurrent;
     }
     return distcurrent - caps.r;
 }
+
+// OBB caps tests accelerated
+host_fn real distmin_vec_acc(OBB OBB, capsule caps) {
+    segment seg;
+    seg.p1 = caps.p1;
+    seg.p2 = caps.p2;
+
+    Mat3 Rtrans = transpose(OBB.R);
+
+    Vec3 p1 = Rtrans * (seg.p1 - OBB.c);
+    Vec3 p2 = Rtrans * (seg.p2 - OBB.c);
+
+    Vec3 vec = p2 - p1;
+    Vec3 point = p2;
+
+    if (vec.z < 0) {
+        vec = -vec;
+        point = p1;
+    }
+
+    real xmin = - OBB.e[0];
+    real xmax = + OBB.e[0];
+    real ymin = - OBB.e[1];
+    real ymax = + OBB.e[1];
+    real zmin = - OBB.e[2];
+    real zmax = + OBB.e[2];
+
+    // Creating the eight original vertices
+    Vec3 orgvert[8];
+    orgvert[0] = { xmin, ymin, zmin };
+    orgvert[1] = { xmin, ymax, zmin };
+    orgvert[2] = { xmax, ymin, zmin };
+    orgvert[3] = { xmax, ymax, zmin };
+    orgvert[4] = { xmin, ymin, zmax };
+    orgvert[5] = { xmin, ymax, zmax };
+    orgvert[6] = { xmax, ymin, zmax };
+    orgvert[7] = { xmax, ymax, zmax };
+
+    // Thus, we get the three main directions
+    Vec3 dir[3];
+    dir[0] = orgvert[2] - orgvert[0];
+    dir[1] = orgvert[1] - orgvert[0];
+    dir[2] = orgvert[4] - orgvert[0];
+
+    // Creating the added vertices
+    Vec3 vert[8];
+    for (int i = 0; i < 8; i++) {
+        vert[i] = orgvert[i] + vec;
+    }
+
+    // some faces depend only on the direction of vec in x
+    surf face[12];
+    // the top four vertices will always be extended, meaning that the top and bottom faces (faces 0-1) will always be of the same format:
+    face[0].p = vert[4];
+    face[0].d1 = dir[0];
+    face[0].d2 = dir[1];
+
+    face[1].p = orgvert[0];
+    face[1].d1 = dir[1];
+    face[1].d2 = dir[0];
+
+    // The other faces depend on the orientation of the vector either in x (faces 2-5),
+    // in y (faces 6-9), or a combination of both (faces 10-11)
+    bool vecx = vec.x >= 0;
+    bool vecy = vec.y >= 0;
+    bool vecz = vec.z >= 0;
+
+    // Faces 2-5 depend on the x coordinate
+    face[2].p = vecx ? orgvert[5] : orgvert[6];
+    face[2].d1 = vecx ? - dir[1] : dir[1];
+    face[2].d2 = vec;
+
+    face[3].p = vecx ? orgvert[1] : orgvert[2];
+    face[3].d1 = vecx ? - dir[1] : dir[1];
+    face[3].d2 = dir[2];
+
+    face[4].p = vecx ? vert[2] : vert[1];
+    face[4].d1 = vecx ? dir[1] : -dir[1];
+    face[4].d2 = dir[2];
+
+    face[5].p = vecx ? orgvert[2] : orgvert[1];
+    face[5].d1 = vecx ? dir[1] : -dir[1];
+    face[5].d2 = vec;
+
+    // Faces 6-9 depend on the y coordinate
+    face[6].p = vecy ? orgvert[4] : orgvert[7];
+    face[6].d1 = vecy ? dir[0] : -dir[0];
+    face[6].d2 = vec;
+
+    face[7].p = vecy ? orgvert[0] : orgvert[3];
+    face[7].d1 = vecy ? dir[0] : -dir[0];
+    face[7].d2 = dir[2];
+
+    face[8].p = vecy ? vert[3] : vert[0];
+    face[8].d1 = vecy ? -dir[0] : dir[0];
+    face[8].d2 = dir[2];
+
+    face[9].p = vecy ? orgvert[3] : orgvert[0];
+    face[9].d1 = vecy ? -dir[0] : dir[0];
+    face[9].d2 = vec;
+
+    // Faces 10-11 depend on the x and y coordinate
+    face[10].p = vecx ? (vecy ? orgvert[1] : orgvert[4]) : (vecy ? orgvert[7] : orgvert[2]);
+    face[10].d1 = vecx ? (vecy ? dir[2] : -dir[2]) : (vecy ? -dir[2] : dir[2]);
+    face[10].d2 = vec;
+
+    face[11].p = vecx ? (vecy ? orgvert[6] : orgvert[3]) : (vecy ? orgvert[0] : orgvert[5]);
+    face[11].d1 = vecx ? (vecy ? -dir[2] : dir[2]) : (vecy ? dir[2] : -dir[2]);
+    face[11].d2 = vec;
+
+    segment active_edges[24];
+    int n_active_edges = 0;
+    Vec3 n_current;
+    real normaldist[12];
+    real max_normal_dist = -INF_REAL;
+    for (int i = 0; i < 12; i++) {
+        n_current = cross(face[i].d1, face[i].d2);
+        n_current = 1 / norm(n_current) * n_current;
+        normaldist[i] = dot(n_current, point - face[i].p);
+        max_normal_dist = normaldist[i] > max_normal_dist ? normaldist[i] : max_normal_dist;
+
+        if (normaldist[i] >= 0) {
+            bool is_inside = pointInSurf(face[i].d1, face[i].d2, face[i].p, point);
+            if (is_inside)
+                return normaldist[i] - caps.r;
+
+            segment seg_face[4];
+            seg_face[0].p1 = face[i].p;
+            seg_face[0].p2 = face[i].p + face[i].d1;
+            seg_face[1].p1 = face[i].p;
+            seg_face[1].p2 = face[i].p + face[i].d2;
+            seg_face[2].p1 = face[i].p + face[i].d1;
+            seg_face[2].p2 = face[i].p + face[i].d1 + face[i].d2;
+            seg_face[3].p1 = face[i].p + face[i].d2;
+            seg_face[3].p2 = face[i].p + face[i].d1 + face[i].d2;
+
+            // active_faces[n_active_faces++] = face[i];
+            for (int j = 0; j < 4; j++) {
+                bool is_in_list = false;
+                for (int k = 0; k < n_active_edges; k++) {
+                    if (seg_face[j].p1 == active_edges[k].p1 && seg_face[j].p2 == active_edges[k].p2 ||
+                            seg_face[j].p1 == active_edges[k].p2 && seg_face[j].p2 == active_edges[k].p1) {
+                        is_in_list = true;
+                        break;
+                    }
+                }
+                if (!is_in_list)
+                    active_edges[n_active_edges++] = seg_face[j];
+            }
+        }
+    }
+
+    // If point is inside
+    if (n_active_edges == 0) {
+        return max_normal_dist - caps.r;
+    }
+
+    real dist_min = INF_REAL;
+    real distcurrent;
+    for (int i = 0; i < n_active_edges; i++) {
+        distcurrent = distmin(active_edges[i], point);
+        dist_min = distcurrent < dist_min ? distcurrent : dist_min;
+    }
+    return dist_min - caps.r;
+}
+
+// OBB caps tests using hulls (NOT WORKING)
+host_fn bool comparePoints(const Vec3& a, const Vec3& b) {
+    return (a.x < b.x) || (a.x == b.x && a.y < b.y) || (a.x == b.x && a.y == b.y && a.z < b.z);
+}
+
+host_fn bool sort_Vec3(const Vec3& a, const Vec3&b) {
+    return (dot(a, a) > dot(b, b));
+}
+
+host_fn bool isLeftTurn(const Vec3& p, const Vec3& q, const Vec3& r) {
+    return (q.x - p.x) * (r.y - p.y) - (r.x - p.x) * (q.y - p.y) > 0;
+}
+
+host_fn real distmin_hull(OBB OBB, capsule caps) {
+    Mat3 Rtrans = transpose(OBB.R);
+
+    segment seg;
+    seg.p1 = Rtrans * (caps.p1 - OBB.c);
+    seg.p2 = Rtrans * (caps.p2 - OBB.c);
+
+    real xmin = - OBB.e[0];
+    real xmax = + OBB.e[0];
+    real ymin = - OBB.e[1];
+    real ymax = + OBB.e[1];
+    real zmin = - OBB.e[2];
+    real zmax = + OBB.e[2];
+
+    auto point = ptint(seg, {0, 0, 0});
+
+    Vec3 signe;
+    signe.x = point.x > 0 ? 1.0 : -1.0;
+    signe.y = point.y > 0 ? 1.0 : -1.0;
+    signe.z = point.z > 0 ? 1.0 : -1.0;
+
+    //todo: use copysign function
+    Vec3 p[5];
+    Vec3 p1 = {signe.x*xmax, signe.y*ymax, signe.z*zmax};
+
+    real t[6];
+    t[0] = (seg.p1.x - p1.x) / (seg.p1.x - seg.p2.x); // x+ plane
+    t[1] = (seg.p1.x + p1.x) / (seg.p1.x - seg.p2.x); // x- plane
+    t[2] = (seg.p1.y - p1.y) / (seg.p1.y - seg.p2.y); // y+ plane
+    t[3] = (seg.p1.y + p1.y) / (seg.p1.y - seg.p2.y); // y- plane
+    t[4] = (seg.p1.z - p1.z) / (seg.p1.z - seg.p2.z); // z+ plane
+    t[5] = (seg.p1.z + p1.z) / (seg.p1.z - seg.p2.z); // z- plane
+
+    Vec3 ab = seg.p2 - seg.p1;
+    Vec3 inter_x1 = seg.p1 + t[0] * ab;
+    Vec3 inter_x2 = seg.p1 + t[1] * ab;
+    Vec3 inter_y1 = seg.p1 + t[2] * ab;
+    Vec3 inter_y2 = seg.p1 + t[3] * ab;
+    Vec3 inter_z1 = seg.p1 + t[4] * ab;
+    Vec3 inter_z2 = seg.p1 + t[5] * ab;
+
+    bool pierce_x1 = (t[0] < 1 && t[0] > 0) && (inter_x1.y >= ymin && inter_x1.y <= ymax) && (inter_x1.z >= zmin && inter_x1.z <= zmax);
+    bool pierce_x2 = (t[1] < 1 && t[1] > 0) && (inter_x2.y >= ymin && inter_x2.y <= ymax) && (inter_x2.z >= zmin && inter_x2.z <= zmax);
+    bool pierce_y1 = (t[2] < 1 && t[2] > 0) && (inter_y1.x >= xmin && inter_y1.x <= xmax) && (inter_y1.z >= zmin && inter_y1.z <= zmax);
+    bool pierce_y2 = (t[3] < 1 && t[3] > 0) && (inter_y2.x >= xmin && inter_y2.x <= xmax) && (inter_y2.z >= zmin && inter_y2.z <= zmax);
+    bool pierce_z1 = (t[4] < 1 && t[4] > 0) && (inter_z1.y >= ymin && inter_z1.y <= ymax) && (inter_z1.x >= xmin && inter_z1.x <= xmax);
+    bool pierce_z2 = (t[5] < 1 && t[5] > 0) && (inter_z2.y >= ymin && inter_z2.y <= ymax) && (inter_z2.x >= xmin && inter_z2.x <= xmax);
+
+    Vec3 p1_OBB = {clamp(seg.p1.x, xmin, xmax), clamp(seg.p1.y, ymin, ymax), clamp(seg.p1.z, zmin, zmax)};
+    Vec3 p2_OBB = {clamp(seg.p2.x, xmin, xmax), clamp(seg.p2.y, ymin, ymax), clamp(seg.p2.z, zmin, zmax)};
+    bool p1_is_inside = (p1_OBB == seg.p1);
+    bool p2_is_inside = (p2_OBB == seg.p2);
+
+    bool pierce = pierce_x1 || pierce_x2 || pierce_y1 || pierce_y2 || pierce_z1 ||pierce_z2 || p1_is_inside || p2_is_inside;
+
+    if (pierce) {
+        // Define the OBB points in the plan where its normal is the capsule inner segment
+        Vec3 OBB_point[8];
+        OBB_point[0] = {xmin, ymin, zmin};
+        OBB_point[1] = {xmin, ymin, zmax};
+        OBB_point[2] = {xmin, ymax, zmin};
+        OBB_point[3] = {xmin, ymax, zmax};
+        OBB_point[4] = {xmax, ymin, zmin};
+        OBB_point[5] = {xmax, ymin, zmax};
+        OBB_point[6] = {xmax, ymax, zmin};
+        OBB_point[7] = {xmax, ymax, zmax};
+
+        // std::vector<Vec3> points; // Alternate implementation
+        std::vector<Vec3> hull_points;
+        hull_points.reserve(8);
+        real t_OBB;
+        t_OBB = dot(ab, - seg.p1) / dot(ab, ab);
+        Vec3 OBB_center = - t_OBB*ab;
+        for (int i = 0; i < sizeof(OBB_point)/sizeof(Vec3); i++) {
+            t_OBB = dot(ab, OBB_point[i] - seg.p1) / dot(ab, ab);
+            // points.push_back(OBB_point[i] - t_OBB*ab - OBB_center); // Alternate implementation
+            hull_points.push_back(OBB_point[i] - t_OBB*ab - OBB_center);
+        }
+
+        // Using Andrew's algorithm for computing the convex hull
+        // Sort points lexicographically
+        // We can find which two points should be deleted
+        std::sort(hull_points.begin(), hull_points.end(), sort_Vec3);
+        hull_points.pop_back();
+        hull_points.pop_back();
+
+        for (int i = 0; i < hull_points.size(); i++) {
+            hull_points[i] = hull_points[i] + OBB_center - seg.p1; // Set the origin as seg.p1
+        }
+
+        std::sort(hull_points.begin(), hull_points.end(), comparePoints);
+        // Lower hull
+        std::vector<Vec3> lower_hull;
+        lower_hull.reserve(6);
+        for (int i = 0; i < hull_points.size(); ++i) {
+            while (lower_hull.size() >= 2 && !isLeftTurn(lower_hull[lower_hull.size() - 2], lower_hull.back(), hull_points[i]))
+                lower_hull.pop_back();
+            lower_hull.push_back(hull_points[i]);
+        }
+        // Upper hull
+        std::vector<Vec3> upper_hull;
+        upper_hull.reserve(6);
+        for (int i = hull_points.size() - 1; i >= 0; --i) {
+            while (upper_hull.size() >= 2 && !isLeftTurn(upper_hull[upper_hull.size() - 2], upper_hull.back(), hull_points[i]))
+                upper_hull.pop_back();
+            upper_hull.push_back(hull_points[i]);
+        }
+        // Concatenate lower and upper hulls (excluding duplicate endpoints)
+        lower_hull.pop_back();  // Remove last point of lower hull as it's the same as the first point of upper hull
+        lower_hull.insert(lower_hull.end(), upper_hull.begin(), upper_hull.end() - 1);
+
+        // Alternate implementation
+        // std::vector<Vec3> hull;
+        // hull.reserve(6);
+        // // std::vector<Vec3> temp.insert(temp.begin(), points.begin(), points.end());
+        // real min_dot = INF_REAL;
+        // int idx;
+        // Vec3 current_point = points.back();   // Initialize at last point
+        // hull.push_back(current_point);
+        // points.pop_back();
+        // // For every point, we will add the one which is closest to it next in (hull) and delete it from temp.
+        // for (int i = 5; i > 1; i--) {
+        //     min_dot = INF_REAL;
+        //     for (int j = points.size() - 1; j > 0; j--) {
+        //         real current_dot = dot(current_point - points[j], current_point - points[j]);
+        //         if (current_dot < min_dot) {
+        //             min_dot = current_dot;
+        //             idx = j;
+        //         }
+        //     }
+        //     hull.push_back(points[idx]);
+        //     points.erase(points.begin() + idx);
+        //     current_point = points.back();
+        // }
+        // hull.push_back(current_point);
+        // sort(points.begin(), points.end(), comparePoints);
+
+        real current_dist;
+        real current_dist_hull;
+        real min_dist = -INF_REAL;
+        real min_dist_hull = -INF_REAL;
+        Vec3 closest_point;
+        Vec3 closest_point_hull;
+        segment seg_OBB;
+
+        for (int i = 0; i < lower_hull.size(); i++) {
+            closest_point_hull = closept_origin({lower_hull[i], lower_hull[(i + 1) % 6]});
+            current_dist_hull = - dot(closest_point_hull, closest_point_hull);
+            // Alternate implementation
+            // closest_point = closept_origin({hull[i], hull[(i + 1) % 6]});
+            // current_dist = - dot(closest_point, closest_point);
+            // seg_OBB = {points[i], points[(i + 1) % 6]};
+            // current_dist = - distmin(seg_OBB, seg.p1);
+            // seg_OBB = {lower_hull[i], lower_hull[(i+1) %6]};
+            // current_dist = - distmin(seg_OBB, seg.p1);
+
+            // Compare distance with min_dist
+            // min_dist = current_dist > min_dist ? current_dist : min_dist;
+            min_dist_hull = std::max(current_dist_hull, min_dist_hull);
+        }
+        min_dist = - sqrt(-min_dist_hull);
+
+        // The two endpoints could also get out of a plane.
+        real t_current_plus;
+        real t_current_minus;
+        Vec3 test_point_plus;
+        Vec3 test_point_minus;
+        real dist_points;
+        real dist_points_opp;
+
+        for (int i = 0; i < 3; i++) {
+            std::vector<real> t_active = {t[(2*i+2) % 6], t[(2*i+3) % 6], t[(2*i+4) % 6], t[(2*i+5) % 6]};
+
+            sort(t_active.begin(), t_active.end());
+
+            t_current_plus = clamp(t_active[1], 0, 1);
+            t_current_minus = clamp(t_active[2], 0, 1);
+
+            test_point_plus = (1 - t_current_plus) * seg.p1 + t_current_plus*seg.p2;
+            test_point_minus = (1 - t_current_minus) * seg.p1 + t_current_minus*seg.p2;
+
+            auto dist_plus = test_point_plus[i] + OBB_point[0][i];
+            auto dist_minus = test_point_minus[i] + OBB_point[0][i];
+            dist_points = dist_plus < dist_minus ? dist_plus : dist_minus;
+            min_dist = dist_points < 0 && dist_points > min_dist ? dist_points : min_dist;
+
+            auto dist_plus_opp = OBB_point[0][i] - test_point_plus[i];
+            auto dist_minus_opp = OBB_point[0][i] - test_point_minus[i];
+            dist_points_opp = dist_plus_opp < dist_minus_opp ? dist_plus_opp : dist_minus_opp;
+            min_dist = dist_points_opp <= 0 && dist_points_opp > min_dist ? dist_points_opp : min_dist;
+        }
+
+        return min_dist - caps.r;
+    }
+    else {
+        p[0] = p1;
+        p[1] = {-signe.x*xmax, signe.y*ymax, signe.z*zmax};
+        p[2] = {signe.x*xmax, -signe.y*ymax, signe.z*zmax};
+        p[3] = {signe.x*xmax, signe.y*ymax, -signe.z*zmax};
+        segment segOBB_01 = {p[0], p[1]};
+        segment segOBB_02 = {p[0], p[2]};
+        segment segOBB_03 = {p[0], p[3]};
+        two_pts two_point_01 = closept(seg, segOBB_01);
+        two_pts two_point_02 = closept(seg, segOBB_02);
+        two_pts two_point_03 = closept(seg, segOBB_03);
+
+        vector<two_pts> collision_points(5);
+        collision_points = {two_point_01, two_point_02, two_point_03, {seg.p1, p1_OBB}, {seg.p2, p2_OBB}};
+
+        real dist_min = INF_REAL;
+        real dist;
+        for (auto &two_point:collision_points) {
+            dist = dot(two_point.p1 - two_point.p2, two_point.p1 - two_point.p2);
+            dist_min = dist < dist_min ? dist : dist_min;
+        }
+
+        real dist_min_sqrt = sqrt(dist_min);
+        return dist_min_sqrt - caps.r;
+    }
+}
+
+// ======================================
+//            Add primitives
+// ======================================
 
 host_fn void add_OBB(Vec3 c, Vec3 e, Mat3 R, objlist* world) {
     OBB new_OBB;
@@ -709,7 +1096,7 @@ host_fn std::vector<real> test_collision(capslist* caps_list, objlist* world, in
     for (int c = 0; c < caps_list->caps.size(); c++) {
         // OBB collisions
         for (int i = 0; i < world->OBBlist.size(); i++) {
-            dist = distmin(world->OBBlist[i], caps_list->caps[c]);
+            dist = distmin_vec(world->OBBlist[i], caps_list->caps[c]);
             for (int j = 0; j < n_var; j++) {
                 if (dist < dist_min[j]) {
                     for (int k = n_var - 1; k > j; k--) {
@@ -794,195 +1181,26 @@ host_fn std::vector<real> test_collision(capslist* caps_list, objlist* world, in
     return dist_min;
 }
 
-//    note: this is a simpler version of the collision test which only allows for one minimum distance to be returned.
-//    It could easily be adapted to include all distances as well.
-//    real dist_min;
-//
-//     for (int i = 0; i < size(world.OBBlist); i++) {
-//         real dist = distmin(caps, world.OBBlist[i]);
-//         if (dist < dist_min)
-//             dist_min = dist;
-//     }
-//
-//     for (int i = 0; i < size(world.capslist); i++) {
-//         real dist = distmin(caps, world.capslist[i]);
-//         if (dist < dist_min)
-//             dist_min = dist;
-//     }
-//
-//     for (int i = 0; i < size(world.sphlist); i++) {
-//         real dist = distmin(caps, world.sphlist[i]);
-//         if (dist < dist_min)
-//             dist_min = dist;
-//     }
-//
-//     for (int i = 0; i < size(world.cyllist); i++) {
-//         real dist = distmin(caps, world.cyllist[i]);
-//         if (dist < dist_min)
-//             dist_min = dist;
-//     }
-// real n_pts = size(robot.pts);
-// real n_link = n_pts - 1;
-// capsule link[n_link];
-//
-// for (int i = 0; i < n_pts - 1; i++) {
-//     link[i].p1 = robot.pts[i];
-//     link[i].p2 = robot.pts[i+1];
-//     link[i].r = robot.r[i];
-// }
-//
-// for (int i = 0; i < n_link; i++) {
-//     for (int j = 2 + i; j < n_link; j++) {
-//         dist = distmin(link[i], link[i+j]);
-//         if (dist < dist_min)
-//             dist_min = dist;
-//     }
-// }
-//
-//     return dist_min;
-// }
-
 // ======================================
 //            GJK algorithm
 // ======================================
-// This version of the GJK algorithm is adapted from : https://www.youtube.com/watch?v=DGVZYdlw_uo
 
-struct ComplexSimplex {
+struct Simplex {
+    Vec3 P;
     Vec3 a;
-    Vec3 a1;
-    Vec3 a2;
-
     Vec3 b;
-    Vec3 b1;
-    Vec3 b2;
-
     Vec3 c;
-    Vec3 c1;
-    Vec3 c2;
-
     Vec3 d;
-    Vec3 d1;
-    Vec3 d2;
-
-    int count;
+    int size;
+    int max_size = 1;
 };
 
-struct KodaVertices {
-    int count;
-    std::vector<Vec3> fixed;
+struct EPA_hull {
+    Vec3 p1;
+    Vec3 p2;
+    Vec3 p3;
+    Vec3 n;
 };
-
-struct gjkresult {
-    bool intersection;
-    ComplexSimplex final_simplex;
-    Vec3 A_closept;
-    Vec3 B_closept;
-    real minimal_distance;
-};
-
-host_fn bool GJK_same_direction(Vec3 a, Vec3 b) {
-    return dot(a, b) > 0;
-}
-
-host_fn real GJK_triangle_area_2d(real x1, real y1, real x2, real y2, real x3, real y3) {
-    return (x1 - x2) * (y2 - y3) - (x2 - x3) * (y1 - y2);
-}
-
-host_fn Vec3 GJK_convert_barycentric(Vec3 a, Vec3 b, Vec3 c, Vec3 p) {
-    Vec3 ba = b - a;
-    Vec3 ca = c - a;
-    Vec3 abc = cross(ba, ca);
-    real nu;
-    real nv;
-    real ood;
-
-    real x = abs(abc.x);
-    real y = abs(abc.y);
-    real z = abs(abc.z);
-
-    if ((x >= y) && (x >= z)) {
-        // x is the largest so project onto the yz plane
-        nu = GJK_triangle_area_2d(p.y, p.z, b.y, b.z, c.y, c.z);
-        nv = GJK_triangle_area_2d(p.y, p.z, c.y, c.z, a.y, a.z);
-        ood = 1 / abc.x;
-    }
-    else if ((y >= x) && (y >= z)) {
-        // y is the largest so project onto the xz plane
-        nu = GJK_triangle_area_2d(p.x, p.z, b.x, b.z, c.x, c.z);
-        nv = GJK_triangle_area_2d(p.x, p.z, c.x, c.z, a.x, a.z);
-        ood = 1 / -abc.y;
-    }
-    else {
-        // z is the largest so project onto the xy plane
-        nu = GJK_triangle_area_2d(p.x, p.y, b.x, b.y, c.x, c.y);
-        nv = GJK_triangle_area_2d(p.x, p.y, c.x, c.y, a.x, a.y);
-        ood = 1 / abc.z;
-    }
-
-    Assert(isinf(ood) == false);
-
-    Vec3 result;
-    result.x = nu * ood;
-    result.y = nv * ood;
-    result.z = 1 - result.x - result.y;
-    return result;
-}
-
-host_fn real GJK_convert_barycentric(Vec3 a, Vec3 b, Vec3 p) {
-    Vec3 ab = b - a;
-    Vec3 ap = p - a;
-
-    real t = dot(ap, ab) / dot(ab, ab);
-    return t;
-}
-
-host_fn Vec3 GJK_convert_cartesian(Vec3 a, Vec3 b, real barycentric) {
-    Vec3 result;
-    result.x = a.x + barycentric * (b.x - a.x);
-    result.y = a.y + barycentric * (b.y - a.y);
-    result.z = a.z + barycentric * (b.z - a.z);
-    return result;
-
-}
-
-host_fn Vec3 GJK_convert_cartesian(Vec3 a, Vec3 b, Vec3 c, Vec3 barycentric) {
-    Vec3 result;
-    result.x = a.x * barycentric.x + b.x * barycentric.y + c.x * barycentric.z;
-    result.y = a.y * barycentric.x + b.y * barycentric.y + c.y * barycentric.z;
-    result.z = a.z * barycentric.x + b.z * barycentric.y + c.z * barycentric.z;
-    return result;
-}
-
-host_fn two_pts GJK_get_local_points(ComplexSimplex simplex, Vec3 p) {
-    two_pts loc;
-    real barycentric;
-    Vec3 barycentric3;
-
-    switch (simplex.count) {
-    case 1:
-        loc.p1 = simplex.a1;
-        loc.p2 = simplex.a2;
-        break;
-
-    case 2:
-        barycentric = GJK_convert_barycentric(simplex.a, simplex.b, p);
-        loc.p1 = GJK_convert_cartesian(simplex.a1, simplex.b1, barycentric);
-        loc.p2 = GJK_convert_cartesian(simplex.a2, simplex.b2, barycentric);
-        break;
-
-    case 3:
-        barycentric3 = GJK_convert_barycentric(simplex.a, simplex.b, simplex.c, p);
-        loc.p1 = GJK_convert_cartesian(simplex.a1, simplex.b1, simplex.c1, barycentric3);
-        loc.p2 = GJK_convert_cartesian(simplex.a2, simplex.b2, simplex.c2, barycentric3);
-        Assert(isnan(loc.p1.x) == false);
-        break;
-
-    default:
-        Assert (false/*"invalid simplex dimension for nearest feature resolution."*/);
-    }
-    Assert(isnan(loc.p1.x) == false);
-    return loc;
-}
 
 host_fn Vec3 GJK_get_support(std::vector<Vec3> vertices, Vec3 direction) {
     real largest_dot = dot(vertices[0], direction);
@@ -996,863 +1214,480 @@ host_fn Vec3 GJK_get_support(std::vector<Vec3> vertices, Vec3 direction) {
     return largest_vertex;
 }
 
-host_fn two_pts GJK_solve_simplex2(ComplexSimplex& simplex) {
-    Vec3 ab = simplex.b - simplex.a;
-    Vec3 ao = -simplex.a;
+host_fn void GJK_solve_simplex2_Ericson(Simplex* simplex) {
+    Vec3 ab = (*simplex).b - (*simplex).a;
+    real t = dot(- (*simplex).a, ab) / dot(ab, ab);
 
-    const auto d = dot(ab, ao);
-    simplex.count = d > 0 ? 2 : 1;
-    ao = d > 0 ? cross(cross(ab, ao), ab) : ao;
-    ab = d > 0 ? simplex.a + d / dot(ab, ab) * ab : simplex.a;
+    t = clamp(t, 0, 1);
 
-    return {ab, ao};
+    (*simplex).P = (*simplex).a + t * ab;
+
+    Vec3 a_temp = (*simplex).a;
+    (*simplex).a = t == 1 ? (*simplex).b : (*simplex).a;
+    (*simplex).b = t == 1 ? (*simplex).a : (*simplex).b;
+    (*simplex).size = (t == 0 || t == 1) ? 1 : 2;
+    return;
 }
 
-host_fn two_pts GJK_solve_simplex3(ComplexSimplex& simplex) {
-    Vec3 abc = cross(simplex.b - simplex.a, simplex.c - simplex.a);
-    Vec3 ac = simplex.c - simplex.a;
-    Vec3 ao = -simplex.a;
+host_fn void GJK_solve_simplex3_Ericson(Simplex* simplex) {
+    // Check if P in vertex region outside A
+    Vec3 a = (*simplex).a;
+    Vec3 b = (*simplex).b;
+    Vec3 c = (*simplex).c;
 
-    if (GJK_same_direction(cross(abc, ac), ao)) {
-        // the origin is in the direction of the triangle normal
-        if (GJK_same_direction(ac, ao)) {
-            // the origin is nearest to the line ac
-            // simplex c remains as c
-            // simplex.b_all = simplex.c_all;
-            simplex.b = simplex.c;
-            simplex.b1 = simplex.c1;
-            simplex.b2 = simplex.c2;
-            simplex.count = 2;
-            real t = dot(ao, ac) / dot(ac, ac);
-            return {simplex.a + t * ac, cross(cross(ac, ao), ac)};
-        }
-        else {
-            Vec3 ab = simplex.b - simplex.a;
-            if (GJK_same_direction(ab, ao)) {
-                // origin is closest to the line ab
-                simplex.count = 2;
-                real t = dot(ao, ab) / dot(ab, ab);
-                return {simplex.a + t * ab, cross(cross(ab, ao), ab)};
-            }
-            else {
-                // the origin is nearest to the point a
-                simplex.count = 1;
-                return {simplex.a, ao};
-            }
-        }
+    Vec3 ac = c - a;
+    Vec3 ab = b - a;
+    real d1 = dot(ab, - a);
+    real d2 = dot(ac, - a);
+
+    // Check if P in vertex region outside B
+    real d3 = dot(ab, - b);
+    real d4 = dot(ac, - b);
+
+    // // Check if P in edge region of AB, if so return projection of P onto AB
+    real vc = d1*d4 - d3*d2;
+
+    // Check if P in vertex region outside C
+    real d5 = dot(ab, - c);
+    real d6 = dot(ac, - c);
+    if (d6 >= 0.0f && d5 <= d6) {
+        (*simplex).a = c; // barycentric coordinates (0,0,1)
+        (*simplex).c = a;
+        (*simplex).size = 1;
+        (*simplex).P = c;
+        return;
     }
-    else {
-        Vec3 ab = simplex.b - simplex.a;
-        if (GJK_same_direction(cross(ab, abc), ao)) {
-            if (GJK_same_direction(ab, ao)) {
-                // the origin is closest to line ab
-                simplex.count = 2;
-                real t = dot(ao, ab) / dot(ab, ab);
-                return {simplex.a + t * ab, cross(cross(ab, ao), ab)};
-            }
-            else {
-                // the origin is nearest to the point a
-                simplex.count = 1;
-                return {simplex.a, ao};
-            }
-        }
-        else {
-            if (GJK_same_direction(abc, ao)) {
-                // the origin is closest to the triangle abc
-                Vec3 bo = -simplex.b;
-                Vec3 co = -simplex.c;
-                real d1 = dot(ab, ao);
-                real d2 = dot(ac, ao);
-                real d3 = dot(ab, bo);
-                real d4 = dot(ac, bo);
-                real d5 = dot(ab, co);
-                real d6 = dot(ac, co);
-                real va = d3 * d6 - d5 * d4;
-                real vb = d5 * d2 - d1 * d6;
-                real vc = d1 * d4 - d3 * d2;
-                real denom = 1 / (va + vb + vc);
-                real v = vb * denom;
-                real w = vc * denom;
-                return {simplex.a + ab * v + ac * w, abc};
-            }
-            else {
-                // the origin is closest to the triangle acb (other side of the triangle)
-                // simplex.b_all, simplex.c_all = swap(simplex.b_all, simplex.c_all);
-                Vec3 sb = simplex.c;
-                Vec3 sb1 = simplex.c1;
-                Vec3 sb2 = simplex.c2;
 
-                simplex.c = simplex.b;
-                simplex.c1 = simplex.b1;
-                simplex.c2 = simplex.b2;
-
-                simplex.b = sb;
-                simplex.b1 = sb1;
-                simplex.b2 = sb2;
-
-                Vec3 bo = -simplex.b;
-                Vec3 co = -simplex.c;
-                real d1 = dot(ac, ao);
-                real d2 = dot(ab, ao);
-                real d3 = dot(ac, co);
-                real d4 = dot(ab, co);
-                real d5 = dot(ac, bo);
-                real d6 = dot(ab, bo);
-                real va = d3 * d6 - d5 * d4;
-                real vb = d5 * d2 - d1 * d6;
-                real vc = d1 * d4 - d3 * d2;
-                real denom = 1 / (va + vb + vc);
-                real v = vb * denom;
-                real w = vc * denom;
-                return {simplex.a + ab * v + ac * w, -abc};
-            }
-        }
+    // Check if P in edge region of BC, if so return projection of P onto BC
+    real va = d3*d6 - d5*d4;
+    if (va <= 0.0f && (d4 - d3) >= 0.0f && (d5 - d6) >= 0.0f) {
+        real w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+        (*simplex).size = 2;
+        (*simplex).a = b;
+        (*simplex).b = c;
+        (*simplex).c = a;
+        (*simplex).P = b + w * (c - b); // barycentric coordinates (0,1-w,w)
+        return;
     }
+
+    // Check if P in edge region of AC, if so return projection of P onto AC
+    real vb = d5*d2 - d1*d6;
+    if (vb <= 0.0f && d2 >= 0.0f && d6 <= 0.0f) {
+        real w = d2 / (d2 - d6);
+        (*simplex).size = 2;
+        (*simplex).b = c;
+        (*simplex).c = a;
+        (*simplex).P = a + w * ac; // barycentric coordinates (1-w,0,w)
+        return;
+    }
+
+    // P inside face region. Compute Q through its barycentric coordinates (u,v,w)
+    real denom = 1.0f / (va + vb + vc);
+    real v = vb * denom;
+    real w = vc * denom;
+    (*simplex).P = a + ab * v + ac * w; // = u*a + v*b + w*c, u = va * denom = 1.0f - v - w
+    return;
 }
 
-host_fn two_pts GJK_solve_simplex4(ComplexSimplex& simplex) {
-    Vec3 abc = cross(simplex.b - simplex.a, simplex.c - simplex.a);
-    Vec3 acd = cross(simplex.c - simplex.a, simplex.d - simplex.a);
-    Vec3 adb = cross(simplex.d - simplex.a, simplex.b - simplex.a);
-    Vec3 ao = -simplex.a;
-
-    real abc_dir = GJK_same_direction(abc, ao);
-    real acd_dir = GJK_same_direction(acd, ao);
-    real adb_dir = GJK_same_direction(adb, ao);
-
-    if (!abc_dir && !acd_dir && !adb_dir) {
-        // the origin is inside the simplex
-        return {{ 0, 0, 0 }, {0, 0, 0}};
-    }
-    if (abc_dir && !acd_dir && !adb_dir) {
-        // the origin is near abc
-        simplex.count = 3;
-        return GJK_solve_simplex3(simplex);
-    }
-    if (!abc_dir && acd_dir && !adb_dir) {
-        // the origin is near acd
-        // simplex.b_all = simplex.c_all;
-        simplex.b = simplex.c;
-        simplex.b1 = simplex.c1;
-        simplex.b2 = simplex.c2;
-        // simplex.c_all = simplex.d_all;
-        simplex.c = simplex.d;
-        simplex.c1 = simplex.d1;
-        simplex.c2 = simplex.d2;
-
-        simplex.count = 3;
-        return GJK_solve_simplex3(simplex);
-    }
-    if (!abc_dir && !acd_dir && adb_dir) {
-        // the origin is near adb
-        // simplex.c_all = simplex.b_all;
-        simplex.c = simplex.b;
-        simplex.c1 = simplex.b1;
-        simplex.c2 = simplex.b2;
-
-        // simplex.b_all = simplex.d_all;
-        simplex.b = simplex.d;
-        simplex.b1 = simplex.d1;
-        simplex.b2 = simplex.d2;
-
-        simplex.count = 3;
-        return GJK_solve_simplex3(simplex);
-    }
-
-    // the origin potentially falls on multiple triangles
-    ComplexSimplex simplex_abc = simplex;
-    simplex_abc.count = 3;
-
-    // There may be a better way to do this.
-
-    ComplexSimplex simplex_acd = simplex;
-    //simplex_acd.b_all = simplex_acd.c_all;
-    simplex_acd.b = simplex.c;
-    simplex_acd.b1 = simplex.c1;
-    simplex_acd.b2 = simplex.c2;
-    //simplex_acd.c_all = simplex_acd.d_all;
-    simplex_acd.c = simplex.d;
-    simplex_acd.c1 = simplex.d1;
-    simplex_acd.c2 = simplex.d2;
-
-    simplex_acd.count = 3;
-
-    ComplexSimplex simplex_adb = simplex;
-    // simplex_adb.c_all = simplex_adb.b_all;
-    simplex_adb.c = simplex.b;
-    simplex_adb.c1 = simplex.b1;
-    simplex_adb.c2 = simplex.b2;
-    // simplex_adb.c_all = simplex_adb.d_all;
-    simplex_adb.b = simplex.d;
-    simplex_adb.b1 = simplex.d1;
-    simplex_adb.b2 = simplex.d2;
-
-    simplex_adb.count = 3;
-
-    two_pts solved;
-    solved = GJK_solve_simplex3(simplex_abc);
-    Vec3 p_abc = solved.p1;
-    Vec3 dir_abc = solved.p2;
-    solved = GJK_solve_simplex3(simplex_adb);
-    Vec3 p_adb = solved.p1;
-    Vec3 dir_adb = solved.p2;
-    solved = GJK_solve_simplex3(simplex_acd);
-    Vec3 p_acd = solved.p1;
-    Vec3 dir_acd = solved.p2;
-
-    real abc_d2 = dot(p_abc, p_abc);
-    real acd_d2 = dot(p_acd, p_acd);
-    real adb_d2 = dot(p_adb, p_adb);
-
-    if ((abc_d2 <= acd_d2) && (abc_d2 <= adb_d2)) {
-        simplex = simplex_abc;
-        return {p_abc, dir_abc};
-    }
-    else if ((acd_d2 <= abc_d2) && (acd_d2 <= adb_d2)) {
-        simplex = simplex_acd;
-        return {p_acd, dir_acd};
-    }
-    else if ((adb_d2 <= abc_d2) && (adb_d2 <= acd_d2)) {
-        simplex = simplex_adb;
-        return {p_adb, dir_adb};
-    }
-
-    Assert(false); // This souldn't be reachable
-
-    // the origin isn't outside of any plane, so it's inside the tetrahedron
-    return {{ 0, 0, 0 }, {0, 0, 0}};
+host_fn int PointOutsideOfPlane(Vec3 p, Vec3 a, Vec3 b, Vec3 c, Vec3 d) {
+    // The last input (d) is the one that will be tested
+    real signp = dot(p - a, cross(b - a, c - a)); // [AP AB AC]
+    real signd = dot(d - a, cross(b - a, c - a)); // [AD AB AC]
+    // Points on opposite sides if expression signs are opposite
+    return signp * signd < 0.0f;
 }
 
-// ======================================
-//            EPA algorithm
-// ======================================
-// This version of the EPA algorithm is adapted from : https://dyn4j.org/2010/05/epa-expanding-polytope-algorithm/
+host_fn void GJK_solve_simplex4_Ericson(Simplex* simplex) {
+    Vec3 a = (*simplex).a;
+    Vec3 b = (*simplex).b;
+    Vec3 c = (*simplex).c;
+    Vec3 d = (*simplex).d;
+    Vec3 p = {0, 0, 0};
+    (*simplex).P = p;
 
-host_fn closeface findClosestFace(std::vector<triangle> simplex) {
-    closeface closest;
-    closest.distance = INF_REAL;
-    for (int i = 0; i < size(simplex); i++) {
-        triangle current_triangle;
-        current_triangle.p1 = simplex[i].p1;
-        current_triangle.p2 = simplex[i].p2;
-        current_triangle.p3 = simplex[i].p3;
+    Simplex simplex_temp = *simplex;
 
-        Vec3 vec1 = current_triangle.p2-current_triangle.p1;
-        Vec3 vec2 = current_triangle.p3-current_triangle.p1;
+    // Start out assuming point inside all halfspaces, so closest to itself
+    Vec3 closestPt = p;
+    real bestSqDist = INF_REAL;
 
-        Vec3 origin = {0, 0, 0};
-        Vec3 n = cross(vec1, vec2);
-        if (norm(n) < COLLISION_EPSILON)
-            break;
-        if (dot(n, current_triangle.p1) < 0)
-            n = - n;
-        Vec3 n_unit = (1/norm(n))*n;
+    Vec3 a_temp;
+    Vec3 b_temp;
+    Vec3 c_temp;
+    Vec3 d_temp;
+    // If point outside face bdc then compute closest point on bcd
+    if (PointOutsideOfPlane(p, b, c, d, a)) {
+        GJK_solve_simplex3_Ericson(&simplex_temp);
+        real sqDist = dot(simplex_temp.P, simplex_temp.P);
+        if (sqDist < bestSqDist) {
+            a_temp = b;
+            b_temp = c;
+            c_temp = d;
+            d_temp = a;
 
-        EPA_dist_norm distance = distmin_origin(current_triangle);
-        if (distance.distance < closest.distance) {
-            closest.distance = distance.distance;
-            closest.normal = distance.normal;
-            closest.index = i;
+            bestSqDist = sqDist;
+            closestPt = simplex_temp.P;
         }
     }
-    return closest;
+    // Repeat test for face acd
+    if (PointOutsideOfPlane(p, a, c, d, b)) {
+        GJK_solve_simplex3_Ericson(&simplex_temp);
+        real sqDist = dot(simplex_temp.P, simplex_temp.P);
+        if (sqDist < bestSqDist) {
+            a_temp = a;
+            b_temp = c;
+            c_temp = d;
+            d_temp = b;
+
+            bestSqDist = sqDist;
+            closestPt = simplex_temp.P;
+        }
+        Simplex simplex_temp = *simplex;
+    }
+    // Repeat test for face adb
+    if (PointOutsideOfPlane(p, a, b, d, c)) {
+        GJK_solve_simplex3_Ericson(&simplex_temp);
+        real sqDist = dot(simplex_temp.P, simplex_temp.P);
+        if (sqDist < bestSqDist) {
+            a_temp = a;
+            b_temp = b;
+            c_temp = d;
+            d_temp = c;
+
+            bestSqDist = sqDist;
+            closestPt = simplex_temp.P;
+        }
+
+        Simplex simplex_temp = *simplex;
+    }
+    // Repeat test for face abc
+    if (PointOutsideOfPlane(p, a, b, c, d)) {
+        GJK_solve_simplex3_Ericson(&simplex_temp);
+        real sqDist = dot(simplex_temp.P, simplex_temp.P);
+        // Update best closest point if (squared) distance is less than current best
+        if (sqDist < bestSqDist) {
+            a_temp = a;
+            b_temp = b;
+            c_temp = c;
+            d_temp = d;
+
+            bestSqDist = sqDist;
+            closestPt = simplex_temp.P;
+        }
+        Simplex simplex_temp = *simplex;
+    }
+
+    if (dot(closestPt, closestPt) > COLLISION_EPSILON) {
+        (*simplex).size = 3;
+        (*simplex).a = a_temp;
+        (*simplex).b = b_temp;
+        (*simplex).c = c_temp;
+        (*simplex).d = d_temp;
+        (*simplex).P = closestPt;
+
+        GJK_solve_simplex3_Ericson(simplex);
+    }
+    return;
 }
 
-host_fn bool check_same_point(Vec3 p1, Vec3 p2) {
-    return ((p1.x - p2.x)*(p1.x - p2.x) < COLLISION_EPSILON && (p1.y - p2.y)*(p1.y - p2.y) < COLLISION_EPSILON && (p1.z - p2.z)*(p1.z - p2.z) < COLLISION_EPSILON);
+host_fn bool pointInFace(EPA_hull face) {
+    // u=P2−P1
+    Vec3 u = face.p2 - face.p1;
+    // v=P3−P1
+    Vec3 v = face.p3 - face.p1;
+    // w=−P1
+    Vec3 w = - face.p1;
+    // Barycentric coordinates of the projection P′of P onto T:
+    // γ=[(u×w)⋅n]/n²
+    real gamma = dot(cross(u, w), face.n);
+    // β=[(w×v)⋅n]/n²
+    real beta = dot(cross(w, v), face.n);
+    real alpha = 1 - gamma - beta;
+    // The point P′ lies inside T if:
+    return ((0 <= alpha) && (alpha <= 1) && (0 <= beta) && (beta <= 1) && (0 <= gamma) && (gamma <= 1));
 }
 
-host_fn bool check_same_triangle(triangle tri1, triangle tri2) {
-    if (check_same_point(tri1.p1, tri2.p1) == 0 && check_same_point(tri1.p1, tri2.p2) == 0 && check_same_point(tri1.p1, tri2.p3) == 0)
-        return 0;
-    if (check_same_point(tri1.p2, tri2.p1) == 0 && check_same_point(tri1.p2, tri2.p2) == 0 && check_same_point(tri1.p2, tri2.p3) == 0)
-        return 0;
-    if (check_same_point(tri1.p3, tri2.p1) == 0 && check_same_point(tri1.p3, tri2.p2) == 0 && check_same_point(tri1.p3, tri2.p3) == 0)
-        return 0;
-    return 1;
+host_fn real distmin_origin(EPA_hull face) {
+    Vec3 a = face.p1;
+    Vec3 b = face.p2;
+    Vec3 c = face.p3;
+
+    Vec3 ab = b - a;
+    Vec3 ac = c - a;
+    Vec3 bc = c - b;
+
+    // Compute parametric position s for projection P’ of P on AB,
+    // P’ = A + s*AB, s = snom/(snom+sdenom)
+    float snom = dot(- a, ab), sdenom = dot(- b, a - b);
+
+    // Compute parametric position t for projection P’ of P on AC,
+    // P’ = A + t*AC, s = tnom/(tnom+tdenom)
+    float tnom = dot(- a, ac), tdenom = dot(- c, a - c);
+
+    if (snom <= 0.0f && tnom <= 0.0f)
+        return norm(a); // Vertex region early out
+
+    // Compute parametric position u for projection P’ of P on BC,
+    // P’ = B + u*BC, u = unom/(unom+udenom)
+    float unom = dot(- b, bc), udenom = dot(- c, b - c);
+    if (sdenom <= 0.0f && unom <= 0.0f)
+        return norm(b); // Vertex region early out
+
+    if (tdenom <= 0.0f && udenom <= 0.0f)
+        return norm(c); // Vertex region early out
+
+    // P is outside (or on) AB if the triple scalar product [N PA PB] <= 0
+    // Vec3 n = face.n;
+    Vec3 n = cross(b - a, c - a);
+    float vc = dot(n, cross(a, b));
+
+    // If P outside AB and within feature region of AB,
+    // return projection of P onto AB
+    if (vc <= 0.0f && snom >= 0.0f && sdenom >= 0.0f)
+        return norm(a + snom / (snom + sdenom) * ab);
+
+    // P is outside (or on) BC if the triple scalar product [N PB PC] <= 0
+    float va = dot(n, cross(b, c));
+
+    // If P outside BC and within feature region of BC,
+    // return projection of P onto BC
+    if (va <= 0.0f && unom >= 0.0f && udenom >= 0.0f)
+        return norm(b + unom / (unom + udenom) * bc);
+    // P is outside (or on) CA if the triple scalar product [N PC PA] <= 0
+    float vb = dot(n, cross(c, a));
+
+    // If P outside CA and within feature region of CA,
+    // return projection of P onto CA
+    if (vb <= 0.0f && tnom >= 0.0f && tdenom >= 0.0f)
+        return norm(a + tnom / (tnom + tdenom) * ac);
+    // P must project inside face region. Compute Q using barycentric coordinates
+    float u = va / (va + vb + vc);
+    float v = vb / (va + vb + vc);
+    float w = 1.0f - u - v; // = vc / (va + vb + vc)
+    return norm(u * a + v * b + w * c);
 }
 
-host_fn real solve_EPA_algorithm(ComplexSimplex simplex, std::vector<Vec3> v1, std::vector<Vec3> v2) {
-    // create a simplex that can take as many points as necessary (EPA_simplex)
-    std::vector<triangle> s;
-    s.push_back({simplex.a, simplex.b, simplex.c});
-    s.push_back({simplex.a, simplex.b, simplex.d});
-    s.push_back({simplex.a, simplex.c, simplex.d});
-    s.push_back({simplex.b, simplex.c, simplex.d});
+// (Function is BROKEN - infinite loop)
+host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vector<Vec3> v2) {
+    // create a face vector that has three points and a normal
+    std::vector<EPA_hull> faces;
+    faces.reserve(12);
 
-    // loop to find the collision information
-    while (true) {
-        // obtain the feature (edge for 2D) closest to the
-        // origin on the Minkowski Difference
-        closeface e = findClosestFace(s);
-        // obtain a new support point in the direction of the edge normal
-        Vec3 support1 = GJK_get_support(v1, -e.normal);
-        Vec3 support2 = GJK_get_support(v2, e.normal);
-        Vec3 p = support2 - support1;
-        // check the distance from the origin to the edge against the
-        // distance p is along e.normal
-        real d = dot(p, e.normal);
-        if (abs(d) - abs(e.distance) < 1e-2) {
-            // the tolerance should be something positive close to zero (ex. 0.00001)
+    // const int max_size = simplex.max_size;
+    // Vec3 simplex_tmp[3 - (max_size - 1)];
+    // int add_idx = 0;
+    // while (simplex.max_size + add_idx != 4) {
+    //     Vec3 sup_tmp1 = GJK_get_support(v1, -faces[idx].n);
+    //     Vec3 sup_tmp2 = GJK_get_support(v2, faces[idx].n);
+    //     Vec3 p_tmp = sup_tmp2 - sup_tmp1;
 
-            // if the difference is less than the tolerance then we can
-            // assume that we cannot expand the simplex any further and
-            // we have our solution
-            return -abs(d);
-        }
-        else {
-            // we haven't reached the edge of the Minkowski Difference
-            // so continue expanding by adding the new triangle to the simplex
-            // in between the points that made the closest triangle. To do this,
-            // we must delete the triangle which is currently the closest and create three
-            // triangles that are inserted in its place.
-            Vec3 p1 = s[e.index].p1;
-            Vec3 p2 = s[e.index].p2;
-            Vec3 p3 = s[e.index].p3;
-
-            triangle new_tri1 = {p1, p2, p};
-            triangle new_tri2 = {p1, p3, p};
-            triangle new_tri3 = {p2, p3, p};
-
-            // we delete the face which was closest before. it is now inside the polytope.
-            s.erase(s.begin() + e.index);
-
-            // in the case where two iterations return the same support point, it can be the case that two
-            // faces are created on top of one another. In this case, the face is always inside the
-            // polytope and it should therefore be deleted.
-            for (int i = (int)size(s) - 1; i >= 0; i--) {
-                if (check_same_triangle(s[i], new_tri1)) {
-                    s.erase(s.begin() + i); // if the triangle was already in the list, then we must delete it as this face is now inside the simplex
-                    break;
-                }
-                else if (i == 0) {
-                    s.push_back(new_tri1); // if it is a new triangle, add it to the list
-                    break;
-                }
-            }
-
-            for (int i = (int)size(s) - 1; i >= 0; i--) {
-                if (check_same_triangle(s[i], new_tri2)) {
-                    s.erase(s.begin() + i);
-                    break;
-                }
-                else if (i == 0) {
-                    s.push_back(new_tri2); // if it is a new triangle, add it to the list
-                    break;
-                }
-            }
-
-            for (int i = (int)size(s) - 1; i >= 0; i--) {
-                if (check_same_triangle(s[i], new_tri3)) {
-                    s.erase(s.begin() + i);
-                    break;
-                }
-                else if (i == 0) {
-                    s.push_back(new_tri3); // if it is a new triangle, add it to the list
-                    break;
-                }
-            }
-        }
-    }
-}
-
-host_fn real solve_EPA_algorithm_bool(bool_simplex simplex, std::vector<Vec3> v1, std::vector<Vec3> v2) {
-    // create a simplex that can take as many points as necessary (EPA_simplex)
-    std::vector<triangle> s;
-    s.push_back({simplex.a, simplex.b, simplex.c});
-    s.push_back({simplex.a, simplex.b, simplex.d});
-    s.push_back({simplex.a, simplex.c, simplex.d});
-    s.push_back({simplex.b, simplex.c, simplex.d});
-
-    // loop to find the collision information
-    while (true) {
-        // obtain the feature (edge for 2D) closest to the
-        // origin on the Minkowski Difference
-        closeface e = findClosestFace(s);
-        // obtain a new support point in the direction of the edge normal
-        Vec3 support1 = GJK_get_support(v1, -e.normal);
-        Vec3 support2 = GJK_get_support(v2, e.normal);
-        Vec3 p = support2 - support1;
-        // check the distance from the origin to the edge against the
-        // distance p is along e.normal
-        real d = dot(p, e.normal);
-        if (abs(d) - abs(e.distance) < 1e-2) {
-            // the tolerance should be something positive close to zero (ex. 0.00001)
-
-            // if the difference is less than the tolerance then we can
-            // assume that we cannot expand the simplex any further and
-            // we have our solution
-            return -abs(d);
-        }
-        else {
-            // we haven't reached the edge of the Minkowski Difference
-            // so continue expanding by adding the new triangle to the simplex
-            // in between the points that made the closest triangle. To do this,
-            // we must delete the triangle which is currently the closest and create three
-            // triangles that are inserted in its place.
-            Vec3 p1 = s[e.index].p1;
-            Vec3 p2 = s[e.index].p2;
-            Vec3 p3 = s[e.index].p3;
-
-            triangle new_tri1 = {p1, p2, p};
-            triangle new_tri2 = {p1, p3, p};
-            triangle new_tri3 = {p2, p3, p};
-
-            // we delete the face which was closest before. it is now inside the polytope.
-            s.erase(s.begin() + e.index);
-
-            // in the case where two iterations return the same support point, it can be the case that two
-            // faces are created on top of one another. In this case, the face is always inside the
-            // polytope and it should therefore be deleted.
-            for (int i = (int)size(s) - 1; i >= 0; i--) {
-                if (check_same_triangle(s[i], new_tri1)) {
-                    s.erase(s.begin() + i); // if the triangle was already in the list, then we must delete it as this face is now inside the simplex
-                    break;
-                }
-                else if (i == 0) {
-                    s.push_back(new_tri1); // if it is a new triangle, add it to the list
-                    break;
-                }
-            }
-
-            for (int i = (int)size(s) - 1; i >= 0; i--) {
-                if (check_same_triangle(s[i], new_tri2)) {
-                    s.erase(s.begin() + i);
-                    break;
-                }
-                else if (i == 0) {
-                    s.push_back(new_tri2); // if it is a new triangle, add it to the list
-                    break;
-                }
-            }
-
-            for (int i = (int)size(s) - 1; i >= 0; i--) {
-                if (check_same_triangle(s[i], new_tri3)) {
-                    s.erase(s.begin() + i);
-                    break;
-                }
-                else if (i == 0) {
-                    s.push_back(new_tri3); // if it is a new triangle, add it to the list
-                    break;
-                }
-            }
-        }
-    }
-}
-
-host_fn gjkresult GJK_solve_gjk_simple(capsule caps, OBB box) {
-    ComplexSimplex simplex;
-    gjkresult results;
-
-    // Initialization of the eight OBB points
-    Vec3 size_x_org = {box.e.x, 0, 0};
-    Vec3 size_y_org = {0, box.e.y, 0};
-    Vec3 size_z_org = {0, 0, box.e.z};
-    Vec3 size_x = box.R*size_x_org;
-    Vec3 size_y = box.R*size_y_org;
-    Vec3 size_z = box.R*size_z_org;
-
-    std::vector<Vec3> v1(8);
-    v1[0] = box.c + size_x + size_y + size_z;
-    v1[1] = box.c + size_x + size_y - size_z;
-    v1[2] = box.c + size_x - size_y + size_z;
-    v1[3] = box.c + size_x - size_y - size_z;
-    v1[4] = box.c - size_x + size_y + size_z;
-    v1[5] = box.c - size_x + size_y - size_z;
-    v1[6] = box.c - size_x - size_y + size_z;
-    v1[7] = box.c - size_x - size_y - size_z;
-
-    std::vector<Vec3> v2(2);
-    v2[0] = caps.p1;
-    v2[1] = caps.p2;
-
-    // The general code starts here
-    Vec3 direction = v1[0] - v2[0];
-    simplex.a1 = GJK_get_support(v1, -direction);
-    simplex.a2 = GJK_get_support(v2, direction);
-    simplex.a = simplex.a2 - simplex.a1; // todo: a1 and a2 necessary? Same for b1, b2, ...
-
-    simplex.count = 1;
-
-    two_pts solved;
-    Vec3 p;
-    real old_simplex_count;
-
-    while (true) {
-        old_simplex_count = simplex.count;
-
-        if (simplex.count == 1) {
-            p = simplex.a;
-            direction = -simplex.a;
-        }
-        else {
-            solved = (simplex.count == 2) ? GJK_solve_simplex2(simplex) : ((simplex.count == 3) ? GJK_solve_simplex3(simplex) : GJK_solve_simplex4(simplex));
-            p = solved.p1;
-            direction = solved.p2;
-        }
-        // switch (simplex.count) {
-        // case 1:
-        //     p = simplex.a;
-        //     direction = -simplex.a;
-        //     break;
-        // case 2:
-        //     solved = GJK_solve_simplex2(simplex);
-        //     p = solved.p1;
-        //     direction = solved.p2;
-        //     break;
-        // case 3:
-        //     // if colinear --> find closest to origin and return
-        //     solved = GJK_solve_simplex3(simplex);
-        //     p = solved.p1;
-        //     direction = solved.p2;
-        //     break;
-        // case 4:
-        //     // if 4 points in same plane --> find closest to origin and return
-        //     solved = GJK_solve_simplex4(simplex);
-        //     p = solved.p1;
-        //     direction = solved.p2;
-        //     break;
-        // default:
-        //     // This should never be called
-        //     Assert(false);
-        // }
-
-        if (dot(p, p) < COLLISION_EPSILON && old_simplex_count == 4) {
-            results.intersection = true;
-            results.final_simplex = simplex;
-            results.A_closept = {};
-            results.B_closept = {};
-            results.minimal_distance = solve_EPA_algorithm(simplex, v1, v2) - caps.r;
-            Assert(isnan(results.minimal_distance) == false);
-            break;
-        }
-
-        Vec3 support1 = GJK_get_support(v1, -direction);
-        Vec3 support2 = GJK_get_support(v2, direction);
-
-        Vec3 support = support2 - support1;
-        real goal_post = dot(p, direction);
-        real current_highest = dot(support, direction);
-
-        if (current_highest - goal_post <=  COLLISION_EPSILON || abs(dot(simplex.a, simplex.a) - dot(support, simplex.a)) <= COLLISION_EPSILON || (simplex.count >= 2 && dot(simplex.b, simplex.b) - dot(support, simplex.b) <= COLLISION_EPSILON) || (simplex.count >= 3 && abs(dot(simplex.c, simplex.c) - dot(support, simplex.c)) <= COLLISION_EPSILON) || (simplex.count == 4 && abs(dot(simplex.d, simplex.d) - dot(support, simplex.d)) <= COLLISION_EPSILON)) {
-            if (simplex.count == 3 && norm(cross(simplex.b - simplex.a, simplex.c - simplex.a)) < 1e-9) {
-                segment seg_test;
-                // Calculate all points in minkowski difference
-                // Make a list of all the points that have the same dot product as our point p (closest point)
-                std::vector<three_pts> full_minkowski_list;
-                std::vector<Vec3> pts_list;
-                for (auto& vertex1 : v1) {
-                    for (auto& vertex2 : v2) {
-                        Vec3 new_pt = vertex2 - vertex1;
-                        full_minkowski_list.push_back({vertex1, vertex2, new_pt});
-                        if (abs(goal_post - dot(new_pt, direction)) < 1e-9)
-                            pts_list.push_back(new_pt);
-                    }
-                }
-
-                // Within this list, find the two points which are the most extreme
-                // Create a segment with these two points and test segment-point with the origin
-                Vec3 new_dir = simplex.b - simplex.a;
-                real max_dot = -INF_REAL;
-                real min_dot = INF_REAL;
-                for (auto& pts : pts_list) {
-                    real current_dot = dot(pts, new_dir);
-                    if (current_dot > max_dot) {
-                        max_dot = current_dot;
-                        seg_test.p1 = pts;
-                    }
-                    else if (current_dot < min_dot) {
-                        min_dot = current_dot;
-                        seg_test.p2 = pts;
-                    }
-                }
-                simplex.a = seg_test.p1;
-                simplex.a1 = GJK_get_support(v1, -simplex.a);
-                simplex.a2 = GJK_get_support(v2, simplex.a);
-
-                simplex.b = seg_test.p2;
-                simplex.b1 = GJK_get_support(v1, -simplex.b);
-                simplex.b2 = GJK_get_support(v2, simplex.b);
-
-                simplex.count = 2;
-            }
-
-            two_pts local = GJK_get_local_points(simplex, p);
-
-            results.intersection = false;
-            results.A_closept = local.p1;
-            results.B_closept = local.p2;
-            results.final_simplex = simplex;
-            results.minimal_distance = norm(results.A_closept - results.B_closept) - caps.r;
-            Assert(isnan(results.minimal_distance) == false);
-            break;
-        }
-
-        Assert(simplex.count < 4 );/*"You cannot have a simplex that's a tetrahedron at this point."*/
-
-        simplex.d = simplex.c;
-        simplex.d1 = simplex.c1;
-        simplex.d2 = simplex.c2;
-
-        simplex.c = simplex.b;
-        simplex.c1 = simplex.b1;
-        simplex.c2 = simplex.b2;
-
-        simplex.b = simplex.a;
-        simplex.b1 = simplex.a1;
-        simplex.b2 = simplex.a2;
-
-        simplex.count += 1;
-
-        simplex.a1 = support1;
-        simplex.a2 = support2;
-        simplex.a = support;
-    }
-
-    return results;
-}
-
-// ======================================
-//      Boolean GJK algorithm
-// ======================================
-
-host_fn Vec3 GJK_find_direction2(bool_simplex& simplex) {
-    Vec3 ab = simplex.b - simplex.a;
-    Vec3 dir = -simplex.a;
-
-    const auto d = dot(ab, dir);
-    simplex.count = d > 0 ? 2 : 1;
-    dir = d > 0 ? cross(cross(ab, dir), ab) : dir;
-
-    return dir;
-}
-
-host_fn Vec3 GJK_find_direction3(bool_simplex& simplex) {
-    Vec3 abc = cross(simplex.b - simplex.a, simplex.c - simplex.a);
-    Vec3 ac = simplex.c - simplex.a;
-    Vec3 ao = -simplex.a;
-
-    if (GJK_same_direction(cross(abc, ac), ao)) {
-        // the origin is in the direction of the triangle normal
-        if (GJK_same_direction(ac, ao)) {
-            // the origin is nearest to the line ac
-            simplex.b = simplex.c;
-            simplex.count = 2;
-            return cross(cross(ac, ao), ac);
-        }
-        else {
-            Vec3 ab = simplex.b - simplex.a;
-            if (GJK_same_direction(ab, ao)) {
-                // origin is closest to the line ab
-                simplex.count = 2;
-                return cross(cross(ab, ao), ab);
-            }
-            else {
-                // the origin is nearest to the point a
-                simplex.count = 1;
-                return ao;
-            }
-        }
-    }
-    else {
-        Vec3 ab = simplex.b - simplex.a;
-        if (GJK_same_direction(cross(ab, abc), ao)) {
-            if (GJK_same_direction(ab, ao)) {
-                // the origin is closest to line ab
-                simplex.count = 2;
-                return cross(cross(ab, ao), ab);
-            }
-            else {
-                // the origin is nearest to the point a
-                simplex.count = 1;
-                return ao;
-            }
-        }
-        else {
-            if (GJK_same_direction(abc, ao)) {
-                // the origin is closest to the triangle abc
-                return abc;
-            }
-            else {
-                // the origin is closest to the triangle acb (other side of the triangle)
-                return -abc;
-            }
-        }
-    }
-}
-
-host_fn bool_Vec3 GJK_find_direction4(bool_simplex& simplex) {
-    Vec3 abc = cross(simplex.b - simplex.a, simplex.c - simplex.a);
-    Vec3 ao = -simplex.a;
-
-    if (GJK_same_direction(abc, ao)) {
-        // the origin is nearest to the triangle abc
-        simplex.count = 3;
-        return {false, GJK_find_direction3(simplex)};
-    }
-
-    Vec3 acd = cross(simplex.c - simplex.a, simplex.d - simplex.a);
-
-    if (GJK_same_direction(acd, ao)) {
-        // the origin is nearest to the triangle acd
-        simplex.b = simplex.c;
-
-        simplex.c = simplex.d;
-        simplex.count = 3;
-        return {false, GJK_find_direction3(simplex)};
-    }
-
-    Vec3 adb = cross(simplex.d - simplex.a, simplex.b - simplex.a);
-
-    if (GJK_same_direction(adb, ao)) {
-        // the origin is nearest to the triangle adb
-        simplex.c = simplex.b;
-        simplex.b = simplex.d;
-
-        simplex.count = 3;
-        return {false, GJK_find_direction3(simplex)};
-    }
-
-    Vec3 bdc = cross(simplex.d - simplex.b, simplex.c - simplex.b);
-    Vec3 bo = -simplex.b;
-
-    // we normally wouldn't have to check bdc, but since we're allowing cached simplexes we do
-    if (GJK_same_direction(bdc, bo)) {
-        simplex.a = simplex.b;
-        simplex.b = simplex.d;
-        simplex.count = 3;
-        return {false, GJK_find_direction3(simplex)};
-    }
-
-    return {true, {0, 0, 0}};
-}
-
-host_fn Vec3 GJK_bool_get_support(std::vector<Vec3> Minkowski_list, Vec3 direction) {
-    real largest_dot = -INF_REAL;
-    real current_dot;
-    Vec3 largest_vertex;
-
-    for (auto& vertex : Minkowski_list) {
-        current_dot = dot(vertex, direction);
-        largest_vertex  = current_dot > largest_dot ? vertex : largest_vertex;
-        largest_dot     = current_dot > largest_dot ? current_dot : largest_dot;
-    }
-    return largest_vertex;
-}
-
-host_fn real GJK_bool_simplexdistance(bool_simplex& simplex) {
-    real distance;
-    switch (simplex.count) {
-    case 1:
-        distance = norm(simplex.a);
-        break;
-    case 2: {
-        segment seg = {simplex.a, simplex.b};
-        distance = distmin(seg, {0, 0, 0});
-        break;
-    }
-    case 3: {
-        plane p;
-        p.n = cross(simplex.c - simplex.a, simplex.b - simplex.a);
-        p.p = simplex.a;
-        distance = norm(ClosestPtPointPlane({0, 0, 0}, p));
-        break;
-    }
-    default:
-        // this should not be called
-        Assert(false);
-    }
-    return distance;
-}
-
-// Adapted from jai version here : https://github.com/kujukuju/KodaPhysics/blob/master/src/Gjk.jai
-host_fn bool GJK_bool_gen(std::vector<Vec3> v1, std::vector<Vec3> v2, real radius) {
-    bool_simplex simplex;
-    bool intersection;
-
-    int full_size = (int)(size(v1) * size(v2));
-    std::vector<Vec3> full_minkowski_list(full_size);
-
-    // if (full_size > 32) {
-    //     // The size does not warrant for the full computation of the minkowski difference
-    //     simplex.a = v1[0] - v2[0];
-    // }
-    // else {
-    // Calculate all points in minkowski difference and pick the point of lowest norm to start
-    real low_norm = INF_REAL;
-    for (auto& vertex1 : v1) {
-        for (auto& vertex2 : v2) {
-            Vec3 new_pt = vertex2 - vertex1;
-            full_minkowski_list.push_back(new_pt);
-            real current_norm_sq = dot(new_pt, new_pt);
-            if (current_norm_sq < low_norm*low_norm) {
-                low_norm = sqrt(current_norm_sq);
-                simplex.a = new_pt;
-            }
-        }
-    }
+    //     simplex_tmp[max_size - 1 + add_idx] = dot(simplex.b, simplex.b) <= 1e-2 ? p_tmp : simplex.b;
+    //     add_idx++;
     // }
 
-    Vec3 direction;
-    simplex.count = 1;
+    Vec3 ab = simplex.b - simplex.a;
+    Vec3 ac = simplex.c - simplex.a;
+    Vec3 ad = simplex.d - simplex.a;
+    Vec3 bc = simplex.c - simplex.b;
+    Vec3 bd = simplex.d - simplex.b;
+
+    Vec3 n1 = cross(ab, ac);
+    Vec3 n2 = cross(ab, ad);
+    Vec3 n3 = cross(ac, ad);
+    Vec3 n4 = cross(bc, bd);
+
+    real dot_a_n1 = dot(simplex.a, n1);
+    real dot_a_n2 = dot(simplex.a, n2);
+    real dot_a_n3 = dot(simplex.a, n3);
+    real dot_d_n4 = dot(simplex.d, n4);
+
+    n1 = dot_a_n1 > 0 ? n1 : (dot_a_n1 < 0 ? - n1 : (dot(n1, simplex.d) >= 0 ? -n1 : n1));
+    n2 = dot_a_n2 > 0 ? n2 : (dot_a_n2 < 0 ? - n2 : (dot(n2, simplex.d) >= 0 ? -n2 : n2));
+    n3 = dot_a_n3 > 0 ? n3 : (dot_a_n3 < 0 ? - n3 : (dot(n3, simplex.d) >= 0 ? -n3 : n3));
+    n4 = dot_d_n4 > 0 ? n4 : (dot_d_n4 < 0 ? - n4 : (dot(n4, simplex.a) >= 0 ? -n4 : n4));
+
+    n1 = (1 / norm(n1)) * n1;
+    n2 = (1 / norm(n2)) * n2;
+    n3 = (1 / norm(n3)) * n3;
+    n4 = (1 / norm(n4)) * n4;
+
+    faces.push_back({simplex.a, simplex.b, simplex.c, n1});
+    faces.push_back({simplex.a, simplex.b, simplex.d, n2});
+    faces.push_back({simplex.a, simplex.c, simplex.d, n3});
+    faces.push_back({simplex.b, simplex.c, simplex.d, n4});
+
+    real min_dist;
+    int idx;
+    real dist;
 
     while (true) {
-        switch (simplex.count) {
+        // Find closest face
+
+        min_dist = INF_REAL;
+        for (int i = 0; i < size(faces); i++) {
+            real current_dist = distmin_origin(faces[i]);
+            if (current_dist < min_dist) {
+                min_dist = current_dist;
+                idx = i;
+            }
+        }
+
+        // obtain a new support point in the direction of the edge normal
+        Vec3 support1 = GJK_get_support(v1, -faces[idx].n);
+        Vec3 support2 = GJK_get_support(v2, faces[idx].n);
+        Vec3 p = support2 - support1;
+
+        // If the vertex does not expand the polytope in the direction of the normal, the minimum distance
+        // is with the closest face (unchanged). Compute and return.
+        dist = dot(p - faces[idx].p1, faces[idx].n);
+        if (dist < 1e-3) {
+            break;
+        }
+
+        // Get all the faces which are "seen" by the new point, add them to deleted_faces and delete them.
+        std::vector<EPA_hull> deleted_faces;
+        deleted_faces.reserve(size(faces)-1);
+        int kept_face_idx = 0;
+        bool found_kept_face = false;
+        bool condition;
+        for (int i = 0; i < size(faces); i++) {
+            condition = dot(faces[i].n, p - faces[i].p1) > 0;
+            if (dot(faces[i].n, p - faces[i].p1) > 0) {
+                deleted_faces.push_back(faces[i]);
+                faces.erase(faces.begin() + i);
+            }
+            kept_face_idx = (condition == false && kept_face_idx == 0) ? i : kept_face_idx;
+        }
+
+        // Create new convex hull by determining which line segments are contained in the deleted faces.
+        // These segments must be deleted and the ones which are only contained in one face will be added
+        // as parts of the new faces (with the new point forming the remaining two line segments).
+        two_pts current_edge[3];
+        std::vector<two_pts> loose_edges;
+        loose_edges.reserve(size(deleted_faces)+1);
+        for (int i = 0; i < size(deleted_faces); i++) { // for all deleted faces found
+            current_edge[0] = {deleted_faces[i].p1, deleted_faces[i].p2};
+            current_edge[1] = {deleted_faces[i].p1, deleted_faces[i].p3};
+            current_edge[2] = {deleted_faces[i].p2, deleted_faces[i].p3};
+
+            int loose_edge_idx = 0;
+            bool found_edge = false;
+            for (int j = 0; j < 3; j++) { // for all three edges of each face
+                found_edge = false;
+                for (int k = 0; k < size(loose_edges); k++) { // Is the current edge already in loose_edges ?
+                    if ((current_edge[j].p1 == loose_edges[k].p1 && current_edge[j].p2 == loose_edges[k].p2) ||
+                            (current_edge[j].p2 == loose_edges[k].p1 && current_edge[j].p1 == loose_edges[k].p2)) {
+                        // edge is already in list
+                        found_edge = true;
+                        loose_edge_idx = k;
+                        break;
+                    }
+                }
+                if (found_edge == false)
+                    loose_edges.push_back(current_edge[j]);
+                else {
+                    loose_edges.erase(loose_edges.begin() + loose_edge_idx);
+                }
+            }
+        }
+
+        // rebuild simplex with new faces
+        EPA_hull new_face;
+        Vec3 n;
+        real dot_p1_n;
+        for (int i = 0; i < size(loose_edges); i++) {
+            n = cross(p - loose_edges[i].p1, p - loose_edges[i].p2);
+            dot_p1_n = dot(loose_edges[i].p1, n);
+            n = dot_p1_n > 0 ? n : (dot_p1_n < 0 ? - n : (dot(n, faces[kept_face_idx].p1) >= 0 ? -n : n));
+            if (dot_p1_n == 0.0) {
+                int test = 0;
+            }
+            n = (1 / norm(n)) * n;
+
+            real check1 = dot(n, loose_edges[i].p1);
+            real check2 = dot(n, loose_edges[i].p2);
+            real check3 = dot(n, p);
+            if ((abs(check1 - check2) >= 1e-2 || abs(check1 - check3) >= 1e-2))
+                real test = 1;
+            new_face = {loose_edges[i].p1, loose_edges[i].p2, p, n};
+            faces.push_back(new_face);
+        }
+    }
+    return -abs(min_dist);
+}
+
+// (Function is BROKEN - infinite loop in EPA) Tests 2 sets of points using GJK
+host_fn real general_GJK(std::vector<Vec3> Set_1, std::vector<Vec3> Set_2) {
+    // This version of the GJK algorithm is implemented from the basic algorithm described in Collision Detection
+    // manual by Ericson.
+
+    // 1. Initializing simplex to a point from a random direction
+    Vec3 V = Set_1[0] - Set_2[0];
+    Simplex simplex;
+    simplex.a = V;
+    simplex.size = 1;
+
+    while (true) {
+        // 2. Computing the point P of minimum norm in CH(Q)
+        switch (simplex.size) {
         case 1:
-            direction = -simplex.a;
+            simplex.P = simplex.a;
             break;
         case 2:
-            direction = GJK_find_direction2(simplex);
+            GJK_solve_simplex2_Ericson(&simplex);
             break;
         case 3:
-            direction = GJK_find_direction3(simplex);
+            GJK_solve_simplex3_Ericson(&simplex);
             break;
-        case 4: {
-            bool_Vec3 sol = GJK_find_direction4(simplex);
-            if (sol.intersection == true) {
-                intersection = true;
-                goto end;
-            }
-            direction = sol.direction;
+        case 4:
+            GJK_solve_simplex4_Ericson(&simplex);
             break;
-        }
         default:
-            // This should never be called
             Assert(false);
         }
 
-        Assert(simplex.count < 4 ); /*"You cannot have a simplex that's a tetrahedron at this point."*/
-
-        if (GJK_bool_simplexdistance(simplex) - radius <= COLLISION_EPSILON) {
-            intersection = true;
-            break;
+        // 3. If P is the origin itself, the origin is clearly contained in the Minkowski difference of A and B.
+        // Stop and return A and B as intersecting.
+        if (dot(simplex.P, simplex.P) < 1e-6) {
+            real dist = solve_EPA_algorithm(simplex, Set_1, Set_2);
+            return dist;
         }
 
-        // Vec3 support = full_size < 32 ? GJK_get_support(v2, direction) - GJK_get_support(v1, -direction) : GJK_bool_get_support(full_minkowski_list, direction);
-        // Vec3 support1 = GJK_get_support(v1, -direction);
-        // Vec3 support2 = GJK_get_support(v2, direction);
+        // 4. Reduce Q to the smallest subset Q' of Q such that P is still in CH(Q). That is, remove any points
+        // from Q not determining the subsimplex of Q in which P lies.
+        // (This is done automatically in GJK_solve_simplex functions)
 
-        Vec3 support = GJK_bool_get_support(full_minkowski_list, direction); //support2 - support1;
+        // 5. Find the next supporting point in direction -P
+        Vec3 a1 = GJK_get_support(Set_1, simplex.P);
+        Vec3 a2 = GJK_get_support(Set_2, -simplex.P);
+        V = a2 - a1;
 
-        if (dot(support, direction) <= 0) {
-            // That means that we did not cross the origin, therefore it is impossible that the
-            // origin is inside the minkowski difference.
-            intersection = false;
-            break;
-        }
+        // 6. If V is no more exremal in direction -P than P itself, stop and return A and B as not intersecting.
+        // The length of the vector from the origin to P is the separation distance of A and B.
 
-        simplex.d = simplex.c;
-        simplex.c = simplex.b;
-        simplex.b = simplex.a;
-        simplex.a = support;
+        real ans1 = dot(V, -simplex.P)/dot(simplex.P, simplex.P);
 
-        simplex.count += 1;
+        if (ans1 + 1 <= COLLISION_EPSILON)   // No more progress is being made (<5 %). If we do not do this it can cause problems
+            break;              // in the evaluation of PointOutsidePlane in evaluation of closest point on simplex4
+
+        // 7. Add V to Q and go to 2.
+        // todo : optimize this part of code using std::vector instead of Vec3 for a, b, c, d
+        Assert(simplex.size <=3);
+
+        if (simplex.size == 1)
+            simplex.b = V;
+        if (simplex.size == 2)
+            simplex.c = V;
+        if (simplex.size == 3)
+            simplex.d = V;
+        simplex.size += 1;
+        simplex.max_size = simplex.size > simplex.max_size ? simplex.size : simplex.max_size;
     }
-end :
-    return intersection;
+    return norm(simplex.P);
 }
 
-host_fn bool GJK_bool(capsule caps, OBB box) {
+// (Function is BROKEN - infinite loop in GJK)
+host_fn real GJK_OBB_caps(capsule caps, OBB box) {
     // Initialization of the eight OBB points
     Vec3 size_x_org = {box.e.x, 0, 0};
     Vec3 size_y_org = {0, box.e.y, 0};
@@ -1861,354 +1696,23 @@ host_fn bool GJK_bool(capsule caps, OBB box) {
     Vec3 size_y = box.R*size_y_org;
     Vec3 size_z = box.R*size_z_org;
 
-    std::vector<Vec3> v1(8);
-    v1[0] = box.c + size_x + size_y + size_z;
-    v1[1] = box.c + size_x + size_y - size_z;
-    v1[2] = box.c + size_x - size_y + size_z;
-    v1[3] = box.c + size_x - size_y - size_z;
-    v1[4] = box.c - size_x + size_y + size_z;
-    v1[5] = box.c - size_x + size_y - size_z;
-    v1[6] = box.c - size_x - size_y + size_z;
-    v1[7] = box.c - size_x - size_y - size_z;
+    std::vector<Vec3> v1(2);
+    v1[0] = caps.p1;
+    v1[1] = caps.p2;
 
-    std::vector<Vec3> v2(2);
-    v2[0] = caps.p1;
-    v2[1] = caps.p2;
+    std::vector<Vec3> v2(8);
+    v2[0] = box.c + size_x + size_y + size_z;
+    v2[1] = box.c + size_x + size_y - size_z;
+    v2[2] = box.c + size_x - size_y + size_z;
+    v2[3] = box.c + size_x - size_y - size_z;
+    v2[4] = box.c - size_x + size_y + size_z;
+    v2[5] = box.c - size_x + size_y - size_z;
+    v2[6] = box.c - size_x - size_y + size_z;
+    v2[7] = box.c - size_x - size_y - size_z;
 
-    return GJK_bool_gen(v1, v2, caps.r);
+    real dist = general_GJK(v1, v2) - caps.r;
+    return dist;
 }
-
-// Boolean GJK with depth
-// host_fn bool_simplex_2stdvec GJK_bool_gen_informations(std::vector<Vec3> v1, std::vector<Vec3> v2, real radius){
-//     bool_simplex simplex;
-//     bool_simplex_2stdvec results;
-//     int full_size = size(v1) * size(v2);
-//     std::vector<Vec3> full_minkowski_list(full_size);
-//     real low_norm = INF_REAL;
-//     for (auto& vertex1 : v1) {
-//         for (auto& vertex2 : v2) {
-//             Vec3 new_pt = vertex2 - vertex1;
-//             full_minkowski_list.push_back(new_pt);
-//             real current_norm_sq = dot(new_pt, new_pt);
-//             if (current_norm_sq < low_norm*low_norm) {
-//                 low_norm = sqrt(current_norm_sq);
-//                 simplex.a = new_pt;
-//             }
-//         }
-//     }
-//     Vec3 direction;
-//     simplex.count = 1;
-//     while (true) {
-//         if (simplex.count == 4) {
-//             bool_Vec3 sol = GJK_find_direction4(simplex);
-//             if (sol.intersection == true) {
-//                 results.intersection = true;
-//                 results.simplex = simplex;
-//                 results.v1 = v1;
-//                 results.v2 = v2;
-//                 goto end;
-//             }
-//             direction = sol.direction;
-//         }
-//         else {
-//             direction = simplex.count == 1 ? -simplex.a : (simplex.count == 2 ? GJK_find_direction2(simplex) : (GJK_find_direction3(simplex)));
-//         }
-//         Assert(simplex.count < 4 ); /*"You cannot have a simplex that's a tetrahedron at this point."*/
-//         if (GJK_bool_simplexdistance(simplex) - radius <= COLLISION_EPSILON) {
-//             results.intersection = true;
-//             results.simplex = simplex;
-//             results.v1 = v1;
-//             results.v2 = v2;
-//             break;
-//         }
-//         // Vec3 support = full_size < 32 ? GJK_get_support(v2, direction) - GJK_get_support(v1, -direction) : GJK_bool_get_support(full_minkowski_list, direction);
-//         // Vec3 support1 = GJK_get_support(v1, -direction);
-//         // Vec3 support2 = GJK_get_support(v2, direction);
-//         Vec3 support = GJK_bool_get_support(full_minkowski_list, direction); //support2 - support1;
-//         if (dot(support, direction) <= 0) {
-//             // That means that we did not cross the origin, therefore it is impossible that the
-//             // origin is inside the minkowski difference.
-//             results.intersection = false;
-//             results.simplex = simplex;
-//             results.v1 = v1;
-//             results.v2 = v2;
-//             break;
-//         }
-//         simplex.d = simplex.c;
-//         simplex.c = simplex.b;
-//         simplex.b = simplex.a;
-//         simplex.a = support;
-//         simplex.count += 1;
-//     }
-//     end :
-//     return results;
-// }
-// host_fn bool_simplex_2stdvec GJK_bool_informations(capsule caps, OBB box) {
-//     // Initialization of the eight OBB points
-//     Vec3 size_x_org = {box.e.x, 0, 0};
-//     Vec3 size_y_org = {0, box.e.y, 0};
-//     Vec3 size_z_org = {0, 0, box.e.z};
-//     Vec3 size_x = box.R*size_x_org;
-//     Vec3 size_y = box.R*size_y_org;
-//     Vec3 size_z = box.R*size_z_org;
-//     std::vector<Vec3> v1(8);
-//     v1[0] = box.c + size_x + size_y + size_z;
-//     v1[1] = box.c + size_x + size_y - size_z;
-//     v1[2] = box.c + size_x - size_y + size_z;
-//     v1[3] = box.c + size_x - size_y - size_z;
-//     v1[4] = box.c - size_x + size_y + size_z;
-//     v1[5] = box.c - size_x + size_y - size_z;
-//     v1[6] = box.c - size_x - size_y + size_z;
-//     v1[7] = box.c - size_x - size_y - size_z;
-//     std::vector<Vec3> v2(2);
-//     v2[0] = caps.p1;
-//     v2[1] = caps.p2;
-//     return GJK_bool_gen_informations(v1, v2, caps.r);
-// }
-// host_fn bool_real GJK_bool_dist_pen(capsule caps, OBB box) {
-//     bool_simplex_2stdvec results = GJK_bool_informations(caps, box);
-//     if (results.intersection) {
-//         return {true, solve_EPA_algorithm_bool(results.simplex, results.v1, results.v2) - caps.r};
-//     }
-//     return {false, INF_REAL};
-// }
-// // ======================================
-// //          méthode des points
-// // ======================================
-// // in progress
-// host_fn real pts_distmin(OBB OBBtest, capsule caps) {
-//     segment seg;
-//     seg.p1 = caps.p1;
-//     seg.p2 = caps.p2;
-//     Mat3 Rtrans = transpose(OBBtest.R);
-//     // Mat3 Rtrans = OBB.R;
-//     Vec3 p1 = Rtrans * (seg.p1 - OBBtest.c);
-//     Vec3 p2 = Rtrans * (seg.p2 - OBBtest.c);
-//     Vec3 vec = p2 - p1;
-//     // This ensures that p1 is always below p2 in z coordinates
-//     if (vec.z < 0) {
-//         vec = -vec;
-//         Vec3 point = p1;
-//         p1 = p2;
-//         p2 = point;
-//     }
-//     segment seg_test;
-//     seg_test = { p1, p2 };
-//     // We must find the points which need to be tested later.
-//     Vec3 p[2];
-//     // The point p1 clamped on the OBB
-//     p[0].x = clamp(p1.x, -OBBtest.e.x, OBBtest.e.x);
-//     p[0].y = clamp(p1.y, -OBBtest.e.y, OBBtest.e.y);
-//     p[0].z = clamp(p1.z, -OBBtest.e.z, OBBtest.e.z);
-//     // The point p2 clamped on the OBB
-//     p[1].x = clamp(p2.x, -OBBtest.e.x, OBBtest.e.x);
-//     p[1].y = clamp(p2.y, -OBBtest.e.y, OBBtest.e.y);
-//     p[1].z = clamp(p2.z, -OBBtest.e.z, OBBtest.e.z);
-//     // The point on the closest OBB line
-//     Vec3 vec_unit = (1 / norm(vec)) * vec;
-//     Vec3 direction = dot(-p1, p2 - p1) * (vec_unit) + p1;
-//     int quadrant = direction.x > 0 ? (direction.z > 0 ? 1 : 4) : (direction.z > 0 ? 2 : 3);
-//     real xmin = - OBBtest.e[0];
-//     real xmax = + OBBtest.e[0];
-//     real ymin = - OBBtest.e[1];
-//     real ymax = + OBBtest.e[1];
-//     real zmin = - OBBtest.e[2];
-//     real zmax = + OBBtest.e[2];
-//     // Creating the eight original vertices
-//     Vec3 orgvert[8];
-//     orgvert[0] = { xmax, ymin, zmax };
-//     orgvert[1] = { xmax, ymax, zmax };
-//     orgvert[2] = { xmin, ymin, zmax };
-//     orgvert[3] = { xmin, ymax, zmax };
-//     orgvert[4] = { xmin, ymin, zmin };
-//     orgvert[5] = { xmin, ymax, zmin };
-//     orgvert[6] = { xmax, ymin, zmin };
-//     orgvert[7] = { xmax, ymax, zmin };
-//     segment seg_OBB;
-//     seg_OBB.p1 = orgvert[2 * quadrant - 2];
-//     seg_OBB.p2 = orgvert[2 * quadrant - 1];
-//     segment corner_p1;
-//     corner_p1.p1 = seg_OBB.p1;
-//     corner_p1.p2 = p1;
-//     Vec3 cross_product = cross(vec, corner_p1.p1 - p1);
-//     cross_product.y = quadrant == 2 || quadrant == 3 ? -cross_product.y : cross_product.y;
-//     if (cross_product.y > 0) {
-//     }
-//     real dist_seg = sqrt(distmin(seg, seg_OBB));
-//     real dist_p3 = distmin(seg, p[0]);
-//     real dist_p4 = distmin(seg, p[1]);
-//     real dist_min = (dist_seg < dist_p3 && dist_seg < dist_p4) ? dist_seg : (dist_p3 < dist_p4) ? dist_p3 : dist_p4;
-//     return dist_min - caps.r;
-// }
-// // Points method
-// host_fn real dist_OBB_caps(OBB OBBtest, capsule caps) {
-//     segment seg;
-//     seg.p1 = caps.p1;
-//     seg.p2 = caps.p2;
-//     Mat3 Rtrans = transpose(OBBtest.R);
-//     // Mat3 Rtrans = OBB.R;
-//     Vec3 p1 = Rtrans * (seg.p1 - OBBtest.c);
-//     Vec3 p2 = Rtrans * (seg.p2 - OBBtest.c);
-//     Vec3 vec = p2 - p1;
-//     Vec3 point = p2;
-//     if (vec.z < 0) {
-//         vec = -vec;
-//         point = p1;
-//     }
-//     p2 = p1 + vec;
-//     segment seg_test;
-//     seg_test = {p1,p2};
-//     // We must find the points which need to be tested later.
-//     Vec3 p[8];
-//     // The point p1 clamped on the OBB
-//     p[0].x = clamp(p1.x, -OBBtest.e.x, OBBtest.e.x);
-//     p[0].y = clamp(p1.y, -OBBtest.e.y, OBBtest.e.y);
-//     p[0].z = clamp(p1.z, -OBBtest.e.z, OBBtest.e.z);
-//     // The point p2 clamped on the OBB
-//     p[1].x = clamp(p2.x, -OBBtest.e.x, OBBtest.e.x);
-//     p[1].y = clamp(p2.y, -OBBtest.e.y, OBBtest.e.y);
-//     p[1].z = clamp(p2.z, -OBBtest.e.z, OBBtest.e.z);
-//     // Early return : if both points project on the same face, then the smallest of the two distances
-//     // will be returned (there is no need to test anything else).
-//     // if ((p[1].x > -OBBtest.e.x && p[1].x < OBBtest.e.x && p[2].x > -OBBtest.e.x && p[2].x < OBBtest.e.x) &&
-//     // ((p[1].y > -OBBtest.e.y && p[1].y < OBBtest.e.y && p[2].y > -OBBtest.e.y && p[2].y < OBBtest.e.y) || (p[1].z > -OBBtest.e.z && p[1].z < OBBtest.e.z && p[2].z > -OBBtest.e.z && p[2].z < OBBtest.e.z)) ||
-//     // ((p[1].y > -OBBtest.e.y && p[1].y < OBBtest.e.y && p[2].y > -OBBtest.e.y && p[2].y < OBBtest.e.y) || (p[1].z > -OBBtest.e.z && p[1].z < OBBtest.e.z && p[2].z > -OBBtest.e.z && p[2].z < OBBtest.e.z)))
-//     // {
-//     //     real dist1 = distmin(seg, p[1]);
-//     //     real dist2 = distmin(seg, p[2]);
-//     //     return dist1 < dist2 ? dist1 - caps.r : dist2 - caps.r;
-//     // }
-//     // We find the face which will be tested : this face is the face in which the vector from the center
-//     // of the OBB to the closest point on the line to the center crosses first.
-//     // Vec3 closept = closept_origin(seg);
-//     // Vec3 t;
-//     // t.x = closept.x / OBBtest.e.x;
-//     // t.y = closept.y / OBBtest.e.y;
-//     // t.z = closept.z / OBBtest.e.z;
-//     // Vec3 t_abs = { abs(t.x), abs(t.y), abs(t.z) };
-//     // int face = (t_abs.x > t_abs.y && t_abs.x > t_abs.z) ? 0 : (t_abs.y > t_abs.z) ? 1 : 2;
-//     // int sign = (face == 1 && t.x < 0) || (face == 2 && t.y < 0) || (face == 3 && t.z < 0) ? -1 : 1;
-//     // int face_idx = face*sign;
-//     // std::vector<real> dist;
-//     // std::vector<real> t(6);
-//     // t[0] = (OBBtest.e.x - p1.x) / vec.x;
-//     // t[1] = (-OBBtest.e.x - p1.x) / vec.x;
-//     // t[2] = (OBBtest.e.y - p1.y) / vec.y;
-//     // t[3] = (-OBBtest.e.y - p1.y) / vec.y;
-//     // t[4] = (OBBtest.e.z - p1.z) / vec.z;
-//     // t[5] = (-OBBtest.e.z - p1.z) / vec.z;
-//     // int dim1 = (face == 0) ? 1 : 0;
-//     // int dim2 = (face == 2) ? 1 : 2;
-//     real s[6];
-//     // todo : fix division by 0
-//     s[0] = (OBBtest.e.x - p1.x) / vec.x;
-//     s[1] = (-OBBtest.e.x - p1.x) / vec.x;
-//     s[2] = (OBBtest.e.y - p1.y) / vec.y;
-//     s[3] = (-OBBtest.e.y - p1.y) / vec.y;
-//     s[4] = (OBBtest.e.z - p1.z) / vec.z;
-//     s[5] = (-OBBtest.e.z - p1.z) / vec.z;
-//     real s_clamped[6];
-//     s_clamped[0] = clamp(s[0], 0, 1);
-//     s_clamped[1] = clamp(s[1], 0, 1);
-//     s_clamped[2] = clamp(s[2], 0, 1);
-//     s_clamped[3] = clamp(s[3], 0, 1);
-//     s_clamped[4] = clamp(s[4], 0, 1);
-//     s_clamped[5] = clamp(s[5], 0, 1);
-//     // We find the points on the segment which will clamp to the closest point on the OBB (with t)
-//     Vec3 pt_segment[6];
-//     // !!! Is it possible to skip the first step by creating points with logic here?
-//     pt_segment[0] = p1 + s_clamped[0]*vec;
-//     pt_segment[1] = p1 + s_clamped[1]*vec;
-//     pt_segment[2] = p1 + s_clamped[2]*vec;
-//     pt_segment[3] = p1 + s_clamped[3]*vec;
-//     pt_segment[4] = p1 + s_clamped[4]*vec;
-//     pt_segment[5] = p1 + s_clamped[5]*vec;
-//     for (int i = 0; i < 6; i++) {
-//         p[i + 2].x = clamp(pt_segment[i].x, -OBBtest.e.x, OBBtest.e.x);
-//         p[i + 2].y = clamp(pt_segment[i].y, -OBBtest.e.y, OBBtest.e.y);
-//         p[i + 2].z = clamp(pt_segment[i].z, -OBBtest.e.z, OBBtest.e.z);
-//     }
-//     // for debugging : p_general
-//     Vec3 p_general[8];
-//     Vec3 p_segment_general[8];
-//     for (int i = 0; i < 8; i++) {
-//         p_general[i] = OBBtest.R*p[i+2] + OBBtest.c;
-//         p_segment_general[i] = OBBtest.R*pt_segment[i+2] + OBBtest.c;
-//     }
-//     real dist[8];
-//     // Initializing at dist[0]
-//     Vec3 pt_on_segment = ptint(seg_test, p[0]);
-//     dist[0] = norm(pt_on_segment - p[0]);
-//     dist[0] = (dot(p[0], p[0]) >= dot(pt_on_segment, p[0])) ? -dist[0] : dist[0];
-//     real distcurrent = dist[0];
-//     for (int i = 1; i < 8; i++) {
-//         pt_on_segment = ptint(seg_test, p[i]);
-//         dist[i] = norm(pt_on_segment - p[i]);
-//         dist[i] = (dot(p[i], p[i]) >= dot(pt_on_segment, pt_on_segment)) ? -dist[i] : dist[i];
-//         if (dist[i] >= 0 && (dist[i] < distcurrent || distcurrent < 0)) {
-//             distcurrent = abs(dist[i]) < COLLISION_EPSILON ? distcurrent : dist[i];
-//         }
-//         else if (dist[i] < 0 && dist[i] > distcurrent) {
-//             distcurrent = abs(dist[i]) < COLLISION_EPSILON ? distcurrent : dist[i];
-//         }
-//     }
-//     return distcurrent - caps.r;
-//     // bool dim1_intersection[2] = { s[dim1][0] >= 0 && s[dim1][0] <= 1, s[dim1][1] >= 0 && s[dim1][1] <= 1};
-//     // bool dim2_intersection[2] = { s[dim2][0] >= 0 && s[dim2][0] <= 1, s[dim2][1] >= 0 && s[dim2][1] <= 1};
-//     // // how many times does our segment intersect its first dimension axis?
-//     // int dim1_number =   dim1_intersection[0] && dim1_intersection[1] ? 2 :
-//     //                     dim1_intersection[0] || dim1_intersection[1] ? 1 : 0;
-//     // int dim2_number =   dim2_intersection[0] && dim2_intersection[1] ? 2 :
-//     //                     dim2_intersection[0] || dim2_intersection[1] ? 1 : 0;
-//     // real coord1 = sign*OBBtest.e[face - 1];
-//     // int idx = 2;
-//     // if (face == 1) {
-//     //     dist[idx++] = (dim1_intersection[0] == true) ? distmin(seg, { sign * OBBtest.e.x, p1.y + s[1][0]*vec.y, OBBtest.e.z }) : INF_REAL;
-//     //     dist[idx++] = (dim1_intersection[1] == true) ? distmin(seg, { sign * OBBtest.e.x, p1.y + s[1][1]*vec.y, -OBBtest.e.z }) : INF_REAL;
-//     //     dist[idx++] = (dim2_intersection[0] == true) ? distmin(seg, { sign * OBBtest.e.x, OBBtest.e.y, p1.z + s[2][0]*vec.z }) : INF_REAL;
-//     //     dist[idx++] = (dim2_intersection[1] == true) ? distmin(seg, { sign * OBBtest.e.x, -OBBtest.e.y, p1.z + s[2][1]*vec.z }) : INF_REAL;
-//     // }
-//     // if (face == 2) {
-//     //     // todo : face 2 and 3.
-//     //     dist[idx++] = (dim1_intersection[0] == true) ? distmin(seg, { sign * OBBtest.e.x, p1.y + s[1][0]*vec.y, OBBtest.e.z }) : INF_REAL;
-//     //     dist[idx++] = (dim1_intersection[1] == true) ? distmin(seg, { sign * OBBtest.e.x, p1.y + s[1][1]*vec.y, -OBBtest.e.z }) : INF_REAL;
-//     //     dist[idx++] = (dim2_intersection[0] == true) ? distmin(seg, { sign * OBBtest.e.x, OBBtest.e.y, p1.z + s[2][0]*vec.z }) : INF_REAL;
-//     //     dist[idx++] = (dim2_intersection[1] == true) ? distmin(seg, { sign * OBBtest.e.x, -OBBtest.e.y, p1.z + s[2][1]*vec.z }) : INF_REAL;
-//     // }
-//     // Vec3 pt1_1;
-//     // Vec3 pt1_2;
-//     // Vec3 pt2_1;
-//     // Vec3 pt2_2;
-//     // pt1_1.x = face == 1 ? sign * OBBtest.e.x : (s[0][0] >= 0 && s[0][0] <= 1 ? s[0][0] : (s[0][1] >= 0 && s[0][1] <= 1 ? s[0][1] : 0));
-//     // pt1_1.y = face == 2 ? sign * OBBtest.e.y : (s[dim1][0] >= 0 && s[dim1][0] <= 1 ? s[dim1][0] : (s[dim1][1] >= 0 && s[dim1][1] <= 1 ? s[dim1][1] : 0));
-//     // pt1_1.z = face == 3 ? sign * OBBtest.e.z : (s[dim1][0] >= 0 && s[dim1][0] <= 1 ? s[dim1][0] : (s[dim1][1] >= 0 && s[dim1][1] <= 1 ? s[dim1][1] : 0));
-//     // if (s[0] >= 0 && s[0] <= 1) {
-//     //     dist[idx++] = distmin(seg, { sign * OBBtest.e.x, p1.y + s[0]*vec.y, OBBtest.e.z });
-//     // }
-//     // if (s[1] >= 0 && s[1] <= 1) {
-//     //     dist[idx++] = distmin(seg, { sign * OBBtest.e.x, p1.y + s[1]*vec.y, -OBBtest.e.z });
-//     // }
-//     // if (s[2] >= 0 && s[2] <= 1) {
-//     //     dist[idx++] = distmin(seg, { sign * OBBtest.e.x, OBBtest.e.y, p1.z + s[2]*vec.z });
-//     // }
-//     // if (s[3] >= 0 && s[3] <= 1) {
-//     //     dist[idx++] = distmin(seg, { sign * OBBtest.e.x, -OBBtest.e.y, p1.z + s[3]*vec.z });
-//     // }
-//     // If there is no intersection, then we should take the corner closest to the segment.
-//     // if (size(dist) == 0) {
-//     //     return distmin(seg, )
-//     // }
-//     // real distcurrent = dist[0];
-//     // for (auto& d : dist) {
-//     //     if (d >= 0 && (d < distcurrent || distcurrent < 0)) {
-//     //         distcurrent = d;
-//     //     }
-//     //     else if (d < 0 && d > distcurrent) {
-//     //         distcurrent = d;
-//     //     }
-//     // }
-// }
-
 
 #ifdef BLAST_ENABLE_TESTS
 
@@ -2291,13 +1795,33 @@ collision_test_box test_obb[] = {
     /*Test28*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.66, -0.92, 7.44 }, { 8.04, 4.16, 9.96 }, 0.5 }, 0.87078210 },
     /*Test29*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 8.94, 3.63, 11.01 }, { 8.94, -2.55, 11.01 }, 0.5 }, 1.24844065 },
     /*Test30*/ { { { 5, 0, 9 }, { 0.1, 5, 3 }, { 0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707 } }, { { 5.91, 5.9, 7.39 }, { 4.14, 5.9, 13.32 }, 0.5 }, 0.40000000 },
-};
 
+    /*Test31*/ { { { 0, 0, 0 }, { 1.421459, 0.796365, 0.574752 }, { 1, 0, 0, 0, 1, 0, 0, 0, 1 } }, { { 2.447825, 6.30643376, -5.224298 }, { -5.4486154, -5.149872, 5.1825604 }, 0 }, -0.05877295 },
+    /*Test32*/ { { { 0, 0, 0 }, { 1.7236252662212059, 1.6611691154387149, 0.20442662553572166 }, { 1, 0, 0, 0, 1, 0, 0, 0, 1 } }, { { -4.6785661670641119, 1.5869561202501099, -4.7958108710825522 }, { 6.9379851583657839, -2.4864207406657761, 4.5569750611707658 }, 0 }, -0.438675 },
+    /*Test33*/ { { { 0, 0, 0 }, { 1.7865788377999734, 1.4615853859974308, 1.7957946652540584 }, {0.16899262598095025, 0.69208966716438747, -0.70175022976009782, -0.73366055668912455, 0.56377691511991157, 0.37933860538637498, 0.65816690886329632, 0.45074103716231956, 0.60303303184416857 } }, { { -0.050034305603475548, 0.40002630593895194, 2.3444724393109695 }, { 1.3614165219982919, 0.62636518062708535, -1.2242779633088015 }, 0 }, -1.3557069221709168 },
+
+    // The following test does not pass for dist_min_new
+    // /*Test34*/ { { { 0, 0, 0 }, { 1.8543682561036101, 0.23108269265489501, 0.11287955803364236 } , { 1, 0, 0, 0, 1, 0, 0, 0, 1 } }, { { 4.4589046322448933, 6.1459446090413632, -5.0723802406288092 }, { -4.5833194312111516, -3.5836095282891645, 1.8703880978400422 }, 0 }, 0.33293883592789086 },
+};
 
 TEST_CASE("Collisions", "[World]") {
     using namespace blast;
 
     real TESTCOLL_EPSILON = 1e-2;
+
+    std::vector<Vec3> v1 = {    { -4.6607382574035014, -3.4686124971115451,  0.89349474531514073 },
+        {  6.4517093458638977,  6.9310459212756506, -0.24683715666348305 }
+    };
+    std::vector<Vec3> v2 = {    {  2.4373332611708229,  2.5910471347625212, -0.04489407117738407 },
+        {  2.5547766616001675,  4.0525983620611852,  0.19409068785959360 },
+        {  1.8335195262912714,  2.7351427068670993, -0.62940465909289878 },
+        {  1.9509629267206159,  4.1966939341657632, -0.39041990005592114 },
+        {  1.6790895426140411,  2.5264996514086859,  0.72247776841327949 },
+        {  1.7965329430433856,  3.9880508787073494,  0.96146252745025707 },
+        {  1.0752758077344895,  2.6705952235132639,  0.13796718049776469 },
+        {  1.1927192081638340,  4.1321464508119279,  0.37695193953474238 }
+    };
+    // real dist = general_GJK(v1, v2);
 
     for (auto t : test) {
         real dist = distmin(t.caps, t.sph);
@@ -2314,24 +1838,190 @@ TEST_CASE("Collisions", "[World]") {
         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
     }
 
-    // Minkowski sum method
     for (auto t : test_obb) {
-        real dist = distmin(t.box, t.caps);
-        // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+        real dist = distmin_vec(t.box, t.caps);
         CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
     }
-    // GJK Algorithm
+
     for (auto t : test_obb) {
-        gjkresult res = GJK_solve_gjk_simple(t.caps, t.box);
-        CHECK(abs(res.minimal_distance - t.expected_dist) < TESTCOLL_EPSILON);
-    }
-    // boolean GJK algorithm
-    for (auto t : test_obb) {
-        bool res = GJK_bool(t.caps, t.box);
-        bool expected = (t.expected_dist < 0);
-        CHECK(res == expected);
+        real dist = distmin_vec_acc(t.box, t.caps);
+        CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
     }
 
+    // for (auto t : test_obb) {
+    //     real dist = distmin_hull(t.box, t.caps);
+    //     // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+    //     CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+    // }
+
+    // GJK Algorithm (new/Ericson version)
+    // for (auto t : test_obb) {
+    //     real dist = GJK_OBB_caps(t.caps, t.box);
+    //     CHECK(abs(dist - t.expected_dist) < TESTCOLL_EPSILON);
+    // }
+}
+
+TEST_CASE("Collision method benchmarks", "[World]") {
+    using namespace blast;
+
+    real TESTCOLL_EPSILON = 1e-2;
+
+    BENCHMARK("box - capsule OBB test with vectors") {
+        real dist;
+        for (auto t : test_obb) {
+            dist = distmin_vec(t.box, t.caps);
+            // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+        }
+        return dist;
+    };
+
+    BENCHMARK("box - capsule OBB test with vectors accelerated") {
+        real dist;
+        for (auto t : test_obb) {
+            dist = distmin_vec_acc(t.box, t.caps);
+            // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+        }
+        return dist;
+    };
+
+    // BENCHMARK("box - capsule OBB test with hulls") {
+    //     real dist;
+    //     for (auto t : test_obb) {
+    //         dist = distmin_hull(t.box, t.caps);
+    //         // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+    //     }
+    //     return dist;
+    // };
+
+    // BENCHMARK("box - capsule OBB test with GJK") {
+    //     real dist;
+    //     for (auto t : test_obb) {
+    //         dist = GJK_OBB_caps(t.caps, t.box);
+    //         // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+    //     }
+    //     return dist;
+    // };
+}
+
+TEST_CASE("Collision method comparison exhaustive (OBB-cpasules)", "[World]") {
+    using namespace blast;
+
+    real TESTCOLL_EPSILON = 1e-2;
+
+    vector<OBB> obb_list;
+    vector<capsule> caps_list;
+    int n = 1000;
+    bool error_info = false;
+
+    Array s(3);
+    Array c(3);
+    Array angles(3);
+
+    Array obb_e(3);
+    Array obb_c(3);
+
+    Array seg_p1(3);
+    Array seg_p2(3);
+
+    for(u32 i = 0; i < n; i++) {
+        fill_random(angles, PI);
+        blast::sincos(angles, s, c);
+
+        Mat3 Rz = {c[0], -s[0], 0, s[0], c[0], 0, 0, 0, 1};
+        Mat3 Ry = {c[1], 0, s[1], 0, 1, 0, -s[1], 0, c[1]};
+        Mat3 Rx = {1, 0, 0, 0, c[2], -s[2], 0, s[2], c[2]};
+        auto R = Rz*Ry*Rx;
+        CHECK(abs(1.0 - sqrt(R[0]*R[0] + R[1]*R[1] + R[2]*R[2])) < TESTCOLL_EPSILON);
+        CHECK(abs(1.0 - sqrt(R[3]*R[3] + R[4]*R[4] + R[5]*R[5])) < TESTCOLL_EPSILON);
+        CHECK(abs(1.0 - sqrt(R[6]*R[6] + R[7]*R[7] + R[8]*R[8])) < TESTCOLL_EPSILON);
+
+        // Generate n random OBB
+        fill_random(obb_e, 2);
+        obb_e = array_abs(obb_e);
+        fill_random(obb_c, 5);
+        obb_c = array_abs(obb_c);
+        obb_list.push_back({{obb_c[0], obb_c[1], obb_c[2]}, {obb_e[0], obb_e[1], obb_e[2]}, R});
+
+        // Generate n random caps
+        fill_random(seg_p1, 7);
+        fill_random(seg_p2, 7);
+        auto r = 0.0;
+        caps_list.push_back({{seg_p1[0], seg_p1[1], seg_p1[2]}, {seg_p2[0], seg_p2[1], seg_p2[2]}, r});
+    }
+
+    vector<capsule> caps_failed;
+    vector<OBB> obb_failed;
+    for (int cap = 0; cap < caps_list.size(); cap++) {
+        // OBB collisions
+        for (int i = 0; i < obb_list.size(); i++) {
+            auto dist_min_vec = distmin_vec(obb_list[i], caps_list[cap]);
+            auto dist_min_vector_acc = distmin_vec_acc(obb_list[i], caps_list[cap]);
+            // auto dist_min_new = distmin_hull(obb_list[i], caps_list[cap]);
+            // auto dist_min_gjk = GJK_OBB_caps(caps_list[cap], obb_list[i]);
+
+            CHECK(abs(dist_min_vec - dist_min_vector_acc) < TESTCOLL_EPSILON);
+            if (abs(dist_min_vec - dist_min_vector_acc) > TESTCOLL_EPSILON) {
+                // save and test caps and obb in future
+                caps_failed.push_back(caps_list[cap]);
+                obb_failed.push_back(obb_list[i]);
+            }
+        }
+    }
+
+    // real total_error = 0;
+    // real max_error = 0;
+    // bool error_when_neg = false;
+    // bool error_when_pos = false;
+    // std::vector<Vec3> error_distmin_distminnew(caps_failed.size());
+    // for (u32 i = 0; i < caps_failed.size(); i++) {
+    //     auto dist_min_vec = distmin_vec(obb_failed[i], caps_failed[i]);
+    //     auto dist_min_new = distmin_hull(obb_failed[i], caps_failed[i]);
+    //     auto dist_min_gjk = GJK_OBB_caps(caps_failed[i], obb_failed[i]);
+    //     auto dist_min_pierce = distmin_pierce(obb_failed[i], caps_failed[i]);
+    //     real error = abs(dist_min_new - dist_min_vec) * 100 / dist_min;
+    //     total_error += error;
+    //     int dist = 0;
+    //     max_error = error > max_error ? error : max_error;
+    //     if (error > 100)
+    //         real found_error = 0;
+    //     if (dist_min_vec >=0)
+    //         error_when_pos = true;
+    //     if (dist_min_vec < 0) {
+    //         error_when_neg = true;
+    //         real check = dist_min_new + dist_min_vec;
+    //     }
+    //     if (error_info) {
+    //         Vec3 error_point = { error, dist_min_vec, dist_min_new };
+    //         error_distmin_distminnew.push_back(error_point);
+    //     }
+    // }
+    // real avg_error = total_error / caps_failed.size();
+    // real avg_error_over_all = total_error / (n*n);
+    // real percent_error = caps_failed.size() / (n*n);
+    // std::cout << caps_failed.size() << " failed out of " << n*n << " tests ( " << percent_error << " % ) \n";
+    // std::cout << "Average error of " << avg_error << "% and a max error of " << max_error << "%. \n";
+    // std::cout << "Counting the tests which passed, we find an average error of : " << avg_error_over_all << " %.  \n";
+    // std::cout << "Error when positive dist (true or false): " << error_when_pos << " \n";
+    // std::cout << "Error when negative dist (true or false): " << error_when_neg << " \n";
+    // if (error_info) {
+    //     #include <fstream>
+    //     // Open a CSV file for writing
+    //     std::ofstream csvFile("C:\\Users\\thoma\\Desktop\\example.csv");
+    //     // Check if the file is open
+    //     if (!csvFile.is_open()) {
+    //         std::cerr << "Error opening file!" << std::endl;
+    //     }
+    //     // Write headers to the CSV file
+    //     csvFile << "error (%), dist_min_vec, dist_min_new" << std::endl;
+    //     // Write data
+    //     for (int i = 0; i < error_distmin_distminnew.size(); i++) {
+    //         Vec3 error_pt = error_distmin_distminnew[i];
+    //         csvFile << (error_pt).x << ";" << (error_pt).y << ";" << (error_pt).z << std::endl;
+    //     }
+    //     // Close the file
+    //     csvFile.close();
+    //     std::cout << "CSV file created successfully." << std::endl;
+    // }
 }
 
 #endif
