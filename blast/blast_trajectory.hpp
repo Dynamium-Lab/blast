@@ -618,51 +618,51 @@ TEST_CASE("SplineTest", "[Trajectory]") {
     REQUIRE(max_acc_error < 0.9);
 }
 
-// TEST_CASE("SplineSpeedTest", "[Trajectory]") {
-//     using namespace blast;
+TEST_CASE("SplineSpeedTest", "[Trajectory]") {
+    using namespace blast;
 
-//     const u32 points = 256;
-//     const u32 joints = 7;
-//     const u32 p = 5;
-//     const u32 ncontrol = 24;
+    const u32 points = 256;
+    const u32 joints = 7;
+    const u32 p = 5;
+    const u32 ncontrol = 24;
 
-//     // random task
-//     real amp = 10;
-//     Matrix task(joints, 6);
-//     for (u32 i = 0; i < task.rows; i++) {
-//         for (u32 j = 0; j < task.cols; j++) {
-//             task(i, j) = amp * get_random();
-//         }
-//     }
-//     MatrixXd task_eigen(joints, 6);
-//     for (u32 i = 0; i < task.size; i++)
-//         task_eigen.data()[i] = task.data[i];
+    // random task
+    real amp = 10;
+    Matrix task(joints, 6);
+    for (u32 i = 0; i < task.rows; i++) {
+        for (u32 j = 0; j < task.cols; j++) {
+            task(i, j) = amp * get_random();
+        }
+    }
+    MatrixXd task_eigen(joints, 6);
+    for (u32 i = 0; i < task.size; i++)
+        task_eigen.data()[i] = task.data[i];
 
-//     // random optimization vector
-//     Array x(joints * (ncontrol - 6) + 1);
-//     for (u32 i = 0; i < x.size; i++)
-//         x[i] = amp * get_random();
-//     x[x.size - 1] = 3.f;
-//     VectorXd x_eigen(joints * (ncontrol - 6) + 1);
-//     for (u32 i = 0; i < x.size; i++)
-//         x_eigen[i] = x[i];
+    // random optimization vector
+    Array x(joints * (ncontrol - 6) + 1);
+    for (u32 i = 0; i < x.size; i++)
+        x[i] = amp * get_random();
+    x[x.size - 1] = 3.f;
+    VectorXd x_eigen(joints * (ncontrol - 6) + 1);
+    for (u32 i = 0; i < x.size; i++)
+        x_eigen[i] = x[i];
 
-//     Bspline bspline(ncontrol, points, p, joints);
-//     BsplineEigen bspline_eigen(ncontrol, points, p, joints);
+    Bspline bspline(ncontrol, points, p, joints);
+    BsplineEigen bspline_eigen(ncontrol, points, p, joints);
 
-//     {
-//         BENCHMARK("Blast trajectory speed") {
-//             bspline.compute_trajectory(x, task);
-//             return bspline.traj.pos(0, 0);
-//         };
-//     }
+    {
+        BENCHMARK("Blast trajectory speed") {
+            bspline.compute_trajectory(x, task);
+            return bspline.traj.pos(0, 0);
+        };
+    }
 
-//     {
-//         BENCHMARK("Blast+Eigen trajectory speed") {
-//             bspline_eigen.compute_trajectory(x_eigen, task_eigen);
-//             return bspline_eigen.traj.pos(0, 0);
-//         };
-//     }
+    {
+        BENCHMARK("Blast+Eigen trajectory speed") {
+            bspline_eigen.compute_trajectory(x_eigen, task_eigen);
+            return bspline_eigen.traj.pos(0, 0);
+        };
+    }
 
-// }
+}
 #endif

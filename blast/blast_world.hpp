@@ -648,19 +648,10 @@ host_fn real distmin_vec(OBB OBB, capsule caps) {
 
         bool dist_over = dist[i] >= 0;
         bool dist_under = dist[i] < 0;
-        distcurrent = dist_over ? (dist[i] < distcurrent) || (distcurrent < 0) ? dist[i] : distcurrent
-                      : dist_under && (dist[i] > distcurrent) ? dist[i] : distcurrent;
-
-        // bool cond1 = dist[i] >= 0;
-        // bool cond21 = (dist[i] - distcurrent < COLLISION_EPSILON);
-        // bool cond22 = (distcurrent < 0);
-        // bool cond2 = (cond21 || cond22);
-        // if (cond1 && cond2) {
-        //     distcurrent = dist[i];
-        // }
-        // else if (dist[i] < 0 && dist[i] > distcurrent) {
-        //     distcurrent = dist[i];
-        // }
+        // When dist_over , distcurrent == the closest positive value to 0
+        // When dist_under, distcurrent == the closest negative value to 0
+        distcurrent = dist_over && ((dist[i] < distcurrent) || (distcurrent < 0)) ? dist[i] :
+                      dist_under && (dist[i] > distcurrent) ? dist[i] : distcurrent;
     }
     return distcurrent - caps.r;
 }
@@ -1001,7 +992,7 @@ host_fn real distmin_hull(OBB OBB, capsule caps) {
 
             // Compare distance with min_dist
             // min_dist = current_dist > min_dist ? current_dist : min_dist;
-            min_dist_hull = current_dist_hull > min_dist_hull ? current_dist_hull : min_dist_hull;
+            min_dist_hull = std::max(current_dist_hull, min_dist_hull);
         }
         min_dist = - sqrt(-min_dist_hull);
 
@@ -1902,14 +1893,14 @@ TEST_CASE("Collision method benchmarks", "[World]") {
     //     return dist;
     // };
 
-//  BENCHMARK("box - capsule OBB test with GJK") {
-//         real dist;
-//         for (auto t : test_obb) {
-//             dist = GJK_OBB_caps(t.caps, t.box);
-//             // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
-//         }
-//         return dist;
-//     };
+    // BENCHMARK("box - capsule OBB test with GJK") {
+    //     real dist;
+    //     for (auto t : test_obb) {
+    //         dist = GJK_OBB_caps(t.caps, t.box);
+    //         // std::cout << "The distance difference is " << abs(dist - t.expected_dist) << ", or " << abs(dist - t.expected_dist) * 100 / abs(t.expected_dist) << " %." << std::endl;
+    //     }
+    //     return dist;
+    // };
 }
 
 TEST_CASE("Collision method comparison exhaustive (OBB-cpasules)", "[World]") {
@@ -1940,7 +1931,6 @@ TEST_CASE("Collision method comparison exhaustive (OBB-cpasules)", "[World]") {
         Mat3 Ry = {c[1], 0, s[1], 0, 1, 0, -s[1], 0, c[1]};
         Mat3 Rx = {1, 0, 0, 0, c[2], -s[2], 0, s[2], c[2]};
         auto R = Rz*Ry*Rx;
-        // R = {1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
         CHECK(abs(1.0 - sqrt(R[0]*R[0] + R[1]*R[1] + R[2]*R[2])) < TESTCOLL_EPSILON);
         CHECK(abs(1.0 - sqrt(R[3]*R[3] + R[4]*R[4] + R[5]*R[5])) < TESTCOLL_EPSILON);
         CHECK(abs(1.0 - sqrt(R[6]*R[6] + R[7]*R[7] + R[8]*R[8])) < TESTCOLL_EPSILON);
@@ -1950,29 +1940,26 @@ TEST_CASE("Collision method comparison exhaustive (OBB-cpasules)", "[World]") {
         obb_e = array_abs(obb_e);
         fill_random(obb_c, 5);
         obb_c = array_abs(obb_c);
-        // obb_c = {0.0, 0.0, 0.0};
         obb_list.push_back({{obb_c[0], obb_c[1], obb_c[2]}, {obb_e[0], obb_e[1], obb_e[2]}, R});
-        // obb_list.push_back({{0.0, 0.0, 0.0}, {0.9278843, 0.41079, 0.9595}, R});
 
         // Generate n random caps
         fill_random(seg_p1, 7);
-        // seg_p1 = array_abs(seg_p1);
         fill_random(seg_p2, 7);
-        // seg_p2 = array_abs(seg_p2);
         auto r = 0.0;
         caps_list.push_back({{seg_p1[0], seg_p1[1], seg_p1[2]}, {seg_p2[0], seg_p2[1], seg_p2[2]}, r});
-        // caps_list.push_back({{-1.8289765, -0.92216, 4.76682}, {3.563465, 3.2846454, 6.08544}, r});
     }
+
     vector<capsule> caps_failed;
     vector<OBB> obb_failed;
     for (int cap = 0; cap < caps_list.size(); cap++) {
         // OBB collisions
         for (int i = 0; i < obb_list.size(); i++) {
             auto dist_min_vec = distmin_vec(obb_list[i], caps_list[cap]);
-            // auto dist_min_new = distmin_hull(obb_list[i], caps_list[cap]);
             auto dist_min_vector_acc = distmin_vec_acc(obb_list[i], caps_list[cap]);
+            // auto dist_min_new = distmin_hull(obb_list[i], caps_list[cap]);
             // auto dist_min_gjk = GJK_OBB_caps(caps_list[cap], obb_list[i]);
 
+            CHECK(abs(dist_min_vec - dist_min_vector_acc) < TESTCOLL_EPSILON);
             if (abs(dist_min_vec - dist_min_vector_acc) > TESTCOLL_EPSILON) {
                 // save and test caps and obb in future
                 caps_failed.push_back(caps_list[cap]);
@@ -1980,7 +1967,6 @@ TEST_CASE("Collision method comparison exhaustive (OBB-cpasules)", "[World]") {
             }
         }
     }
-    // todo: save caps and obb to test in debug
 
     // real total_error = 0;
     // real max_error = 0;

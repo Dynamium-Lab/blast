@@ -2839,157 +2839,157 @@ host_fn bool Link6::validate_task(const Matrix &task) {
 
 // note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef BLAST_ENABLE_TESTS
-// TEST_CASE("SelfCollision", "[Manipulator]") {
-//     using namespace blast;
-//     Gen3_7DOF manip;
-//     Array theta1(7);
-//     theta1 = {0, 15, 180, 230, 360, 55, 90};
-//     theta1 = deg2rad(theta1);
-//     Array theta2(7);
-//     theta2 = {0, 0, 0, 0, 0, 0, 0};
-//     theta2 = deg2rad(theta2);
-//     Array theta3(7);
-//     theta3 = {0, 16, 180, 221, 358, 284, 88};
-//     theta3 = deg2rad(theta3);
-//     Array theta4(7);
-//     theta4 = {347, 47, 158, 212, 341, 300, 8};
-//     theta4 = deg2rad(theta4);
+TEST_CASE("SelfCollision", "[Manipulator]") {
+    using namespace blast;
+    Gen3_7DOF manip;
+    Array theta1(7);
+    theta1 = {0, 15, 180, 230, 360, 55, 90};
+    theta1 = deg2rad(theta1);
+    Array theta2(7);
+    theta2 = {0, 0, 0, 0, 0, 0, 0};
+    theta2 = deg2rad(theta2);
+    Array theta3(7);
+    theta3 = {0, 16, 180, 221, 358, 284, 88};
+    theta3 = deg2rad(theta3);
+    Array theta4(7);
+    theta4 = {347, 47, 158, 212, 341, 300, 8};
+    theta4 = deg2rad(theta4);
 
-//     auto dist_sqr_min_1 = manip.collision_check(theta1);
-//     auto dist_sqr_min_2 = manip.collision_check(theta2);
-//     auto dist_sqr_min_3 = manip.collision_check(theta3);
-//     auto dist_sqr_min_4 = manip.collision_check(theta4);
+    auto dist_sqr_min_1 = manip.collision_check(theta1);
+    auto dist_sqr_min_2 = manip.collision_check(theta2);
+    auto dist_sqr_min_3 = manip.collision_check(theta3);
+    auto dist_sqr_min_4 = manip.collision_check(theta4);
 
-//     CHECK(dist_sqr_min_1[0] > 0);
-//     CHECK(dist_sqr_min_1[1] > 0);
-//     CHECK(dist_sqr_min_2[0] > 0);
-//     CHECK(dist_sqr_min_2[1] > 0);
-//     CHECK(dist_sqr_min_3[0] < 0);
-//     CHECK(dist_sqr_min_3[1] < 0);
-//     CHECK(dist_sqr_min_4[0] < 0);
-//     CHECK(dist_sqr_min_4[1] > 0);
-// }
+    CHECK(dist_sqr_min_1[0] > 0);
+    CHECK(dist_sqr_min_1[1] > 0);
+    CHECK(dist_sqr_min_2[0] > 0);
+    CHECK(dist_sqr_min_2[1] > 0);
+    CHECK(dist_sqr_min_3[0] < 0);
+    CHECK(dist_sqr_min_3[1] < 0);
+    CHECK(dist_sqr_min_4[0] < 0);
+    CHECK(dist_sqr_min_4[1] > 0);
+}
 
-// TEST_CASE("Link6Checks", "[Manipulator]") {
-//     using namespace blast;
-//     Link6 manip;
+TEST_CASE("Link6Checks", "[Manipulator]") {
+    using namespace blast;
+    Link6 manip;
 
-//     const u32 points = 10;
-//     const u32 joints = 6;
-//     const u32 p = 5;
-//     const u32 ncontrol = 12;
+    const u32 points = 10;
+    const u32 joints = 6;
+    const u32 p = 5;
+    const u32 ncontrol = 12;
 
-//     real amp = 10;
-//     Matrix task(joints, 6);
-//     for (u32 i = 0; i < task.rows; i++) {
-//         for (u32 j = 0; j < task.cols; j++) {
-//             task(i, j) = amp * get_random();
-//         }
-//     }
-//     // random optimization vector
-//     Array x(joints * (ncontrol - 6) + 1);
-//     for (u32 i = 0; i < x.size; i++)
-//         x[i] = amp * get_random();
-//     x[x.size - 1] = 3.f;
-//     Bspline bspline(ncontrol, points, p, joints);
-//     bspline.compute_trajectory(x, task);
-//     Array r = manip.constraints(bspline.traj);
-// }
+    real amp = 10;
+    Matrix task(joints, 6);
+    for (u32 i = 0; i < task.rows; i++) {
+        for (u32 j = 0; j < task.cols; j++) {
+            task(i, j) = amp * get_random();
+        }
+    }
+    // random optimization vector
+    Array x(joints * (ncontrol - 6) + 1);
+    for (u32 i = 0; i < x.size; i++)
+        x[i] = amp * get_random();
+    x[x.size - 1] = 3.f;
+    Bspline bspline(ncontrol, points, p, joints);
+    bspline.compute_trajectory(x, task);
+    Array r = manip.constraints(bspline.traj);
+}
 
-// TEST_CASE("EigenCorrectness", "[Manipulator]") {
-//     using namespace blast;
-//     Gen3_7DOF manip;
-//     Gen3Eigen manip_eigen;
+TEST_CASE("EigenCorrectness", "[Manipulator]") {
+    using namespace blast;
+    Gen3_7DOF manip;
+    Gen3Eigen manip_eigen;
 
-//     const u32 points = 10;
-//     const u32 joints = 7;
-//     const u32 p = 5;
-//     const u32 ncontrol = 12;
+    const u32 points = 10;
+    const u32 joints = 7;
+    const u32 p = 5;
+    const u32 ncontrol = 12;
 
-//     // random task
-//     real amp = 10;
-//     Matrix task(joints, 6);
-//     for (u32 i = 0; i < task.rows; i++) {
-//         for (u32 j = 0; j < task.cols; j++) {
-//             task(i, j) = amp * get_random();
-//         }
-//     }
-//     MatrixXd task_eigen(joints, 6);
-//     for (u32 i = 0; i < task.size; i++)
-//         task_eigen.data()[i] = task.data[i];
-//     // random optimization vector
-//     Array x(joints * (ncontrol - 6) + 1);
-//     for (u32 i = 0; i < x.size; i++)
-//         x[i] = amp * get_random();
-//     x[x.size - 1] = 3.f;
-//     VectorXd x_eigen(joints * (ncontrol - 6) + 1);
-//     for (u32 i = 0; i < x.size; i++)
-//         x_eigen[i] = x[i];
-//     Bspline bspline(ncontrol, points, p, joints);
-//     BsplineEigen bspline_eigen(ncontrol, points, p, joints);
-//     bspline.compute_trajectory(x, task);
-//     bspline_eigen.compute_trajectory(x_eigen, task_eigen);
+    // random task
+    real amp = 10;
+    Matrix task(joints, 6);
+    for (u32 i = 0; i < task.rows; i++) {
+        for (u32 j = 0; j < task.cols; j++) {
+            task(i, j) = amp * get_random();
+        }
+    }
+    MatrixXd task_eigen(joints, 6);
+    for (u32 i = 0; i < task.size; i++)
+        task_eigen.data()[i] = task.data[i];
+    // random optimization vector
+    Array x(joints * (ncontrol - 6) + 1);
+    for (u32 i = 0; i < x.size; i++)
+        x[i] = amp * get_random();
+    x[x.size - 1] = 3.f;
+    VectorXd x_eigen(joints * (ncontrol - 6) + 1);
+    for (u32 i = 0; i < x.size; i++)
+        x_eigen[i] = x[i];
+    Bspline bspline(ncontrol, points, p, joints);
+    BsplineEigen bspline_eigen(ncontrol, points, p, joints);
+    bspline.compute_trajectory(x, task);
+    bspline_eigen.compute_trajectory(x_eigen, task_eigen);
 
-//     Array r = manip.constraints(bspline.traj);
-//     VectorXd r_eigen = manip_eigen.constraints(bspline_eigen.traj);
+    Array r = manip.constraints(bspline.traj);
+    VectorXd r_eigen = manip_eigen.constraints(bspline_eigen.traj);
 
-//     double max_err = 0;
-//     for (int i = 0; i < r.size; i++) {
-//         max_err = std::max(max_err, std::abs(r[i] - r_eigen[i]));
-//         if (max_err > 0.1) {
-//             break;
-//         }
-//     }
+    double max_err = 0;
+    for (int i = 0; i < r.size; i++) {
+        max_err = std::max(max_err, std::abs(r[i] - r_eigen[i]));
+        if (max_err > 0.1) {
+            break;
+        }
+    }
 
-//     REQUIRE(max_err < 0.01);
-// }
+    REQUIRE(max_err < 0.01);
+}
 
-// TEST_CASE("ManipSpeedTest", "[Manipulator]") {
-//     using namespace blast;
-//     Gen3_7DOF manip;
-//     Gen3Eigen manip_eigen;
+TEST_CASE("ManipSpeedTest", "[Manipulator]") {
+    using namespace blast;
+    Gen3_7DOF manip;
+    Gen3Eigen manip_eigen;
 
-//     const u32 points = 256;
-//     const u32 joints = 7;
-//     const u32 p = 5;
-//     const u32 ncontrol = 24;
+    const u32 points = 256;
+    const u32 joints = 7;
+    const u32 p = 5;
+    const u32 ncontrol = 24;
 
-//     // random task
-//     real amp = 10;
-//     Matrix task(joints, 6);
-//     for (u32 i = 0; i < task.rows; i++) {
-//         for (u32 j = 0; j < task.cols; j++) {
-//             task(i, j) = amp * get_random();
-//         }
-//     }
-//     MatrixXd task_eigen(joints, 6);
-//     for (u32 i = 0; i < task.size; i++)
-//         task_eigen.data()[i] = task.data[i];
-//     // random optimization vector
-//     Array x(joints * (ncontrol - 6) + 1);
-//     for (u32 i = 0; i < x.size; i++)
-//         x[i] = amp * get_random();
-//     x[x.size - 1] = 3.f;
-//     VectorXd x_eigen(joints * (ncontrol - 6) + 1);
-//     for (u32 i = 0; i < x.size; i++)
-//         x_eigen[i] = x[i];
-//     Bspline bspline(ncontrol, points, p, joints);
-//     BsplineEigen bspline_eigen(ncontrol, points, p, joints);
+    // random task
+    real amp = 10;
+    Matrix task(joints, 6);
+    for (u32 i = 0; i < task.rows; i++) {
+        for (u32 j = 0; j < task.cols; j++) {
+            task(i, j) = amp * get_random();
+        }
+    }
+    MatrixXd task_eigen(joints, 6);
+    for (u32 i = 0; i < task.size; i++)
+        task_eigen.data()[i] = task.data[i];
+    // random optimization vector
+    Array x(joints * (ncontrol - 6) + 1);
+    for (u32 i = 0; i < x.size; i++)
+        x[i] = amp * get_random();
+    x[x.size - 1] = 3.f;
+    VectorXd x_eigen(joints * (ncontrol - 6) + 1);
+    for (u32 i = 0; i < x.size; i++)
+        x_eigen[i] = x[i];
+    Bspline bspline(ncontrol, points, p, joints);
+    BsplineEigen bspline_eigen(ncontrol, points, p, joints);
 
-//     Array r(manip.ncon(points));
-//     BENCHMARK("Blast constraints speed") {
-//         bspline.compute_trajectory(x, task);
-//         r = manip.constraints(bspline.traj);
-//         return r[122];
-//     };
+    Array r(manip.ncon(points));
+    BENCHMARK("Blast constraints speed") {
+        bspline.compute_trajectory(x, task);
+        r = manip.constraints(bspline.traj);
+        return r[122];
+    };
 
-//     VectorXd r_eigen(manip_eigen.ncon(points));
-//     BENCHMARK("Blast + Eigen constraints speed") {
-//         bspline_eigen.compute_trajectory(x_eigen, task_eigen);
-//         r_eigen = manip_eigen.constraints(bspline_eigen.traj);
-//         return r_eigen[122];
-//     };
+    VectorXd r_eigen(manip_eigen.ncon(points));
+    BENCHMARK("Blast + Eigen constraints speed") {
+        bspline_eigen.compute_trajectory(x_eigen, task_eigen);
+        r_eigen = manip_eigen.constraints(bspline_eigen.traj);
+        return r_eigen[122];
+    };
 
-// }
+}
 #endif // tests
 } // namespace blast
