@@ -1,11 +1,10 @@
 
 #include <stdio.h>
 #include "blast.hpp"
-#include "utilities/blast_utilities.hpp"
+#include "utilities/utilities.h"
 
 int main() {
     using namespace blast;
-    world.OBBlist.clear();
     Gen3_7DOF manip;
 
     // init
