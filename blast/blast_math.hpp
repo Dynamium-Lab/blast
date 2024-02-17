@@ -198,7 +198,8 @@ struct Array {
     blast_fn Array(Array&&);
 
     // initializer constructor
-    Array(const std::initializer_list<real>&);
+    //  - note: not available on CUDA
+    host_fn Array(const std::initializer_list<real>&);
 
     // create an Array from pre-existing data
     //  - note: becomes an alias
@@ -206,6 +207,7 @@ struct Array {
 
     // create an Array from a const std::vector<real
     //  - note: copies data
+    //  - note: not available on CUDA
     host_fn Array(const svector&);
 
     // free memory if not an alias
@@ -243,6 +245,7 @@ struct Array {
 
     // map the array to the data of the given std::vector<real>
     //  - note: becomes an alias
+    //  - note: not available on CUDA
     host_fn Array& alias(svector&);
 
     // map the array to the data of the given matrix
@@ -257,6 +260,7 @@ struct Array {
     // resize the array
     //  - note: old pointers (aliases) to this data may be invalidated
     //  - note: fails if the array is an alias
+    //  - note: not available on CUDA
     host_fn void resize(u32 new_size);
 
     // access the last element
@@ -299,6 +303,7 @@ struct Matrix {
     blast_fn ~Matrix();
 
     // resize the matrix
+    //  - note: not available on CUDA
     host_fn void resize(u32 r, u32 c);
 
     // copy assignment
@@ -321,7 +326,8 @@ struct Matrix {
     // map the Matrix to the data of the given std::vector<real>
     //  - note: interpret as a n x 1 matrix
     //  - note: becomes an alias
-    host_fn Matrix& alias(std::vector<real>&);
+    //  - note: not available on CUDA
+    host_fn Matrix& alias(svector&);
 
     // map the Matrix to the given data
     //  - note: becomes an alias
@@ -537,6 +543,7 @@ blast_fn real sign(real v) {
 }
 
 // return a random number between -1 and 1
+//  - note: not available on CUDA
 host_fn real get_random() {
     static thread_local std::random_device rd;
     static thread_local std::mt19937 e2(rd());
@@ -545,6 +552,7 @@ host_fn real get_random() {
 }
 
 // fill the given array with random values between -A and A
+//  - note: not available on CUDA
 host_fn void fill_random(Array& v, real A) {
     for (int i = 0; i < (int)v.size; i++)
         v[i] = A * get_random();
@@ -552,12 +560,14 @@ host_fn void fill_random(Array& v, real A) {
 }
 
 // fill the given matrix with random values between -A and A
+//  - note: not available on CUDA
 host_fn void fill_random(Mat3& m, real A) {
     for (int i = 0; i < 9; i++)
         m[i] = A * get_random();
 }
 
 // create a new array with random values between -A and A
+//  - note: not available on CUDA
 host_fn Array random_array(u32 n, real A) {
     Array result(n);
     for (int i = 0; i < (int)n; i++)
@@ -898,9 +908,8 @@ blast_fn Mat4::Mat4(real v) {
 blast_fn void Mat4::zero() {
     memset(data, 0, 16*sizeof(real));
 }
-// todo: other zeros in misc ?
 
-blast_fn Mat4::Mat4(const std::initializer_list<real>& l) {
+host_fn Mat4::Mat4(const std::initializer_list<real>& l) {
     u32 i = 0;
     memset(data, 0, sizeof(*this));
     for (i = 0; i < l.size() && i < 16; i++)
@@ -912,7 +921,7 @@ blast_fn Mat4& Mat4::operator=(const Mat4& m) {
     return *this;
 }
 
-blast_fn Mat4& Mat4::operator=(const std::initializer_list<real>& l) {
+host_fn Mat4& Mat4::operator=(const std::initializer_list<real>& l) {
     u32 i;
     for (i = 0; i < l.size() && i < 16; i++)
         data[i] = l.begin()[i];
@@ -1040,7 +1049,7 @@ blast_fn Array::Array(Array&& a) : data(a.data), size(a.size), is_alias(a.is_ali
     a.is_alias = true;
 }
 
-blast_fn Array::Array(const std::initializer_list<real>& list) : size(list.size()) {
+host_fn Array::Array(const std::initializer_list<real>& list) : size(list.size()) {
     if (size) {
         data = (real*)malloc(size * sizeof(real));
         memcpy(data, list.begin(), list.size() * sizeof(real));
@@ -1094,7 +1103,7 @@ blast_fn Array& Array::operator=(Array&& a) {
     return *this;
 }
 
-blast_fn Array& Array::operator=(const std::initializer_list<real>& other) {
+host_fn Array& Array::operator=(const std::initializer_list<real>& other) {
     Assert(other.size() <= size);
     memcpy(data, other.begin(), other.size() * sizeof(real));
     return *this;
@@ -1298,6 +1307,7 @@ blast_fn void sincos(const Array& angles, Array& sines, Array& cosines) {
     }
 #endif
 }
+
 
 //------ Matrix ---------------------
 
@@ -1796,6 +1806,8 @@ blast_fn Matrix pinv_svd(const Matrix& m) {
 
 //------ Collision ---------------------
 
+
+
 blast_fn real clamped_root(real slope, real h0, real h1) {
 //note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
     real r;
@@ -1997,7 +2009,6 @@ blast_fn real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
     return dot(diff, diff);
 }
 
-
 blast_fn double two_segment_distance_sqr(Vector3d P0, Vector3d P1, Vector3d Q0, Vector3d Q1) {
 // note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
     const Vector3d P1mP0 = P1 - P0;
@@ -2067,6 +2078,7 @@ blast_fn double two_segment_distance_sqr(Vector3d P0, Vector3d P1, Vector3d Q0, 
     // auto result = sqrt(dot(diff, diff));
     return diff.dot(diff);
 }
+
 
 } // namespace blast
 
