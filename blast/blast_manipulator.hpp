@@ -1,6 +1,8 @@
 #pragma once
 
 #include "blast_math.hpp"
+#include "blast_trajectory.hpp"
+
 // #include "dynamics/blast_dynamics_MDA.hpp"
 #include <vector>
 #include <cmath>
@@ -2106,8 +2108,8 @@ host_fn VectorXd Gen3Eigen::forward_kinematics(const VectorXd &joint_position) {
 }
 
 host_fn VectorXd Gen3Eigen::inverse_kinematics(const VectorXd& pose, const VectorXd& initial_joint_position) {
-    const double tolerance = 0.001; // Tolerance for convergence
-    const int max_iter = 100; // Maximum number of iterations
+    // const double tolerance = 0.001; // Tolerance for convergence
+    // const int max_iter = 100; // Maximum number of iterations
 
     VectorXd current_joint_angles = initial_joint_position;
 
@@ -2783,8 +2785,8 @@ host_fn Array Link6::collision_check(const Array &joint_position) {
     p_ee = p_tmp;
 
     const real r1sqr = 0.140 * 0.140; // size of capsule 1
-    const real r2sqr = 0.140 * 0.140; // size of capsule 2
-    const real r3sqr = 0.100 * 0.100; // size of capsule 3
+    // const real r2sqr = 0.140 * 0.140; // size of capsule 2
+    // const real r3sqr = 0.100 * 0.100; // size of capsule 3
 
     // Self collisions sqr
     real dist1sqr = two_segment_distance_sqr(p_j2, p_j3, p_j6, p_ee) - r1sqr; // todo: Fix and finish

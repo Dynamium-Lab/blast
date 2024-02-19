@@ -1,6 +1,6 @@
 #pragma once
-#include "blast.hpp"
 #include "Eigen/Dense"
+#include "blast_math.hpp"
 
 namespace blast {
 

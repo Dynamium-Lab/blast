@@ -55,6 +55,9 @@ struct Gen3 {
 
 inline Gen3::Gen3() {
     p_base = {0, 0, 0.1564f};
+    pmax.resize(7);
+    vmax.resize(7);
+    tau_max.resize(7);
     pmax = {INF_REAL, INF_REAL, INF_REAL, 2.58f, INF_REAL, 2.1f, INF_REAL};
     vmax = {1.745f, 1.745f, 1.745f, 1.745f, 2.443f, 2.443f, 2.443f};
     tau_max = {52, 52, 52, 52, 17, 17, 17};

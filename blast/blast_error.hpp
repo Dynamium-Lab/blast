@@ -7,7 +7,6 @@
     printf("Assertion failed in function: %s. File: %s(%d).\n", __FUNCTION__, __FILE__, __LINE__); \
     __trap(); \
 }\
-
 #elif (defined(BLAST_DEBUG) || defined(_DEBUG))
 #define Assert(expr) \
     if (!(expr)){\
@@ -27,27 +26,3 @@ template <typename type1, typename type2, std::size_t size1 = sizeof(type1), std
 void assert_size() {
     static_assert(size1 == size2, "Types to not have the same size!");
 }
-
-
-
-
-
-
-
-// note: CUDA stuff, only enabled if compiling for Nvidia GPUs
-#ifdef __NVCC__
-// check the output of a cuda function call and abort if there was an error
-#define cuda_check(expr) \
-{ \
-    auto code = (expr); \
-    if (code != cudaSuccess){ \
-        fprintf(stderr, "Cuda error: %s. In file: %s (%d)\n", cudaGetErrorString(code), __FILE__,__LINE__);\
-        abort();\
-    } \
-}
-
-#define cuda_check_kernel cuda_check( cudaPeekAtLastError() )
-
-
-
-#endif
