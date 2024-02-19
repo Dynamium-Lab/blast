@@ -1,5 +1,4 @@
 #pragma once
-#include "blast.hpp"
 #include "blast_optimization.hpp"
 
 namespace blast {
@@ -12,8 +11,8 @@ real gwo_optimize(Array& x, Optimisation& optim) {
     Assert(x.size == optim.bspline->xlen(*optim.task));
     const auto N_Dimensions = x.size;
     // Initialization of GWO parameters
-    const int N_wolves = 500;    // Number of wolves    
-    const int N_iterations = 50;    // Number of iterations 
+    const int N_wolves = 500;    // Number of wolves
+    const int N_iterations = 50;    // Number of iterations
     Array x_Alpha(N_Dimensions);
     Array x_Beta(N_Dimensions);
     Array x_Delta(N_Dimensions);
@@ -36,34 +35,34 @@ real gwo_optimize(Array& x, Optimisation& optim) {
             real fitness = penalty_obj_time(wolf[i].x, optim);
             // Alpha
             if (fitness < Alpha_fit) {
-                Alpha_fit = fitness; 
+                Alpha_fit = fitness;
                 x_Alpha = wolf[i].x;
             }
             // Beta
             if (fitness > Alpha_fit && fitness < Beta_fit) {
-                Beta_fit = fitness; 
+                Beta_fit = fitness;
                 x_Beta = wolf[i].x;
             }
             // Delta
             if (fitness > Alpha_fit && fitness > Beta_fit && fitness < Delta_fit) {
-                Delta_fit = fitness; 
+                Delta_fit = fitness;
                 x_Delta = wolf[i].x;
             }
             // Hunting
-            // Approaching the prey 
-            
+            // Approaching the prey
+
             // Search for the Prey (Diverging the wolves from each other)
             real A_alpha = a * ((2*(0.5 * get_random() + 0.5))-1);
             real A_beta = a * ((2*(0.5 * get_random() + 0.5))-1);
             real A_delta = a * ((2*(0.5 * get_random() + 0.5))-1);
-                
-            // Emphasising exploration 
+
+            // Emphasising exploration
             // Effects of obstacles to approaching prey in nature
             // Works like a weight to make it harder for the wolf to reach the prey
             real C_alpha = 2* (0.5 * get_random() + 0.5);
             real C_beta = 2* (0.5 * get_random() + 0.5);
             real C_delta = 2* (0.5 * get_random() + 0.5);
-                
+
             for (int j = 0; j < (int)N_Dimensions; j++) {
                 // Search Agent updates its position
                 real D_alpha = abs(C_alpha * x_Alpha[j] - wolf[i].x[j]);;

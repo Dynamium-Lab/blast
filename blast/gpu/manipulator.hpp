@@ -1,17 +1,9 @@
 #pragma once
-#include "blast.hpp"
-
-// note: CUDA stuff, only enabled if compiling for Nvidia GPUs
-#ifdef __NVCC__
-
-#ifdef __CUDA_ARCH__
 #include <math_constants.h>
-#endif
-
-#include "gpu/gpu_trajectory.hpp"
+#include "blast_math.hpp"
+#include "gpu/trajectory.hpp"
 
 namespace blast {
-
 __global__ void compute_constraints_kernel();
 
 struct cuGen3MultiTraj {
@@ -193,7 +185,9 @@ host_fn cuGen3MultiTraj::~cuGen3MultiTraj() {
         cuda_check(cudaMemcpyToSymbol(manip_broadcast_arena, this, sizeof(*this), 0));
     }
 }
+
 //------ GENERAL FUNCTIONS ------------------------------------------------------------------------------------
+
 blast_fn u32 cuGen3MultiTraj::con_id(u32 point, u32 traj) {
     return 21*(traj*npoints + point);
 }
@@ -202,7 +196,7 @@ blast_fn u32 cuGen3MultiTraj::nconstraints() {
     return 21*ntrajectories*npoints;
 }
 
-//------ KERNEL FUNCTIONS ------------------------------------------------------------------------------------
+//------ DEVICE FUNCTIONS ------------------------------------------------------------------------------------
 
 __global__ void compute_constraints_kernel() {
     cuMultiBsplines* bspline = (cuMultiBsplines*)bspline_broadcast_arena;
@@ -212,16 +206,11 @@ __global__ void compute_constraints_kernel() {
 
     const auto point = threadIdx.x;
     const auto traj  = blockIdx.x;
+
     //todo: this function accesses global memory, check performance difference with local variables
     bspline->compute_trajectory_point(point, traj);
-
-    manip->compute_constraints_point(bspline->dev_pos,
-                                     bspline->dev_vel,
-                                     bspline->dev_acc,
-                                     &manip->dev_constraints[manip->con_id(point, traj)]);
+    manip->compute_constraints_point(bspline->dev_pos, bspline->dev_vel, bspline->dev_acc, &manip->dev_constraints[manip->con_id(point, traj)]);
 }
-
-//------ DEVICE FUNCTIONS ------------------------------------------------------------------------------------
 
 dev_fn void cuGen3MultiTraj::compute_constraints_point(const real pos[7], const real vel[7], const real acc[7], real *con) {
 #if BLAST_USE_DOUBLES
@@ -375,7 +364,6 @@ dev_fn void cuGen3MultiTraj::compute_constraints_point(const real pos[7], const 
 } // namespace blast
 
 #ifdef BLAST_ENABLE_TESTS
-#include "utilities/blast_utilities.hpp"
 TEST_CASE("GpuCpuManipCorrectness", "[Manipulator]") {
     using namespace blast;
 
@@ -431,4 +419,3 @@ TEST_CASE("GpuCpuManipCorrectness", "[Manipulator]") {
 
 
 #endif // BLAST_ENABLE_TESTS
-#endif // __NVCC__

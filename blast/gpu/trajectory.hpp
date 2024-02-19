@@ -1,5 +1,5 @@
 #pragma once
-#include "blast.hpp"
+#include "blast.cuh"
 
 // note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
@@ -341,7 +341,6 @@ dev_fn void cuBspline::compute_trajectory(const unsigned point) {
 } // namespace blast
 
 #ifdef BLAST_ENABLE_TESTS
-#include "utilities/blast_utilities.hpp"
 TEST_CASE("GpuCpuTrajCorrectness", "[Trajectory]") {
     using namespace blast;
 

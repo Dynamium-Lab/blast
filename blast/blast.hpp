@@ -27,7 +27,6 @@
 
 #include "utilities/utilities.hpp"
 
-//--- Other headers ---
 #include "blast_error.hpp"
 #include "blast_math.hpp"
 #include "blast_trajectory.hpp"

@@ -1,7 +1,9 @@
 #pragma once
 #include <iostream>
 #include <vector>
-#include "blast.hpp"
+#include "blast_math.hpp"
+
+using std::vector;
 
 // todo: cleanup required
 // todo: make this fast
@@ -970,17 +972,17 @@ host_fn real distmin_hull(OBB OBB, capsule caps) {
         // hull.push_back(current_point);
         // sort(points.begin(), points.end(), comparePoints);
 
-        real current_dist;
+        // real current_dist;
         real current_dist_hull;
         real min_dist = -INF_REAL;
         real min_dist_hull = -INF_REAL;
-        Vec3 closest_point;
+        // Vec3 closest_point;
         Vec3 closest_point_hull;
-        segment seg_OBB;
+        // segment seg_OBB;
 
         for (int i = 0; i < lower_hull.size(); i++) {
             closest_point_hull = closept_origin({lower_hull[i], lower_hull[(i + 1) % 6]});
-            current_dist_hull = - dot(closest_point_hull, closest_point_hull);
+            current_dist_hull = -dot(closest_point_hull, closest_point_hull);
             // Alternate implementation
             // closest_point = closept_origin({hull[i], hull[(i + 1) % 6]});
             // current_dist = - dot(closest_point, closest_point);
@@ -1222,7 +1224,7 @@ host_fn void GJK_solve_simplex2_Ericson(Simplex* simplex) {
 
     (*simplex).P = (*simplex).a + t * ab;
 
-    Vec3 a_temp = (*simplex).a;
+    // Vec3 a_temp = (*simplex).a;
     (*simplex).a = t == 1 ? (*simplex).b : (*simplex).a;
     (*simplex).b = t == 1 ? (*simplex).a : (*simplex).b;
     (*simplex).size = (t == 0 || t == 1) ? 1 : 2;
@@ -1342,7 +1344,7 @@ host_fn void GJK_solve_simplex4_Ericson(Simplex* simplex) {
             bestSqDist = sqDist;
             closestPt = simplex_temp.P;
         }
-        Simplex simplex_temp = *simplex;
+        // Simplex simplex_temp = *simplex;
     }
     // Repeat test for face adb
     if (PointOutsideOfPlane(p, a, b, d, c)) {
@@ -1358,7 +1360,7 @@ host_fn void GJK_solve_simplex4_Ericson(Simplex* simplex) {
             closestPt = simplex_temp.P;
         }
 
-        Simplex simplex_temp = *simplex;
+        // Simplex simplex_temp = *simplex;
     }
     // Repeat test for face abc
     if (PointOutsideOfPlane(p, a, b, c, d)) {
@@ -1374,7 +1376,7 @@ host_fn void GJK_solve_simplex4_Ericson(Simplex* simplex) {
             bestSqDist = sqDist;
             closestPt = simplex_temp.P;
         }
-        Simplex simplex_temp = *simplex;
+        // Simplex simplex_temp = *simplex;
     }
 
     if (dot(closestPt, closestPt) > COLLISION_EPSILON) {
@@ -1548,7 +1550,7 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
         std::vector<EPA_hull> deleted_faces;
         deleted_faces.reserve(size(faces)-1);
         int kept_face_idx = 0;
-        bool found_kept_face = false;
+        // bool found_kept_face = false;
         bool condition;
         for (int i = 0; i < size(faces); i++) {
             condition = dot(faces[i].n, p - faces[i].p1) > 0;
@@ -1599,16 +1601,16 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
             n = cross(p - loose_edges[i].p1, p - loose_edges[i].p2);
             dot_p1_n = dot(loose_edges[i].p1, n);
             n = dot_p1_n > 0 ? n : (dot_p1_n < 0 ? - n : (dot(n, faces[kept_face_idx].p1) >= 0 ? -n : n));
-            if (dot_p1_n == 0.0) {
-                int test = 0;
-            }
+            // if (dot_p1_n == 0.0) {
+            //     int test = 0;
+            // }
             n = (1 / norm(n)) * n;
 
             real check1 = dot(n, loose_edges[i].p1);
             real check2 = dot(n, loose_edges[i].p2);
             real check3 = dot(n, p);
-            if ((abs(check1 - check2) >= 1e-2 || abs(check1 - check3) >= 1e-2))
-                real test = 1;
+            // if ((abs(check1 - check2) >= 1e-2 || abs(check1 - check3) >= 1e-2))
+            //     real test = 1;
             new_face = {loose_edges[i].p1, loose_edges[i].p2, p, n};
             faces.push_back(new_face);
         }
@@ -1864,7 +1866,7 @@ TEST_CASE("Collisions", "[World]") {
 TEST_CASE("Collision method benchmarks", "[World]") {
     using namespace blast;
 
-    real TESTCOLL_EPSILON = 1e-2;
+    // real TESTCOLL_EPSILON = 1e-2;
 
     BENCHMARK("box - capsule OBB test with vectors") {
         real dist;
@@ -1911,7 +1913,7 @@ TEST_CASE("Collision method comparison exhaustive (OBB-cpasules)", "[World]") {
     vector<OBB> obb_list;
     vector<capsule> caps_list;
     int n = 1000;
-    bool error_info = false;
+    // bool error_info = false;
 
     Array s(3);
     Array c(3);

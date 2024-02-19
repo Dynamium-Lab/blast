@@ -1,5 +1,10 @@
 #pragma once
 
+#ifdef BLAST_ENABLE_TESTS
+#define CATCH_CONFIG_MAIN
+#define CATCH_CONFIG_ENABLE_BENCHMARKING
+#include "catch/catch.hpp"
+#endif
 
 #ifndef BLAST_USE_DOUBLES
 #define BLAST_USE_DOUBLES 1
