@@ -1,7 +1,6 @@
 
 #include <stdio.h>
 #include "blast.hpp"
-#include "utilities/blast_utilities.hpp"
 #include "nlopt.h"
 #include "json.hpp"
 #include <fstream>
@@ -328,7 +327,7 @@ int main() {
     for (int i = 0; i < thread_count; i++)
         //workers.push_back(std::thread(eval_function));
         workers.push_back(std::thread(eval_function_pso));
-        //workers.push_back(std::thread(eval_function_gwo));
+    //workers.push_back(std::thread(eval_function_gwo));
 
 
     for (auto &t : workers)

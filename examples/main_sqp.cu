@@ -1,7 +1,5 @@
 #include <stdio.h>
 #include "blast.hpp"
-#include "blast_optimization.hpp"
-#include "blast_optional_utilities.hpp"
 #include "nlopt.h"
 
 using namespace blast;

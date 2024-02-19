@@ -20,7 +20,7 @@
 #include "blast_math.hpp"
 #include "blast_trajectory.hpp"
 #include "blast_optimization.hpp"
-#include "blast_world.hpp"
+#include "collisions/world.h"
 
 #include "gpu/error.cuh"
 #include "gpu/manipulator.cuh"

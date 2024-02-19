@@ -109,12 +109,11 @@ host_fn bool pointInSurf(Vec3 V1, Vec3 V2, Vec3 o, Vec3 P) {
     return (tri1 || tri2);
 }
 
+// todo: change name or add description
 host_fn Vec3 ptint(segment seg, Vec3 point) {
     Vec3 ab = seg.p2 - seg.p1;
     real t = dot(point - seg.p1, ab) / dot(ab, ab);
-
     t = clamp(t, 0, 1);
-
     Vec3 d = seg.p1 + t * ab;
     return d;
 }
@@ -134,6 +133,7 @@ host_fn Vec3 closept_origin(segment seg) {
     return d;
 }
 
+//todo: change to use the snake case function name convention
 host_fn Vec3 ClosestPtPointPlane(Vec3 q, plane p) {
     return q - (dot(p.n, q - p.p) / dot(p.n, p.n)) * p.n;;
 }
@@ -168,15 +168,15 @@ blast_fn real distmin(surf surf, Vec3 point) {
         real val_distance = (val_t1 >= 0 && val_t1 <= 1 && val_t2 >= 0 && val_t2 <= 1) ? val_normaldist : val_result;
         return val_distance == val_normaldist ? val_normaldist : (val_normaldist < 0 ? -val_distance : val_distance);
     }
+
+    //todo: remove??
     // else {
     //     real normaldist = dot(point - surf.p, n_unit);
     //     Vec3 direction = point - normaldist*n_unit - surf.p;
-
     //     bool is_inside = pointInSurf(surf.d1, surf.d2, surf.p, point);
     //     if (is_inside) {
     //         return normaldist;
     //     }
-
     //     segment seg[4];
     //     seg[0].p1 = surf.p;
     //     seg[0].p2 = surf.p + surf.d1;
@@ -186,59 +186,45 @@ blast_fn real distmin(surf surf, Vec3 point) {
     //     seg[2].p2 = surf.p + surf.d1 + surf.d2;
     //     seg[3].p1 = surf.p + surf.d2;
     //     seg[3].p2 = surf.p + surf.d2 + surf.d1;
-
     //     real dist_min = INF_REAL;
     //     for (u32 i = 0; i < 4; i++) {
     //         auto dist_tmp = distmin(seg[i], point);
     //         dist_min = dist_tmp < dist_min ? dist_tmp : dist_min;
     //     }
     //     real resultant = normaldist < 0 ? -dist_min : dist_min;
-
     //     return resultant;
     // }
-
     // else {
     //     real normaldist = dot(point - surf.p, n_unit);
     //     Vec3 direction = (point - normaldist*n_unit) - surf.p;
-
     //     Vec3 dy = cross(n_unit, surf.d1);
     //     Vec3 dy_unit = 1 / norm(dy) * dy;
-
     //     real t2 = dot(dy, direction) / dot(dy, surf.d2);
     //     real t1 = (dot(surf.d1, direction) - t2*dot(surf.d1, surf.d2)) / dot(surf.d1, surf.d1);
-
     //     // If the point projects on the face
     //     if (t1 >= 0 && t1 <= 1 && t2 >= 0 && t2 <= 1) {
     //         return normaldist;
     //     }
-
     //     Vec3 empty3 = {0, 0, 0};
-
     //     // If the point is closest to a corner of the shape
     //     if ((t1 <= 0 || t1 >= 1) && (t2 <= 0 || t2 >= 1)) {
     //         Vec3 testpoint = t1 <= 0 ? (t2 <= 0 ? empty3 :  surf.d2) : (t2 <= 0 ? surf.d1 : surf.d1 + surf.d2);
     //         real distance = sqrt(dot(direction - testpoint, direction - testpoint) + normaldist*normaldist);
     //         return normaldist < 0 ? -distance : distance;
     //     }
-
     //     real t1_clamped = clamp(t1, 0, 1);
     //     real t2_clamped = clamp(t2, 0, 1);
-
     //     Vec3 Projection_vector = (t1 < 1 && t1 > 0) ? dy_unit : cross(1/norm(surf.d2)*surf.d2, n_unit);
     //     Projection_vector = dot(Projection_vector, direction) < 0 ? -Projection_vector : Projection_vector;
     //     Vec3 testpoint = (t1 < 0 || t2 < 0) ? empty3 : (surf.d1 + surf.d2);
-
     //     real dist_plan = dot(Projection_vector, direction - testpoint);
     //     Vec3 projected_point = direction - dist_plan*Projection_vector;
-
     //     Vec3 clamping_direction = (t1 < 0 || t2 < 0) ? ((t1 < 1 && t1 > 0) ? surf.d1 : surf.d2) : ((t1 < 1 && t1 > 0) ? -surf.d1 : -surf.d2);
     //     real t_current = dot(direction - testpoint, clamping_direction) / dot(clamping_direction, clamping_direction);
     //     real t_current_clamped = clamp(t_current, 0, 1);
-
     //     real difference_t_current = (t_current - t_current_clamped);
     //     real dist_current = difference_t_current*difference_t_current*dot(clamping_direction, clamping_direction);
     //     real result = sqrt(dist_current + dist_plan*dist_plan + normaldist*normaldist);
-
     //     real distance = (t1 >= 0 && t1 <= 1 && t2 >= 0 && t2 <= 1) ? normaldist : result;
     //     return distance == normaldist ? normaldist : (normaldist < 0 ? -distance : distance);
     // }
@@ -270,10 +256,10 @@ blast_fn real distmin(surf surf, Vec3 point) {
         }
         real resultant = normaldist < 0 ? -dist_min : dist_min;
 
+        //todo: remove??
         // real dist;
         // // real normaldist = dot(point - surf.p, n_unit);
         // Vec3 proj = (point - normaldist*n_unit) - surf.p;
-
         // Vec3 dy = cross(n_unit, surf.d1);
         // real y_max = dot(dy, surf.d2);
         // real y_pt = dot(dy, proj);
@@ -282,7 +268,6 @@ blast_fn real distmin(surf surf, Vec3 point) {
         //                 y_pt/y_max * dot(surf.d2, surf.d1));
         // real x_max = x_min + dot(surf.d1, surf.d1);
         // real x_pt = dot(surf.d1, proj);
-
         // if (x_pt >= x_min && x_pt <= x_max) {
         //     real diff_y = clamp(y_pt, 0, y_max);
         //     real dist_plan = (y_pt - diff_y) / norm(dy);
@@ -294,7 +279,6 @@ blast_fn real distmin(surf surf, Vec3 point) {
         //     seg[0].p2 = surf.p + surf.d2;
         //     seg[1].p1 = surf.p + surf.d1;
         //     seg[1].p2 = surf.p + surf.d1 + surf.d2;
-
         //     int idx = x_pt < x_min ? 0 : 1;
         //     dist = distmin(seg[idx], point);
         //     dist = normaldist < 0 ? - dist : dist;
@@ -304,17 +288,14 @@ blast_fn real distmin(surf surf, Vec3 point) {
         //     // Vec3 test_pt = x_pt > x_max ? t*surf.d2 + surf.d1 : t*surf.d2;
         //     // dist = normaldist < 0 ? -norm(test_pt - point) : norm(test_pt - point);
         // }
-
         return resultant;
     }
 }
 
+// Computes closest points C1 and C2 of S1(s)=P1+s*(Q1-P1) and
+// S2(t)=P2+t*(Q2-P2), returning s and t.
+// From : Real-Time Detection Collision (Christer Ericson)
 host_fn two_pts closept(segment seg1, segment seg2) {
-    // From : Real-Time Detection Collision (Christer Ericson)
-
-    // Computes closest points C1 and C2 of S1(s)=P1+s*(Q1-P1) and
-    // S2(t)=P2+t*(Q2-P2), returning s and t.
-
     two_pts result;
     real s;
     real t;
@@ -386,7 +367,7 @@ host_fn two_pts closept(segment seg1, segment seg2) {
 // returns squared distance
 host_fn real distmin_sq(segment seg1, segment seg2) {
     two_pts close_pt = closept(seg1, seg2);
-    return dot(close_pt.p1 - close_pt.p2, close_pt.p1 - close_pt.p2); // ATTENTION! CECI DONNE LE RESULTAT AU CARRE
+    return dot(close_pt.p1 - close_pt.p2, close_pt.p1 - close_pt.p2);
 }
 
 host_fn two_pts intersection(circle circ, segment seg) {
@@ -516,12 +497,9 @@ host_fn real distmin(capsule caps, sphere sph) {
 }
 
 host_fn real distmin(capsule caps1, capsule caps2) {
-    segment seg1;
-    segment seg2;
-    seg1.p1 = caps1.p2;
-    seg1.p2 = caps1.p1;
-    seg2.p1 = caps2.p2;
-    seg2.p2 = caps2.p1;
+    //todo: why does p2 become p1? Comment if intentionnal.
+    segment seg1 {caps1.p2, caps1.p1};
+    segment seg2 {caps2.p2, caps2.p1};
     real dist_seg_seg = /*two_segment_distance_sqr(caps1.p1, caps1.p2, caps2.p1, caps2.p2);*/ sqrt(distmin_sq(seg1, seg2));
     return dist_seg_seg - caps1.r - caps2.r;
 }

@@ -1,6 +1,5 @@
 
 #include "blast.hpp"
-#include "utilities/blast_utilities.hpp"
 #include <iostream>
 
 using std::cout;

@@ -1,6 +1,6 @@
 #pragma once
 #include "blast_math.hpp"
-#include "blast_world.hpp"
+#include "collisions/world.h"
 #include "blast_manipulator.hpp"
 #include "blast_trajectory.hpp"
 
