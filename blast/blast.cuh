@@ -23,5 +23,5 @@
 #include "blast_world.hpp"
 
 #include "gpu/error.cuh"
-#include "gpu/manipulator.hpp"
-#include "gpu/trajectory.hpp"
+#include "gpu/manipulator.cuh"
+#include "gpu/trajectory.cuh"

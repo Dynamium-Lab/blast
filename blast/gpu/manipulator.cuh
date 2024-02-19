@@ -1,7 +1,7 @@
 #pragma once
 #include <math_constants.h>
 #include "blast_math.hpp"
-#include "gpu/trajectory.hpp"
+#include "gpu/trajectory.cuh"
 
 namespace blast {
 __global__ void compute_constraints_kernel();
