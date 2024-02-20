@@ -263,6 +263,9 @@ struct Link6 : public Manipulator {
     Array forward_kinematics(const Array &joint_position);
     Matrix forward_kinematics(const Matrix &joint_positions);
 
+    // Create capsules for collisions
+    Matrix get_capsules(const Array &joint_position);
+
     // Array inverse_kinematics(const Array& pose, const Array& initial_joint_position);
 
     // // compute jacobian matrix
@@ -2480,7 +2483,7 @@ host_fn Link6::Link6() : Manipulator(6) {
     dv[2] = {0.0, -0.15216, -0.0917};       // 2 -> 3
     dv[3] = {0.0, -0.06296, -0.22275};      // 3 -> 4
     dv[4] = {0.08703, 0.0860, -0.07692};    // 4 -> 5
-    dv[5] = {0.0, 0.0, -0.920};             // 5 -> endeffector (todo: add gripper)
+    dv[5] = {0.0, 0.0, -0.0920};             // 5 -> endeffector (todo: add gripper)
 
     // todo: add option to know if tool is closed or opened (difference of 0.0135 in z)
 
@@ -2746,6 +2749,107 @@ host_fn Matrix Link6::forward_kinematics(const Matrix &joint_positions) {
     return pose;
 }
 
+host_fn Matrix Link6::get_capsules(const Array &joint_position) {
+    Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
+
+    Array s(6);
+    Array c(6);
+    blast::sincos(joint_position, s, c);
+
+    // note: these are stored column-wise
+    Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
+    Q2 = {c[1], 0, -s[1], -s[1], 0, -c[1], 0, 1, 0};
+    Q3 = {c[2], -s[2], 0, -s[2], -c[2], 0, 0, 0, -1};
+    Q4 = {c[3], 0, -s[3], -s[3], 0, -c[3], 0, 1, 0};
+    Q5 = {c[4], 0, -s[4], -s[4], 0, -c[4], 0, 1, 0};
+    Q6 = {0, s[5], c[5], 0, c[5], s[5], -1, 0, 0}; // todo: double check
+
+    Vec3 p_orig(0, 0, 0);
+    Vec3 p_j2;
+    Vec3 p_j3;
+    Vec3 p_j4;
+    Vec3 p_j5;
+    Vec3 p_j6;
+    Vec3 p_ee;
+
+    Vec3 z2;
+    Vec3 z3;
+    Vec3 z4;
+    Vec3 z5;
+    Vec3 z6;
+
+    auto p_tmp = p_base;
+    auto Q_tmp = Q1;
+    p_tmp += Q_tmp * dv[0];
+    p_j2 = p_tmp;
+    z2 = { Q_tmp[2], Q_tmp[5], Q_tmp[8] };
+    p_tmp += (Q_tmp *= Q2) * dv[1];
+    p_j3 = p_tmp;
+    z3 = { Q_tmp[2], Q_tmp[5], Q_tmp[8] };
+    p_tmp += (Q_tmp *= Q3) * dv[2];
+    // p_j4 = p_tmp;
+    z4 = { Q_tmp[2], Q_tmp[5], Q_tmp[8] };
+    p_tmp += (Q_tmp *= Q4) * dv[3];
+    p_j5 = p_tmp;
+    z5 = { Q_tmp[2], Q_tmp[5], Q_tmp[8] };
+    p_tmp += (Q_tmp *= Q5) * dv[4];
+    p_j6 = p_tmp;
+    z6 = { Q_tmp[2], Q_tmp[5], Q_tmp[8] };
+    p_tmp += (Q_tmp *= Q6) * dv[5];
+    p_ee = p_tmp;
+
+    Matrix capsules(7, 4);
+
+    Vec3 p1;
+    Vec3 p2;
+
+    // Capsule 1
+    p1 = p_j2 - 0.02218*z2 + 0.00010104*(p_j3-p_j2);
+    p2 = p1 + 0.8845*(p_j3-p_j2);
+    capsules(0,0) = p1.x;
+    capsules(1,0) = p1.y;
+    capsules(2,0) = p1.z;
+    capsules(3,0) = p2.x;
+    capsules(4,0) = p2.y;
+    capsules(5,0) = p2.z;
+    capsules(6,0) = 0.110; // radius
+
+    // Capsule 2
+    p1 = p_j2 - 0.11388*z3;
+    p2 = p1 - 0.375*z4;
+    capsules(0,1) = p1.x;
+    capsules(1,1) = p1.y;
+    capsules(2,1) = p1.z;
+    capsules(3,1) = p2.x;
+    capsules(4,1) = p2.y;
+    capsules(5,1) = p2.z;
+    capsules(6,1) = 0.061; // radius
+
+    // Capsule 3
+    p1 = p_j5;
+    p2 = p1 - 0.08*z5;
+    capsules(0,2) = p1.x;
+    capsules(1,2) = p1.y;
+    capsules(2,2) = p1.z;
+    capsules(3,2) = p2.x;
+    capsules(4,2) = p2.y;
+    capsules(5,2) = p2.z;
+    capsules(6,2) = 0.060; // radius
+
+    // Capsule 4
+    p1 = p_j6 + 0.08583*z6;
+    p2 = p1 - 0.15*z6;
+    capsules(0,3) = p1.x;
+    capsules(1,3) = p1.y;
+    capsules(2,3) = p1.z;
+    capsules(3,3) = p2.x;
+    capsules(4,3) = p2.y;
+    capsules(5,3) = p2.z;
+    capsules(6,3) = 0.060; // radius
+
+    return capsules;
+}
+
 host_fn Array Link6::collision_check(const Array &joint_position) {
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
 
@@ -2765,6 +2869,7 @@ host_fn Array Link6::collision_check(const Array &joint_position) {
     Vec3 p_j2;
     Vec3 p_j3;
     Vec3 p_j4;
+    Vec3 p_j5;
     Vec3 p_j6;
     Vec3 p_ee;
 
@@ -2777,6 +2882,7 @@ host_fn Array Link6::collision_check(const Array &joint_position) {
     p_tmp += (Q_tmp *= Q3) * dv[2];
     p_j4 = p_tmp;
     p_tmp += (Q_tmp *= Q4) * dv[3];
+    p_j5 = p_tmp;
     p_tmp += (Q_tmp *= Q5) * dv[4];
     p_j6 = p_tmp;
     p_tmp += (Q_tmp *= Q6) * dv[5];
@@ -2785,6 +2891,8 @@ host_fn Array Link6::collision_check(const Array &joint_position) {
     const real r1sqr = 0.140 * 0.140; // size of capsule 1
     const real r2sqr = 0.140 * 0.140; // size of capsule 2
     const real r3sqr = 0.100 * 0.100; // size of capsule 3
+
+    Matrix capsules = get_capsules(joint_position);
 
     // Self collisions sqr
     real dist1sqr = two_segment_distance_sqr(p_j2, p_j3, p_j6, p_ee) - r1sqr; // todo: Fix and finish
