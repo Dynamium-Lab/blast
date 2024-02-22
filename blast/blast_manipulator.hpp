@@ -263,14 +263,18 @@ struct Link6 : public Manipulator {
     Array forward_kinematics(const Array &joint_position);
     Matrix forward_kinematics(const Matrix &joint_positions);
 
-    // Create capsules for collisions
+    // compute inverse kinematics
+    Array inverse_kinematics(const Array& pose, const Array& initial_joint_position);
+
+    // create capsules for collisions
     Matrix get_capsules(const Array &joint_position);
 
-    // Array inverse_kinematics(const Array& pose, const Array& initial_joint_position);
-
     // // compute jacobian matrix
-    // Matrix jacobian(const Array &joint_position);
+    Matrix jacobian(const Array &joint_position);
 
+    // task planning
+    std::list<Manipulator_state> Link6::pick_and_place(const Manipulator_state &Current_manip_state, const Matrix &Obj_list, const Matrix Drop_box_list, const Vec3 hva);
+    
     // check collision
     Array collision_check(const Array &joint_position);
 
@@ -302,6 +306,13 @@ struct Link6 : public Manipulator {
         //** (for each point in the trajectory) **
         return (5 + 6 * 2) * npoints;
     }
+};
+
+struct Manipulator_state { 
+    Array PVA;
+    bool gripper_state;
+    enum trajectory_generation_type { traj_gen_null = 0, traj_gen_blast = 1, traj_gen_straight = 2 };
+    enum movement_type { mvt_robot = 0, mvt_gripper = 1, mvt_robot_and_gripper = 2 };
 };
 
 //------ Universal Robots UR5e manipulator functions ---------------------------------
@@ -2749,6 +2760,150 @@ host_fn Matrix Link6::forward_kinematics(const Matrix &joint_positions) {
     return pose;
 }
 
+host_fn Array Link6::inverse_kinematics(const Array& pose, const Array& initial_joint_position) {
+
+    const double tolerance = 0.001; // Tolerance for convergence
+    const int max_iter = 100; // Maximum number of iterations
+
+    Array current_joint_angles = initial_joint_position;
+
+    // Iterate until convergence or maximum iterations reached
+    for (int iter = 0; iter < max_iter; ++iter) {
+        // Calculate the current end effector position using forward kinematics
+        Array current_pose = forward_kinematics(current_joint_angles);
+        Array delta_pose = pose - current_pose;
+
+        // Check if the end effector is close enough to the desired position
+        if (is_close(pose, current_pose, tolerance))
+            break;
+
+        // Calculate the Jacobian matrix
+        Matrix jacobian_matrix = jacobian(current_joint_angles);
+
+        Matrix jacobian_pinv = pinv(jacobian_matrix);
+
+        //current_joint_angles = current_joint_angles + jacobian_pinv * delta_pose;
+    }
+
+    return current_joint_angles;
+}
+
+host_fn Matrix Gen3_7DOF::jacobian(const Array &joint_position) {
+
+    // auto p = joint_position.data;
+    Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
+
+    //todo: 6 or 7 ?
+    Array s(6);
+    Array c(6);
+    blast::sincos(joint_position, s, c);
+
+// #if BLAST_USE_DOUBLES
+//     real s[8];
+//     real c[8];
+//     __m256d s_tmp;
+//     __m256d c_tmp;
+//     for (u32 i = 0; i < 8; i += 4) {
+//         __m256d angle_v = _mm256_load_pd(p + i);
+//         s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+//         _mm256_storeu_pd(s + i, s_tmp);
+//         _mm256_storeu_pd(c + i, c_tmp);
+//     }
+// #else
+//     real s[8];
+//     real c[8];
+//     __m256 s_tmp;
+//     __m256 c_tmp;
+//     __m256 angle_v = _mm256_load_ps(p);
+//     s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
+//     _mm256_storeu_ps(s, s_tmp);
+//     _mm256_storeu_ps(c, c_tmp);
+// #endif
+
+    // note: these are stored column-wise
+    Q1 = {c[0], -s[0],  0, -s[0], -c[0],   0,   0,  0, -1};
+    Q2 = {c[1], 0, s[1], -s[1], 0, c[1], 0, -1, 0};
+    Q3 = {c[2], 0, -s[2], -s[2], 0, -c[2], 0, 1, 0};
+    Q4 = {c[3], 0, s[3], -s[3], 0, c[3], 0, -1, 0};
+    Q5 = {c[4], 0, -s[4], -s[4], 0, -c[4], 0, 1, 0};
+    Q6 = {c[5], 0, s[5], -s[5], 0, c[5], 0, -1, 0};
+
+    // unit vectors in 1st reference
+    Vec3 e_1[6];
+    auto Q_tmp = Q1;
+    e_1[0] = Q_tmp * ev[0];
+    e_1[1] = (Q_tmp *= Q2) * ev[1];
+    e_1[2] = (Q_tmp *= Q3) * ev[2];
+    e_1[3] = (Q_tmp *= Q4) * ev[3];
+    e_1[4] = (Q_tmp *= Q5) * ev[4];
+    e_1[5] = (Q_tmp *= Q6) * ev[5];
+
+    Vec3 r[6];
+    r[5] = dv[5];
+    r[4] = dv[4] + Q6 * r[5];
+    r[3] = dv[3] + Q5 * r[4];
+    r[2] = dv[2] + Q4 * r[3];
+    r[1] = dv[1] + Q3 * r[2];
+    r[0] = dv[0] + Q2 * r[1];
+
+    Q_tmp = Q1;
+    r[0] = (Q_tmp) * r[0];
+    r[1] = (Q_tmp *= Q2) * r[1];
+    r[2] = (Q_tmp *= Q3) * r[2];
+    r[3] = (Q_tmp *= Q4) * r[3];
+    r[4] = (Q_tmp *= Q5) * r[4];
+    r[5] = (Q_tmp *= Q6) * r[5];
+
+    auto cr0 = cross(e_1[0], r[0]);
+    auto cr1 = cross(e_1[1], r[1]);
+    auto cr2 = cross(e_1[2], r[2]);
+    auto cr3 = cross(e_1[3], r[3]);
+    auto cr4 = cross(e_1[4], r[4]);
+    auto cr5 = cross(e_1[5], r[5]);
+
+    // jacobian matrix
+    Matrix J(6, 6);
+    J(0, 0) = e_1[0].x;
+    J(1, 0) = e_1[0].y;
+    J(2, 0) = e_1[0].z;
+    J(0, 1) = e_1[1].x;
+    J(1, 1) = e_1[1].y;
+    J(2, 1) = e_1[1].z;
+    J(0, 2) = e_1[2].x;
+    J(1, 2) = e_1[2].y;
+    J(2, 2) = e_1[2].z;
+    J(0, 3) = e_1[3].x;
+    J(1, 3) = e_1[3].y;
+    J(2, 3) = e_1[3].z;
+    J(0, 4) = e_1[4].x;
+    J(1, 4) = e_1[4].y;
+    J(2, 4) = e_1[4].z;
+    J(0, 5) = e_1[5].x;
+    J(1, 5) = e_1[5].y;
+    J(2, 5) = e_1[5].z;
+
+    J(3, 0) = cr0.x;
+    J(4, 0) = cr0.y;
+    J(5, 0) = cr0.z;
+    J(3, 1) = cr1.x;
+    J(4, 1) = cr1.y;
+    J(5, 1) = cr1.z;
+    J(3, 2) = cr2.x;
+    J(4, 2) = cr2.y;
+    J(5, 2) = cr2.z;
+    J(3, 3) = cr3.x;
+    J(4, 3) = cr3.y;
+    J(5, 3) = cr3.z;
+    J(3, 4) = cr4.x;
+    J(4, 4) = cr4.y;
+    J(5, 4) = cr4.z;
+    J(3, 5) = cr5.x;
+    J(4, 5) = cr5.y;
+    J(5, 5) = cr5.z;
+
+    return J;
+}
+
 host_fn Matrix Link6::get_capsules(const Array &joint_position) {
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
 
@@ -2892,7 +3047,8 @@ host_fn Array Link6::collision_check(const Array &joint_position) {
     const real r2sqr = 0.140 * 0.140; // size of capsule 2
     const real r3sqr = 0.100 * 0.100; // size of capsule 3
 
-    Matrix capsules = get_capsules(joint_position);
+    // Link6 : size 7x4
+    Matrix capsules = get_capsules(joint_position); // Format : [p1x p1y p1z p2x p2y p2z r; ... (for each capsule)]
 
     // Self collisions sqr
     real dist1sqr = two_segment_distance_sqr(p_j2, p_j3, p_j6, p_ee) - r1sqr; // todo: Fix and finish

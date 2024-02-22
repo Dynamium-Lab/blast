@@ -39,5 +39,6 @@
 #include "blast_manipulator.hpp"
 #include "blast_optimization.hpp"
 #include "blast_world.hpp"
+#include "blast_tasks.hpp"
 #include "optimization/gwo.hpp"
 #include "optimization/pso.hpp"

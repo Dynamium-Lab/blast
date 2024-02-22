@@ -556,6 +556,18 @@ host_fn Array random_array(u32 n, real A) {
     return result;
 }
 
+// create a new array from two others
+host_fn Array add_arrays(const Array& A, const Array& B) {
+    Array result(A.size + B.size);
+    for (int i = 0; i < (int)n; i++) {
+        if (i < size(A))
+            result[i] = A[i];
+        else
+            result[i] = B[i];
+    }
+    return result;
+}
+
 // return the value clamped to [mini, maxi]
 blast_fn real clamp(real val, real mini, real maxi) {
     real r = val < mini ? mini : val;
