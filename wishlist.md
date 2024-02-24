@@ -1,46 +1,44 @@
-# Blast wishlist 2023
-## Must have
-* [ ] No dependancy optimization
-    - SQP implementation
-* [x] Fast collision distance detection
-    - 4 basic primitives
-* [ ] Tested dynamic models for supported robots
-    - Link6
-    - Gen3 7dof
-    - UR5e
-* [ ] User friendly API
-    - Cleanup Manipulator
-        - Define required API
-    - Dissociate trajectory data from functions
+# Blast wishlist 2024
+
+## General
 * [ ] More robust Error handling
 * [ ] Basic example
 * [ ] Documentation for external API
+* [ ] Exposed objective function and constraint API
+* [ ] Easy interface with MoveIt
+* [ ] Generic manipulator
+* [ ] Read scene from file
+* [ ] Cleanup
+* [ ] GPU
+    - [ ] Fast constraints computation
+    - [ ] PSO
+    - [ ] Gray wolf algorithm
 
-## Nice to have
-- [ ] Hide trajectory generation details and setup
-- [ ] Hide optimization details and setup
-- [ ] Cleanup
-- [ ] GPU
-    - Fast constraints computation
-    - PSO
-    - Gray wolf algorithm
-- [ ] Collision detection
-    - Collision for general shapes
-    - Example scene
-    - Broad-narrow phase
-    - Incremental detection for speed
-- [ ] Exposed objective function and constraint API
-- [ ] Add math functionality
-- [ ] Easy interface with MoveIt
-- [ ] Generic manipulator
-- [ ] Read scene from file
+## Collision detection
+* [ ] Collision detection
+    - [ ] Collision for general shapes
+    - [ ] Example scene
+    - [ ] Broad-narrow phase
+    - [ ] Incremental detection for speed
+
+## Optimization
+* [ ] Hide optimization details and setup
+* [ ] Dissociate trajectory data from functions
+* [ ] Hide trajectory generation details and setup
+
+## API
+* [ ] User friendly API
+    - [ ] Cleanup Manipulator
+
+## Robot support
+* [ ] Tested dynamic models for supported robots
+    - [ ] Link6
+    - [ ] Gen3 7dof
+    - [ ] UR5e
+
+## Collision detection
+* [x] Fast collision distance detection
+    - [x] 4 basic primitives
 
 ## Definitely will not have but would be awesome
 - Automatic scene construction from 3D scan
-
-## Super no!
-- [ ] Super slow
-- [ ] Super buggy with misleading or no error messages
-- [ ] Lying documentation
-- [ ] Random number generator to refuse a request
-- [ ] Misleading function names (compute_trajectory gives fart noise)
