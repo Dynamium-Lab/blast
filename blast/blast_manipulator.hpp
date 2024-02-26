@@ -272,9 +272,6 @@ struct Link6 : public Manipulator {
     // // compute jacobian matrix
     Matrix jacobian(const Array &joint_position);
 
-    // task planning
-    std::list<Manipulator_state> Link6::pick_and_place(const Manipulator_state &Current_manip_state, const Matrix &Obj_list, const Matrix Drop_box_list, const Vec3 hva);
-    
     // check collision
     Array collision_check(const Array &joint_position);
 
@@ -306,13 +303,6 @@ struct Link6 : public Manipulator {
         //** (for each point in the trajectory) **
         return (5 + 6 * 2) * npoints;
     }
-};
-
-struct Manipulator_state { 
-    Array PVA;
-    bool gripper_state;
-    enum trajectory_generation_type { traj_gen_null = 0, traj_gen_blast = 1, traj_gen_straight = 2 };
-    enum movement_type { mvt_robot = 0, mvt_gripper = 1, mvt_robot_and_gripper = 2 };
 };
 
 //------ Universal Robots UR5e manipulator functions ---------------------------------
@@ -2788,12 +2778,11 @@ host_fn Array Link6::inverse_kinematics(const Array& pose, const Array& initial_
     return current_joint_angles;
 }
 
-host_fn Matrix Gen3_7DOF::jacobian(const Array &joint_position) {
+host_fn Matrix Link6::jacobian(const Array &joint_position) {
 
     // auto p = joint_position.data;
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
 
-    //todo: 6 or 7 ?
     Array s(6);
     Array c(6);
     blast::sincos(joint_position, s, c);

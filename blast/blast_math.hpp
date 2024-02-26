@@ -556,15 +556,14 @@ host_fn Array random_array(u32 n, real A) {
     return result;
 }
 
-// create a new array from two others
-host_fn Array add_arrays(const Array& A, const Array& B) {
-    Array result(A.size + B.size);
-    for (int i = 0; i < (int)n; i++) {
-        if (i < size(A))
+// create a new array by concatenating two arrays
+host_fn Array concatenate_arrays(const Array& A, const Array& B) {
+    const int n = A.size + B.size;
+    Array result(n);
+    for (int i = 0; i < A.size; i++) 
             result[i] = A[i];
-        else
-            result[i] = B[i];
-    }
+    for (int i = 0; i < B.size; i++) 
+            result[i + A.size] = B[i];
     return result;
 }
 
