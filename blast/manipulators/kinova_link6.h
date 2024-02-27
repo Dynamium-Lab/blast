@@ -5,30 +5,48 @@
 
 namespace blast {
 
-struct Gen3 {
+/*todo:
+    - in set_payload:
+        - Add gripper m[5], I[5], av[5], dv[5] + adjust EE link with gripper
+        - Adjust av_payload
+    - in set_payload_without gripper :
+        - Adjust av_payload
+    - in internal_constraints:
+        - Add self collisions
+    - in ncon:
+        - Adjust number of self collisions
+    - in internal_constraints:
+        - Adjust self collisions
+    - in robot_capsules:
+        - Adjust self collisions
+
+*/
+
+struct Link6 {
     // basic manipulator properties
-    int     joints = 7;
+    int     joints = 6;
 
     // actuator limits
     Array   pmax; // rad
     Array   vmax; // rad/s
+    Array   amax; // rad/s^2
     Array   tau_max; // Nm
 
     // kinematic properties
     Vec3    p_base;
-    Vec3    dv[7]; // vector to next joint
-    Vec3    ev[7]; // direction vectors of joint
+    Vec3    dv[6]; // vector to next joint
+    Vec3    ev[6]; // direction vectors of joint
 
     // dynamic properties
-    real    m[7];  // link masses
-    Mat3    I[7];  // Inertial tensors
-    Vec3    av[7]; // centers of mass
-    Vec3    sv[7]; // centers of mass from next joint
+    real    m[6];  // link masses
+    Mat3    I[6];  // Inertial tensors
+    Vec3    av[6]; // centers of mass
+    Vec3    sv[6]; // centers of mass from next joint
 
     Matrix  _efforts; // put the efforts temporarily when computing the constraints
 
     // initialization
-    Gen3();
+    Link6();
     void    set_payload(const real m_payload, const Vec3 cg_payload = {}, const Mat3 I_payload = {});
     void    set_payload_without_gripper(const real m_payload, const Vec3 cg_payload = {}, const Mat3 I_payload = {});
 
@@ -53,51 +71,51 @@ struct Gen3 {
 
 // initialization -------------------
 
-inline Gen3::Gen3() {
-    p_base = {0, 0, 0.1564f};
-    pmax.resize(7);
-    vmax.resize(7);
-    tau_max.resize(7);
-    pmax = {INF_REAL, INF_REAL, INF_REAL, 2.58f, INF_REAL, 2.1f, INF_REAL};
-    vmax = {1.745f, 1.745f, 1.745f, 1.745f, 2.443f, 2.443f, 2.443f};
-    tau_max = {52, 52, 52, 52, 17, 17, 17};
+inline Link6::Link6() {
+    p_base = {0, 0, 0.0530f};
+    pmax.resize(6);
+    vmax.resize(6);
+    amax.resize(6);
+    tau_max.resize(6);
+    pmax = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL}; // rad todo: make sure this is true
+    vmax = {3.4907f, 3.4907f, 3.4907f, 5.5851f, 5.5851f, 5.5851f}; // rad/s
+    amax = {deg2rad(600), deg2rad(600), deg2rad(600), deg2rad(600), deg2rad(600), deg2rad(600)}; // rad/s^2
+    tau_max = {210, 210, 210, 100, 100, 100}; // Nm
     set_payload(0);
 }
 
-inline void Gen3::set_payload(const real m_payload, const Vec3 cg_payload, const Mat3 I_payload) {
-    m[0] = 1.377f;
-    m[1] = 1.1636f;
-    m[2] = 1.1636f;
-    m[3] = 0.93f;
-    m[4] = 0.678f;
-    m[5] = 0.678f;
-    m[6] = 0.364f + 0.921f;
+inline void Link6::set_payload(const real m_payload, const Vec3 cg_payload, const Mat3 I_payload) {
+    // link mass
+    m[0] = 4.8257f;
+    m[1] = 5.9860f;
+    m[2] = 3.4159f;
+    m[3] = 2.0849f;
+    m[4] = 2.0076f;
+    m[5] = 1.5193f; // todo: modify with gripper (as of now, no gripper)
 
-    I[0] = {0.004570f, 0.000001f, 0.000002f, 0.000001f, 0.004831f, 0.000448f, 0.000002f, 0.000448f, 0.001409f};
-    I[1] = {0.011088f, 0.000005f, 0.000000f, 0.000005f, 0.001072f, 0.000691f, 0.000000f, 0.000691f, 0.011255f};
-    I[2] = {0.010932f, 0.000000f, 0.000007f, 0.000000f, 0.011127f, 0.000606f, 0.000007f, 0.000606f, 0.001043f};
-    I[3] = {0.008147f, 0.000001f, 0.000000f, 0.000001f, 0.000631f, 0.000500f, 0.000000f, 0.000500f, 0.008316f};
-    I[4] = {0.001596f, 0.000000f, 0.000000f, 0.000000f, 0.001607f, 0.000256f, 0.000000f, 0.000256f, 0.000399f};
-    I[5] = {0.001641f, 0.000000f, 0.000000f, 0.000000f, 0.000410f, 0.000278f, 0.000000f, 0.000278f, 0.001641f};
-    I[6] = {0.000214f, 0.000000f, 0.000001f, 0.000000f, 0.000223f, 0.000002f, 0.000001f, 0.000002f, 0.000240f};
+    // inertial tensors
+    I[0] = {0.0192746f, -0.00239802f, -0.00896331f, -0.00239802f, 0.03087806f, 0.0016298f, -0.00896331f, 0.0016298f, 0.02134949f};
+    I[1] = {0.25899206f, -2.89E-05f, -1.23E-06f, -2.89E-05f, 0.01755445f, -0.02128064f, -1.23E-06f, -0.02128064f, 0.25291674f};
+    I[2] = {0.01742043f, -3.55E-06f, 8.4E-07f, -3.55E-06f, 0.01119175f, 0.00518163f, 8.4E-07f, 0.00518163f, 0.01212876f};
+    I[3] = {0.02454276f, 2.61E-06f, 1.799E-05f, 2.61E-06f, 0.02385702f, 0.00315758f, 1.799E-05f, 0.00315758f, 0.00294903f};
+    I[4] = {0.00734684f, 0.00124927f, -0.00090156f, 0.00124927f, 0.00464684f, -0.00236128f, -0.00090156f, -0.00236128f, 0.00589508f};
+    I[5] = {0.00390762f, -1.13E-06f, 1.16E-06f, -1.13E-06f, 0.00390722f, -2.21E-05f, 1.16E-06f, -2.21E-05f, 0.0013928f}; // todo: modify with gripper (as of now, no gripper)
 
     // center of mass
-    av[0] = {-0.000023f, -0.010364f, -0.073360f};
-    av[1] = {-0.000044f, -0.099580f, -0.013278f};
-    av[2] = {-0.000044f, -0.006641f, -0.117892f};
-    av[3] = {-0.000018f, -0.075478f, -0.015006f};
-    av[4] = {0.000001f, -0.009432f, -0.063883f};
-    av[5] = {0.000001f, -0.045483f, -0.009650f};
-    av[6] = {-0.000093f, 0.000132f, -0.022905f};
+    av[0] = {0.03930119f, -0.00705889f, -0.08462154f};
+    av[1] = {2.53E-06f, 0.18829586f, -0.03988382f};
+    av[2] = {4.64E-06f, -0.02451414f, -0.02997969f};
+    av[3] = {-0.00010793f, -0.01056422f, -0.08091102f};
+    av[4] = {0.01243595f, 0.03284165f, -0.04091434f};
+    av[5] = {0.0f, 0.00050624f, -0.00388589f}; // todo: modify with gripper (as of now, no gripper)
 
     // vector to next joint
-    dv[0] = {0.0, 0.0054, -0.1284};
-    dv[1] = {0.0, -0.2104, -0.0064};
-    dv[2] = {0.0, -0.0064, -0.2104};
-    dv[3] = {0.0, -0.2084, -0.0064};
-    dv[4] = {0.0, 0.0, -0.1059};
-    dv[5] = {0.0, -0.1059, 0.0};
-    dv[6] = {0.0, 0.0, -0.0615 - 0.164};
+    dv[0] = {0.11024, -0.06926, -0.1375};   // 0 -> 1
+    dv[1] = {0.0, 0.4850, 0.0};             // 1 -> 2
+    dv[2] = {0.0, -0.15216, -0.0917};       // 2 -> 3
+    dv[3] = {0.0, -0.06296, -0.22275};      // 3 -> 4
+    dv[4] = {0.08703, 0.0860, -0.07692};    // 4 -> 5
+    dv[5] = {0.0, 0.0, -0.920};             // 5 -> endeffector (todo: add gripper)
     // todo: add option to know if tool is closed or opened (difference of 0.0135 in z)
 
     // unit joint direction
@@ -107,36 +125,34 @@ inline void Gen3::set_payload(const real m_payload, const Vec3 cg_payload, const
     ev[3] = {0, 0, 1};
     ev[4] = {0, 0, 1};
     ev[5] = {0, 0, 1};
-    ev[6] = {0, 0, 1};
 
-
-
-    // Adjust end effector link with payload
-    m[6] = 0.364f + 0.921f;
-    av[6] = {-0.000093f, 0.000132f, -0.022905f};
-    Vec3 av_tool(0, 0, -0.06f - 0.0615f);
-    av[6] = (0.364f * av[6] + 0.921f * av_tool) * (1 / (0.364f + 0.921f));
-    sv[6] = dv[6] - av[6];
-    I[6] = {0.000214f, 0.000000f, 0.000001f, 0.000000f, 0.000223f, 0.000002f, 0.000001f, 0.000002f, 0.000240f};
+    // todo: Adjust end effector link with payload
+    // m[6] = 0.364f + 0.921f;
+    // av[6] = {-0.000093f, 0.000132f, -0.022905f};
+    // Vec3 av_tool(0, 0, -0.06f - 0.0615f);
+    // av[6] = (0.364f * av[6] + 0.921f * av_tool) * (1 / (0.364f + 0.921f));
+    // sv[6] = dv[6] - av[6];
+    // I[6] = {0.000214f, 0.000000f, 0.000001f, 0.000000f, 0.000223f, 0.000002f, 0.000001f, 0.000002f, 0.000240f};
 
     // Modify payload
-    Vec3 av_payload = {0.0f, 0.0f, -0.115f};
+    // todo: FIX Vec3 av_payload = {0.0f, 0.0f, -0.115f};
+    Vec3 av_payload = {0, 0, 0}; // temporary
     av_payload += cg_payload;
 
-    auto av_old = av[6];
-    auto m_old = m[6];
+    auto av_old = av[5];
+    auto m_old = m[5];
 
     auto m_new = m_old + m_payload;
     auto av_new = (m_old*av_old + m_payload*av_payload) / m_new;
     auto delta_av = av_new - av_old; // shift in center of mass
     auto av_to_mass = av_payload - av_new; // vector from payload to new center of mass
 
-    av[6] = av_new;
-    m[6] = m_new;
-    I[6](0, 0) += m_old*delta_av.x*delta_av.x + m_payload*av_to_mass.x*av_to_mass.x; // todo: Validate
-    I[6](1, 1) += m_old*delta_av.y*delta_av.y + m_payload*av_to_mass.y*av_to_mass.y;
-    I[6](2, 2) += m_old*delta_av.z*delta_av.z + m_payload*av_to_mass.z*av_to_mass.z;
-    I[6] += I_payload;
+    av[5] = av_new;
+    m[5] = m_new;
+    I[5](0, 0) += m_old*delta_av.x*delta_av.x + m_payload*av_to_mass.x*av_to_mass.x; // todo: Validate
+    I[5](1, 1) += m_old*delta_av.y*delta_av.y + m_payload*av_to_mass.y*av_to_mass.y;
+    I[5](2, 2) += m_old*delta_av.z*delta_av.z + m_payload*av_to_mass.z*av_to_mass.z;
+    I[5] += I_payload;
 
     // center of mass from next joint
     sv[0] = dv[0] - av[0];
@@ -145,45 +161,40 @@ inline void Gen3::set_payload(const real m_payload, const Vec3 cg_payload, const
     sv[3] = dv[3] - av[3];
     sv[4] = dv[4] - av[4];
     sv[5] = dv[5] - av[5];
-    sv[6] = dv[6] - av[6];
-
 }
 
-inline void Gen3::set_payload_without_gripper(const real m_payload, const Vec3 cg_payload, const Mat3 I_payload) {
-    m[0] = 1.377f;
-    m[1] = 1.1636f;
-    m[2] = 1.1636f;
-    m[3] = 0.93f;
-    m[4] = 0.678f;
-    m[5] = 0.678f;
-    m[6] = 0.364f;
+inline void Link6::set_payload_without_gripper(const real m_payload, const Vec3 cg_payload, const Mat3 I_payload) {
+    // link mass
+    m[0] = 4.8257f;
+    m[1] = 5.9860f;
+    m[2] = 3.4159f;
+    m[3] = 2.0849f;
+    m[4] = 2.0076f;
+    m[5] = 1.5193f; // todo: modify with gripper (as of now, no gripper)
 
-    I[0] = {0.004570f, 0.000001f, 0.000002f, 0.000001f, 0.004831f, 0.000448f, 0.000002f, 0.000448f, 0.001409f};
-    I[1] = {0.011088f, 0.000005f, 0.000000f, 0.000005f, 0.001072f, 0.000691f, 0.000000f, 0.000691f, 0.011255f};
-    I[2] = {0.010932f, 0.000000f, 0.000007f, 0.000000f, 0.011127f, 0.000606f, 0.000007f, 0.000606f, 0.001043f};
-    I[3] = {0.008147f, 0.000001f, 0.000000f, 0.000001f, 0.000631f, 0.000500f, 0.000000f, 0.000500f, 0.008316f};
-    I[4] = {0.001596f, 0.000000f, 0.000000f, 0.000000f, 0.001607f, 0.000256f, 0.000000f, 0.000256f, 0.000399f};
-    I[5] = {0.001641f, 0.000000f, 0.000000f, 0.000000f, 0.000410f, 0.000278f, 0.000000f, 0.000278f, 0.001641f};
-    I[6] = {0.000214f, 0.000000f, 0.000001f, 0.000000f, 0.000223f, 0.000002f, 0.000001f, 0.000002f, 0.000240f};
+    // inertial tensors
+    I[0] = {0.0192746f, -0.00239802f, -0.00896331f, -0.00239802f, 0.03087806f, 0.0016298f, -0.00896331f, 0.0016298f, 0.02134949f};
+    I[1] = {0.25899206f, -2.89E-05f, -1.23E-06f, -2.89E-05f, 0.01755445f, -0.02128064f, -1.23E-06f, -0.02128064f, 0.25291674f};
+    I[2] = {0.01742043f, -3.55E-06f, 8.4E-07f, -3.55E-06f, 0.01119175f, 0.00518163f, 8.4E-07f, 0.00518163f, 0.01212876f};
+    I[3] = {0.02454276f, 2.61E-06f, 1.799E-05f, 2.61E-06f, 0.02385702f, 0.00315758f, 1.799E-05f, 0.00315758f, 0.00294903f};
+    I[4] = {0.00734684f, 0.00124927f, -0.00090156f, 0.00124927f, 0.00464684f, -0.00236128f, -0.00090156f, -0.00236128f, 0.00589508f};
+    I[5] = {0.00390762f, -1.13E-06f, 1.16E-06f, -1.13E-06f, 0.00390722f, -2.21E-05f, 1.16E-06f, -2.21E-05f, 0.0013928f}; // todo: modify with gripper (as of now, no gripper)
 
     // center of mass
-    av[0] = {-0.000023f, -0.010364f, -0.073360f};
-    av[1] = {-0.000044f, -0.099580f, -0.013278f};
-    av[2] = {-0.000044f, -0.006641f, -0.117892f};
-    av[3] = {-0.000018f, -0.075478f, -0.015006f};
-    av[4] = {0.000001f, -0.009432f, -0.063883f};
-    av[5] = {0.000001f, -0.045483f, -0.009650f};
-    av[6] = {-0.000093f, 0.000132f, -0.022905f};
+    av[0] = {0.03930119f, -0.00705889f, -0.08462154f};
+    av[1] = {2.53E-06f, 0.18829586f, -0.03988382f};
+    av[2] = {4.64E-06f, -0.02451414f, -0.02997969f};
+    av[3] = {-0.00010793f, -0.01056422f, -0.08091102f};
+    av[4] = {0.01243595f, 0.03284165f, -0.04091434f};
+    av[5] = {0.0f, 0.00050624f, -0.00388589f};
 
     // vector to next joint
-    dv[0] = {0.0, 0.0054, -0.1284};
-    dv[1] = {0.0, -0.2104, -0.0064};
-    dv[2] = {0.0, -0.0064, -0.2104};
-    dv[3] = {0.0, -0.2084, -0.0064};
-    dv[4] = {0.0, 0.0, -0.1059};
-    dv[5] = {0.0, -0.1059, 0.0};
-    dv[6] = {0.0, 0.0, -0.0615 - 0.164};
-    // todo: add option to know if tool is closed or opened (difference of 0.0135 in z)
+    dv[0] = {0.11024, -0.06926, -0.1375};   // 0 -> 1
+    dv[1] = {0.0, 0.4850, 0.0};             // 1 -> 2
+    dv[2] = {0.0, -0.15216, -0.0917};       // 2 -> 3
+    dv[3] = {0.0, -0.06296, -0.22275};      // 3 -> 4
+    dv[4] = {0.08703, 0.0860, -0.07692};    // 4 -> 5
+    dv[5] = {0.0, 0.0, -0.920};             // 5 -> endeffector
 
     // unit joint direction
     ev[0] = {0, 0, 1};
@@ -192,29 +203,26 @@ inline void Gen3::set_payload_without_gripper(const real m_payload, const Vec3 c
     ev[3] = {0, 0, 1};
     ev[4] = {0, 0, 1};
     ev[5] = {0, 0, 1};
-    ev[6] = {0, 0, 1};
-
 
     // Modify payload
-    Vec3 av_payload = {0.0f, 0.0f, -0.115f};
+    // todo: FIX Vec3 av_payload = {0.0f, 0.0f, -0.115f};
+    Vec3 av_payload = {0, 0, 0}; // temporary
     av_payload += cg_payload;
 
-    auto av_old = av[6];
-    auto m_old = m[6];
+    auto av_old = av[5];
+    auto m_old = m[5];
 
     auto m_new = m_old + m_payload;
-    auto av_new = (m_old*av_old + m_payload*av_payload) /m_new;
-    auto sv_new = dv[6] - av_new;
+    auto av_new = (m_old*av_old + m_payload*av_payload) / m_new;
     auto delta_av = av_new - av_old; // shift in center of mass
     auto av_to_mass = av_payload - av_new; // vector from payload to new center of mass
 
-    av[6] = av_new;
-    sv[6] = sv_new;
-    m[6] = m_new;
-    I[6](0, 0) += m_old*delta_av.x*delta_av.x + m_payload*av_to_mass.x*av_to_mass.x; // todo: Validate
-    I[6](1, 1) += m_old*delta_av.y*delta_av.y + m_payload*av_to_mass.y*av_to_mass.y;
-    I[6](2, 2) += m_old*delta_av.z*delta_av.z + m_payload*av_to_mass.z*av_to_mass.z;
-    I[6] += I_payload;
+    av[5] = av_new;
+    m[5] = m_new;
+    I[5](0, 0) += m_old*delta_av.x*delta_av.x + m_payload*av_to_mass.x*av_to_mass.x; // todo: Validate
+    I[5](1, 1) += m_old*delta_av.y*delta_av.y + m_payload*av_to_mass.y*av_to_mass.y;
+    I[5](2, 2) += m_old*delta_av.z*delta_av.z + m_payload*av_to_mass.z*av_to_mass.z;
+    I[5] += I_payload;
 
     // center of mass from next joint
     sv[0] = dv[0] - av[0];
@@ -223,47 +231,46 @@ inline void Gen3::set_payload_without_gripper(const real m_payload, const Vec3 c
     sv[3] = dv[3] - av[3];
     sv[4] = dv[4] - av[4];
     sv[5] = dv[5] - av[5];
-    sv[6] = dv[6] - av[6];
 }
 
 
 // optimization -------------------
 
-inline void Gen3::internal_constraints(const Trajectory& traj, real* dst) {
+inline void Link6::internal_constraints(const Trajectory& traj, real* dst) {
     const auto points = traj.pos.cols;
     dynamics(traj);
 
     for (u32 i = 0; i < points; i++) {
-        // 5 self collisions
+        // todo: self collisions
         auto p = traj.pos.col(i); Assert(p.is_alias);
-        auto tmp_coll = internal_collisions(p);
-        dst[0] = -tmp_coll[0]; // dist1sqr
-        dst[1] = -tmp_coll[1]; // dist2sqr
-        dst[2] = -tmp_coll[2]; // distTJ4
-        dst[3] = -tmp_coll[3]; // distTJ6
-        dst[4] = -tmp_coll[4]; // distTEE
-        dst += 5;
+        // auto tmp_coll = internal_collisions(p);
+        // dst[0] = -tmp_coll[0]; // dist1sqr
+        // dst[1] = -tmp_coll[1]; // dist2sqr
+        // dst[2] = -tmp_coll[2]; // distTJ4
+        // dst[3] = -tmp_coll[3]; // distTJ6
+        // dst[4] = -tmp_coll[4]; // distTEE
+        // dst += 5;
 
-        // 2 position limits
-        dst[0] = (abs(traj.pos(3, i)) - pmax[3]) / pmax[3];
-        dst[1] = (abs(traj.pos(5, i)) - pmax[5]) / pmax[5];
-        dst += 2;
-
-        // 7 velocity limits
-        for (int j = 0; j < 7; j++)
+        // 6 velocity limits
+        for (int j = 0; j < (int)joints; j++)
             dst[j] = (abs(traj.vel(j, i)) - vmax[j]) / vmax[j];
-        dst += 7;
+        dst += joints;
 
-        // 7 torque limits
+        // 6 acceleration limits
+        for (int j = 0; j < (int)joints; j++)
+            dst[j] = (abs(traj.acc(j, i)) - amax[j]) / amax[j];
+        dst += joints;
+
+        // 6 torque limits
         auto f = _efforts.col(i); Assert(f.is_alias);
-        for (int j = 0; j < 7; j++)
+        for (int j = 0; j < (int)joints; j++)
             dst[j] = (abs(f[j]) - tau_max[j]) / tau_max[j];
-        dst += 7;
+        dst += joints;
     }
 }
 
-inline bool Gen3::validate_task(const Matrix &task) {
-    Trajectory traj(2, 7);
+inline bool Link6::validate_task(const Matrix &task) {
+    Trajectory traj(2, 6);
     traj.pos.col(0) = task.col(0);
     traj.pos.col(1) = task.col(3);
 
@@ -279,28 +286,28 @@ inline bool Gen3::validate_task(const Matrix &task) {
     return array_max(con) <= 0;
 }
 
-inline int Gen3::ncon(int points) {
-    return (5 + 2 + 7 * 2) * points;
+inline int Link6::ncon(int points) {
+    return (5 + 6 * 3) * points; // todo: self collisions 5 ?
 }
 
 
 // dynamics -------------------
 
-inline void Gen3::dynamics(const Trajectory& traj) {
+inline void Link6::dynamics(const Trajectory& traj) {
     const auto points = traj.pos.cols;
     const auto joints = traj.pos.rows;
     if (_efforts.cols != points || _efforts.rows != joints)
         _efforts.resize(joints, points);
 
 
-    Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
-    Mat3 Q1t, Q2t, Q3t, Q4t, Q5t, Q6t, Q7t;
-    Vec3 w1, w2, w3, w4, w5, w6, w7;
-    Vec3 wd1, wd2, wd3, wd4, wd5, wd6, wd7;
+    Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
+    Mat3 Q1t, Q2t, Q3t, Q4t, Q5t, Q6t;
+    Vec3 w1, w2, w3, w4, w5, w6;
+    Vec3 wd1, wd2, wd3, wd4, wd5, wd6;
     Vec3 cdd0 = {0, 0, 9.81f};
-    Vec3 cdd1, cdd2, cdd3, cdd4, cdd5, cdd6, cdd7;
-    Vec3 f1, f2, f3, f4, f5, f6, f7;
-    Vec3 n1, n2, n3, n4, n5, n6, n7;
+    Vec3 cdd1, cdd2, cdd3, cdd4, cdd5, cdd6;
+    Vec3 f1, f2, f3, f4, f5, f6;
+    Vec3 n1, n2, n3, n4, n5, n6;
 
     // loop all points
     for (int i = 0; i < points; i++) {
@@ -308,25 +315,23 @@ inline void Gen3::dynamics(const Trajectory& traj) {
         auto v = traj.vel.col(i);
         auto a = traj.acc.col(i);
 
-        Array s(7);
-        Array c(7);
+        Array s(6);
+        Array c(6);
         blast::sincos(p, s, c);
 
         // note: these are stored column-wise
         Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
-        Q2 = {c[1], 0, s[1], -s[1], 0, c[1], 0, -1, 0};
-        Q3 = {c[2], 0, -s[2], -s[2], 0, -c[2], 0, 1, 0};
-        Q4 = {c[3], 0, s[3], -s[3], 0, c[3], 0, -1, 0};
+        Q2 = {c[1], 0, -s[1], -s[1], 0, -c[1], 0, 1, 0};
+        Q3 = {c[2], -s[2], 0, -s[2], -c[2], 0, 0, 0, -1};
+        Q4 = {c[3], 0, -s[3], -s[3], 0, -c[3], 0, 1, 0};
         Q5 = {c[4], 0, -s[4], -s[4], 0, -c[4], 0, 1, 0};
-        Q6 = {c[5], 0, s[5], -s[5], 0, c[5], 0, -1, 0};
-        Q7 = {c[6], 0, -s[6], -s[6], 0, -c[6], 0, 1, 0};
+        Q6 = {0, s[5], c[5], 0, c[5], s[5], -1, 0, 0}; // todo: double check
         Q1t = transpose(Q1);
         Q2t = transpose(Q2);
         Q3t = transpose(Q3);
         Q4t = transpose(Q4);
         Q5t = transpose(Q5);
         Q6t = transpose(Q6);
-        Q7t = transpose(Q7);
 
         // note: This is the Newton algorithm in 'Element de robotique' course notes.
         //       Careful because some variables are named differently and uses a slightly different conventions.
@@ -339,7 +344,6 @@ inline void Gen3::dynamics(const Trajectory& traj) {
         w4 = Q4t * w3 + v[3] * ev[3];
         w5 = Q5t * w4 + v[4] * ev[4];
         w6 = Q6t * w5 + v[5] * ev[5];
-        w7 = Q7t * w6 + v[6] * ev[6];
 
         wd1 = a[0] * ev[0];
         cdd1 = Q1t * cdd0 + cross(wd1, av[0]) + cross(w1, cross(w1, av[0]));
@@ -359,15 +363,9 @@ inline void Gen3::dynamics(const Trajectory& traj) {
         wd6 = Q6t * wd5 + a[5] * ev[5] + v[5] * cross(Q6t * w5, ev[5]);
         cdd6 = Q6t * cdd5 + cross(wd6, av[5]) + cross(w6, cross(w6, av[5])) - Q6t * cross(wd5, sv[4]) - Q6t * cross(w5, cross(w5, sv[4]));
 
-        wd7 = Q7t * wd6 + a[6] * ev[6] + v[6] * cross(Q7t * w6, ev[6]);
-        cdd7 = Q7t * cdd6 + cross(wd7, av[6]) + cross(w7, cross(w7, av[6])) - Q7t * cross(wd6, sv[5]) - Q7t * cross(w6, cross(w6, sv[5]));
-
         //-- dynamics
-        f7 = m[6] * cdd7;
-        n7 = I[6] * wd7 + cross(w7, I[6] * w7) + cross(av[6], f7);
-
-        f6 = m[5] * cdd6 + Q7 * f7;
-        n6 = I[5] * wd6 + cross(w6, I[5] * w6) + Q7 * n7 + cross(av[5], f6) + cross(sv[5], (Q7 * f7));
+        f6 = m[5] * cdd6;
+        n6 = I[5] * wd6 + cross(w6, I[5] * w6) + cross(av[5], f6);
 
         f5 = m[4] * cdd5 + Q6 * f6;
         n5 = I[4] * wd5 + cross(w5, I[4] * w5) + Q6 * n6 + cross(av[4], f5) + cross(sv[4], (Q6 * f6));
@@ -391,24 +389,22 @@ inline void Gen3::dynamics(const Trajectory& traj) {
         _efforts(3, i) = n4.z;
         _efforts(4, i) = n5.z;
         _efforts(5, i) = n6.z;
-        _efforts(6, i) = n7.z;
     }
 }
 
 
 // kinematics -------------------
 
-inline Array Gen3::forward_kinematics(const Array &pos) {
-    Array s(7);
-    Array c(7);
+inline Array Link6::forward_kinematics(const Array &pos) {
+    Array s(6);
+    Array c(6);
     blast::sincos(pos, s, c);
-    Mat3 Q1(c[0], -s[0],   0,    -s[0],  -c[0],   0,    0,   0, -1);
-    Mat3 Q2(c[1],   0,    s[1],  -s[1],    0,    c[1],  0,  -1,  0);
-    Mat3 Q3(c[2],   0,   -s[2],  -s[2],    0,   -c[2],  0,   1,  0);
-    Mat3 Q4(c[3],   0,    s[3],  -s[3],    0,    c[3],  0,  -1,  0);
-    Mat3 Q5(c[4],   0,   -s[4],  -s[4],    0,   -c[4],  0,   1,  0);
-    Mat3 Q6(c[5],   0,    s[5],  -s[5],    0,    c[5],  0,  -1,  0);
-    Mat3 Q7(c[6],   0,   -s[6],  -s[6],    0,   -c[6],  0,   1,  0);
+    Mat3 Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
+    Mat3 Q2 = {c[1], 0, -s[1], -s[1], 0, -c[1], 0, 1, 0};
+    Mat3 Q3 = {c[2], -s[2], 0, -s[2], -c[2], 0, 0, 0, -1};
+    Mat3 Q4 = {c[3], 0, -s[3], -s[3], 0, -c[3], 0, 1, 0};
+    Mat3 Q5 = {c[4], 0, -s[4], -s[4], 0, -c[4], 0, 1, 0};
+    Mat3 Q6 = {0, s[5], c[5], 0, c[5], s[5], -1, 0, 0};
 
     auto Q = Q1;
     auto p_ee = p_base
@@ -418,9 +414,8 @@ inline Array Gen3::forward_kinematics(const Array &pos) {
                 + (Q *= Q4) * dv[3]
                 + (Q *= Q5) * dv[4]
                 + (Q *= Q6) * dv[5]
-                + (Q *= Q7) * dv[6];
 
-    Array pose(6);
+                Array pose(6);
     pose[0] = p_ee.x;
     pose[1] = p_ee.y;
     pose[2] = p_ee.z;
@@ -431,8 +426,8 @@ inline Array Gen3::forward_kinematics(const Array &pos) {
     return pose;
 }
 
-inline Matrix Gen3::forward_kinematics(const Matrix &pos) {
-    Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
+inline Matrix Link6::forward_kinematics(const Matrix &pos) {
+    Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
     Matrix poses(12, pos.cols);
     Vec3 p_ee;
     for (u32 point = 0; point < pos.cols; point++) {
@@ -440,12 +435,11 @@ inline Matrix Gen3::forward_kinematics(const Matrix &pos) {
         Array c(8);
         blast::sincos(pos.col(point), s, c);
         Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
-        Q2 = {c[1], 0, s[1], -s[1], 0, c[1], 0, -1, 0};
-        Q3 = {c[2], 0, -s[2], -s[2], 0, -c[2], 0, 1, 0};
-        Q4 = {c[3], 0, s[3], -s[3], 0, c[3], 0, -1, 0};
+        Q2 = {c[1], 0, -s[1], -s[1], 0, -c[1], 0, 1, 0};
+        Q3 = {c[2], -s[2], 0, -s[2], -c[2], 0, 0, 0, -1};
+        Q4 = {c[3], 0, -s[3], -s[3], 0, -c[3], 0, 1, 0};
         Q5 = {c[4], 0, -s[4], -s[4], 0, -c[4], 0, 1, 0};
-        Q6 = {c[5], 0, s[5], -s[5], 0, c[5], 0, -1, 0};
-        Q7 = {c[6], 0, -s[6], -s[6], 0, -c[6], 0, 1, 0};
+        Q6 = {0, s[5], c[5], 0, c[5], s[5], -1, 0, 0};
         auto Q = Q1;
         p_ee = p_base
                + Q * dv[0]
@@ -453,8 +447,7 @@ inline Matrix Gen3::forward_kinematics(const Matrix &pos) {
                + (Q *= Q3) * dv[2]
                + (Q *= Q4) * dv[3]
                + (Q *= Q5) * dv[4]
-               + (Q *= Q6) * dv[5]
-               + (Q *= Q7) * dv[6];
+               + (Q *= Q6) * dv[5];
         poses(0, point) = p_ee.x;
         poses(1, point) = p_ee.y;
         poses(2, point) = p_ee.z;
@@ -471,20 +464,19 @@ inline Matrix Gen3::forward_kinematics(const Matrix &pos) {
     return poses;
 }
 
-inline Matrix Gen3::jacobian(const Array &pos) {
+inline Matrix Link6::jacobian(const Array &pos) {
     Array s(8);
     Array c(8);
     blast::sincos(pos, s, c);
     Mat3 Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
-    Mat3 Q2 = {c[1], 0, s[1], -s[1], 0, c[1], 0, -1, 0};
-    Mat3 Q3 = {c[2], 0, -s[2], -s[2], 0, -c[2], 0, 1, 0};
-    Mat3 Q4 = {c[3], 0, s[3], -s[3], 0, c[3], 0, -1, 0};
+    Mat3 Q2 = {c[1], 0, -s[1], -s[1], 0, -c[1], 0, 1, 0};
+    Mat3 Q3 = {c[2], -s[2], 0, -s[2], -c[2], 0, 0, 0, -1};
+    Mat3 Q4 = {c[3], 0, -s[3], -s[3], 0, -c[3], 0, 1, 0};
     Mat3 Q5 = {c[4], 0, -s[4], -s[4], 0, -c[4], 0, 1, 0};
-    Mat3 Q6 = {c[5], 0, s[5], -s[5], 0, c[5], 0, -1, 0};
-    Mat3 Q7 = {c[6], 0, -s[6], -s[6], 0, -c[6], 0, 1, 0};
+    Mat3 Q6 = {0, s[5], c[5], 0, c[5], s[5], -1, 0, 0};
 
     // unit vectors in 1st reference
-    Vec3 e[7];
+    Vec3 e[6];
     auto Q_tmp = Q1;
     e[0] = Q_tmp * ev[0];
     e[1] = (Q_tmp *= Q2) * ev[1];
@@ -492,11 +484,9 @@ inline Matrix Gen3::jacobian(const Array &pos) {
     e[3] = (Q_tmp *= Q4) * ev[3];
     e[4] = (Q_tmp *= Q5) * ev[4];
     e[5] = (Q_tmp *= Q6) * ev[5];
-    e[6] = (Q_tmp *= Q7) * ev[6];
 
-    Vec3 r[7];
-    r[6] = dv[6];
-    r[5] = dv[5] + Q7 * r[6];
+    Vec3 r[6];
+    r[5] = dv[5];
     r[4] = dv[4] + Q6 * r[5];
     r[3] = dv[3] + Q5 * r[4];
     r[2] = dv[2] + Q4 * r[3];
@@ -510,7 +500,7 @@ inline Matrix Gen3::jacobian(const Array &pos) {
     r[3] = (Q_tmp *= Q4) * r[3];
     r[4] = (Q_tmp *= Q5) * r[4];
     r[5] = (Q_tmp *= Q6) * r[5];
-    r[6] = (Q_tmp *= Q7) * r[6];
+
 
     auto cr0 = cross(e[0], r[0]);
     auto cr1 = cross(e[1], r[1]);
@@ -518,10 +508,9 @@ inline Matrix Gen3::jacobian(const Array &pos) {
     auto cr3 = cross(e[3], r[3]);
     auto cr4 = cross(e[4], r[4]);
     auto cr5 = cross(e[5], r[5]);
-    auto cr6 = cross(e[6], r[6]);
 
     // jacobian matrix
-    Matrix J(6, 7);
+    Matrix J(6, 6);
     J(0, 0) = e[0].x;
     J(1, 0) = e[0].y;
     J(2, 0) = e[0].z;
@@ -540,9 +529,6 @@ inline Matrix Gen3::jacobian(const Array &pos) {
     J(0, 5) = e[5].x;
     J(1, 5) = e[5].y;
     J(2, 5) = e[5].z;
-    J(0, 6) = e[6].x;
-    J(1, 6) = e[6].y;
-    J(2, 6) = e[6].z;
 
     J(3, 0) = cr0.x;
     J(4, 0) = cr0.y;
@@ -562,9 +548,6 @@ inline Matrix Gen3::jacobian(const Array &pos) {
     J(3, 5) = cr5.x;
     J(4, 5) = cr5.y;
     J(5, 5) = cr5.z;
-    J(3, 6) = cr6.x;
-    J(4, 6) = cr6.y;
-    J(5, 6) = cr6.z;
 
     return J;
 }
@@ -572,25 +555,25 @@ inline Matrix Gen3::jacobian(const Array &pos) {
 
 // collisions -------------------
 
-inline Array Gen3::internal_collisions(const Array &joint_position) {
-    Array s(7);
-    Array c(7);
+inline Array Link6::internal_collisions(const Array &joint_position) {
+    Array s(6);
+    Array c(6);
     blast::sincos(joint_position, s, c);
-    Mat3 Q1(c[0], -s[0],   0,    -s[0],  -c[0],   0,    0,   0, -1);
-    Mat3 Q2(c[1],   0,    s[1],  -s[1],    0,    c[1],  0,  -1,  0);
-    Mat3 Q3(c[2],   0,   -s[2],  -s[2],    0,   -c[2],  0,   1,  0);
-    Mat3 Q4(c[3],   0,    s[3],  -s[3],    0,    c[3],  0,  -1,  0);
-    Mat3 Q5(c[4],   0,   -s[4],  -s[4],    0,   -c[4],  0,   1,  0);
-    Mat3 Q6(c[5],   0,    s[5],  -s[5],    0,    c[5],  0,  -1,  0);
-    Mat3 Q7(c[6],   0,   -s[6],  -s[6],    0,   -c[6],  0,   1,  0);
+    Mat3 Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
+    Mat3 Q2 = {c[1], 0, -s[1], -s[1], 0, -c[1], 0, 1, 0};
+    Mat3 Q3 = {c[2], -s[2], 0, -s[2], -c[2], 0, 0, 0, -1};
+    Mat3 Q4 = {c[3], 0, -s[3], -s[3], 0, -c[3], 0, 1, 0};
+    Mat3 Q5 = {c[4], 0, -s[4], -s[4], 0, -c[4], 0, 1, 0};
+    Mat3 Q6 = {0, s[5], c[5], 0, c[5], s[5], -1, 0, 0};
     auto Q = Q1;
     auto p_j2 = p_base + Q * dv[0];
     auto p_j3 = p_j2 + (Q *= Q2) * dv[1];
     auto p_j4 = p_j3 + (Q *= Q3) * dv[2];
     auto p_j5 = p_j4 + (Q *= Q4) * dv[3];
     auto p_j6 = p_j5 + (Q *= Q5) * dv[4];
-    auto p_j7 = p_j6 + (Q *= Q6) * dv[5];
-    auto p_ee = p_j7 + (Q *= Q7) * dv[6];
+    auto p_ee = p_j6 + (Q *= Q6) * dv[5];
+
+    // todo: Adjust for self collisions
     const real r1sqr = 0.0875 * 0.0875;
     const real r2sqr = 0.0875 * 0.0875;
     // Self collisions sqr
@@ -609,33 +592,32 @@ inline Array Gen3::internal_collisions(const Array &joint_position) {
     return {dist1sqr, dist2sqr, distTJ4, distTJ6, distTEE};
 }
 
-inline Matrix Gen3::robot_capsules(const Matrix& pos, int n_skip) {
+inline Matrix Link6::robot_capsules(const Matrix& pos, int n_skip) {
     const int points = pos.cols;
     Matrix result_capsules(12, points/n_skip);
-    Mat3 Q, Q1, Q2, Q3, Q4, Q5, Q6, Q7;
-    Vec3 p_j2, p_j3, p_j4, p_j5, p_j6, p_j7, p_ee;
+    Mat3 Q, Q1, Q2, Q3, Q4, Q5, Q6;
+    Vec3 p_j2, p_j3, p_j4, p_j5, p_j6, p_ee;
     Vec3 p_orig(0, 0, 0);
-    Array s(7);
-    Array c(7);
+    Array s(6);
+    Array c(6);
     for (int i = 0; i < points; i += n_skip) {
         blast::sincos(pos.col(i), s, c);
 
         Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
-        Q2 = {c[1], 0, s[1], -s[1], 0, c[1], 0, -1, 0};
-        Q3 = {c[2], 0, -s[2], -s[2], 0, -c[2], 0, 1, 0};
-        Q4 = {c[3], 0, s[3], -s[3], 0, c[3], 0, -1, 0};
+        Q2 = {c[1], 0, -s[1], -s[1], 0, -c[1], 0, 1, 0};
+        Q3 = {c[2], -s[2], 0, -s[2], -c[2], 0, 0, 0, -1};
+        Q4 = {c[3], 0, -s[3], -s[3], 0, -c[3], 0, 1, 0};
         Q5 = {c[4], 0, -s[4], -s[4], 0, -c[4], 0, 1, 0};
-        Q6 = {c[5], 0, s[5], -s[5], 0, c[5], 0, -1, 0};
-        Q7 = {c[6], 0, -s[6], -s[6], 0, -c[6], 0, 1, 0};
+        Q6 = {0, s[5], c[5], 0, c[5], s[5], -1, 0, 0};
 
+        // todo: Adjust for self collisions
         Q = Q1;
         p_j2 = p_base + Q * dv[0];
         p_j3 = p_j2 + (Q *= Q2) * dv[1];
         p_j4 = p_j3 + (Q *= Q3) * dv[2];
         p_j5 = p_j4 + (Q *= Q4) * dv[3];
         p_j6 = p_j5 + (Q *= Q5) * dv[4];
-        p_j7 = p_j6 + (Q *= Q6) * dv[5];
-        p_ee = p_j7 + (Q *= Q7) * dv[6];
+        p_ee = p_j6 + (Q *= Q6) * dv[5];
 
         result_capsules(0, i) = p_j2.x;
         result_capsules(1, i) = p_j2.y;
