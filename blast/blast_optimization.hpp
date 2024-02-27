@@ -144,70 +144,118 @@ host_fn void cstr_manip_acc(unsigned m, double *result, unsigned xlen, const dou
     Optimisation* opt = (Optimisation*)f_data;
 
     internal_cstr_manip_single(m, result, xlen, x, opt);
-    const auto points = opt->bspline->points;
-
+    
     if (grad) {
         const real eps = 1e-5;
         Array x_plus(xlen);
         Array r_plus(m);
-        // todo: parallel?
+        const int n_points = opt->bspline->points;
+        const int n_joints = opt->manip->joints; 
+        const int n_pos_cstr = 2;
+        int pos_cstr_on[n_pos_cstr];
+        pos_cstr_on[0] = 2;
+        pos_cstr_on[1] = 4;
 
         // Computing the boundaries where the control points affect the constraints
-        int n_step = opt->bspline->nctrl - 2;
-        real step_u = 1 / (n_step);
-        real current_step = 0;
-        int low_bound = 0;
-        int high_bound = step_u;
+        // int n_step = opt->bspline->nctrl - 2;
+        // real step_u = 1 / (n_step);
+        // real current_step = 0;
+        // int low_bound = 0;
+        // int high_bound = step_u;
         const real T = x[xlen-1];
-        const real dt = T / (points - 1);
+        const real dt = T / (n_points - 1);
         const real one_over_T = 1 / T;
         const real one_over_T2 = one_over_T * one_over_T;
 
-        // Creating gradient matrix (xlen * m)
-        memcpy(x_plus.data, x, xlen * sizeof(real));
-        // todo: Fill all lines with zeros
-        // todo: All indices which are marked by 'q' should be changed to the actual value. 'q' is a placeholder only and means nothing
-        // todo: 1_over_T and 1_over_T_sq are precomputed, therefore we will use that. Change variable name
-        for (int j = 0 ; j < n_step; j++) { // For each influence step
-            for (int k = 0; k < opt->manip->joints; k++) { // For each affected variable
-                for (int i = low_bound; i < low_bound + opt->manip->joints; i++) { // Compute each position constraint
-                    // Analytical solution
-                    grad[q] = sign(result[q]) * opt->bspline->basis_p(q, q);
-                }
-                for (int i = low_bound + opt->manip->joints; i < low_bound + 2*opt->manip->joints; i++) { // Compute each velocity constraint
-                    // Analytical solution
-                    grad[q] = sign(result[q]) * opt->bspline->basis_v(q, q) * 1_over_T;
-                }
-                for (int i = low_bound + 2*opt->manip->joints; i < low_bound + 3*opt->manip->joints; i++) { // Compute each acceleration constraint
-                    // Analytical solution
-                    grad[q] = sign(result[q]) * opt->bspline->basis_a(q, q) * 1_over_T_sq;
+        const int n_cstr_pt = (m - opt->n_collision_constraints) / opt->bspline->points;
+        
+        // -1 being null
+        int active_pts[5]; // Size 5 because 5th order B-spline
+        active_pts[0] = -1;
+        active_pts[1] = -1;
+        active_pts[2] = 0;
+        active_pts[3] = 1;
+        active_pts[4] = 2;
+
+        // Intialize gradient to zeros
+        for (int i = 0; i < xlen*m; i++)
+            grad[i] = 0;
+
+        for (int i = 0; i < n_cstr_pt; i++) { // For every constraint group
+            for (int j = 0; j < 5; j++) { // For every active point
+                if (active_pts[j] >= 0) { // Active point is not null
+                    // todo: Check [] arguments again, very unsure
+                    // Position constraints (Analytical solution)
+                    for (int k = 0; k < n_pos_cstr; k++) {
+                        if (active_pts[j] == pos_cstr_on[k]) {
+                            grad[active_pts[j]*n_joints*m + k*m + i*n_points] = sign(result[i*n_points]) * opt->bspline->basis_p(active_pts[j], i);
+                            break;
+                        }
+                    }
+                    // Velocity constraints (Analytical solution)
+                    for (int k = 0; k < n_joints; k++) { 
+                        for (int l = 0; l < n_joints; l++) {
+                            grad[active_pts[j]*n_joints*m + k*m + i*n_points + n_pos_cstr + l] = sign(result[i*n_points + l]) * opt->bspline->basis_v(active_pts[j], i) * one_over_T;
+                        }
+                    }
+                    // // Acceleration constraints (Analytical solution) - no constraints for Gen3 7DOF
+                    // for (int k = low_bound + 2*n_joints; k < low_bound + 3*n_joints; k++) { 
+                    //     grad[active_pts[j]*n_joints*m + k*m + i*n_points] = sign(result[q]) * opt->bspline->basis_a(q, q) * 1_over_T_sq;
+                    // }
                 }
             }
-
-            // Wrote this last week, not sure what it`s for? :
-            // Add points one at a time, computing gradient every time, to a vector of length 5 until it is full,
-            // Push all points upwards, deleting the first and adding the next point to the end
-            // Do this until there is no more points to add (we are at the end of the gradient)
-            // Delete the first point and compute gradient
-            // Delete the first point again : compute for the last time and you are done.
-
-            // Increment line idx and bounds
-            low_bound = high_bound + 1;
-            current_step += step_u;
-            high_bound += step_u;
+            active_pts[0] = active_pts[1];
+            active_pts[1] = active_pts[2];
+            active_pts[2] = active_pts[3];
+            active_pts[3] = active_pts[4];
+            // For the two last iterations, we add -1 in the bottom
+            active_pts[4] = (i >= n_cstr_pt - 3) ? -1 : active_pts[4] + 1;
         }
+        
+        // Finite difference has a similar format but activates constraints instead of points.
+        // -1 being null
+        active_pts[0] = -1;
+        active_pts[1] = -1;
+        active_pts[2] = 0;
+        active_pts[3] = 1;
+        active_pts[4] = 2;
 
-        // Finite difference for the torque and collisions
-        for (u32 j = 0; j < xlen; j++) {
-            memcpy(x_plus.data, x, xlen * sizeof(real));
+        
+        for (int i = 0; i < opt->bspline->nctrl; i++) { // For every control point
+            for (u32 j = 0; j < n_joints; j++) { // For every joint within this control point
+                memcpy(x_plus.data, x, xlen * sizeof(real));
+                x_plus[i*n_joints + j] += eps;
+                for (int k = 0; k < 5; k++) { // For every active constraint set at this particular control point
+                    if (active_pts[k] >= 0) {
+                        p_tmp[k] = compute_trajectory(x_plus, task);
+                    }
+                }
+                dynamics(p_tmp, v_tmp, acc_tmp);
+                for (int k = 0; k < 5; k++) { // For every active constraint set at this particular control point
+                    if (active_pts[k] >= 0) {
+                        // memcpy(x_plus.data, x, xlen * sizeof(real));
+                        // x_plus[i*n_joints + j] += eps;
+                        // Torque constraints
+                        grad[i*n_joints*xlen + j*xlen + n_pos_cstr + n_joints + active_pts[k]*n_cstr_pt + k] = (r_plus[active_pts[k]*n_cstr_pt + n_pos_cstr + n_joints + k]-result[active_pts[k]*n_cstr_pt + n_pos_cstr + n_joints + k])/eps;
+                        // Self-collision constraints
+                        grad[i*n_joints*xlen + j*xlen + n_pos_cstr + 2*n_joints + active_pts[k]*n_cstr_pt + k] = (r_plus[active_pts[k]*n_cstr_pt + n_pos_cstr + 2*n_joints + k]-result[active_pts[k]*n_cstr_pt + n_pos_cstr + 2*n_joints + k])/eps;             
+                    }
+                }
+                
+                // World collision constraints
+                grad[i*n_joints*xlen + j*xlen + (xlen - k - 1)] = (r_plus[xlen - k - 1]-result[xlen - k - 1])/eps;
+                        
+            }
 
-            x_plus[j] += eps;
-            internal_cstr_manip_single(m, r_plus.data, xlen, x_plus.data, opt);
-            for (u32 i = 0; i < m; i++)
-                grad[i*xlen + j] = (r_plus[i]-result[i])/eps;
+            active_pts[0] = active_pts[1];
+            active_pts[1] = active_pts[2];
+            active_pts[2] = active_pts[3];
+            active_pts[3] = active_pts[4];
+            // For the two last iterations, we add -1 in the bottom
+            active_pts[4] = (i >= n_cstr_pt - 3) ? -1 : active_pts[4] + 1;
         }
-        // todo: Compute constraints for T (last x)
-    }
+        // todo: world collision constraints
+        // todo: Compute constraints for T
 }
 
 host_fn void cstr_world_link6(unsigned m, double *result, unsigned xlen, const double* x, double* grad, void* f_data) {
