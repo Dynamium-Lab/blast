@@ -74,7 +74,7 @@ int main() {
                         c.p = 5;
                         c.m = m;
                         c.nshot = nshot;
-                        c.noptim = 5;
+                        c.noptim = 100;
                         c.task = task_list[i];
                         c.task_id = i;
                         config_list.push_back(c);
@@ -84,19 +84,17 @@ int main() {
 
     objlist world;
     // Add bins for bin picking tasks (paper 1)
-    add_OBB({0.6, 0.0, 0.05},       {0.1, 0.5, 0.05},   Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // bottom ledge
-    add_OBB({0.6, 0.0, 0.1025},     {0.1, 0.5, 0.0025}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // bottom of bins (horiz)
-    add_OBB({0.6, 0.0, 0.3},        {0.1, 0.5, 0.005},  Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // middle of bins (horiz)
+    // add_OBB({0.6, 0.0, 0.05},       {0.1, 0.5, 0.05},   Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // bottom ledge
+    // add_OBB({0.6, 0.0, 0.1025},     {0.1, 0.5, 0.0025}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // bottom of bins (horiz)
+    // add_OBB({0.6, 0.0, 0.3},        {0.1, 0.5, 0.005},  Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // middle of bins (horiz)
     add_OBB({0.6, 0.0, 0.4975},     {0.1, 0.5, 0.0025}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // top of bins (horiz)
     add_OBB({0.6925, 0.0, 0.3},     {0.0025, 0.5, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // behind of bins (vert)
     add_OBB({0.6, 0.4925, 0.3},     {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // first (left) of bins (vert)
     add_OBB({0.6, 0.2925, 0.3},     {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // second (left) of bins (vert)
     add_OBB({0.6, 0.0925, 0.3},     {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // third (left) of bins (vert)
-    add_OBB({0.6, -0.0925, 0.3},    {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // fourth (left) of bins (vert)
-    add_OBB({0.6, -0.2925, 0.3},    {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // fifth (left) of bins (vert)
-    add_OBB({0.6, -0.4925, 0.3},    {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // sixth (left) of bins (vert)
-
-    // Add obstacles
+    // add_OBB({0.6, -0.0925, 0.3},    {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // fourth (left) of bins (vert)
+    // add_OBB({0.6, -0.2925, 0.3},    {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // fifth (left) of bins (vert)
+    // add_OBB({0.6, -0.4925, 0.3},    {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // sixth (left) of bins (vert)
 
     for (;;) {
         if (config_index >= config_list.size()) {
@@ -151,7 +149,7 @@ int main() {
             auto T1 = get_tick_us();
 
             // random optimization vector
-            auto x = config.nshot == 1 ? guess_random(manip, bspline, config.task) : guess_shot_mean(manip, bspline, config.task, config.nshot);
+            auto x = config.nshot == 1 ? guess_random(manip, bspline, config.task) : guess_shot_mean_collisions(optim, config.nshot);
             tmp_result_list[iter].x0 = x;
 
             // launch optimization

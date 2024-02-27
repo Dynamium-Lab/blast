@@ -6,7 +6,7 @@
     if (!(expr)){\
     printf("Assertion failed in function: %s. File: %s(%d).\n", __FUNCTION__, __FILE__, __LINE__); \
     __trap(); \
-}\
+}
 #elif (defined(BLAST_DEBUG) || defined(_DEBUG))
 #define Assert(expr) \
     if (!(expr)){\
