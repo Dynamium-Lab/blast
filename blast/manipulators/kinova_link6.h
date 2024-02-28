@@ -2,23 +2,19 @@
 
 #include "blast_math.hpp"
 #include "blast_trajectory.hpp"
+#include "collisions/world.h"
 
 namespace blast {
 
 /*todo:
     - in set_payload:
-        - Add gripper m[5], I[5], av[5], dv[5] + adjust EE link with gripper
         - Adjust av_payload
     - in set_payload_without gripper :
         - Adjust av_payload
-    - in internal_constraints:
-        - Add self collisions
-    - in ncon:
-        - Adjust number of self collisions
-    - in internal_constraints:
-        - Adjust self collisions
-    - in robot_capsules:
-        - Adjust self collisions
+    - in validate_task;
+        - Test that no external objects are inside base shpere
+    - in robot_capsule:
+        - Create struct for Link6 capsules + sphere
 
 */
 
@@ -61,10 +57,11 @@ struct Link6 {
     // kinematics
     Array   forward_kinematics(const Array &pos);
     Matrix  forward_kinematics(const Matrix &pos);
+    Array   inverse_kinematics(const Array& pose, const Array& initial_joint_position);
     Matrix  jacobian(const Array &joint_position);
 
     // collisions
-    Matrix  robot_capsules(const Matrix& pos, int n_collision_skip);
+    Matrix  robot_capsules(const Matrix& pos);
     Array   internal_collisions(const Array &joint_position);
 };
 
@@ -91,7 +88,7 @@ inline void Link6::set_payload(const real m_payload, const Vec3 cg_payload, cons
     m[2] = 3.4159f;
     m[3] = 2.0849f;
     m[4] = 2.0076f;
-    m[5] = 1.5193f; // todo: modify with gripper (as of now, no gripper)
+    m[5] = 1.5193f;
 
     // inertial tensors
     I[0] = {0.0192746f, -0.00239802f, -0.00896331f, -0.00239802f, 0.03087806f, 0.0016298f, -0.00896331f, 0.0016298f, 0.02134949f};
@@ -99,7 +96,7 @@ inline void Link6::set_payload(const real m_payload, const Vec3 cg_payload, cons
     I[2] = {0.01742043f, -3.55E-06f, 8.4E-07f, -3.55E-06f, 0.01119175f, 0.00518163f, 8.4E-07f, 0.00518163f, 0.01212876f};
     I[3] = {0.02454276f, 2.61E-06f, 1.799E-05f, 2.61E-06f, 0.02385702f, 0.00315758f, 1.799E-05f, 0.00315758f, 0.00294903f};
     I[4] = {0.00734684f, 0.00124927f, -0.00090156f, 0.00124927f, 0.00464684f, -0.00236128f, -0.00090156f, -0.00236128f, 0.00589508f};
-    I[5] = {0.00390762f, -1.13E-06f, 1.16E-06f, -1.13E-06f, 0.00390722f, -2.21E-05f, 1.16E-06f, -2.21E-05f, 0.0013928f}; // todo: modify with gripper (as of now, no gripper)
+    I[5] = {0.00390762f, -1.13E-06f, 1.16E-06f, -1.13E-06f, 0.00390722f, -2.21E-05f, 1.16E-06f, -2.21E-05f, 0.0013928f};
 
     // center of mass
     av[0] = {0.03930119f, -0.00705889f, -0.08462154f};
@@ -107,7 +104,7 @@ inline void Link6::set_payload(const real m_payload, const Vec3 cg_payload, cons
     av[2] = {4.64E-06f, -0.02451414f, -0.02997969f};
     av[3] = {-0.00010793f, -0.01056422f, -0.08091102f};
     av[4] = {0.01243595f, 0.03284165f, -0.04091434f};
-    av[5] = {0.0f, 0.00050624f, -0.00388589f}; // todo: modify with gripper (as of now, no gripper)
+    av[5] = {0.0f, 0.00050624f, -0.00388589f};
 
     // vector to next joint
     dv[0] = {0.11024, -0.06926, -0.1375};   // 0 -> 1
@@ -115,7 +112,8 @@ inline void Link6::set_payload(const real m_payload, const Vec3 cg_payload, cons
     dv[2] = {0.0, -0.15216, -0.0917};       // 2 -> 3
     dv[3] = {0.0, -0.06296, -0.22275};      // 3 -> 4
     dv[4] = {0.08703, 0.0860, -0.07692};    // 4 -> 5
-    dv[5] = {0.0, 0.0, -0.920};             // 5 -> endeffector (todo: add gripper)
+    dv[5] = {0.0, 0.0, -0.0920};             // 5 -> endeffector
+    Vec3 dv_tool = {0.0, 0.0, - 0.0185 - 0.0185 - 0.163}; // endeffector -> vision + adapter + gripper
     // todo: add option to know if tool is closed or opened (difference of 0.0135 in z)
 
     // unit joint direction
@@ -126,17 +124,37 @@ inline void Link6::set_payload(const real m_payload, const Vec3 cg_payload, cons
     ev[4] = {0, 0, 1};
     ev[5] = {0, 0, 1};
 
-    // todo: Adjust end effector link with payload
-    // m[6] = 0.364f + 0.921f;
-    // av[6] = {-0.000093f, 0.000132f, -0.022905f};
-    // Vec3 av_tool(0, 0, -0.06f - 0.0615f);
-    // av[6] = (0.364f * av[6] + 0.921f * av_tool) * (1 / (0.364f + 0.921f));
-    // sv[6] = dv[6] - av[6];
-    // I[6] = {0.000214f, 0.000000f, 0.000001f, 0.000000f, 0.000223f, 0.000002f, 0.000001f, 0.000002f, 0.000240f};
+    // Adjust end effector link with payload
+    auto m_ee = m[5];
+    real m_vision = 0.4192f;
+    real m_adapter = 0.2101f;
+    real m_gripper = 0.831f;
+
+    m[5] += m_vision + m_adapter + m_gripper;
+    Vec3 av_vision(-0.0094, -0.033, 0.0137);
+    Vec3 av_adapter(0.0035, 0.0004, 0.0185 + 0.0055);
+    Vec3 av_gripper(0.0, 0.0, 0.0185 + 0.0185 + 0.0473);
+    Vec3 av_ee = av[5];
+    auto av_new = (1.5193f * av_ee + 0.4192f * av_vision + 0.2101f * av_adapter + 0.831f * av_gripper) * (1 / (m[5]));
+    av[5] = av_new;
+
+    Mat3 I_vision   = {0.000502f, 0.000013f, -0.000003f, 0.000013f, 0.000409f, -0.00002f, -0.000003f, -0.00002f, 0.000823f};
+    Mat3 I_adapter  = {0.000101f, 0.000000f, -0.000005f, 0.000000f, 0.000014f, 0.000000f, -0.000005f, 0.000000f, 0.000218f};
+    Mat3 I_gripper  = {0.001050f, 0.000000f,  0.000000f, 0.000000f, 0.001730f, 0.000000f,  0.000000f, 0.000000f, 0.000990f};
+
+    auto delta_av = av_new - av_ee;
+    auto av_to_vision = av_new - av_vision;
+    auto av_to_adapter = av_new - av_adapter;
+    auto av_to_gripper = av_new - av_gripper;
+
+
+    I[5](0, 0) += m_ee*delta_av.x*delta_av.x + m_vision*av_to_vision.x*av_to_vision.x + m_adapter*av_to_adapter.x*av_to_adapter.x + m_gripper*av_to_gripper.x*av_to_gripper.x; // todo: Validate
+    I[5](1, 1) += m_ee*delta_av.y*delta_av.y + m_vision*av_to_vision.y*av_to_vision.y + m_adapter*av_to_adapter.y*av_to_adapter.y + m_gripper*av_to_gripper.y*av_to_gripper.y;
+    I[5](2, 2) += m_ee*delta_av.z*delta_av.z + m_vision*av_to_vision.z*av_to_vision.z + m_adapter*av_to_adapter.z*av_to_adapter.z + m_gripper*av_to_gripper.z*av_to_gripper.z;
+    I[5] += I_vision + I_adapter + I_gripper;
 
     // Modify payload
-    // todo: FIX Vec3 av_payload = {0.0f, 0.0f, -0.115f};
-    Vec3 av_payload = {0, 0, 0}; // temporary
+    Vec3 av_payload = {0.0f, 0.0f, 0.115f}; // todo: good ?
     av_payload += cg_payload;
 
     auto av_old = av[5];
@@ -160,7 +178,7 @@ inline void Link6::set_payload(const real m_payload, const Vec3 cg_payload, cons
     sv[2] = dv[2] - av[2];
     sv[3] = dv[3] - av[3];
     sv[4] = dv[4] - av[4];
-    sv[5] = dv[5] - av[5];
+    sv[5] = dv[5] + dv_tool - av[5];
 }
 
 inline void Link6::set_payload_without_gripper(const real m_payload, const Vec3 cg_payload, const Mat3 I_payload) {
@@ -194,7 +212,7 @@ inline void Link6::set_payload_without_gripper(const real m_payload, const Vec3 
     dv[2] = {0.0, -0.15216, -0.0917};       // 2 -> 3
     dv[3] = {0.0, -0.06296, -0.22275};      // 3 -> 4
     dv[4] = {0.08703, 0.0860, -0.07692};    // 4 -> 5
-    dv[5] = {0.0, 0.0, -0.920};             // 5 -> endeffector
+    dv[5] = {0.0, 0.0, -0.0920};             // 5 -> endeffector
 
     // unit joint direction
     ev[0] = {0, 0, 1};
@@ -243,13 +261,15 @@ inline void Link6::internal_constraints(const Trajectory& traj, real* dst) {
     for (u32 i = 0; i < points; i++) {
         // todo: self collisions
         auto p = traj.pos.col(i); Assert(p.is_alias);
-        // auto tmp_coll = internal_collisions(p);
-        // dst[0] = -tmp_coll[0]; // dist1sqr
-        // dst[1] = -tmp_coll[1]; // dist2sqr
-        // dst[2] = -tmp_coll[2]; // distTJ4
-        // dst[3] = -tmp_coll[3]; // distTJ6
-        // dst[4] = -tmp_coll[4]; // distTEE
-        // dst += 5;
+        auto tmp_coll = internal_collisions(p);
+        dst[0] = -tmp_coll[0]; // dist1
+        dst[1] = -tmp_coll[1]; // dist2
+        dst[2] = -tmp_coll[2]; // dist3
+        dst[3] = -tmp_coll[3]; // dist4
+        dst[4] = -tmp_coll[4]; // dist5
+        dst[5] = -tmp_coll[4]; // dist6
+        dst[6] = -tmp_coll[4]; // dist7
+        dst += 7;
 
         // 6 velocity limits
         for (int j = 0; j < (int)joints; j++)
@@ -287,7 +307,7 @@ inline bool Link6::validate_task(const Matrix &task) {
 }
 
 inline int Link6::ncon(int points) {
-    return (5 + 6 * 3) * points; // todo: self collisions 5 ?
+    return (7 + 6 * 3) * points;
 }
 
 
@@ -413,16 +433,15 @@ inline Array Link6::forward_kinematics(const Array &pos) {
                 + (Q *= Q3) * dv[2]
                 + (Q *= Q4) * dv[3]
                 + (Q *= Q5) * dv[4]
-                + (Q *= Q6) * dv[5]
+                + (Q *= Q6) * dv[5];
 
-                Array pose(6);
+    Array pose(6);
     pose[0] = p_ee.x;
     pose[1] = p_ee.y;
     pose[2] = p_ee.z;
-    // todo: Q(0, 0) and Q(2, 2) must not be zero!!
-    // pose[3] = atan2(Q(1, 0), Q(0, 0));
-    // pose[4] = atan2(-Q(2, 0), sqrt(Q(2, 1)*Q(2, 1) + Q(2, 2)*Q(2, 2)));
-    // pose[5] = atan2(Q(2, 1), Q(2, 2));
+    pose[3] = atan2(Q(2, 1), Q(2, 2)) + PI;
+    pose[4] = atan2(-Q(2, 0), sqrt(Q(2, 1)*Q(2, 1) + Q(2, 2)*Q(2, 2)));
+    pose[5] = atan2(Q(1, 0), Q(0, 0));
     return pose;
 }
 
@@ -462,6 +481,34 @@ inline Matrix Link6::forward_kinematics(const Matrix &pos) {
         poses(11, point) = Q[8];
     }
     return poses;
+}
+
+inline Array Link6::inverse_kinematics(const Array& pose, const Array& initial_joint_position) {
+
+    const double tolerance = 0.001; // Tolerance for convergence
+    const int max_iter = 100; // Maximum number of iterations
+
+    Array current_joint_angles = initial_joint_position;
+
+    // Iterate until convergence or maximum iterations reached
+    for (int iter = 0; iter < max_iter; ++iter) {
+        // Calculate the current end effector position using forward kinematics
+        Array current_pose = forward_kinematics(current_joint_angles);
+        Array delta_pose = pose - current_pose;
+
+        // Check if the end effector is close enough to the desired position
+        if (is_close(pose, current_pose, tolerance))
+            break;
+
+        // Calculate the Jacobian matrix
+        Matrix jacobian_matrix = jacobian(current_joint_angles);
+
+        Matrix jacobian_pinv = pinv(jacobian_matrix);
+
+        //current_joint_angles = current_joint_angles + jacobian_pinv * delta_pose;
+    }
+
+    return current_joint_angles;
 }
 
 inline Matrix Link6::jacobian(const Array &pos) {
@@ -556,83 +603,206 @@ inline Matrix Link6::jacobian(const Array &pos) {
 // collisions -------------------
 
 inline Array Link6::internal_collisions(const Array &joint_position) {
+    // Link6 : size 7x5
+    Matrix capsules = robot_capsules(joint_position); // Format : [p1x p1y p1z p2x p2y p2z r; ... (for each capsule)]
+
+    // shpere covering base link
+    sphere sph_base;
+    sph_base.c = p_base;
+    sph_base.r = 0.2375;
+
+    // capsule covering first link
+    capsule caps1;
+    caps1.p1 = {capsules(0, 0), capsules(1, 0), capsules(2, 0)};
+    caps1.p2 = {capsules(3, 0), capsules(4, 0), capsules(5, 0)};
+    caps1.r = capsules(6, 0);
+
+    // capsule covering second link
+    capsule caps2;
+    caps2.p1 = {capsules(0, 1), capsules(1, 1), capsules(2, 1)};
+    caps2.p2 = {capsules(3, 1), capsules(4, 1), capsules(5, 1)};
+    caps2.r = capsules(6, 1);
+
+    // capsule covering joint 5
+    capsule caps3;
+    caps3.p1 = {capsules(0, 2), capsules(1, 2), capsules(2, 2)};
+    caps3.p2 = {capsules(3, 2), capsules(4, 2), capsules(5, 2)};
+    caps3.r = capsules(6, 2);
+
+    // capsule covering last link
+    capsule caps4;
+    caps4.p1 = {capsules(0, 3), capsules(1, 3), capsules(2, 3)};
+    caps4.p2 = {capsules(3, 3), capsules(4, 3), capsules(5, 3)};
+    caps4.r = capsules(6, 3);
+
+    // capsule covering gripper & vision module
+    capsule caps5;
+    ccaps5.p1 = {capsules(0, 4), capsules(1, 4), capsules(2, 4)};
+    caps5.p2 = {capsules(3, 4), capsules(4, 4), capsules(5, 4)};
+    caps5.r = capsules(6, 4);
+
+    real dist1 = distmin(caps1, caps3);
+    real dist2 = distmin(caps1, caps4);
+    real dist3 = distmin(caps1, caps5);
+
+    real dist4 = distmin(caps2, sph_base);
+    real dist5 = distmin(caps3, sph_base);
+    real dist6 = distmin(caps4, sph_base);
+    real dist7 = distmin(caps5, sph_base);
+
+
+    // Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
+    // Array s(6);
+    // Array c(6);
+    // blast::sincos(joint_position, s, c);
+    // // note: these are stored column-wise
+    // Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
+    // Q2 = {c[1], 0, -s[1], -s[1], 0, -c[1], 0, 1, 0};
+    // Q3 = {c[2], -s[2], 0, -s[2], -c[2], 0, 0, 0, -1};
+    // Q4 = {c[3], 0, -s[3], -s[3], 0, -c[3], 0, 1, 0};
+    // Q5 = {c[4], 0, -s[4], -s[4], 0, -c[4], 0, 1, 0};
+    // Q6 = {0, s[5], c[5], 0, c[5], s[5], -1, 0, 0}; // todo: double check
+    // Vec3 p_orig(0, 0, 0);
+    // Vec3 p_j2;
+    // Vec3 p_j3;
+    // Vec3 p_j4;
+    // Vec3 p_j5;
+    // Vec3 p_j6;
+    // Vec3 p_ee;
+    // auto p_tmp = p_base;
+    // auto Q_tmp = Q1;
+    // p_tmp += Q_tmp * dv[0];
+    // p_j2 = p_tmp;
+    // p_tmp += (Q_tmp *= Q2) * dv[1];
+    // p_j3 = p_tmp;
+    // p_tmp += (Q_tmp *= Q3) * dv[2];
+    // p_j4 = p_tmp;
+    // p_tmp += (Q_tmp *= Q4) * dv[3];
+    // p_j5 = p_tmp;
+    // p_tmp += (Q_tmp *= Q5) * dv[4];
+    // p_j6 = p_tmp;
+    // p_tmp += (Q_tmp *= Q6) * dv[5];
+    // p_ee = p_tmp;
+    // const real r2sqr = 0.140 * 0.140; // size of capsule 2
+    // const real r3sqr = 0.100 * 0.100; // size of capsule 3
+
+
+    return {dist1, dist2, dist3, dist4, dist5, dist6, dist7};
+}
+
+inline Matrix Link6::robot_capsules(const Matrix& pos) {
+    Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
+
     Array s(6);
     Array c(6);
     blast::sincos(joint_position, s, c);
-    Mat3 Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
-    Mat3 Q2 = {c[1], 0, -s[1], -s[1], 0, -c[1], 0, 1, 0};
-    Mat3 Q3 = {c[2], -s[2], 0, -s[2], -c[2], 0, 0, 0, -1};
-    Mat3 Q4 = {c[3], 0, -s[3], -s[3], 0, -c[3], 0, 1, 0};
-    Mat3 Q5 = {c[4], 0, -s[4], -s[4], 0, -c[4], 0, 1, 0};
-    Mat3 Q6 = {0, s[5], c[5], 0, c[5], s[5], -1, 0, 0};
-    auto Q = Q1;
-    auto p_j2 = p_base + Q * dv[0];
-    auto p_j3 = p_j2 + (Q *= Q2) * dv[1];
-    auto p_j4 = p_j3 + (Q *= Q3) * dv[2];
-    auto p_j5 = p_j4 + (Q *= Q4) * dv[3];
-    auto p_j6 = p_j5 + (Q *= Q5) * dv[4];
-    auto p_ee = p_j6 + (Q *= Q6) * dv[5];
 
-    // todo: Adjust for self collisions
-    const real r1sqr = 0.0875 * 0.0875;
-    const real r2sqr = 0.0875 * 0.0875;
-    // Self collisions sqr
-    real dist1sqr = two_segment_distance_sqr({0, 0, 0}, p_j2, p_j6, p_ee) - r1sqr;
-    // todo: bad way to check a sphere
-    real dist2J2sqr = two_segment_distance_sqr(p_j2, p_j2, p_j6, p_ee) - r2sqr; // d^2 from j2 to J6-EE capsule
-    real dist2Msqr = two_segment_distance_sqr(p_j2, p_j3, p_j6, p_ee) - r1sqr;  // d^2 from j2-j3 capsule to j6-EE capsule
-    real dist2sqr = std::min(dist2J2sqr, dist2Msqr);
-    // Collision with table sqr
-    const real r4table = 0.05; // todo: validate dimensions
-    const real r6table = 0.04; // todo: validate dimensions
-    const Vec3 p_table(0, 0, -0.0025); // todo: Correct coords (z or y) ??
-    real distTJ4 = p_j4.z - p_table.z - r4table;
-    real distTJ6 = p_j6.z - p_table.z - r6table;
-    real distTEE = p_ee.z - p_table.z - r6table;
-    return {dist1sqr, dist2sqr, distTJ4, distTJ6, distTEE};
-}
+    // note: these are stored column-wise
+    Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
+    Q2 = {c[1], 0, -s[1], -s[1], 0, -c[1], 0, 1, 0};
+    Q3 = {c[2], -s[2], 0, -s[2], -c[2], 0, 0, 0, -1};
+    Q4 = {c[3], 0, -s[3], -s[3], 0, -c[3], 0, 1, 0};
+    Q5 = {c[4], 0, -s[4], -s[4], 0, -c[4], 0, 1, 0};
+    Q6 = {0, s[5], c[5], 0, c[5], s[5], -1, 0, 0}; // todo: double check
 
-inline Matrix Link6::robot_capsules(const Matrix& pos, int n_skip) {
-    const int points = pos.cols;
-    Matrix result_capsules(12, points/n_skip);
-    Mat3 Q, Q1, Q2, Q3, Q4, Q5, Q6;
-    Vec3 p_j2, p_j3, p_j4, p_j5, p_j6, p_ee;
     Vec3 p_orig(0, 0, 0);
-    Array s(6);
-    Array c(6);
-    for (int i = 0; i < points; i += n_skip) {
-        blast::sincos(pos.col(i), s, c);
+    Vec3 p_j2;
+    Vec3 p_j3;
+    Vec3 p_j4;
+    Vec3 p_j5;
+    Vec3 p_j6;
+    Vec3 p_ee;
 
-        Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
-        Q2 = {c[1], 0, -s[1], -s[1], 0, -c[1], 0, 1, 0};
-        Q3 = {c[2], -s[2], 0, -s[2], -c[2], 0, 0, 0, -1};
-        Q4 = {c[3], 0, -s[3], -s[3], 0, -c[3], 0, 1, 0};
-        Q5 = {c[4], 0, -s[4], -s[4], 0, -c[4], 0, 1, 0};
-        Q6 = {0, s[5], c[5], 0, c[5], s[5], -1, 0, 0};
+    Vec3 z2;
+    Vec3 z3;
+    Vec3 z4;
+    Vec3 z5;
+    Vec3 z6;
+    Vec3 zee;
 
-        // todo: Adjust for self collisions
-        Q = Q1;
-        p_j2 = p_base + Q * dv[0];
-        p_j3 = p_j2 + (Q *= Q2) * dv[1];
-        p_j4 = p_j3 + (Q *= Q3) * dv[2];
-        p_j5 = p_j4 + (Q *= Q4) * dv[3];
-        p_j6 = p_j5 + (Q *= Q5) * dv[4];
-        p_ee = p_j6 + (Q *= Q6) * dv[5];
+    auto p_tmp = p_base;
+    auto Q_tmp = Q1;
+    p_tmp += Q_tmp * dv[0];
+    p_j2 = p_tmp;
+    z2 = { Q_tmp[6], Q_tmp[7], Q_tmp[8] };
+    p_tmp += (Q_tmp *= Q2) * dv[1];
+    p_j3 = p_tmp;
+    z3 = { Q_tmp[6], Q_tmp[7], Q_tmp[8] };
+    p_tmp += (Q_tmp *= Q3) * dv[2];
+    // p_j4 = p_tmp;
+    z4 = { Q_tmp[6], Q_tmp[7], Q_tmp[8] };
+    p_tmp += (Q_tmp *= Q4) * dv[3];
+    p_j5 = p_tmp;
+    z5 = { Q_tmp[6], Q_tmp[7], Q_tmp[8] };
+    p_tmp += (Q_tmp *= Q5) * dv[4];
+    p_j6 = p_tmp;
+    z6 = { Q_tmp[6], Q_tmp[7], Q_tmp[8] };
+    p_tmp += (Q_tmp *= Q6) * dv[5];
+    zee = { Q_tmp[6], Q_tmp[7], Q_tmp[8] };
+    yee = { Q_tmp[3], Q_tmp[4], Q_tmp[5] };
+    p_ee = p_tmp;
 
-        result_capsules(0, i) = p_j2.x;
-        result_capsules(1, i) = p_j2.y;
-        result_capsules(2, i) = p_j2.z;
-        result_capsules(3, i) = p_j4.x;
-        result_capsules(4, i) = p_j4.y;
-        result_capsules(5, i) = p_j4.z;
-        result_capsules(6, i) = p_j6.x;
-        result_capsules(7, i) = p_j6.y;
-        result_capsules(8, i) = p_j6.z;
-        result_capsules(9, i) = p_ee.x;
-        result_capsules(10, i) = p_ee.y;
-        result_capsules(11, i) = p_ee.z;
-    }
-    return result_capsules;
+    Matrix capsules(7, 5);
+
+    Vec3 p1;
+    Vec3 p2;
+
+    // Capsule 1
+    p1 = p_j2 - 0.02218*z2 + 0.00010104*(p_j3-p_j2);
+    p2 = p1 + 0.8845*(p_j3-p_j2);
+    capsules(0, 0) = p1.x;
+    capsules(1, 0) = p1.y;
+    capsules(2, 0) = p1.z;
+    capsules(3, 0) = p2.x;
+    capsules(4, 0) = p2.y;
+    capsules(5, 0) = p2.z;
+    capsules(6, 0) = 0.110; // radius
+
+    // Capsule 2
+    p1 = p_j2 - 0.11388*z3;
+    p2 = p1 - 0.375*z4;
+    capsules(0, 1) = p1.x;
+    capsules(1, 1) = p1.y;
+    capsules(2, 1) = p1.z;
+    capsules(3, 1) = p2.x;
+    capsules(4, 1) = p2.y;
+    capsules(5, 1) = p2.z;
+    capsules(6, 1) = 0.061; // radius
+
+    // Capsule 3
+    p1 = p_j5;
+    p2 = p1 - 0.08*z5;
+    capsules(0, 2) = p1.x;
+    capsules(1, 2) = p1.y;
+    capsules(2, 2) = p1.z;
+    capsules(3, 2) = p2.x;
+    capsules(4, 2) = p2.y;
+    capsules(5, 2) = p2.z;
+    capsules(6, 2) = 0.060; // radius
+
+    // Capsule 4
+    p1 = p_j6 + 0.08583*z6;
+    p2 = p1 - 0.15*z6;
+    capsules(0, 3) = p1.x;
+    capsules(1, 3) = p1.y;
+    capsules(2, 3) = p1.z;
+    capsules(3, 3) = p2.x;
+    capsules(4, 3) = p2.y;
+    capsules(5, 3) = p2.z;
+    capsules(6, 3) = 0.060; // radius
+
+    // Capsule 5
+    p1 = p_ee - 0.01289*zee - 0.2125*yee;
+    p2 = p1 - 0.150*zee;
+    capsules(0, 3) = p1.x;
+    capsules(1, 3) = p1.y;
+    capsules(2, 3) = p1.z;
+    capsules(3, 3) = p2.x;
+    capsules(4, 3) = p2.y;
+    capsules(5, 3) = p2.z;
+    capsules(6, 3) = 0.085; // radius
+
+    return capsules;
 }
 
 
