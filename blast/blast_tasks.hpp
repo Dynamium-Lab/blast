@@ -1,5 +1,6 @@
 #pragma once
 #include <iostream>
+#include "blast_error.hpp"
 #include "manipulators/kinova_link6.h"
 #include "blast_math.hpp"
 namespace blast {
@@ -70,9 +71,10 @@ std::list<Manipulator_state> pick_and_place(Link6 &manip, const Manipulator_stat
 
     for (int i = 0; i < N_objects; i++) {
         // Joint positions
-        Array current_obj = Obj_list.col(i);
+        auto current_obj = Obj_list.col(i);
         int drop_box_id = current_obj.back();
-        current_obj.back() = [];    // Destroy last element
+        current_obj.size--;
+        // current_obj.back() = [];    // Destroy last element
 
         joint_pos2 = manip.inverse_kinematics(current_obj);
         joint_pos1 = manip.inverse_kinematics(current_obj + h, joint_pos2);

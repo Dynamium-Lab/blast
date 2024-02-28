@@ -578,10 +578,10 @@ host_fn Array random_array(u32 n, real A) {
 host_fn Array concatenate_arrays(const Array& A, const Array& B) {
     const int n = A.size + B.size;
     Array result(n);
-    for (int i = 0; i < A.size; i++) 
-            result[i] = A[i];
-    for (int i = 0; i < B.size; i++) 
-            result[i + A.size] = B[i];
+    for (int i = 0; i < A.size; i++)
+        result[i] = A[i];
+    for (int i = 0; i < B.size; i++)
+        result[i + A.size] = B[i];
     return result;
 }
 
