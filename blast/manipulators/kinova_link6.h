@@ -13,6 +13,10 @@ namespace blast {
         - Adjust av_payload
     - in validate_task;
         - Test that no external objects are inside base shpere
+    - in forward_kinematics:
+        - Validate pose
+    - in inverse_kinematics:
+        - test pinv vs pinv_svd
     - in robot_capsule:
         - Create struct for Link6 capsules + sphere
 
@@ -61,8 +65,8 @@ struct Link6 {
     Matrix  jacobian(const Array &joint_position);
 
     // collisions
-    Matrix  robot_capsules(const Matrix& pos);
     Array   internal_collisions(const Array &joint_position);
+    Matrix  robot_capsules(const Array &joint_position);
 };
 
 
@@ -637,7 +641,7 @@ inline Array Link6::internal_collisions(const Array &joint_position) {
 
     // capsule covering gripper & vision module
     capsule caps5;
-    ccaps5.p1 = {capsules(0, 4), capsules(1, 4), capsules(2, 4)};
+    caps5.p1 = {capsules(0, 4), capsules(1, 4), capsules(2, 4)};
     caps5.p2 = {capsules(3, 4), capsules(4, 4), capsules(5, 4)};
     caps5.r = capsules(6, 4);
 
@@ -690,7 +694,7 @@ inline Array Link6::internal_collisions(const Array &joint_position) {
     return {dist1, dist2, dist3, dist4, dist5, dist6, dist7};
 }
 
-inline Matrix Link6::robot_capsules(const Matrix& pos) {
+inline Matrix Link6::robot_capsules(const Array &joint_position) {
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
 
     Array s(6);
@@ -719,27 +723,28 @@ inline Matrix Link6::robot_capsules(const Matrix& pos) {
     Vec3 z5;
     Vec3 z6;
     Vec3 zee;
+    Vec3 yee;
 
     auto p_tmp = p_base;
     auto Q_tmp = Q1;
     p_tmp += Q_tmp * dv[0];
     p_j2 = p_tmp;
-    z2 = { Q_tmp[6], Q_tmp[7], Q_tmp[8] };
+    z2 = Q_tmp.col(2);
     p_tmp += (Q_tmp *= Q2) * dv[1];
     p_j3 = p_tmp;
-    z3 = { Q_tmp[6], Q_tmp[7], Q_tmp[8] };
+    z3 = Q_tmp.col(2);
     p_tmp += (Q_tmp *= Q3) * dv[2];
     // p_j4 = p_tmp;
-    z4 = { Q_tmp[6], Q_tmp[7], Q_tmp[8] };
+    z4 = Q_tmp.col(2);
     p_tmp += (Q_tmp *= Q4) * dv[3];
     p_j5 = p_tmp;
-    z5 = { Q_tmp[6], Q_tmp[7], Q_tmp[8] };
+    z5 = Q_tmp.col(2);
     p_tmp += (Q_tmp *= Q5) * dv[4];
     p_j6 = p_tmp;
-    z6 = { Q_tmp[6], Q_tmp[7], Q_tmp[8] };
+    z6 = Q_tmp.col(2);
     p_tmp += (Q_tmp *= Q6) * dv[5];
-    zee = { Q_tmp[6], Q_tmp[7], Q_tmp[8] };
-    yee = { Q_tmp[3], Q_tmp[4], Q_tmp[5] };
+    zee = Q_tmp.col(2);
+    yee = Q_tmp.col(1);
     p_ee = p_tmp;
 
     Matrix capsules(7, 5);
