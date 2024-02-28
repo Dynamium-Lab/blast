@@ -71,7 +71,7 @@ inline void Gen3::set_payload(const real m_payload, const Vec3 cg_payload, const
     m[3] = 0.93f;
     m[4] = 0.678f;
     m[5] = 0.678f;
-    m[6] = 0.364f + 0.921f;
+    m[6] = 0.364f;
 
     I[0] = {0.004570f, 0.000001f, 0.000002f, 0.000001f, 0.004831f, 0.000448f, 0.000002f, 0.000448f, 0.001409f};
     I[1] = {0.011088f, 0.000005f, 0.000000f, 0.000005f, 0.001072f, 0.000691f, 0.000000f, 0.000691f, 0.011255f};
@@ -112,7 +112,7 @@ inline void Gen3::set_payload(const real m_payload, const Vec3 cg_payload, const
 
 
     // Adjust end effector link with payload
-    m[6] = 0.364f + 0.921f;
+    m[6] += 0.921f;
     av[6] = {-0.000093f, 0.000132f, -0.022905f};
     Vec3 av_tool(0, 0, -0.06f - 0.0615f);
     av[6] = (0.364f * av[6] + 0.921f * av_tool) * (1 / (0.364f + 0.921f));
