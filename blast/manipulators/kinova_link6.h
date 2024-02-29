@@ -694,6 +694,7 @@ inline Array Link6::internal_collisions(const Array &joint_position) {
     return {dist1, dist2, dist3, dist4, dist5, dist6, dist7};
 }
 
+// Returns matrix size 7 x 5 (p1x p1y p1z p2x p2y p2z r) for five capsules
 inline Matrix Link6::robot_capsules(const Array &joint_position) {
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
 
