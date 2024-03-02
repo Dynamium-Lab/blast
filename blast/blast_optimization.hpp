@@ -272,6 +272,62 @@ host_fn Array guess_shot_mean(Gen3_7DOF& manip, Bspline& bspline, Matrix& task, 
     return best_x;
 }
 
+host_fn Array guess_shot_mean_collisions(Optimisation& opt, int nshotgun) {
+    Gen3_7DOF* manip = (Gen3_7DOF*) opt.manip;
+    auto bspline = opt.bspline;
+    auto task = opt.task;
+    auto world = opt.world;
+
+    Array best_x(bspline->xlen(*task));
+    real best_val = INF_REAL;
+    for (int i = 0; i < nshotgun; i++) {
+        auto x = guess_random(*manip, *bspline, *task);
+        bspline->compute_trajectory(x, *task);
+        auto c1 = manip->constraints(bspline->traj);
+
+        Matrix caps_matrix = manip->robot_capsules(bspline->traj.pos, 2);
+        const int caps_size = caps_matrix.cols;
+        Array c2(opt.n_collision_constraints);
+
+        capslist capsules;
+        capsules.caps.resize(caps_size * 3); // 3 capsules for each point along the trajectory
+        real radius = 0.055; // Hard coded radius of all robot capsules
+        for (int i = 0; i < caps_size; i++) {
+            auto caps_tmp = caps_matrix.col(i);
+
+            Vec3 p_j2 = {caps_tmp[0], caps_tmp[1], caps_tmp[2]};
+            Vec3 p_j4 = {caps_tmp[3], caps_tmp[4], caps_tmp[5]};
+            Vec3 p_j6 = {caps_tmp[6], caps_tmp[7], caps_tmp[8]};
+            Vec3 p_ee = {caps_tmp[9], caps_tmp[10], caps_tmp[11]};
+
+            capsules.caps[i*3].p1 = p_j2;
+            capsules.caps[i*3].p2 = p_j4;
+            capsules.caps[i*3].r = radius;
+            capsules.caps[i*3 + 1].p1 = p_j4;
+            capsules.caps[i*3 + 1].p2 = p_j6;
+            capsules.caps[i*3 + 1].r = radius;
+            capsules.caps[i*3 + 2].p1 = p_j6;
+            capsules.caps[i*3 + 2].p2 = p_ee;
+            capsules.caps[i*3 + 2].r = radius;
+        }
+        std::vector<real> collisions = test_collision(&capsules, world, opt.n_collision_constraints);
+        for (int i = 0; i < opt.n_collision_constraints; i ++) {
+            c2[i] = -collisions[i];
+        }
+        real r = 0;
+        for (u32 i = 0; i < c1.size; i++)
+            r += c1[i] > 0 ? c1[i] : 0;
+        for (u32 i = 0; i < c2.size; i++)
+            r += c2[i] > 0 ? c2[i] : 0;
+        Assert( ! isnan(r));
+        if (r < best_val) {
+            best_x = x;
+            best_val = r;
+        }
+    }
+    return best_x;
+}
+
 } // namespace blast
 
 #ifdef BLAST_ENABLE_TESTS
