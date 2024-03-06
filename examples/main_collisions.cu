@@ -108,7 +108,6 @@ int main() {
         const u32 p = config.p;
         const u32 noptim = config.noptim;
         std::vector<Result> tmp_result_list(noptim);
-
         Gen3_7DOF manip;
         manip.set_payload_without_gripper(config.m);
         Bspline bspline(nctrl, npts, p, manip.joints);
@@ -116,6 +115,7 @@ int main() {
         Gen3_7DOF manip_more_points;
         manip_more_points.set_payload_without_gripper(config.m);
         Bspline bspline_more_points(nctrl, 10000, p, manip_more_points.joints);
+
 
         // prep optimization
         Optimisation optim{&manip, &config.task, &bspline, &world};
@@ -127,7 +127,9 @@ int main() {
         // nlopt_opt o = nlopt_create(nlopt_algorithm::NLOPT_LN_COBYLA, xlen);
         nlopt_opt o = nlopt_create(nlopt_algorithm::NLOPT_LD_SLSQP, xlen);
         nlopt_result result;
-        result = nlopt_add_inequality_mconstraint(o, ncon, cstr_world_gen3, &optim, con_tol.data);
+        //result = nlopt_add_inequality_mconstraint(o, ncon, cstr_world_gen3, &optim, con_tol.data);
+        result = nlopt_add_inequality_mconstraint(o, ncon, cstr_world_gen3_pso, &optim, con_tol.data);
+
         Assert(result == NLOPT_SUCCESS);
         result = nlopt_set_min_objective(o, obj_time, &optim);
         Assert(result == NLOPT_SUCCESS);
@@ -162,6 +164,7 @@ int main() {
             bspline.compute_trajectory(x, config.task);
             Array const_result(ncon);
             cstr_world_gen3(ncon, const_result.data, xlen, x.data, NULL, &optim);
+
             auto max_con = array_max(const_result);
             bool is_valid = max_con < 0.01;
 
