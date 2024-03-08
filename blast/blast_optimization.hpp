@@ -143,119 +143,174 @@ host_fn void cstr_manip(unsigned m, double *result, unsigned xlen, const double*
 host_fn void cstr_manip_acc(unsigned m, double *result, unsigned xlen, const double* x, double* grad, void* f_data) {
     Optimisation* opt = (Optimisation*)f_data;
 
+    // todo: modify constraint to get acceleration
     internal_cstr_manip_single(m, result, xlen, x, opt);
     
     if (grad) {
-        const real eps = 1e-5;
+        // note: Torque constraints are not in this gradient. It is the acceleration constraints instead
+        // todo: add n_selfcol_cstr, n_pos_cstr
         Array x_plus(xlen);
+        for (int i = 0; i < xlen; i++) {
+            x_plus[i] = x[i];
+        }
         Array r_plus(m);
-        const int n_points = opt->bspline->points;
-        const int n_joints = opt->manip->joints; 
+        const real eps = 1e-5;
+        const int n_selfcol_cstr = 2;
         const int n_pos_cstr = 2;
-        int pos_cstr_on[n_pos_cstr];
-        pos_cstr_on[0] = 2;
-        pos_cstr_on[1] = 4;
 
-        // Computing the boundaries where the control points affect the constraints
-        // int n_step = opt->bspline->nctrl - 2;
-        // real step_u = 1 / (n_step);
-        // real current_step = 0;
-        // int low_bound = 0;
-        // int high_bound = step_u;
+        const int p = opt->bspline->p;
+        const int n_points = opt->bspline->points;
+        const int n_joints = opt->manip->joints;
+        const int n_ctrl = opt->bspline->nctrl;
+        const int n_ctrl_set = (n_ctrl - 1)/n_joints;
+
         const real T = x[xlen-1];
         const real dt = T / (n_points - 1);
         const real one_over_T = 1 / T;
         const real one_over_T2 = one_over_T * one_over_T;
 
-        const int n_cstr_pt = (m - opt->n_collision_constraints) / opt->bspline->points;
-        
-        // -1 being null
-        int active_pts[5]; // Size 5 because 5th order B-spline
-        active_pts[0] = -1;
-        active_pts[1] = -1;
-        active_pts[2] = 0;
-        active_pts[3] = 1;
-        active_pts[4] = 2;
+        const int n_constr_1pt = n_selfcol_cstr + n_pos_cstr + n_joints*2;
 
+        // int pos_cstr_on[n_pos_cstr];
+        // pos_cstr_on[0] = 2;
+        // pos_cstr_on[1] = 4;
+        
         // Intialize gradient to zeros
         for (int i = 0; i < xlen*m; i++)
             grad[i] = 0;
 
-        for (int i = 0; i < n_cstr_pt; i++) { // For every constraint group
-            for (int j = 0; j < 5; j++) { // For every active point
-                if (active_pts[j] >= 0) { // Active point is not null
-                    // todo: Check [] arguments again, very unsure
+        // Working from a set of "active points", we will identify which part of the trajectory each
+        // control point has an effect on. These will then be computed, before going to the next constraint
+        // set. Each constraint set (one for every Bspline point) has n_constr_1pt constraints.
+        //
+        // A control point has effect on todo: determine constraint sets
+        // -1 being null
+        // int active_pts[p-2]; // Size 5 because 5th order B-spline
+        // active_pts[0] = -1;
+        // active_pts[1] = -1;
+        // for (int i = 2; i < p-2; i++) {
+        //     active_pts[i] = active_pts[i-1];
+        // }
+
+        // Computing the boundaries where the control points affect the constraints
+        int n_step = opt->bspline->nctrl - 2; //todo: confirm -2 (for the first two)
+        real step = n_points / (n_step);
+        real current_step = 0;
+        int low_bound = 0;
+        int high_bound = step;
+        
+        // todo: adapt function for first and last points (when there are less than X points)
+        for (int ctrl_set; ctrl_set < n_ctrl_set; ctrl_set++) {
+            for (int joint = 0; joint < n_joints; joint++) {
+
+                // Collision constraints (finite difference)
+                // todo: fix this
+                int current_cstr_set = (ctrl_set*n_joints + joint)*m;
+                x_plus[ctrl_set*n_joints + joint] += eps;
+                Array p = pos.col(i); Assert(p.is_alias);
+                auto tmp_coll = collision_check(p);
+                for (; cstr < n_selfcol_cstr; cstr++) {
+                    grad[current_cstr_set + cstr] = -tmp_coll[cstr];
+                }
+
+                for (int bspline_pt = low_bound; bspline_pt < high_bound; bspline_pt++) {
+                    // Setting variables
+                    int current_cstr_set = (ctrl_set*n_joints + joint)*m + bspline_pt*n_constr_1pt;
+                    int past_cstr = 0;
+                    int cstr = n_selfcol_cstr;
+                    
                     // Position constraints (Analytical solution)
-                    for (int k = 0; k < n_pos_cstr; k++) {
-                        if (active_pts[j] == pos_cstr_on[k]) {
-                            grad[active_pts[j]*n_joints*m + k*m + i*n_points] = sign(result[i*n_points]) * opt->bspline->basis_p(active_pts[j], i);
-                            break;
-                        }
+                    past_cstr += n_selfcol_cstr;
+                    for (; cstr < past_cstr + n_pos_cstr; cstr++) {
+                        grad[current_cstr_set + cstr] = sign(result[bspline_pt*n_constr_1pt + cstr]) * opt->bspline->basis_p(joint, bspline_pt);
                     }
+                    past_cstr += n_pos_cstr;
                     // Velocity constraints (Analytical solution)
-                    for (int k = 0; k < n_joints; k++) { 
-                        for (int l = 0; l < n_joints; l++) {
-                            grad[active_pts[j]*n_joints*m + k*m + i*n_points + n_pos_cstr + l] = sign(result[i*n_points + l]) * opt->bspline->basis_v(active_pts[j], i) * one_over_T;
-                        }
+                    for (; cstr < past_cstr + n_joints; cstr++) { 
+                        grad[current_cstr_set + cstr] = sign(result[bspline_pt*n_constr_1pt + cstr]) * opt->bspline->basis_v(joint, bspline_pt) * one_over_T;
                     }
-                    // // Acceleration constraints (Analytical solution) - no constraints for Gen3 7DOF
-                    // for (int k = low_bound + 2*n_joints; k < low_bound + 3*n_joints; k++) { 
-                    //     grad[active_pts[j]*n_joints*m + k*m + i*n_points] = sign(result[q]) * opt->bspline->basis_a(q, q) * 1_over_T_sq;
-                    // }
+                    past_cstr += n_joints;
+                    // Acceleration constraints (Analytical solution)
+                    for (; cstr < past_cstr + n_joints; cstr++) { 
+                        grad[current_cstr_set + cstr] = sign(result[bspline_pt*n_constr_1pt + cstr]) * opt->bspline->basis_a(joint, bspline_pt) * 1_over_T_sq;
+                    }
                 }
             }
-            active_pts[0] = active_pts[1];
-            active_pts[1] = active_pts[2];
-            active_pts[2] = active_pts[3];
-            active_pts[3] = active_pts[4];
-            // For the two last iterations, we add -1 in the bottom
-            active_pts[4] = (i >= n_cstr_pt - 3) ? -1 : active_pts[4] + 1;
+            low_bound = high_bound;
+            high_bound = high_bound + step;
         }
+       // todo: Add world collisions here
         
+        // for (int i = 0; i < n_points; i++) { // For every constraint group
+        //     for (int j = 0; j < 5; j++) { // For every active point
+        //         if (active_pts[j] >= 0) { // Active point is not null
+        //             // todo: Check [] arguments again, very unsure
+        //             // Position constraints (Analytical solution)
+        //             for (int k = 0; k < n_pos_cstr; k++) {
+        //                 if (active_pts[j] == pos_cstr_on[k]) {
+        //                     grad[active_pts[j]*n_joints*m + k*m + i*n_points] = sign(result[i*n_points]) * opt->bspline->basis_p(active_pts[j], i);
+        //                     break;
+        //                 }
+        //             }
+        //             // Velocity constraints (Analytical solution)
+        //             for (int k = 0; k < n_joints; k++) { 
+        //                 for (int l = 0; l < n_joints; l++) {
+        //                     grad[active_pts[j]*n_joints*m + k*m + i*n_points + n_pos_cstr + l] = sign(result[i*n_points + l]) * opt->bspline->basis_v(active_pts[j], i) * one_over_T;
+        //                 }
+        //             }
+        //             // // Acceleration constraints (Analytical solution) - no constraints for Gen3 7DOF
+        //             // for (int k = low_bound + 2*n_joints; k < low_bound + 3*n_joints; k++) { 
+        //             //     grad[active_pts[j]*n_joints*m + k*m + i*n_points] = sign(result[q]) * opt->bspline->basis_a(q, q) * 1_over_T_sq;
+        //             // }
+        //         }
+        //     }
+        //     active_pts[0] = active_pts[1];
+        //     active_pts[1] = active_pts[2];
+        //     active_pts[2] = active_pts[3];
+        //     active_pts[3] = active_pts[4];
+        //     // For the two last iterations, we add -1 in the bottom
+        //     active_pts[4] = (i >= n_cstr_pt - 3) ? -1 : active_pts[4] + 1;
+        // }
         // Finite difference has a similar format but activates constraints instead of points.
         // -1 being null
-        active_pts[0] = -1;
-        active_pts[1] = -1;
-        active_pts[2] = 0;
-        active_pts[3] = 1;
-        active_pts[4] = 2;
-
-        
-        for (int i = 0; i < opt->bspline->nctrl; i++) { // For every control point
-            for (u32 j = 0; j < n_joints; j++) { // For every joint within this control point
-                memcpy(x_plus.data, x, xlen * sizeof(real));
-                x_plus[i*n_joints + j] += eps;
-                for (int k = 0; k < 5; k++) { // For every active constraint set at this particular control point
-                    if (active_pts[k] >= 0) {
-                        p_tmp[k] = compute_trajectory(x_plus, task);
-                    }
-                }
-                dynamics(p_tmp, v_tmp, acc_tmp);
-                for (int k = 0; k < 5; k++) { // For every active constraint set at this particular control point
-                    if (active_pts[k] >= 0) {
-                        // memcpy(x_plus.data, x, xlen * sizeof(real));
-                        // x_plus[i*n_joints + j] += eps;
-                        // Torque constraints
-                        grad[i*n_joints*xlen + j*xlen + n_pos_cstr + n_joints + active_pts[k]*n_cstr_pt + k] = (r_plus[active_pts[k]*n_cstr_pt + n_pos_cstr + n_joints + k]-result[active_pts[k]*n_cstr_pt + n_pos_cstr + n_joints + k])/eps;
-                        // Self-collision constraints
-                        grad[i*n_joints*xlen + j*xlen + n_pos_cstr + 2*n_joints + active_pts[k]*n_cstr_pt + k] = (r_plus[active_pts[k]*n_cstr_pt + n_pos_cstr + 2*n_joints + k]-result[active_pts[k]*n_cstr_pt + n_pos_cstr + 2*n_joints + k])/eps;             
-                    }
-                }
-                
-                // World collision constraints
-                grad[i*n_joints*xlen + j*xlen + (xlen - k - 1)] = (r_plus[xlen - k - 1]-result[xlen - k - 1])/eps;
-                        
-            }
-
-            active_pts[0] = active_pts[1];
-            active_pts[1] = active_pts[2];
-            active_pts[2] = active_pts[3];
-            active_pts[3] = active_pts[4];
-            // For the two last iterations, we add -1 in the bottom
-            active_pts[4] = (i >= n_cstr_pt - 3) ? -1 : active_pts[4] + 1;
-        }
+        // active_pts[0] = -1;
+        // active_pts[1] = -1;
+        // active_pts[2] = 0;
+        // active_pts[3] = 1;
+        // active_pts[4] = 2;
+        // for (int i = 0; i < opt->bspline->nctrl; i++) { // For every control point
+        //     for (u32 j = 0; j < n_joints; j++) { // For every joint within this control point
+        //         memcpy(x_plus.data, x, xlen * sizeof(real));
+        //         x_plus[i*n_joints + j] += eps;
+        //         for (int k = 0; k < 5; k++) { // For every active constraint set at this particular control point
+        //             if (active_pts[k] >= 0) {
+        //                 p_tmp[k] = compute_trajectory(x_plus, task);
+        //             }
+        //         }
+        //         dynamics(p_tmp, v_tmp, acc_tmp);
+        //         for (int k = 0; k < 5; k++) { // For every active constraint set at this particular control point
+        //             if (active_pts[k] >= 0) {
+        //                 // memcpy(x_plus.data, x, xlen * sizeof(real));
+        //                 // x_plus[i*n_joints + j] += eps;
+        //                 // Torque constraints
+        //                 grad[i*n_joints*xlen + j*xlen + n_pos_cstr + n_joints + active_pts[k]*n_cstr_pt + k] = (r_plus[active_pts[k]*n_cstr_pt + n_pos_cstr + n_joints + k]-result[active_pts[k]*n_cstr_pt + n_pos_cstr + n_joints + k])/eps;
+        //                 // Self-collision constraints
+        //                 grad[i*n_joints*xlen + j*xlen + n_pos_cstr + 2*n_joints + active_pts[k]*n_cstr_pt + k] = (r_plus[active_pts[k]*n_cstr_pt + n_pos_cstr + 2*n_joints + k]-result[active_pts[k]*n_cstr_pt + n_pos_cstr + 2*n_joints + k])/eps;             
+        //             }
+        //         }
+        //         // World collision constraints
+        //         grad[i*n_joints*xlen + j*xlen + (xlen - k - 1)] = (r_plus[xlen - k - 1]-result[xlen - k - 1])/eps;     
+        //     }
+        //     active_pts[0] = active_pts[1];
+        //     active_pts[1] = active_pts[2];
+        //     active_pts[2] = active_pts[3];
+        //     active_pts[3] = active_pts[4];
+        //     // For the two last iterations, we add -1 in the bottom
+        //     active_pts[4] = (i >= n_cstr_pt - 3) ? -1 : active_pts[4] + 1;
+        // }
         // todo: world collision constraints
         // todo: Compute constraints for T
+    }
 }
 
 host_fn void cstr_world_link6(unsigned m, double *result, unsigned xlen, const double* x, double* grad, void* f_data) {
