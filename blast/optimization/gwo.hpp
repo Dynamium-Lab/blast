@@ -7,7 +7,7 @@ struct Wolf  {
     blast::Array x;
 };
 
-real gwo_optimize(Array& x, Optimisation& optim) {
+blast_fn real gwo_optimize(Array& x, Optimisation& optim) {
     Assert(x.size == optim.bspline->xlen(*optim.task));
     const auto N_Dimensions = x.size;
     // Initialization of GWO parameters
