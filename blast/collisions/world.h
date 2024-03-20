@@ -1076,7 +1076,7 @@ host_fn std::vector<real> test_collision(capslist* caps_list, objlist* world, in
     for (int c = 0; c < caps_list->caps.size(); c++) {
         // OBB collisions
         for (int i = 0; i < world->OBBlist.size(); i++) {
-            dist = distmin_vec(world->OBBlist[i], caps_list->caps[c]);
+            dist = distmin_vec_acc(world->OBBlist[i], caps_list->caps[c]);
             for (int j = 0; j < n_var; j++) {
                 if (dist < dist_min[j]) {
                     for (int k = n_var - 1; k > j; k--) {
@@ -1160,6 +1160,8 @@ host_fn std::vector<real> test_collision(capslist* caps_list, objlist* world, in
     // }
     return dist_min;
 }
+
+
 
 // ======================================
 //            GJK algorithm
@@ -1692,6 +1694,98 @@ host_fn real GJK_OBB_caps(capsule caps, OBB box) {
 
     real dist = general_GJK(v1, v2) - caps.r;
     return dist;
+}
+
+host_fn std::vector<real> test_collision_GJK(capslist* caps_list, objlist* world, int n_var) {
+    std::vector<real> dist_min(n_var, INF_REAL);
+    real dist;
+
+    for (int c = 0; c < caps_list->caps.size(); c++) {
+        // OBB collisions
+        for (int i = 0; i < world->OBBlist.size(); i++) {
+            dist = GJK_OBB_caps(caps_list->caps[c], world->OBBlist[i]);
+            for (int j = 0; j < n_var; j++) {
+                if (dist < dist_min[j]) {
+                    for (int k = n_var - 1; k > j; k--) {
+                        dist_min[k] = dist_min[k-1];
+                    }
+                    dist_min[j] = dist;
+                    break;
+                }
+            }
+        }
+
+        // Capsule collisions
+        for (int i = 0; i < world->capslist.size(); i++) {
+            dist = distmin(caps_list->caps[c], world->capslist[i]);
+            for (int j = 0; j < n_var; j++) {
+                if (dist < dist_min[j]) {
+                    for (int k = n_var - 1; k > j; k--) {
+                        dist_min[k] = dist_min[k-1];
+                    }
+                    dist_min[j] = dist;
+                    break;
+                }
+            }
+        }
+
+        // Cylinder collisions
+        for (int i = 0; i < world->cyllist.size(); i++) {
+            dist = distmin(caps_list->caps[c], world->cyllist[i]);
+            for (int j = 0; j < n_var; j++) {
+                if (dist < dist_min[j]) {
+                    for (int k = n_var - 1; k > j; k--) {
+                        dist_min[k] = dist_min[k-1];
+                    }
+                    dist_min[j] = dist;
+                    break;
+                }
+            }
+        }
+
+        // Sphere collisions
+        for (int i = 0; i < world->sphlist.size(); i++) {
+            dist = distmin(caps_list->caps[c], world->sphlist[i]);
+            for (int j = 0; j < n_var; j++) {
+                if (dist < dist_min[j]) {
+                    for (int k = n_var - 1; k > j; k--) {
+                        dist_min[k] = dist_min[k-1];
+                    }
+                    dist_min[j] = dist;
+                    break;
+                }
+            }
+        }
+    }
+
+    // // Self-collision
+    // // note : this does not take into account the collision between two subsequent links of a robot,
+    // // which means that angle constraints must be put on the articulations.
+    // real n_pts = size(robot.pts);
+    // real n_link = n_pts - 1;
+    // capsule link[n_link];
+
+    // for (int i = 0; i < n_link; i++) {
+    //     link[i].p1 = robot.pts[i];
+    //     link[i].p2 = robot.pts[i+1];
+    //     link[i].r = robot.r[i];
+    // }
+
+    // for (int i = 0; i < n_link; i++) {
+    //     for (int j = 2 + i; j < n_link; j++) {
+    //         dist = distmin(link[i], link[i+j]);
+    //         for (int k = 0; k < n_var; k++){
+    //             if (dist < dist_min[j]) {
+    //                 for (int l = n_var; l > k; l--) {
+    //                     dist_min[l] = dist_min[l-1];
+    //                 }
+    //                 dist_min[k] = dist;
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // }
+    return dist_min;
 }
 
 #ifdef BLAST_ENABLE_TESTS
