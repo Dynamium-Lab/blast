@@ -1034,6 +1034,37 @@ host_fn real distmin_hull(OBB OBB, capsule caps) {
     }
 }
 
+// Objective function for optimization-based approaches
+host_fn real dist_OBB_point(OBB OBB_test, Vec3 point) {
+    Mat3 Rtrans = transpose(OBB_test.R);
+ 
+    Vec3 point_OBB = Rtrans * (point - OBB_test.c);
+ 
+    Vec3 proj = {clamp(point_OBB.x, -OBB_test.e.x, OBB_test.e.x), clamp(point_OBB.y, -OBB_test.e.y, OBB_test.e.y), clamp(point_OBB.z, -OBB_test.e.z, OBB_test.e.z)};
+    Array dist_in = {abs(point.x) - OBB_test.e.x, abs(point.y) - OBB_test.e.y, abs(point.z) - OBB_test.e.z};
+    real result_if_inside = array_max(dist_in);
+    return result_if_inside > 0 ? norm(proj - point_OBB) : result_if_inside;
+}
+
+host_fn real OBJ_function(Array& x, Matrix caps_list, OBB OBB) {
+    real t = x[0]*((caps_list).cols-1);
+    int t_step = t;
+    int t_step_plus1 = t_step == (caps_list).cols-1 ? t_step : t_step + 1;
+    real s = x[1];
+ 
+    Vec3 p1_1 = {caps_list(0, t_step), caps_list(1,t_step), caps_list(2, t_step)};
+    Vec3 p1_2 = {caps_list(0, t_step_plus1), caps_list(1, t_step_plus1), caps_list(2, t_step_plus1)};
+    Vec3 p2_1 = {caps_list(3, t_step), caps_list(4, t_step), caps_list(5, t_step)};
+    Vec3 p2_2 = {caps_list(3, t_step_plus1), caps_list(4, t_step_plus1), caps_list(5, t_step_plus1)};
+ 
+    Vec3 p1 = (1 - (t - t_step)) * p1_1 + (t - t_step) * p1_2;
+    Vec3 p2 = (1 - (t - t_step)) * p2_1 + (t - t_step) * p2_2;
+ 
+    Vec3 p = (1 - s) * p1 + s * p2;
+ 
+    return dist_OBB_point(OBB, p);
+}
+
 // ======================================
 //            Add primitives
 // ======================================

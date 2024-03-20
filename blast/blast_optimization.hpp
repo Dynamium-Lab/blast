@@ -2,8 +2,8 @@
 #include "blast_math.hpp"
 #include "collisions/world.h"
 #include "blast_manipulator.hpp"
-// #include "optimization/Collision_pso.hpp"
-#include "optimization/Collision_gwo.hpp"
+#include "collisions/Collision_pso.hpp"
+#include "collisions/Collision_gwo.hpp"
 
 namespace blast {
 
@@ -160,8 +160,8 @@ host_fn void cstr_world_gen3_pso(unsigned m, double *result, unsigned xlen, cons
     
         }
         for (auto OBB:opt->world->OBBlist) {
-            //temp[idx++] = collision_pso(test_caps, OBB) - radius;
-            temp[idx++] = collision_gwo(test_caps, OBB) - radius;
+            // temp[idx++] = collision_pso(test_caps, OBB) - radius;
+            // temp[idx++] = collision_gwo(test_caps, OBB) - radius;
 
         }
     }

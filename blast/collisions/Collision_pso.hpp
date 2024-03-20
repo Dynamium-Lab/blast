@@ -5,34 +5,6 @@
 
 namespace blast {
     
-host_fn real dist_OBB_point(OBB OBB_test, Vec3 point) {
-    Mat3 Rtrans = transpose(OBB_test.R);
- 
-    Vec3 point_OBB = Rtrans * (point - OBB_test.c);
- 
-    Vec3 proj = {clamp(point_OBB.x, -OBB_test.e.x, OBB_test.e.x), clamp(point_OBB.y, -OBB_test.e.y, OBB_test.e.y), clamp(point_OBB.z, -OBB_test.e.z, OBB_test.e.z)};
-    Array dist_in = (abs(point.x) - OBB_test.e.x, abs(point.y) - OBB_test.e.y, abs(point.z) - OBB_test.e.z);
-    real result_if_inside = array_max(dist_in);
-    return result_if_inside > 0 ? norm(proj - point_OBB) : result_if_inside;
-}
-host_fn real OBJ_function(Array& x, Matrix caps_list, OBB OBB) {
-    real t = x[0]*((caps_list).cols-1);
-    int t_step = t;
-    int t_step_plus1 = t_step == (caps_list).cols-1 ? t_step : t_step + 1;
-    real s = x[1];
- 
-    Vec3 p1_1 = {caps_list(0, t_step), caps_list(1,t_step), caps_list(2, t_step)};
-    Vec3 p1_2 = {caps_list(0, t_step_plus1), caps_list(1, t_step_plus1), caps_list(2, t_step_plus1)};
-    Vec3 p2_1 = {caps_list(3, t_step), caps_list(4, t_step), caps_list(5, t_step)};
-    Vec3 p2_2 = {caps_list(3, t_step_plus1), caps_list(4, t_step_plus1), caps_list(5, t_step_plus1)};
- 
-    Vec3 p1 = (1 - (t - t_step)) * p1_1 + (t - t_step) * p1_2;
-    Vec3 p2 = (1 - (t - t_step)) * p2_1 + (t - t_step) * p2_2;
- 
-    Vec3 p = (1 - s) * p1 + s * p2;
- 
-    return dist_OBB_point(OBB, p);
-}
 struct PsoParticle1 {
     Array x;          // Position of each particle i
     Array v;          // Velocity of each particle i
@@ -43,8 +15,8 @@ struct PsoParticle1 {
 real collision_pso(Matrix caps_list, OBB OBB) {
     //Assert(x.size == optim.bspline->xlen(*optim.task));
     const auto N_Dimensions = 2;
-    const int N_particles  = 400;
-    const int N_iterations = 50;
+    const int N_particles  = 50;
+    const int N_iterations = 10;
     const double w_min = 0.2;          
     const double w_max = 0.9;      // Inertia Weight [0, 1]
     //const double w = 0.5;
@@ -54,6 +26,7 @@ real collision_pso(Matrix caps_list, OBB OBB) {
     Array gbest_x(N_Dimensions);
     real  gbest_f = INF_REAL;
 
+    // Intializing random particles
     std::vector<PsoParticle1> particle(N_particles);
     for(int i = 0; i < N_particles; i++) {
         particle[i].x = random_array(N_Dimensions, 1);
@@ -65,6 +38,7 @@ real collision_pso(Matrix caps_list, OBB OBB) {
         particle[i].best_f = OBJ_function(particle[i].x, caps_list, OBB); // Best fitness for Pi
     }
 
+    // Main loop
     for (int j = 0; j < N_iterations; j++) {
         auto r1 = 0.5 * get_random() + 0.5;
         auto r2 = 0.5 * get_random() + 0.5;
@@ -79,8 +53,6 @@ real collision_pso(Matrix caps_list, OBB OBB) {
                 // Updating position
                 particle[i].x[k] += particle[i].v[k];
                 particle[i].x[k] = clamp(particle[i].x[k], 0, 1);
-
-  
             }
             //particle[i].x.back() = clamp(particle[i].x.back(), 0.1, 10);
             // Evaluate fitness
@@ -88,23 +60,38 @@ real collision_pso(Matrix caps_list, OBB OBB) {
             // printf("fitness with penalty = %f \n", fitness);
 
             // Updating local best
-            if (fitness < particle[i].best_f) {
-                particle[i].best_f = fitness;
-                particle[i].best_x = particle[i].x;
-            }
+            particle[i].best_f = (fitness < particle[i].best_f) ? fitness : particle[i].best_f;
+            particle[i].best_x = (fitness < particle[i].best_f) ? particle[i].x : particle[i].best_x;
             // Updating global best
-            if (fitness < gbest_f) {
-                gbest_f = fitness;
-                gbest_x = particle[i].best_x;
-            }
+            gbest_f = (fitness < gbest_f) ? fitness : gbest_f;
+            gbest_x = (fitness < gbest_f) ? particle[i].best_x : gbest_x;
         }
     }
 
-    // printf("global best f: %f\n", gbest_f);
-    // printf("global best time: %f\n", x.back());
-    // printf("Global best x: ");
-    // print(x);
-
     return gbest_f;
 }
+
+real test_collision_pso(Matrix cart_pos, objlist* world) {
+    int n_caps = cart_pos.rows/3 - 1;
+    int n_points = cart_pos.cols;
+    real min_dist = INF_REAL;
+    real temp_dist;
+    Matrix temp(6, n_points);
+    for (int j = 0; j < n_caps; j++) {
+        for (int i = 0; i < n_points; i++) {
+            temp(0, i) = cart_pos(j*3, i); 
+            temp(1, i) = cart_pos(j*3+1, i); 
+            temp(2, i) = cart_pos(j*3+2, i); 
+            temp(3, i) = cart_pos(j*3+3, i); 
+            temp(4, i) = cart_pos(j*3+4, i); 
+            temp(5, i) = cart_pos(j*3+5, i); 
+        } 
+        for (int i = 0; i < world->OBBlist.size(); i++) {
+            temp_dist = collision_pso(temp, world->OBBlist[i]);
+            min_dist = temp_dist < min_dist ? temp_dist : min_dist;
+        }
+    }
+    return min_dist;
+}
+
 }
