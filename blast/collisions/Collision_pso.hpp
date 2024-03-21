@@ -12,11 +12,9 @@ struct PsoParticle1 {
     real  best_f;     // Best known fitness of each particle i
 };
 
-real collision_pso(Matrix caps_list, OBB OBB) {
+real collision_pso(Matrix caps_list, OBB OBB, int N_particles, int N_iterations) {
     //Assert(x.size == optim.bspline->xlen(*optim.task));
     const auto N_Dimensions = 2;
-    const int N_particles  = 50;
-    const int N_iterations = 10;
     const double w_min = 0.2;          
     const double w_max = 0.9;      // Inertia Weight [0, 1]
     //const double w = 0.5;
@@ -71,7 +69,7 @@ real collision_pso(Matrix caps_list, OBB OBB) {
     return gbest_f;
 }
 
-real test_collision_pso(Matrix cart_pos, objlist* world) {
+real test_collision_pso(Matrix cart_pos, objlist* world, int N_particles, int N_iterations) {
     int n_caps = cart_pos.rows/3 - 1;
     int n_points = cart_pos.cols;
     real min_dist = INF_REAL;
@@ -87,7 +85,7 @@ real test_collision_pso(Matrix cart_pos, objlist* world) {
             temp(5, i) = cart_pos(j*3+5, i); 
         } 
         for (int i = 0; i < world->OBBlist.size(); i++) {
-            temp_dist = collision_pso(temp, world->OBBlist[i]);
+            temp_dist = collision_pso(temp, world->OBBlist[i], N_particles, N_iterations);
             min_dist = temp_dist < min_dist ? temp_dist : min_dist;
         }
     }

@@ -33,8 +33,7 @@ Matrix read_csv_matrix (const std::string& filename) {
     return pos;
 }
 
-int main() {
-    using namespace blast;
+real test_algorithms(int N_wolves,int N_particles,int N_iter_gwo, int N_iter_pso, int test_number, std::ofstream& csvFile) { 
     // ------------------------------
     // ---     Initialization     ---
     // ------------------------------
@@ -82,7 +81,7 @@ int main() {
         // ---  Test with primitives  ---
         // ------------------------------
         auto start_prim = get_tick_us();
-        std::vector<real> result_primitves = test_collision(&capsules, &world, n_collision_results);
+        std::vector<real> result_primitives = test_collision(&capsules, &world, n_collision_results);
         auto stop_prim = get_tick_us();
         times_prim[test] = (stop_prim - start_prim) / 1000.0;
 
@@ -99,7 +98,7 @@ int main() {
         // ---     Test with PSO      ---
         // ------------------------------
         auto start_PSO = get_tick_us();
-        real result_PSO = test_collision_pso(cart_pos, &world) - r;
+        real result_PSO = test_collision_pso(cart_pos, &world, N_particles, N_iter_pso) - r;
         auto stop_PSO = get_tick_us();
         times_PSO[test] = (stop_PSO - start_PSO) / 1000.0;
 
@@ -107,7 +106,7 @@ int main() {
         // ---     Test with GWO      ---
         // ------------------------------
         auto start_GWO = get_tick_us();
-        real result_GWO = test_collision_gwo(cart_pos, &world) - r;
+        real result_GWO = test_collision_gwo(cart_pos, &world, N_wolves, N_iter_gwo) - r;
         auto stop_GWO = get_tick_us();
         times_GWO[test] = (stop_GWO - start_GWO) / 1000.0;
 
@@ -117,27 +116,55 @@ int main() {
         // ------------------------------
         // ---     Test with SQP      ---
         // ------------------------------
+    // Write headers to the CSV file
+    csvFile << "Test Number" << csv_sep << "Number of Particles "<< csv_sep << "Number of iterations" << csv_sep << "Actual Distance" << csv_sep << "Primitive test time (ms)" << csv_sep << "PSO test time (ms)" <<  csv_sep << "Error" << std::endl;
+    // Write data to CSV
+    
+    csvFile << test_number << csv_sep << N_particles << csv_sep << N_iter_pso << csv_sep << result_primitives[0] << csv_sep <<times_PSO[test] << csv_sep << times_prim[test] << csv_sep << (result_primitives[0] - result_PSO)/result_primitives[0]  << csv_sep << std::endl;
+             //   << csv_sep << times_GWO[i] << std::endl;
     }
-
-    if (write_csv) {
-        #include <fstream>
-        // Open a CSV file for writing
-        std::ofstream csvFile("C:/Users/thoma/Desktop/data_collision_check.csv");
-        // Check if the file is open
-        if (!csvFile.is_open()) {
-            std::cerr << "Error opening file." << std::endl;
-        }
-        // Write headers to the CSV file
-        csvFile << "Test" << csv_sep << "Primitive test time (ms)" << csv_sep << "GJK test time (ms)" << csv_sep << "PSO test time (ms)" <<  csv_sep << "GWO test time (ms)" << std::endl;
+    // Write data to CSV
+    // if (write_csv) {
+    //     #include <fstream>
+    //     // Open a CSV file for writing
+    //     std::ofstream csvFile("C:/Users/thoma/Desktop/data_collision_check.csv");
+    //     // Check if the file is open
+    //     if (!csvFile.is_open()) {
+    //         std::cerr << "Error opening file." << std::endl;
+    //     }
+    //     // Write headers to the CSV file
+    //     csvFile << "Test" << csv_sep << "Primitive test time (ms)" << csv_sep << "GJK test time (ms)" << csv_sep << "PSO test time (ms)" <<  csv_sep << "GWO test time (ms)" << std::endl;
         // Write data
-        for (int i = 0; i < n_tests; i++) {
-            csvFile << i+1 << csv_sep << times_prim[i] << csv_sep << times_GJK[i] << csv_sep << times_PSO[i] << csv_sep << times_GWO[i] << std::endl;
-        }
-        // Close the file
-        csvFile.close();
-        std::cout << "CSV file created successfully." << std::endl;
-    }
+        // for (int i = 0; i < n_tests; i++) {
+        //     csvFile << i+1 << csv_sep << times_prim[i] << csv_sep << times_GJK[i] << csv_sep << times_PSO[i] << csv_sep << times_GWO[i] << std::endl;
+        // }
+        // // Close the file
+        // csvFile.close();
+        // std::cout << "CSV file created successfully." << std::endl;
+    // }
 
     return 0;
+}
+int main() {
+    using namespace blast;
+    int N_wolves = 50;
+    int N_particles = 50;
+    int N_iter_gwo = 10;
+    int N_iter_pso = 10;
+    std::ofstream csvFile("C:/Users/Marie/OneDrive/Bureau/data_collision_check.csv", std::ios_base::app); 
+    if (!csvFile.is_open()) {
+        std::cerr << "Error opening file." << std::endl;
+        return 1;
+    }
+
+    const int num_tests = 5; 
+    for (int test_number = 0; test_number <= num_tests; test_number++) {
+        test_algorithms(N_wolves+(test_number*num_tests), N_particles+(test_number*num_tests), N_iter_gwo+(test_number*num_tests), N_iter_pso+(test_number*num_tests), test_number, csvFile);
+    }
+
+    csvFile.close();
+    std::cout << "CSV file updated successfully." << std::endl;
+    return 0;
+   
 }
 

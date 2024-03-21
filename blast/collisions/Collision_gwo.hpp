@@ -8,10 +8,10 @@ struct Wolf1  {
     blast::Array x;
 };
 
-real collision_gwo(Matrix caps_list, OBB OBB) {
+real collision_gwo(Matrix caps_list, OBB OBB, int N_wol, int N_it) {
     // Initialization of GWO parameters
-    const int N_wolves = 50;    // Number of wolves    
-    const int N_iterations = 10;    // Number of iterations 
+    const int N_wolves = N_wol;    // Number of wolves    
+    const int N_iterations = N_it;    // Number of iterations 
     const auto N_Dimensions = 2;
     Array x_Alpha(N_Dimensions);
     Array x_Beta(N_Dimensions);
@@ -84,7 +84,7 @@ real collision_gwo(Matrix caps_list, OBB OBB) {
     return best_f;
 }
 
-real test_collision_gwo(Matrix cart_pos, objlist* world) {
+real test_collision_gwo(Matrix cart_pos, objlist* world, int N_wol, int N_it) {
     int n_caps = cart_pos.rows/3 - 1;
     int n_points = cart_pos.cols;
     real min_dist = INF_REAL;
@@ -100,7 +100,7 @@ real test_collision_gwo(Matrix cart_pos, objlist* world) {
             temp(5, i) = cart_pos(j*3+5, i); 
         } 
         for (int i = 0; i < world->OBBlist.size(); i++) {
-            temp_dist = collision_gwo(temp, world->OBBlist[i]);
+            temp_dist = collision_gwo(temp, world->OBBlist[i], N_wol, N_it);
             min_dist = temp_dist < min_dist ? temp_dist : min_dist;
         }
     }
