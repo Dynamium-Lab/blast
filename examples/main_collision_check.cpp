@@ -22,23 +22,25 @@ struct OptimTest {
     Array N_individuals;
     Array N_iterations;
     int N_tests = 0;
+    Array input_dimensions;
     bool PSO = FALSE;
     bool GWO = FALSE;
     objlist world;
 };
 
-Matrix read_csv_matrix (const std::string& filename) { 
+Matrix read_csv_matrix (const std::string& filename, Array dimensions) { 
     std::ifstream file(filename);
     Assert(file.is_open());
-    Matrix pos(7, 15995);
+    Matrix pos(dimensions[0], dimensions[1]);
     std::string line;
-    std::getline(file, line);
-    std::istringstream iss(line);
-    for (int i = 0; i < pos.rows; i++) {
-        for (int k = 0; k < pos.cols; k++) {
+    std::getline(file, line); // discard header
+    for (int i = 0; i < pos.cols; i++) {
+        std::getline(file, line);
+        std::istringstream iss(line);
+        for (int k = 0; k < pos.rows; k++) {
             std::string value;
             if (std::getline(iss, value, ',')) {
-                pos(i,k)= std::stod(value);
+                pos(k,i)= std::stod(value);
             } 
         }
     }
@@ -59,7 +61,7 @@ void test_algorithms(OptimTest& Optim_information) {
 
     // Reading trajectory
     Matrix joint_pos;
-    joint_pos = read_csv_matrix(Optim_information.csvInput);
+    joint_pos = read_csv_matrix(Optim_information.csvInput, Optim_information.input_dimensions);
     int njoint = joint_pos.rows;
     int npoint = joint_pos.cols;
     // ---  Initialization ends   ---
@@ -135,7 +137,10 @@ void test_algorithms(OptimTest& Optim_information) {
                     real result_GWO = test_collision_gwo(cart_pos, &world, Optim_information.N_individuals[i], Optim_information.N_iterations[j]) - r;
                     auto stop_GWO = get_tick_us();
                     times_GWO[test] = (stop_GWO - start_GWO) / 1000.0;
-                    csvFile << test << csv_sep << Optim_information.N_individuals[i] << csv_sep << Optim_information.N_iterations[j] << csv_sep << result_primitives[0] << csv_sep << times_prim[test] << csv_sep << times_PSO[test] << csv_sep <<times_GWO[test] << csv_sep << (result_primitives[0] - result_PSO)/result_primitives[0] << csv_sep << (result_primitives[0] - result_GWO)/result_primitives[0] << csv_sep << std::endl;
+                    // Write answers in csv
+                    real error_PSO = (result_primitives[0] - result_PSO)/result_primitives[0];
+                    real error_GWO = (result_primitives[0] - result_GWO)/result_primitives[0];
+                    csvFile << test << csv_sep << Optim_information.N_individuals[i] << csv_sep << Optim_information.N_iterations[j] << csv_sep << result_primitives[0] << csv_sep << times_prim[test] << csv_sep << times_PSO[test] << csv_sep <<times_GWO[test] << csv_sep << error_PSO << csv_sep << error_GWO << csv_sep << std::endl;
                 }
                 else {
                     if (Optim_information.PSO == true) {
@@ -178,18 +183,25 @@ int main() {
     OptimTest Optim_information;
     objlist world;
     add_OBB({0.9, -0.7, 0.1}, {0.1, 0.1, 0.1}, {1, 0, 0, 0, 1, 0, 0, 0, 1}, &world);
-    Array individuals = {1, 2, 5, 10, 20, 50, 100, 150, 250};
-    Array iterations = {1, 2, 3, 4, 5, 10, 15, 25, 50};
+    Array individuals = {10, 20, 50, 100, 150, 250, 500};
     Optim_information.N_individuals = individuals;
+    Array iterations = {5, 10, 15, 25, 50, 100};
     Optim_information.N_iterations = iterations;
     Optim_information.PSO = TRUE;
     Optim_information.GWO = TRUE;
     Optim_information.world = world;
     Optim_information.csv_sep = ";";
-    Optim_information.N_tests = 1;
-    Optim_information.csvInput = "trajectory1.csv";
-    Optim_information.csvOutput = "C:/Users/thoma/Desktop/data_collision_check.csv";
+    Optim_information.N_tests = 25;
+    Optim_information.csvInput = "examples/build/trajectory1.csv";
+    Array dimensions = {7, 10330};
+    Optim_information.input_dimensions = dimensions;
+    Optim_information.csvOutput = "C:/Users/thoma/Desktop/data_collision_check_traj1.csv";
  
+    test_algorithms(Optim_information);
+    Optim_information.csvInput = "examples/build/trajectory2.csv";
+    dimensions = {7, 18316};
+    Optim_information.input_dimensions = dimensions;
+    Optim_information.csvOutput = "C:/Users/thoma/Desktop/data_collision_check_traj2.csv";
     test_algorithms(Optim_information);
 
     return 0;
