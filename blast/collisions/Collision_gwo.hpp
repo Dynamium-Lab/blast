@@ -24,10 +24,12 @@ real collision_gwo(Matrix caps_list, OBB OBB, int N_wol, int N_it) {
     // Initialization of wolves' positions
     for (int i = 0; i < N_wolves; i++) {
         wolf[i].x.resize(2);
-        // wolf[i].x = random_array(N_Dimensions, 1); // Random values between -1 and 1
+        real fraction = (N_Dimensions == 1) ? i / (N_Dimensions) : i / (N_Dimensions - 1);
         for (int j = 0; j < N_Dimensions; j++) {
-            wolf[i].x[j] = 0.5*get_random() + 0.5 ; // Random values between 0 and 1
+            wolf[i].x[j] = fraction;
+            wolf[i].x[j] = 0.5*get_random() + 0.5;
         }
+        // wolf[i].x = clamp(wolf[i].x, 0, 1);
     }
     // GWO Computation
     for (int k = 0; k < N_iterations; k++) {

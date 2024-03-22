@@ -27,8 +27,13 @@ real collision_pso(Matrix caps_list, OBB OBB, int N_particles, int N_iterations)
     // Intializing random particles
     std::vector<PsoParticle1> particle(N_particles);
     for(int i = 0; i < N_particles; i++) {
-        particle[i].x = random_array(N_Dimensions, 1);
-        particle[i].x = clamp(particle[i].x, 0, 1);
+        particle[i].x.resize(2);
+        real fraction = N_particles == 1 ? i / (N_particles) : i / (N_particles - 1);
+        for (int j = 0; j < N_Dimensions; j++) {
+            particle[i].x[j] = fraction;
+            // particle[i].x[j] = 0.5*get_random() + 0.5;
+        }
+        // particle[i].x = clamp(particle[i].x, 0, 1);
 
         particle[i].v = random_array(N_Dimensions, 1);
 
