@@ -2040,6 +2040,14 @@ blast_fn double two_segment_distance_sqr(Vector3d P0, Vector3d P1, Vector3d Q0, 
     return diff.dot(diff);
 }
 
+blast_fn real int_pow(real a, int n) {
+    real r = 1.0;
+    for (int i = 0; i< n; i++){
+        r = a * r;
+    }
+    return r;
+}
+
 } // namespace blast
 
 #ifdef BLAST_ENABLE_TESTS
