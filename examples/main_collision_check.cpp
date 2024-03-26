@@ -102,6 +102,8 @@ void test_algorithms(OptimTest& Optim_information) {
     Array times_GJK(n_tests);
     Array times_PSO(n_tests);
     Array times_GWO(n_tests);
+    std::vector<real> error_GWO_values;
+    std::vector<real> error_PSO_values;
     for (int i = 0; i < Optim_information.N_individuals.size; i++) {
         for (int j = 0; j < Optim_information.N_iterations.size; j++) {
             for (int test = 0; test < n_tests; test ++) {
@@ -141,6 +143,9 @@ void test_algorithms(OptimTest& Optim_information) {
                     real error_PSO = (result_primitives[0] - result_PSO)/result_primitives[0];
                     real error_GWO = (result_primitives[0] - result_GWO)/result_primitives[0];
                     csvFile << test << csv_sep << Optim_information.N_individuals[i] << csv_sep << Optim_information.N_iterations[j] << csv_sep << result_primitives[0] << csv_sep << times_prim[test] << csv_sep << times_PSO[test] << csv_sep <<times_GWO[test] << csv_sep << error_PSO << csv_sep << error_GWO << csv_sep << std::endl;
+                    // Store error values to use for Quartiles
+                    error_GWO_values.push_back(error_GWO);
+                    error_PSO_values.push_back(error_PSO);
                 }
                 else {
                     if (Optim_information.PSO == true) {
@@ -174,8 +179,63 @@ void test_algorithms(OptimTest& Optim_information) {
         }
     }
 
-    csvFile.close();
-    std::cout << "CSV file updated successfully." << std::endl;
+    // -----------------------------------------
+    // ---     Quartiles Classification      ---
+    // -----------------------------------------
+
+    // Open csv file again to overwrite
+    std::ofstream csvFile(Optim_information.csvOutput); 
+    csvFile.clear();
+    Assert(csvFile.is_open());
+
+    // Write headers to the CSV file
+    csvFile << "Test Number" << csv_sep << "PSO rel. error" << csv_sep << "GWO rel. error" << csv_sep << "Quartile PSO" << csv_sep << "Quartile GWO" << csv_sep << std::endl;
+    
+    // Sort error vectors
+    std::sort(error_PSO_values.begin(), error_PSO_values.end());
+    std::sort(error_GWO_values.begin(), error_GWO_values.end());
+    
+    // Calculate quartiles
+    real Q0_GWO = 0;
+    real Q1_GWO = error_GWO_values[n_tests / 4];
+    real Q2_GWO = error_GWO_values[n_tests / 2];
+    real Q3_GWO = error_GWO_values[(3 * n_tests) / 4];
+
+    real Q0_PSO = 0;
+    real Q1_PSO = error_PSO_values[n_tests / 4];
+    real Q2_PSO = error_PSO_values[n_tests / 2];
+    real Q3_PSO = error_PSO_values[(3 * n_tests) / 4];
+
+    // Assign quartile labels
+    for (int test = 0; test < n_tests; test ++) {
+        real error_GWO = error_GWO_values[test];
+        real error_PSO = error_PSO_values[test];
+        std::string quartile_GWO, quartile_PSO;
+
+        if (error_GWO <= Q0_GWO) {
+            quartile_GWO = "Q0";
+        } else if (error_GWO <= Q1_GWO) {
+            quartile_GWO = "Q1";
+        } else if (error_GWO <= Q2_GWO) {
+            quartile_GWO = "Q2";
+        } else if (error_GWO <= Q3_GWO) {
+            quartile_GWO = "Q3";
+        } else {
+            quartile_GWO = "Q4";
+        }
+        if (error_PSO <= Q0_PSO) {
+            quartile_PSO = "Q0";
+        } else if (error_PSO <= Q1_PSO) {
+            quartile_PSO = "Q1";
+        } else if (error_PSO <= Q2_PSO) {
+            quartile_PSO = "Q2";
+        } else if (error_PSO <= Q3_PSO) {
+            quartile_PSO = "Q3";
+        } else {
+            quartile_PSO = "Q4";
+        }
+        csvFile << test << csv_sep << error_PSO << csv_sep << error_GWO << csv_sep << quartile_PSO << csv_sep << quartile_GWO << csv_sep << std::endl;
+    }
 }
 
 int main() {
