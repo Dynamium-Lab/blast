@@ -10,20 +10,21 @@ struct GAIndividual {
     real fitness;     // Fitness of the individual
 };
 // Rosenbrock function to test 
-double rosenbrock(Array x) {
-    const double a = 1.0;
-    const double b = 100.0;
-    return pow(a - x[1], 2) + b * pow(x[2] - x[1] * x[1], 2);
-}
+// double rosenbrock(Array x) {
+//     const double a = 1.0;
+//     const double b = 100.0;
+//     return pow(a - x[1], 2) + b * pow(x[2] - x[1] * x[1], 2);
+// }
 real collision_ga(Matrix caps_list, OBB OBB, int N_individuals, int N_iterations) {
     const auto N_Dimensions = 2;
     const double mutation_rate = 0.1; // Mutation rate
     const double elite_percentage = 0.1; // Percentage of elite individuals to retain
+    const int elite_count = elite_percentage * N_individuals;
 
     Array gbest_x(N_Dimensions);
     real gbest_f = INF_REAL;
 
-    // Initialize random population
+    // Initialize random population 
     std::vector<GAIndividual> population(N_individuals);
     for (int i = 0; i < N_individuals; ++i) {
         population[i].x.resize(2);
@@ -33,23 +34,24 @@ real collision_ga(Matrix caps_list, OBB OBB, int N_individuals, int N_iterations
         population[i].fitness = OBJ_function(population[i].x, caps_list, OBB); 
     }
 
-    std::vector<GAIndividual> new_population(N_individuals);
-    for (int i = 0; i < N_individuals; ++i) {
-        new_population[i].x.resize(2);
-    }
-
     // Main loop
     for (int iteration = 0; iteration < N_iterations; ++iteration) {
+        std::vector<GAIndividual> new_population(N_individuals);
+        for (int i = 0; i < N_individuals; ++i) {
+            new_population[i].x.resize(2);
+        }
         // Sort population based on fitness
         std::sort(population.begin(), population.end(), [](const GAIndividual& a, const GAIndividual& b) {
             return a.fitness < b.fitness;
         });
 
-        // Perform selection and crossover
-        int elite_count = elite_percentage * N_individuals;
+        // Keep elite
         for (int i = 0; i < elite_count; ++i) {
-            new_population[i] = population[i]; // Copy elite individuals to the next generation
+            for (int j = 0; j < N_Dimensions; j++) {
+                new_population[i].x[j] = population[i].x[j]; // Copy elite individuals to the next generation
+            }
         }
+        // Perform selection and crossover
         for (int i = elite_count; i < N_individuals; ++i) {
             // Select parents from elite individuals
             int parent_idx1 = rand() % elite_count; // Select parent 1 from elite individuals
@@ -64,7 +66,7 @@ real collision_ga(Matrix caps_list, OBB OBB, int N_individuals, int N_iterations
                 }
             }
             // Evaluate fitness
-            population[i].fitness = OBJ_function(population[i].x, caps_list, OBB); 
+            new_population[i].fitness = OBJ_function(new_population[i].x, caps_list, OBB); 
             // Update global best
             if (new_population[i].fitness < gbest_f) {
                 gbest_f = new_population[i].fitness;
@@ -74,8 +76,8 @@ real collision_ga(Matrix caps_list, OBB OBB, int N_individuals, int N_iterations
         // Update population
         population = std::move(new_population);
     }
-    printf("GA finished \n");
-    printf("Global best fitness = %f \n", gbest_f);    
+    // printf("GA finished \n");
+    // printf("Global best fitness = %f \n", gbest_f);    
     return gbest_f;
 }
 
