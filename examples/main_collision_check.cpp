@@ -4,6 +4,7 @@
 #include "blast_manipulator.hpp"
 #include "collisions/Collision_pso.hpp"
 #include "collisions/Collision_gwo.hpp"
+#include "collisions/Collision_ga.hpp"
 #include "collisions/world.h"
 #include "nlopt.h"
 #include "json.hpp"
@@ -25,6 +26,7 @@ struct OptimTest {
     Array input_dimensions;
     bool PSO = FALSE;
     bool GWO = FALSE;
+    bool GA = FALSE;
     objlist world;
 };
 
@@ -88,22 +90,24 @@ void test_algorithms(OptimTest& Optim_information) {
     Assert(csvFile.is_open());
 
     // Write headers to the CSV file
-    if (Optim_information.GWO == true && Optim_information.PSO == true) {
-        csvFile << "Test Number" << csv_sep << "Number of Particles "<< csv_sep << "Number of iterations" << csv_sep << "Primitive Distance" << csv_sep << "Primitive test time (ms)" << csv_sep << "PSO test time (ms)" << csv_sep << "GWO test time (ms)"  <<  csv_sep << "PSO rel. error" << csv_sep << "GWO rel. error" << csv_sep << std::endl;
-    }
-    else {
-        if (Optim_information.GWO == true)
-            csvFile << "Test Number" << csv_sep << "Number of Particles "<< csv_sep << "Number of iterations" << csv_sep << "Primitive Distance" << csv_sep << "Primitive test time (ms)" << csv_sep << "PSO test time (ms)"  <<  csv_sep << "PSO rel. error" << csv_sep << std::endl;
-        if (Optim_information.GWO == true)
-            csvFile << "Test Number" << csv_sep << "Number of Particles "<< csv_sep << "Number of iterations" << csv_sep << "Primitive Distance" << csv_sep << "Primitive test time (ms)" << csv_sep << "GWO test time (ms)"  <<  csv_sep << "GWO rel. error" << csv_sep << std::endl;
-    }
+    csvFile  << "Test Number" << csv_sep << "Number of Particles"<< csv_sep << "Number of iterations" << csv_sep << "Primitive Distance" << csv_sep << "Primitive test time (ms)" << csv_sep;
+    if (Optim_information.PSO == true)
+        csvFile << "PSO test time (ms)"  <<  csv_sep << "PSO rel. error" << csv_sep;
+    if (Optim_information.GWO == true)
+        csvFile << "GWO test time (ms)"  <<  csv_sep << "GWO rel. error" << csv_sep;
+    if (Optim_information.GA == true)
+        csvFile << "GA test time (ms)"  <<  csv_sep << "GA rel. error" << csv_sep;
+
+    csvFile << std::endl;
+
     // Do multiple tests for statistics
     Array times_prim(n_tests);
     Array times_GJK(n_tests);
     Array times_PSO(n_tests);
     Array times_GWO(n_tests);
-    std::vector<real> error_GWO_values;
-    std::vector<real> error_PSO_values;
+    Array times_GA(n_tests);
+    // std::vector<real> error_GWO_values;
+    // std::vector<real> error_PSO_values;
     for (int i = 0; i < Optim_information.N_individuals.size; i++) {
         for (int j = 0; j < Optim_information.N_iterations.size; j++) {
             for (int test = 0; test < n_tests; test ++) {
@@ -115,6 +119,8 @@ void test_algorithms(OptimTest& Optim_information) {
                 auto stop_prim = get_tick_us();
                 times_prim[test] = (stop_prim - start_prim) / 1000.0;
 
+                csvFile << test << csv_sep << Optim_information.N_individuals[i] << csv_sep << Optim_information.N_iterations[j] << csv_sep << result_primitives[0] << csv_sep << times_prim[test] << csv_sep;
+
                 // // todo: fix GJK
                 // // ------------------------------
                 // // ---     Test with GJK      ---
@@ -124,7 +130,7 @@ void test_algorithms(OptimTest& Optim_information) {
                 // auto stop_GJK = get_tick_us();
                 // times_GJK[test] = (stop_GJK - start_GJK) / 1000.0;
                 
-                if (Optim_information.PSO == true && Optim_information.GWO == true) {
+                if (Optim_information.PSO == true) {
                     // ------------------------------
                     // ---     Test with PSO      ---
                     // ------------------------------
@@ -132,6 +138,9 @@ void test_algorithms(OptimTest& Optim_information) {
                     real result_PSO = test_collision_pso(cart_pos, &world, Optim_information.N_individuals[i], Optim_information.N_iterations[j]) - r;
                     auto stop_PSO = get_tick_us();
                     times_PSO[test] = (stop_PSO - start_PSO) / 1000.0;
+                    csvFile << times_PSO[test] << csv_sep << (result_primitives[0] - result_PSO)/result_primitives[0]  << csv_sep;
+                }
+                if (Optim_information.GWO == true) {
                     // ------------------------------
                     // ---     Test with GWO      ---
                     // ------------------------------
@@ -139,103 +148,75 @@ void test_algorithms(OptimTest& Optim_information) {
                     real result_GWO = test_collision_gwo(cart_pos, &world, Optim_information.N_individuals[i], Optim_information.N_iterations[j]) - r;
                     auto stop_GWO = get_tick_us();
                     times_GWO[test] = (stop_GWO - start_GWO) / 1000.0;
-                    // Write answers in csv
-                    real error_PSO = (result_primitives[0] - result_PSO)/result_primitives[0];
-                    real error_GWO = (result_primitives[0] - result_GWO)/result_primitives[0];
-                    csvFile << test << csv_sep << Optim_information.N_individuals[i] << csv_sep << Optim_information.N_iterations[j] << csv_sep << result_primitives[0] << csv_sep << times_prim[test] << csv_sep << times_PSO[test] << csv_sep <<times_GWO[test] << csv_sep << error_PSO << csv_sep << error_GWO << csv_sep << std::endl;
-                    // Store error values to use for Quartiles
-                    error_GWO_values.push_back(error_GWO);
-                    error_PSO_values.push_back(error_PSO);
+                    csvFile << times_GWO[test] << csv_sep << (result_primitives[0] - result_GWO)/result_primitives[0]  << csv_sep;
                 }
-                else {
-                    if (Optim_information.PSO == true) {
-                        // ------------------------------
-                        // ---     Test with PSO      ---
-                        // ------------------------------
-                        auto start_PSO = get_tick_us();
-                        real result_PSO = test_collision_pso(cart_pos, &world, Optim_information.N_individuals[i], Optim_information.N_iterations[j]) - r;
-                        auto stop_PSO = get_tick_us();
-                        times_PSO[test] = (stop_PSO - start_PSO) / 1000.0;
-                        csvFile << test << csv_sep << Optim_information.N_individuals[i] << csv_sep << Optim_information.N_iterations[j] << csv_sep << result_primitives[0] << csv_sep << times_prim[test] << csv_sep << times_PSO[test] << csv_sep << (result_primitives[0] - result_PSO)/result_primitives[0]  << csv_sep << std::endl;
-                    }
-                    if (Optim_information.GWO == true) {
-                        // ------------------------------
-                        // ---     Test with GWO      ---
-                        // ------------------------------
-                        auto start_GWO = get_tick_us();
-                        real result_GWO = test_collision_gwo(cart_pos, &world, Optim_information.N_individuals[i], Optim_information.N_iterations[j]) - r;
-                        auto stop_GWO = get_tick_us();
-                        times_GWO[test] = (stop_GWO - start_GWO) / 1000.0;
-                        csvFile << test << csv_sep << Optim_information.N_individuals[i] << csv_sep << Optim_information.N_iterations[j] << csv_sep << result_primitives[0] << csv_sep << times_prim[test] << csv_sep << times_GWO[test] << csv_sep << (result_primitives[0] - result_GWO)/result_primitives[0]  << csv_sep << std::endl;
-                    }
+                if (Optim_information.GA == true) {
+                    // ------------------------------
+                    // ---     Test with GA       ---
+                    // ------------------------------
+                    auto start_GA = get_tick_us();
+                    real result_GA = test_collision_ga(cart_pos, &world, Optim_information.N_individuals[i], Optim_information.N_iterations[j]) - r;
+                    auto stop_GA = get_tick_us();
+                    times_GA[test] = (stop_GA - start_GA) / 1000.0;
+                    csvFile << times_GA[test] << csv_sep << (result_primitives[0] - result_GA)/result_primitives[0]  << csv_sep;
                 }
-                // ------------------------------
-                // ---     Test with GA       ---
-                // ------------------------------
                 // ------------------------------
                 // ---     Test with SQP      ---
                 // ------------------------------
+                csvFile << std::endl;
             }
         }
     }
 
-    // -----------------------------------------
-    // ---     Quartiles Classification      ---
-    // -----------------------------------------
-
-    // Open csv file again to overwrite
-    std::ofstream csvFile(Optim_information.csvOutput); 
-    csvFile.clear();
-    Assert(csvFile.is_open());
-
-    // Write headers to the CSV file
-    csvFile << "Test Number" << csv_sep << "PSO rel. error" << csv_sep << "GWO rel. error" << csv_sep << "Quartile PSO" << csv_sep << "Quartile GWO" << csv_sep << std::endl;
-    
-    // Sort error vectors
-    std::sort(error_PSO_values.begin(), error_PSO_values.end());
-    std::sort(error_GWO_values.begin(), error_GWO_values.end());
-    
-    // Calculate quartiles
-    real Q0_GWO = 0;
-    real Q1_GWO = error_GWO_values[n_tests / 4];
-    real Q2_GWO = error_GWO_values[n_tests / 2];
-    real Q3_GWO = error_GWO_values[(3 * n_tests) / 4];
-
-    real Q0_PSO = 0;
-    real Q1_PSO = error_PSO_values[n_tests / 4];
-    real Q2_PSO = error_PSO_values[n_tests / 2];
-    real Q3_PSO = error_PSO_values[(3 * n_tests) / 4];
-
-    // Assign quartile labels
-    for (int test = 0; test < n_tests; test ++) {
-        real error_GWO = error_GWO_values[test];
-        real error_PSO = error_PSO_values[test];
-        std::string quartile_GWO, quartile_PSO;
-
-        if (error_GWO <= Q0_GWO) {
-            quartile_GWO = "Q0";
-        } else if (error_GWO <= Q1_GWO) {
-            quartile_GWO = "Q1";
-        } else if (error_GWO <= Q2_GWO) {
-            quartile_GWO = "Q2";
-        } else if (error_GWO <= Q3_GWO) {
-            quartile_GWO = "Q3";
-        } else {
-            quartile_GWO = "Q4";
-        }
-        if (error_PSO <= Q0_PSO) {
-            quartile_PSO = "Q0";
-        } else if (error_PSO <= Q1_PSO) {
-            quartile_PSO = "Q1";
-        } else if (error_PSO <= Q2_PSO) {
-            quartile_PSO = "Q2";
-        } else if (error_PSO <= Q3_PSO) {
-            quartile_PSO = "Q3";
-        } else {
-            quartile_PSO = "Q4";
-        }
-        csvFile << test << csv_sep << error_PSO << csv_sep << error_GWO << csv_sep << quartile_PSO << csv_sep << quartile_GWO << csv_sep << std::endl;
-    }
+    // // -----------------------------------------
+    // // ---     Quartiles Classification      ---
+    // // -----------------------------------------
+    // // Open csv file again to overwrite
+    // // std::ofstream csvFile(Optim_information.csvOutput); 
+    // csvFile.clear();
+    // // Write headers to the CSV file
+    // csvFile << "Test Number" << csv_sep << "PSO rel. error" << csv_sep << "GWO rel. error" << csv_sep << "Quartile PSO" << csv_sep << "Quartile GWO" << csv_sep << std::endl;
+    // // Sort error vectors
+    // std::sort(error_PSO_values.begin(), error_PSO_values.end());
+    // std::sort(error_GWO_values.begin(), error_GWO_values.end());
+    // // Calculate quartiles
+    // real Q0_GWO = 0;
+    // real Q1_GWO = error_GWO_values[n_tests / 4];
+    // real Q2_GWO = error_GWO_values[n_tests / 2];
+    // real Q3_GWO = error_GWO_values[(3 * n_tests) / 4];
+    // real Q0_PSO = 0;
+    // real Q1_PSO = error_PSO_values[n_tests / 4];
+    // real Q2_PSO = error_PSO_values[n_tests / 2];
+    // real Q3_PSO = error_PSO_values[(3 * n_tests) / 4];
+    // // Assign quartile labels
+    // for (int test = 0; test < n_tests; test ++) {
+    //     real error_GWO = error_GWO_values[test];
+    //     real error_PSO = error_PSO_values[test];
+    //     std::string quartile_GWO, quartile_PSO;
+    //     if (error_GWO <= Q0_GWO) {
+    //         quartile_GWO = "Q0";
+    //     } else if (error_GWO <= Q1_GWO) {
+    //         quartile_GWO = "Q1";
+    //     } else if (error_GWO <= Q2_GWO) {
+    //         quartile_GWO = "Q2";
+    //     } else if (error_GWO <= Q3_GWO) {
+    //         quartile_GWO = "Q3";
+    //     } else {
+    //         quartile_GWO = "Q4";
+    //     }
+    //     if (error_PSO <= Q0_PSO) {
+    //         quartile_PSO = "Q0";
+    //     } else if (error_PSO <= Q1_PSO) {
+    //         quartile_PSO = "Q1";
+    //     } else if (error_PSO <= Q2_PSO) {
+    //         quartile_PSO = "Q2";
+    //     } else if (error_PSO <= Q3_PSO) {
+    //         quartile_PSO = "Q3";
+    //     } else {
+    //         quartile_PSO = "Q4";
+    //     }
+    //     csvFile << test << csv_sep << error_PSO << csv_sep << error_GWO << csv_sep << quartile_PSO << csv_sep << quartile_GWO << csv_sep << std::endl;
+    // }
 }
 
 int main() {
@@ -247,22 +228,23 @@ int main() {
     Optim_information.N_individuals = individuals;
     Array iterations = {5, 10, 15, 25, 50, 100};
     Optim_information.N_iterations = iterations;
-    Optim_information.PSO = TRUE;
-    Optim_information.GWO = TRUE;
+    Optim_information.PSO = FALSE;
+    Optim_information.GWO = FALSE;
+    Optim_information.GA = TRUE;
     Optim_information.world = world;
     Optim_information.csv_sep = ";";
-    Optim_information.N_tests = 25;
+    Optim_information.N_tests = 5;
     Optim_information.csvInput = "examples/build/trajectory1.csv";
     Array dimensions = {7, 10330};
     Optim_information.input_dimensions = dimensions;
     Optim_information.csvOutput = "C:/Users/thoma/Desktop/data_collision_check_traj1.csv";
  
     test_algorithms(Optim_information);
-    Optim_information.csvInput = "examples/build/trajectory2.csv";
-    dimensions = {7, 18316};
-    Optim_information.input_dimensions = dimensions;
-    Optim_information.csvOutput = "C:/Users/thoma/Desktop/data_collision_check_traj2.csv";
-    test_algorithms(Optim_information);
+    // Optim_information.csvInput = "examples/build/trajectory2.csv";
+    // dimensions = {7, 18316};
+    // Optim_information.input_dimensions = dimensions;
+    // Optim_information.csvOutput = "C:/Users/thoma/Desktop/data_collision_check_traj2.csv";
+    // test_algorithms(Optim_information);
 
     return 0;
 }

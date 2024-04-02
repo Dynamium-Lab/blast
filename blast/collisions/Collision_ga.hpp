@@ -28,10 +28,16 @@ real collision_ga(Matrix caps_list, OBB OBB, int N_individuals, int N_iterations
     for (int i = 0; i < N_individuals; ++i) {
         population[i].x.resize(2);
         for (int j = 0; j < N_Dimensions; ++j) {
-            population[i].x[j] = get_random(); // Initialize with random values between [0, 1]
+            population[i].x[j] = 0.5*get_random() + 0.5; // Initialize with random values between [0, 1]
         }
         population[i].fitness = OBJ_function(population[i].x, caps_list, OBB); 
     }
+
+    std::vector<GAIndividual> new_population(N_individuals);
+    for (int i = 0; i < N_individuals; ++i) {
+        new_population[i].x.resize(2);
+    }
+
     // Main loop
     for (int iteration = 0; iteration < N_iterations; ++iteration) {
         // Sort population based on fitness
@@ -40,7 +46,6 @@ real collision_ga(Matrix caps_list, OBB OBB, int N_individuals, int N_iterations
         });
 
         // Perform selection and crossover
-        std::vector<GAIndividual> new_population(N_individuals);
         int elite_count = elite_percentage * N_individuals;
         for (int i = 0; i < elite_count; ++i) {
             new_population[i] = population[i]; // Copy elite individuals to the next generation
@@ -55,6 +60,7 @@ real collision_ga(Matrix caps_list, OBB OBB, int N_individuals, int N_iterations
                 // Perform mutation
                 if ((double)rand() / RAND_MAX < mutation_rate) {
                     new_population[i].x[j] += 0.1 * (((double)rand() / RAND_MAX) - 0.5);
+                    new_population[i].x = clamp(new_population[i].x, 0, 1);
                 }
             }
             // Evaluate fitness
