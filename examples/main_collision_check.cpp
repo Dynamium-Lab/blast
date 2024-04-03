@@ -30,7 +30,7 @@ struct OptimTest {
     objlist world;
 };
 
-Matrix read_csv_matrix (const std::string& filename, Array dimensions) { 
+Matrix read_csv_matrix (const std::string& filename, Array dimensions) {
     std::ifstream file(filename);
     Assert(file.is_open());
     Matrix pos(dimensions[0], dimensions[1]);
@@ -43,13 +43,13 @@ Matrix read_csv_matrix (const std::string& filename, Array dimensions) {
             std::string value;
             if (std::getline(iss, value, ',')) {
                 pos(k,i)= std::stod(value);
-            } 
+            }
         }
     }
     return pos;
 }
 
-void test_algorithms(OptimTest& Optim_information) { 
+void test_algorithms(OptimTest& Optim_information) {
     // ------------------------------
     // ---     Initialization     ---
     // ------------------------------
@@ -67,7 +67,7 @@ void test_algorithms(OptimTest& Optim_information) {
     int njoint = joint_pos.rows;
     int npoint = joint_pos.cols;
     // ---  Initialization ends   ---
-    
+
     // Get cartesian positions
     Matrix cart_pos = manip.robot_capsules(joint_pos, 1);
 
@@ -85,12 +85,13 @@ void test_algorithms(OptimTest& Optim_information) {
     }
 
     // Open csv file
-    std::ofstream csvFile(Optim_information.csvOutput); 
+    std::ofstream csvFile(Optim_information.csvOutput);
     csvFile.clear();
     Assert(csvFile.is_open());
 
     // Write headers to the CSV file
-    csvFile  << "Test Number" << csv_sep << "Number of Particles"<< csv_sep << "Number of iterations" << csv_sep << "Primitive Distance" << csv_sep << "Primitive test time (ms)" << csv_sep;
+    // csvFile  << "Test Number" << csv_sep << "Number of Particles"<< csv_sep << "Number of iterations" << csv_sep << "Primitive Distance" << csv_sep << "Primitive test time (ms)" << csv_sep;
+    csvFile  << "Number of Particles" << csv_sep << "Number of iterations" << csv_sep << "Primitive Distance" << csv_sep << "Primitive test time (ms)" << csv_sep;
     if (Optim_information.PSO == true)
         csvFile << "PSO test time (ms)"  <<  csv_sep << "PSO rel. error" << csv_sep;
     if (Optim_information.GWO == true)
@@ -101,25 +102,33 @@ void test_algorithms(OptimTest& Optim_information) {
     csvFile << std::endl;
 
     // Do multiple tests for statistics
-    Array times_prim(n_tests);
     Array times_GJK(n_tests);
     Array times_PSO(n_tests);
     Array times_GWO(n_tests);
     Array times_GA(n_tests);
+    Array result_PSO(n_tests);
+    Array result_GWO(n_tests);
+    Array result_GA(n_tests);
+    Array error_GJK(n_tests);
+    Array error_PSO(n_tests);
+    Array error_GWO(n_tests);
+    Array error_GA(n_tests);
+    std::vector<real> result_primitives(n_collision_results);
     // std::vector<real> error_GWO_values;
     // std::vector<real> error_PSO_values;
     for (int i = 0; i < Optim_information.N_individuals.size; i++) {
         for (int j = 0; j < Optim_information.N_iterations.size; j++) {
+            // ------------------------------
+            // ---  Test with primitives  ---
+            // ------------------------------
+            auto start_prim = get_tick_us();
+            result_primitives = test_collision(&capsules, &world, n_collision_results);
+            auto stop_prim = get_tick_us();
+            real times_prim = (stop_prim - start_prim) / 1000.0;
             for (int test = 0; test < n_tests; test ++) {
-                // ------------------------------
-                // ---  Test with primitives  ---
-                // ------------------------------
-                auto start_prim = get_tick_us();
-                std::vector<real> result_primitives = test_collision(&capsules, &world, n_collision_results);
-                auto stop_prim = get_tick_us();
-                times_prim[test] = (stop_prim - start_prim) / 1000.0;
 
-                csvFile << test << csv_sep << Optim_information.N_individuals[i] << csv_sep << Optim_information.N_iterations[j] << csv_sep << result_primitives[0] << csv_sep << times_prim[test] << csv_sep;
+
+                // csvFile << test << csv_sep << Optim_information.N_individuals[i] << csv_sep << Optim_information.N_iterations[j] << csv_sep << result_primitives[0] << csv_sep << times_prim[test] << csv_sep;
 
                 // // todo: fix GJK
                 // // ------------------------------
@@ -129,42 +138,55 @@ void test_algorithms(OptimTest& Optim_information) {
                 // // std::vector<real> result_GJK = test_collision_GJK(&capsules, &world, n_collision_results);
                 // auto stop_GJK = get_tick_us();
                 // times_GJK[test] = (stop_GJK - start_GJK) / 1000.0;
-                
+
                 if (Optim_information.PSO == true) {
                     // ------------------------------
                     // ---     Test with PSO      ---
                     // ------------------------------
                     auto start_PSO = get_tick_us();
-                    real result_PSO = test_collision_pso(cart_pos, &world, Optim_information.N_individuals[i], Optim_information.N_iterations[j]) - r;
+                    result_PSO[test] = test_collision_pso(cart_pos, &world, Optim_information.N_individuals[i], Optim_information.N_iterations[j]) - r;
                     auto stop_PSO = get_tick_us();
                     times_PSO[test] = (stop_PSO - start_PSO) / 1000.0;
-                    csvFile << times_PSO[test] << csv_sep << (result_primitives[0] - result_PSO)/result_primitives[0]  << csv_sep;
+                    error_PSO[test] = (result_primitives[0] - result_PSO[test])/result_primitives[0];
+                    // csvFile << times_PSO[test] << csv_sep << (result_primitives[0] - result_PSO)/result_primitives[0]  << csv_sep;
                 }
                 if (Optim_information.GWO == true) {
                     // ------------------------------
                     // ---     Test with GWO      ---
                     // ------------------------------
                     auto start_GWO = get_tick_us();
-                    real result_GWO = test_collision_gwo(cart_pos, &world, Optim_information.N_individuals[i], Optim_information.N_iterations[j]) - r;
+                    result_GWO[test] = test_collision_gwo(cart_pos, &world, Optim_information.N_individuals[i], Optim_information.N_iterations[j]) - r;
                     auto stop_GWO = get_tick_us();
                     times_GWO[test] = (stop_GWO - start_GWO) / 1000.0;
-                    csvFile << times_GWO[test] << csv_sep << (result_primitives[0] - result_GWO)/result_primitives[0]  << csv_sep;
+                    error_GWO[test] = (result_primitives[0] - result_GWO[test])/result_primitives[0];
+                    // csvFile << times_GWO[test] << csv_sep << (result_primitives[0] - result_GWO)/result_primitives[0]  << csv_sep;
                 }
                 if (Optim_information.GA == true) {
                     // ------------------------------
                     // ---     Test with GA       ---
                     // ------------------------------
                     auto start_GA = get_tick_us();
-                    real result_GA = test_collision_ga(cart_pos, &world, Optim_information.N_individuals[i], Optim_information.N_iterations[j]) - r;
+                    result_GA[test] = test_collision_ga(cart_pos, &world, Optim_information.N_individuals[i], Optim_information.N_iterations[j]) - r;
                     auto stop_GA = get_tick_us();
                     times_GA[test] = (stop_GA - start_GA) / 1000.0;
-                    csvFile << times_GA[test] << csv_sep << (result_primitives[0] - result_GA)/result_primitives[0]  << csv_sep;
+                    error_GA[test] = (result_primitives[0] - result_GA[test])/result_primitives[0];
+                    // csvFile << times_GA[test] << csv_sep << (result_primitives[0] - result_GA)/result_primitives[0]  << csv_sep;
                 }
                 // ------------------------------
                 // ---     Test with SQP      ---
                 // ------------------------------
-                csvFile << std::endl;
+                // csvFile << std::endl;
             }
+
+            csvFile << Optim_information.N_individuals[i] << csv_sep << Optim_information.N_iterations[j] << csv_sep << result_primitives[0] << csv_sep << times_prim << csv_sep;
+            if (Optim_information.PSO == true)
+                csvFile << sum(times_PSO)/n_tests << csv_sep << sum(error_PSO)/n_tests << csv_sep;
+            if (Optim_information.GWO == true)
+                csvFile << sum(times_GWO)/n_tests << csv_sep << sum(error_GWO)/n_tests << csv_sep;
+            if (Optim_information.GA == true)
+                csvFile << sum(times_GA)/n_tests << csv_sep << sum(error_GA)/n_tests << csv_sep;
+
+            csvFile << std::endl;
         }
     }
 
@@ -172,7 +194,7 @@ void test_algorithms(OptimTest& Optim_information) {
     // // ---     Quartiles Classification      ---
     // // -----------------------------------------
     // // Open csv file again to overwrite
-    // // std::ofstream csvFile(Optim_information.csvOutput); 
+    // // std::ofstream csvFile(Optim_information.csvOutput);
     // csvFile.clear();
     // // Write headers to the CSV file
     // csvFile << "Test Number" << csv_sep << "PSO rel. error" << csv_sep << "GWO rel. error" << csv_sep << "Quartile PSO" << csv_sep << "Quartile GWO" << csv_sep << std::endl;
@@ -224,21 +246,21 @@ int main() {
     OptimTest Optim_information;
     objlist world;
     add_OBB({0.9, -0.7, 0.1}, {0.1, 0.1, 0.1}, {1, 0, 0, 0, 1, 0, 0, 0, 1}, &world);
-    Array individuals = {10, 20, 50, 100, 150, 250, 500};
+    Array individuals = {10, 20, 50, 100, 150, 250, 500, 1000};
     Optim_information.N_individuals = individuals;
-    Array iterations = {5, 10, 15, 25, 50, 100};
+    Array iterations = {5, 10, 15, 25, 50, 100, 250, 500};
     Optim_information.N_iterations = iterations;
-    Optim_information.PSO = FALSE;
-    Optim_information.GWO = FALSE;
+    Optim_information.PSO = TRUE;
+    Optim_information.GWO = TRUE;
     Optim_information.GA = TRUE;
     Optim_information.world = world;
     Optim_information.csv_sep = ";";
-    Optim_information.N_tests = 5;
+    Optim_information.N_tests = 15;
     Optim_information.csvInput = "examples/build/trajectory1.csv";
     Array dimensions = {7, 10330};
     Optim_information.input_dimensions = dimensions;
     Optim_information.csvOutput = "C:/Users/thoma/Desktop/data_collision_check_traj1.csv";
- 
+
     test_algorithms(Optim_information);
     // Optim_information.csvInput = "examples/build/trajectory2.csv";
     // dimensions = {7, 18316};
