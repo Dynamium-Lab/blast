@@ -22,15 +22,26 @@ real collision_gwo(Matrix caps_list, OBB OBB, int N_wol, int N_it) {
     real Delta_fit = INF_REAL;
     std::vector<Wolf1> wolf(N_wolves);
     // Initialization of wolves' positions
-    for (int i = 0; i < N_wolves; i++) {
+    for (int i = 4; i < N_wolves; i++) {
         wolf[i].x.resize(2);
         real fraction = (N_Dimensions == 1) ? i / (N_Dimensions) : i / (N_Dimensions - 1);
         for (int j = 0; j < N_Dimensions; j++) {
             wolf[i].x[j] = fraction;
             wolf[i].x[j] = 0.5*get_random() + 0.5;
         }
-        // wolf[i].x = clamp(wolf[i].x, 0, 1);
     }
+    wolf[0].x.resize(2);
+    wolf[1].x.resize(2);
+    wolf[2].x.resize(2);
+    wolf[3].x.resize(2);
+    wolf[0].x[0] = 0;
+    wolf[0].x[1] = 0;
+    wolf[1].x[0] = 0;
+    wolf[1].x[1] = 1;
+    wolf[2].x[0] = 1;
+    wolf[2].x[1] = 0;
+    wolf[3].x[0] = 1;
+    wolf[3].x[1] = 1;
     // GWO Computation
     for (int k = 0; k < N_iterations; k++) {
         real a = 2.0 - k * (2.0 / N_iterations);

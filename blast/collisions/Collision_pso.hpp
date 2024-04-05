@@ -26,20 +26,42 @@ real collision_pso(Matrix caps_list, OBB OBB, int N_particles, int N_iterations)
 
     // Intializing random particles
     std::vector<PsoParticle1> particle(N_particles);
-    for(int i = 0; i < N_particles; i++) {
+    for(int i = 4; i < N_particles; i++) {
         particle[i].x.resize(2);
         real fraction = N_particles == 1 ? i / (N_particles) : i / (N_particles - 1);
         for (int j = 0; j < N_Dimensions; j++) {
             particle[i].x[j] = fraction;
-            // particle[i].x[j] = 0.5*get_random() + 0.5;
         }
-        // particle[i].x = clamp(particle[i].x, 0, 1);
 
         particle[i].v = random_array(N_Dimensions, 1);
 
         particle[i].best_x = particle[i].x; // Best position for Pi
         particle[i].best_f = OBJ_function(particle[i].x, caps_list, OBB); // Best fitness for Pi
     }
+    particle[0].x.resize(2);
+    particle[1].x.resize(2);
+    particle[2].x.resize(2);
+    particle[3].x.resize(2);
+    particle[0].x[0] = 0;
+    particle[0].x[1] = 0;
+    particle[0].v = random_array(N_Dimensions, 1);
+    particle[0].best_x = particle[0].x; // Best position for Pi
+    particle[0].best_f = OBJ_function(particle[0].x, caps_list, OBB); // Best fitness for Pi
+    particle[1].x[0] = 0;
+    particle[1].x[1] = 1;
+    particle[1].v = random_array(N_Dimensions, 1);
+    particle[1].best_x = particle[1].x; // Best position for Pi
+    particle[1].best_f = OBJ_function(particle[1].x, caps_list, OBB); // Best fitness for Pi
+    particle[2].x[0] = 1;
+    particle[2].x[1] = 0;
+    particle[2].v = random_array(N_Dimensions, 1);
+    particle[2].best_x = particle[2].x; // Best position for Pi
+    particle[2].best_f = OBJ_function(particle[2].x, caps_list, OBB); // Best fitness for Pi
+    particle[3].x[0] = 1;
+    particle[3].x[1] = 1;
+    particle[3].v = random_array(N_Dimensions, 1);
+    particle[3].best_x = particle[3].x; // Best position for Pi
+    particle[3].best_f = OBJ_function(particle[3].x, caps_list, OBB); // Best fitness for Pi
 
     // Main loop
     for (int j = 0; j < N_iterations; j++) {
