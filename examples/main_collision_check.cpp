@@ -27,7 +27,7 @@ struct OptimTest {
     bool PSO = FALSE;
     bool GWO = FALSE;
     bool GA = FALSE;
-    objlist world;
+    objlist* world;
 };
 
 Matrix read_csv_matrix (const std::string& filename, Array dimensions) {
@@ -59,7 +59,7 @@ void test_algorithms(OptimTest& Optim_information) {
     // std::ofstream* csvFile = &Optim_information.csvOutput;
     std::string csv_sep = Optim_information.csv_sep;
     const int n_tests = Optim_information.N_tests;
-    objlist world = Optim_information.world;
+    objlist* world = Optim_information.world;
 
     // Reading trajectory
     Matrix joint_pos;
@@ -122,15 +122,13 @@ void test_algorithms(OptimTest& Optim_information) {
             // ---  Test with primitives  ---
             // ------------------------------
             auto start_prim = get_tick_us();
-            result_primitives = test_collision(&capsules, &world, n_collision_results);
+            result_primitives = test_collision(&capsules, world, n_collision_results);
             auto stop_prim = get_tick_us();
             real times_prim = (stop_prim - start_prim) / 1000.0;
             for (int test = 0; test < n_tests; test ++) {
-
-
                 // csvFile << test << csv_sep << Optim_information.N_individuals[i] << csv_sep << Optim_information.N_iterations[j] << csv_sep << result_primitives[0] << csv_sep << times_prim[test] << csv_sep;
 
-                // // todo: fix GJK
+                // // note: This will be able to be tested once GJK is up and running
                 // // ------------------------------
                 // // ---     Test with GJK      ---
                 // // ------------------------------
@@ -144,33 +142,32 @@ void test_algorithms(OptimTest& Optim_information) {
                     // ---     Test with PSO      ---
                     // ------------------------------
                     auto start_PSO = get_tick_us();
-                    result_PSO[test] = test_collision_pso(cart_pos, &world, Optim_information.N_individuals[i], Optim_information.N_iterations[j]) - r;
+                    // result_GWO[test] = test_collision_gwo(cart_pos, world, Optim_information.N_individuals[i], Optim_information.N_iterations[j]) - r;
+                    result_PSO[test] = test_collision_ga_OBB(cart_pos, world, Optim_information.N_individuals[i], Optim_information.N_iterations[j]) - r;
                     auto stop_PSO = get_tick_us();
                     times_PSO[test] = (stop_PSO - start_PSO) / 1000.0;
                     error_PSO[test] = (result_primitives[0] - result_PSO[test])/result_primitives[0];
-                    // csvFile << times_PSO[test] << csv_sep << (result_primitives[0] - result_PSO)/result_primitives[0]  << csv_sep;
                 }
                 if (Optim_information.GWO == true) {
                     // ------------------------------
                     // ---     Test with GWO      ---
                     // ------------------------------
                     auto start_GWO = get_tick_us();
-                    result_GWO[test] = test_collision_gwo(cart_pos, &world, Optim_information.N_individuals[i], Optim_information.N_iterations[j]) - r;
+                    // result_GWO[test] = test_collision_gwo(cart_pos, world, Optim_information.N_individuals[i], Optim_information.N_iterations[j]) - r;
+                    result_GWO[test] = test_collision_ga_world_1caps(cart_pos, world, Optim_information.N_individuals[i], Optim_information.N_iterations[j]) - r;
                     auto stop_GWO = get_tick_us();
                     times_GWO[test] = (stop_GWO - start_GWO) / 1000.0;
                     error_GWO[test] = (result_primitives[0] - result_GWO[test])/result_primitives[0];
-                    // csvFile << times_GWO[test] << csv_sep << (result_primitives[0] - result_GWO)/result_primitives[0]  << csv_sep;
                 }
                 if (Optim_information.GA == true) {
                     // ------------------------------
                     // ---     Test with GA       ---
                     // ------------------------------
                     auto start_GA = get_tick_us();
-                    result_GA[test] = test_collision_ga(cart_pos, &world, Optim_information.N_individuals[i], Optim_information.N_iterations[j]) - r;
+                    result_GA[test] = test_collision_ga_world_full_robot(cart_pos, world, Optim_information.N_individuals[i], Optim_information.N_iterations[j]) - r;
                     auto stop_GA = get_tick_us();
                     times_GA[test] = (stop_GA - start_GA) / 1000.0;
                     error_GA[test] = (result_primitives[0] - result_GA[test])/result_primitives[0];
-                    // csvFile << times_GA[test] << csv_sep << (result_primitives[0] - result_GA)/result_primitives[0]  << csv_sep;
                 }
                 // ------------------------------
                 // ---     Test with SQP      ---
@@ -245,17 +242,18 @@ int main() {
     using namespace blast;
     OptimTest Optim_information;
     objlist world;
-    add_OBB({0.9, -0.7, 0.1}, {0.1, 0.1, 0.1}, {1, 0, 0, 0, 1, 0, 0, 0, 1}, &world);
-    Array individuals = {10, 20, 50, 100, 150, 250, 500, 1000};
+    add_OBB({0.95, -0.7, 0.1}, {0.05, 0.1, 0.1}, {1, 0, 0, 0, 1, 0, 0, 0, 1}, &world);
+    add_OBB({0.85, -0.7, 0.1}, {0.05, 0.1, 0.1}, {1, 0, 0, 0, 1, 0, 0, 0, 1}, &world);
+    Array individuals = {10, 20, 50, 100, 150, 250};
     Optim_information.N_individuals = individuals;
-    Array iterations = {5, 10, 15, 25, 50, 100, 250, 500};
+    Array iterations = {5, 10, 15, 25, 50, 100};
     Optim_information.N_iterations = iterations;
     Optim_information.PSO = TRUE;
     Optim_information.GWO = TRUE;
     Optim_information.GA = TRUE;
-    Optim_information.world = world;
+    Optim_information.world = &world;
     Optim_information.csv_sep = ";";
-    Optim_information.N_tests = 15;
+    Optim_information.N_tests = 10;
     Optim_information.csvInput = "examples/build/trajectory1.csv";
     Array dimensions = {7, 10330};
     Optim_information.input_dimensions = dimensions;

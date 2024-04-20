@@ -126,10 +126,10 @@ real collision_ga(Matrix caps_list, OBB OBB, int N_individuals, int N_iterations
     return 1/gbest_f;
 }
 
-real test_collision_ga(Matrix cart_pos, objlist* world, int N_individuals, int N_iterations) {
+real test_collision_ga_OBB(Matrix cart_pos, objlist* world, int N_individuals, int N_iterations) {
     int n_caps = cart_pos.rows / 3 - 1;
-    real min_dist = INF_REAL;
-    real temp_dist;
+    real distmin = INF_REAL;
+    real current_dist;
     Matrix temp(6, cart_pos.cols);
     for (int j = 0; j < n_caps; j++) {
         for (int i = 0; i < cart_pos.cols; i++) {
@@ -141,10 +141,163 @@ real test_collision_ga(Matrix cart_pos, objlist* world, int N_individuals, int N
             temp(5, i) = cart_pos(j * 3 + 5, i);
         }
         for (int i = 0; i < world->OBBlist.size(); i++) {
-            temp_dist = collision_ga(temp, world->OBBlist[i], N_individuals, N_iterations);
-            min_dist = std::min(temp_dist, min_dist);
+            current_dist = collision_ga(temp, world->OBBlist[i], N_individuals, N_iterations);
+            distmin = (distmin < 0) ? (current_dist > distmin ? current_dist : distmin) :
+                                  (current_dist < distmin ? current_dist : distmin);
         }
     }
-    return min_dist;
+    return distmin;
 }
+
+real collision_ga(Matrix caps_list, objlist* world, int N_individuals, int N_iterations) {
+    const auto N_Dimensions = 2;
+    const double mutation_rate = 0.001; // Mutation rate
+    const double mutation_step = 0.001/(caps_list.rows/3-1); // Mutation step
+    const double elite_percentage = 0.2; // Percentage of elite individuals to retain
+    const int elite_count = elite_percentage * N_individuals;
+    Array fitness_fraction(N_individuals);
+
+    Array gbest_x(N_Dimensions);
+    real gbest_f = -INF_REAL;
+
+    // Initialize random population 
+    std::vector<GAIndividual> population(N_individuals);
+    population.resize(N_individuals);
+    for (int i = 4; i < N_individuals; ++i) {
+        population[i].x.resize(2);
+        for (int j = 0; j < N_Dimensions; ++j) {
+            population[i].x[j] = 0.5*get_random() + 0.5; // Initialize with random values between [0, 1]
+        } 
+    }
+    population[0].x.resize(2);
+    population[1].x.resize(2);
+    population[2].x.resize(2);
+    population[3].x.resize(2);
+    population[0].x[0] = 0;
+    population[0].x[1] = 0;
+    population[1].x[0] = 0;
+    population[1].x[1] = 1;
+    population[2].x[0] = 1;
+    population[2].x[1] = 0;
+    population[3].x[0] = 1;
+    population[3].x[1] = 1;
+
+    // Main loop
+    for (int iteration = 0; iteration < N_iterations; ++iteration) {
+        std::vector<GAIndividual> new_population(N_individuals);
+        for (int i = 0; i < N_individuals; ++i) {
+            new_population[i].x.resize(2);
+        }
+
+        // Evaluate fitness
+        real fitness_total = 0;
+        for (int i = 0; i < N_individuals; i++) {
+            population[i].fitness = 1/OBJ_function(population[i].x, caps_list, world);
+            fitness_total += population[i].fitness;
+            // Update global best
+            gbest_f = (population[i].fitness > gbest_f) ? population[i].fitness : gbest_f;
+            gbest_x = (population[i].fitness > gbest_f) ? population[i].x : gbest_x;
+        }
+
+        for (int i = 0; i < N_individuals; i++) {
+            fitness_fraction[i] = population[i].fitness / fitness_total;
+        }
+        for (int i = 1; i < N_individuals; i++) {
+            fitness_fraction[i] = fitness_fraction[i-1] + fitness_fraction[i];
+        }
+
+        std::vector<GAIndividual> sorted_fit;
+        sorted_fit = population;
+        std::sort(sorted_fit.begin(), sorted_fit.end(), [](const GAIndividual& a, const GAIndividual& b) {
+            return a.fitness > b.fitness;
+        });
+
+        // Keep elite
+        for (int i = 0; i < elite_count/2; ++i) {
+            new_population[i].x = sorted_fit[i].x; // Copy elite individuals to the next generation
+            new_population[i].fitness = sorted_fit[i].fitness;
+        }
+        for (int i = elite_count/2; i < elite_count; ++i) {
+            for (int j = 0; j < N_Dimensions; j++) {
+                new_population[i].x[j] = sorted_fit[i-elite_count/2].x[j] + mutation_step * get_random(); // Mutate elite individuals
+            }
+            new_population[i].x = clamp(new_population[i].x, 0, 1);
+        }
+        // Perform selection and crossover
+        for (int i = elite_count; i < N_individuals; ++i) {
+            // Select parents based on their fitness
+            real parent_idx1 = 0.5*get_random() + 0.5; // Select parent 1
+            real parent_idx2 = 0.5*get_random() + 0.5; // Select parent 2
+
+            Array parent1(N_individuals);
+            int fit_frac1;
+            for (int j = 0; j < N_individuals; j++) {
+                if (fitness_fraction[j] >= parent_idx1) {
+                    fit_frac1 = j;
+                    parent1 = population[j].x;
+                    break;
+                }
+            }
+            Array parent2(N_individuals);
+            for (int j = 0; j < N_individuals; j++) {
+                if (fitness_fraction[j] > parent_idx2) {
+                    parent2 = j == fit_frac1 ? population[(j+1) % N_individuals].x : population[j].x;
+                    break;
+                }
+            }
+
+            for (int j = 0; j < N_Dimensions; j++) {
+                // Perform crossover
+                real lambda = 0.5*get_random() + 0.5;
+                new_population[i].x[j] = lambda*parent1[j] + (1-lambda)*parent2[j];
+                // Perform mutation
+                new_population[i].x[j] = (abs(get_random()) < mutation_rate) ? new_population[i].x[j] + mutation_step * get_random() : new_population[i].x[j];
+            }
+            new_population[i].x = clamp(new_population[i].x, 0, 1);
+        }
+        // Update population
+        population = std::move(new_population);
+    }  
+    return 1/gbest_f;
+}
+
+real test_collision_ga_world_1caps(Matrix cart_pos, objlist* world, int N_individuals, int N_iterations) {
+    int n_caps = cart_pos.rows / 3 - 1;
+    real distmin = INF_REAL;
+    real current_dist;
+    Matrix temp(6, cart_pos.cols);
+    for (int j = 0; j < n_caps; j++) {
+        for (int i = 0; i < cart_pos.cols; i++) {
+            temp(0, i) = cart_pos(j * 3, i);
+            temp(1, i) = cart_pos(j * 3 + 1, i);
+            temp(2, i) = cart_pos(j * 3 + 2, i);
+            temp(3, i) = cart_pos(j * 3 + 3, i);
+            temp(4, i) = cart_pos(j * 3 + 4, i);
+            temp(5, i) = cart_pos(j * 3 + 5, i);
+        }
+        current_dist = collision_ga(temp, world, N_individuals, N_iterations);
+        distmin = (distmin < 0) ? (current_dist > distmin ? current_dist : distmin) :
+                                (current_dist < distmin ? current_dist : distmin);
+    }
+    return distmin;
+}
+
+real test_collision_ga_world_full_robot(Matrix cart_pos, objlist* world, int N_individuals, int N_iterations) {
+    Matrix temp(6, cart_pos.cols);
+    for (int i = 0; i < cart_pos.cols; i++) {
+        temp(0, i) = cart_pos(0, i);
+        temp(1, i) = cart_pos(1, i);
+        temp(2, i) = cart_pos(2, i);
+        temp(3, i) = cart_pos(3, i);
+        temp(4, i) = cart_pos(4, i);
+        temp(5, i) = cart_pos(5, i);
+        // temp(6, i) = cart_pos(6, i);
+        // temp(7, i) = cart_pos(7, i);
+        // temp(8, i) = cart_pos(8, i);
+    }
+    real distmin = collision_ga(temp, world, N_individuals, N_iterations);
+    // real distmin = collision_ga(cart_pos, world, N_individuals, N_iterations);
+    return distmin;
+}
+
 } // namespace blast

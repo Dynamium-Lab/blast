@@ -1061,9 +1061,9 @@ host_fn Vec3 get_point(Array& x, Matrix caps_list) {
     real t = x[0]*(caps_list.cols-1);
     int t_step = t;
     int t_step_plus1 = (t_step == (caps_list).cols-1) ? t_step : t_step + 1;
-    real s = x[1]*(caps_list.rows-1);
+    real s = x[1]*(caps_list.rows/3-1);
     int s_step = s;
-    int s_step_plus1 = (s_step == (caps_list).rows-1) ? s_step : s_step + 1;
+    int s_step_plus1 = (s_step == (caps_list).rows/3-1) ? s_step : s_step + 1;
  
     Vec3 p1_1 = {caps_list(3*s_step, t_step),             caps_list(3*s_step + 1, t_step),             caps_list(3*s_step + 2, t_step)};
     Vec3 p1_2 = {caps_list(3*s_step, t_step_plus1),       caps_list(3*s_step + 1, t_step_plus1),       caps_list(3*s_step + 2, t_step_plus1)};
@@ -1074,30 +1074,36 @@ host_fn Vec3 get_point(Array& x, Matrix caps_list) {
     Vec3 p2 = (1 - (t - t_step)) * p2_1 + (t - t_step) * p2_2;
  
     Vec3 p = (1 - (s - s_step)) * p1 + (s - s_step) * p2;
+    return p;
 }
 
-host_fn real OBJ_function(Array& x, Matrix caps_list, objlist world) {
+host_fn real OBJ_function(Array& x, Matrix caps_list, objlist* world) {
     Vec3 p = get_point(x, caps_list);
 
     real distmin = INF_REAL;
     real current_dist = 0;
-    for (auto OBB: world.OBBlist) {
+    for (auto OBB: (*world).OBBlist) {
         current_dist = dist_OBB_point(OBB, p);
-        distmin = (distmin < 0) ? (current_dist > distmin ? current_dist : distmin) :
+        distmin = (distmin < 0) ? (current_dist > distmin && current_dist < 0 ? current_dist : distmin) :
                                   (current_dist < distmin ? current_dist : distmin);
     }
-    for (auto caps: world.capslist) {
+    for (auto caps: (*world).capslist) {
         current_dist = dist_caps_point(caps, p);
         distmin = (distmin < 0) ? (current_dist > distmin ? current_dist : distmin) :
                                   (current_dist < distmin ? current_dist : distmin);
     }
-    for (auto sph: world.sphlist) {
+    for (auto sph: (*world).sphlist) {
         current_dist = dist_sph_point(sph, p);
         distmin = (distmin < 0) ? (current_dist > distmin ? current_dist : distmin) :
                                   (current_dist < distmin ? current_dist : distmin);
     }
  
     return distmin;
+}
+
+host_fn real OBJ_function(Array& x, Matrix caps_list, OBB OBB_test) {
+    Vec3 p = get_point(x, caps_list);
+    return dist_OBB_point(OBB_test, p);
 }
 
 // ======================================
