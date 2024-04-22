@@ -1057,7 +1057,7 @@ host_fn real dist_sph_point(sphere sph_test, Vec3 point) {
     return norm(point - sph_test.c) - sph_test.r;
 }
 
-host_fn Vec3 get_point(Array& x, Matrix caps_list) {
+host_fn Vec3 get_point(const Array& x, const Matrix &caps_list) {
     real t = x[0]*(caps_list.cols-1);
     int t_step = t;
     int t_step_plus1 = (t_step == (caps_list).cols-1) ? t_step : t_step + 1;
@@ -1077,7 +1077,7 @@ host_fn Vec3 get_point(Array& x, Matrix caps_list) {
     return p;
 }
 
-host_fn real OBJ_function(Array& x, Matrix caps_list, objlist* world) {
+host_fn real OBJ_function(const Array& x, const Matrix &caps_list, const objlist* world) {
     Vec3 p = get_point(x, caps_list);
 
     real distmin = INF_REAL;
@@ -1101,7 +1101,7 @@ host_fn real OBJ_function(Array& x, Matrix caps_list, objlist* world) {
     return distmin;
 }
 
-host_fn real OBJ_function(Array& x, Matrix caps_list, OBB OBB_test) {
+host_fn real OBJ_function(const Array& x, const Matrix &caps_list, const OBB &OBB_test) {
     Vec3 p = get_point(x, caps_list);
     return dist_OBB_point(OBB_test, p);
 }

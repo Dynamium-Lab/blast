@@ -15,7 +15,7 @@ struct GAIndividual {
 //     const double b = 100.0;
 //     return pow(a - x[1], 2) + b * pow(x[2] - x[1] * x[1], 2);
 // }
-real collision_ga(Matrix caps_list, OBB OBB, int N_individuals, int N_iterations) {
+real collision_ga(const Matrix &caps_list, const OBB &OBB, const int N_individuals, const int N_iterations) {
     const auto N_Dimensions = 2;
     const double mutation_rate = 0.001; // Mutation rate
     const double elite_percentage = 0.2; // Percentage of elite individuals to retain
@@ -126,7 +126,7 @@ real collision_ga(Matrix caps_list, OBB OBB, int N_individuals, int N_iterations
     return 1/gbest_f;
 }
 
-real test_collision_ga_OBB(Matrix cart_pos, objlist* world, int N_individuals, int N_iterations) {
+real test_collision_ga_OBB(const Matrix &cart_pos, const objlist* world, const int N_individuals, const int N_iterations) {
     int n_caps = cart_pos.rows / 3 - 1;
     real distmin = INF_REAL;
     real current_dist;
@@ -149,10 +149,10 @@ real test_collision_ga_OBB(Matrix cart_pos, objlist* world, int N_individuals, i
     return distmin;
 }
 
-real collision_ga(Matrix caps_list, objlist* world, int N_individuals, int N_iterations) {
+real collision_ga(const Matrix &caps_list, objlist* world, int N_individuals, int N_iterations) {
     const auto N_Dimensions = 2;
     const double mutation_rate = 0.001; // Mutation rate
-    const double mutation_step = 0.001/(caps_list.rows/3-1); // Mutation step
+    const double mutation_step = 0.001; // Mutation step
     const double elite_percentage = 0.2; // Percentage of elite individuals to retain
     const int elite_count = elite_percentage * N_individuals;
     Array fitness_fraction(N_individuals);
@@ -261,7 +261,7 @@ real collision_ga(Matrix caps_list, objlist* world, int N_individuals, int N_ite
     return 1/gbest_f;
 }
 
-real test_collision_ga_world_1caps(Matrix cart_pos, objlist* world, int N_individuals, int N_iterations) {
+real test_collision_ga_world_1caps(const Matrix &cart_pos, objlist* world, int N_individuals, int N_iterations) {
     int n_caps = cart_pos.rows / 3 - 1;
     real distmin = INF_REAL;
     real current_dist;
@@ -282,21 +282,21 @@ real test_collision_ga_world_1caps(Matrix cart_pos, objlist* world, int N_indivi
     return distmin;
 }
 
-real test_collision_ga_world_full_robot(Matrix cart_pos, objlist* world, int N_individuals, int N_iterations) {
-    Matrix temp(6, cart_pos.cols);
-    for (int i = 0; i < cart_pos.cols; i++) {
-        temp(0, i) = cart_pos(0, i);
-        temp(1, i) = cart_pos(1, i);
-        temp(2, i) = cart_pos(2, i);
-        temp(3, i) = cart_pos(3, i);
-        temp(4, i) = cart_pos(4, i);
-        temp(5, i) = cart_pos(5, i);
-        // temp(6, i) = cart_pos(6, i);
-        // temp(7, i) = cart_pos(7, i);
-        // temp(8, i) = cart_pos(8, i);
-    }
-    real distmin = collision_ga(temp, world, N_individuals, N_iterations);
-    // real distmin = collision_ga(cart_pos, world, N_individuals, N_iterations);
+real test_collision_ga_world_full_robot(const Matrix &cart_pos, objlist* world, int N_individuals, int N_iterations) {
+    // Matrix temp(9, cart_pos.cols);
+    // for (int i = 0; i < cart_pos.cols; i++) {
+    //     temp(0, i) = cart_pos(0, i);
+    //     temp(1, i) = cart_pos(1, i);
+    //     temp(2, i) = cart_pos(2, i);
+    //     temp(3, i) = cart_pos(3, i);
+    //     temp(4, i) = cart_pos(4, i);
+    //     temp(5, i) = cart_pos(5, i);
+    //     temp(6, i) = cart_pos(6, i);
+    //     temp(7, i) = cart_pos(7, i);
+    //     temp(8, i) = cart_pos(8, i);
+    // }
+    // real distmin = collision_ga(temp, world, N_individuals, N_iterations);
+    real distmin = collision_ga(cart_pos, world, N_individuals, N_iterations);
     return distmin;
 }
 
