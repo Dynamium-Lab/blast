@@ -122,7 +122,7 @@ real collision_ga(const Matrix &caps_list, const OBB &OBB, const int N_individua
         }
         // Update population
         population = std::move(new_population);
-    }  
+    }
     return 1/gbest_f;
 }
 
@@ -146,6 +146,7 @@ real test_collision_ga_OBB(const Matrix &cart_pos, const objlist* world, const i
                                   (current_dist < distmin ? current_dist : distmin);
         }
     }
+    // std::cout << distmin << std::endl;
     return distmin;
 }
 
@@ -283,19 +284,6 @@ real test_collision_ga_world_1caps(const Matrix &cart_pos, objlist* world, int N
 }
 
 real test_collision_ga_world_full_robot(const Matrix &cart_pos, objlist* world, int N_individuals, int N_iterations) {
-    // Matrix temp(9, cart_pos.cols);
-    // for (int i = 0; i < cart_pos.cols; i++) {
-    //     temp(0, i) = cart_pos(0, i);
-    //     temp(1, i) = cart_pos(1, i);
-    //     temp(2, i) = cart_pos(2, i);
-    //     temp(3, i) = cart_pos(3, i);
-    //     temp(4, i) = cart_pos(4, i);
-    //     temp(5, i) = cart_pos(5, i);
-    //     temp(6, i) = cart_pos(6, i);
-    //     temp(7, i) = cart_pos(7, i);
-    //     temp(8, i) = cart_pos(8, i);
-    // }
-    // real distmin = collision_ga(temp, world, N_individuals, N_iterations);
     real distmin = collision_ga(cart_pos, world, N_individuals, N_iterations);
     return distmin;
 }
