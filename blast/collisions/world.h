@@ -1154,6 +1154,7 @@ host_fn std::vector<real> test_collision(capslist* caps_list, objlist* world, in
                     for (int k = n_var - 1; k > j; k--) {
                         dist_min[k] = dist_min[k-1];
                     }
+                    // std::cout << c << ", " << dist << ", " << std::endl;
                     dist_min[j] = dist;
                     break;
                 }
@@ -1232,7 +1233,6 @@ host_fn std::vector<real> test_collision(capslist* caps_list, objlist* world, in
     // }
     return dist_min;
 }
-
 
 
 // ======================================

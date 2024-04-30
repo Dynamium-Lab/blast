@@ -35,15 +35,18 @@ real collision_ga(const Matrix &caps_list, const OBB &OBB, const int N_individua
         } 
     }
     population[0].x.resize(2);
-    population[1].x.resize(2);
-    population[2].x.resize(2);
-    population[3].x.resize(2);
     population[0].x[0] = 0;
     population[0].x[1] = 0;
+
+    population[1].x.resize(2);
     population[1].x[0] = 0;
     population[1].x[1] = 1;
+
+    population[2].x.resize(2);
     population[2].x[0] = 1;
     population[2].x[1] = 0;
+
+    population[3].x.resize(2);
     population[3].x[0] = 1;
     population[3].x[1] = 1;
 

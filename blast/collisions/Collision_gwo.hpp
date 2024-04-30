@@ -31,17 +31,21 @@ real collision_gwo(const Matrix &caps_list, OBB OBB, const int N_wol, const int 
         }
     }
     wolf[0].x.resize(2);
-    wolf[1].x.resize(2);
-    wolf[2].x.resize(2);
-    wolf[3].x.resize(2);
     wolf[0].x[0] = 0;
     wolf[0].x[1] = 0;
+    
+    wolf[1].x.resize(2);
     wolf[1].x[0] = 0;
     wolf[1].x[1] = 1;
+
+    wolf[2].x.resize(2);
     wolf[2].x[0] = 1;
     wolf[2].x[1] = 0;
+
+    wolf[3].x.resize(2);
     wolf[3].x[0] = 1;
     wolf[3].x[1] = 1;
+
     // GWO Computation
     for (int k = 0; k < N_iterations; k++) {
         real a = 2.0 - k * (2.0 / N_iterations);
@@ -49,22 +53,16 @@ real collision_gwo(const Matrix &caps_list, OBB OBB, const int N_wol, const int 
             // Evaluating fitness and deciding which wolves are Alpha, Beta and Delta
             real fitness = OBJ_function(wolf[i].x, caps_list, OBB);
             // Alpha
-            if (fitness < Alpha_fit) {
-                Alpha_fit = fitness; 
-                x_Alpha = wolf[i].x;
-            }
+            x_Alpha = (fitness < Alpha_fit) ? wolf[i].x : x_Alpha;
+            Alpha_fit = (fitness < Alpha_fit) ? fitness : Alpha_fit; 
+            
             // Beta
-            if (fitness > Alpha_fit && fitness < Beta_fit) {
-                Beta_fit = fitness; 
-                x_Beta = wolf[i].x;
-            }
+            x_Beta = (fitness > Alpha_fit && fitness < Beta_fit) ? wolf[i].x : x_Beta;
+            Beta_fit = (fitness > Alpha_fit && fitness < Beta_fit) ? fitness : Beta_fit; 
+
             // Delta
-            if (fitness > Alpha_fit && fitness > Beta_fit && fitness < Delta_fit) {
-                Delta_fit = fitness; 
-                x_Delta = wolf[i].x;
-            }
-            // Hunting
-            // Approaching the prey 
+            x_Delta = (fitness > Alpha_fit && fitness > Beta_fit && fitness < Delta_fit) ? wolf[i].x : x_Delta;
+            Delta_fit = (fitness > Alpha_fit && fitness > Beta_fit && fitness < Delta_fit) ? fitness : Delta_fit; 
             
             // Search for the Prey (Diverging the wolves from each other)
             real A_alpha = a * ((2*(0.5 * get_random() + 0.5))-1);
@@ -165,20 +163,17 @@ real collision_gwo(const Matrix &caps_list, const objlist* world, const int N_wo
             // Evaluating fitness and deciding which wolves are Alpha, Beta and Delta
             real fitness = OBJ_function(wolf[i].x, caps_list, world);
             // Alpha
-            if (fitness < Alpha_fit) {
-                Alpha_fit = fitness; 
-                x_Alpha = wolf[i].x;
-            }
+            x_Alpha = (fitness < Alpha_fit) ? wolf[i].x : x_Alpha;
+            Alpha_fit = (fitness < Alpha_fit) ? fitness : Alpha_fit; 
+            
             // Beta
-            if (fitness > Alpha_fit && fitness < Beta_fit) {
-                Beta_fit = fitness; 
-                x_Beta = wolf[i].x;
-            }
+            x_Beta = (fitness > Alpha_fit && fitness < Beta_fit) ? wolf[i].x : x_Beta;
+            Beta_fit = (fitness > Alpha_fit && fitness < Beta_fit) ? fitness : Beta_fit; 
+
             // Delta
-            if (fitness > Alpha_fit && fitness > Beta_fit && fitness < Delta_fit) {
-                Delta_fit = fitness; 
-                x_Delta = wolf[i].x;
-            }
+            x_Delta = (fitness > Alpha_fit && fitness > Beta_fit && fitness < Delta_fit) ? wolf[i].x : x_Delta;
+            Delta_fit = (fitness > Alpha_fit && fitness > Beta_fit && fitness < Delta_fit) ? fitness : Delta_fit; 
+            
             // Hunting
             // Approaching the prey 
             

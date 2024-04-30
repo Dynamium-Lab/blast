@@ -87,6 +87,9 @@ real collision_pso(const Matrix &caps_list, const OBB &OBB, const int N_particle
         }
     }
 
+    // if (gbest_f < 0.107) 
+    //     real test = OBJ_function(gbest_x, caps_list, OBB);
+
     return gbest_f;
 }
 
@@ -96,6 +99,7 @@ real test_collision_pso_OBB(const Matrix &cart_pos,const  objlist* world, const 
     real min_dist = INF_REAL;
     real temp_dist;
     Matrix temp(6, n_points);
+    // for (int j = 0; j < n_caps; j++) {
     for (int j = 0; j < n_caps; j++) {
         for (int i = 0; i < n_points; i++) {
             temp(0, i) = cart_pos(j*3, i); 
