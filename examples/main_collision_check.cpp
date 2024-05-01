@@ -135,7 +135,6 @@ void test_algorithms(OptimTest& Optim_information) {
         }
     }
     csvFile << std::endl;
-    csvFile << Optim_information.N_tests << "tests" << std::endl;
 
     Array times_PSO_caps1obj(n_tests);
     Array result_PSO_caps1obj(n_tests);
@@ -164,6 +163,13 @@ void test_algorithms(OptimTest& Optim_information) {
     Array times_GA_robotallobj(n_tests);
     Array result_GA_robotallobj(n_tests);
     Array error_GA_robotallobj(n_tests);
+
+    
+    // Theoretical minimum
+    Optim_solution pso_min = test_collision_pso_OBB_data(cart_pos, world, 1000, 1000);
+    // real theo_min = grad_desc()
+    csvFile << Optim_information.N_tests << csv_sep << "tests" << csv_sep << "Optimal solution : " << csv_sep <<pso_min.best_f << std::endl;
+            
 
     std::vector<real> result_primitives(n_collision_results);
     // std::vector<real> error_GWO_values;
@@ -271,6 +277,7 @@ void test_algorithms(OptimTest& Optim_information) {
                 // csvFile << std::endl;
             }
 
+            // Output information
             csvFile << Optim_information.N_individuals[i] << csv_sep << Optim_information.N_iterations[j] << csv_sep << result_primitives[0] << csv_sep << times_prim << csv_sep;
             if (Optim_information.PSO == true) {
                 if (Optim_information.caps1obj == true) {
@@ -394,8 +401,8 @@ int main() {
     Optim_information.N_iterations = iterations;
 
     Optim_information.PSO = TRUE;
-    Optim_information.GWO = TRUE;
-    Optim_information.GA = TRUE;
+    // Optim_information.GWO = TRUE;
+    // Optim_information.GA = TRUE;
 
     Optim_information.caps1obj = TRUE;
     Optim_information.capsallobj = TRUE;
