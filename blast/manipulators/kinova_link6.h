@@ -19,6 +19,8 @@ namespace blast {
         - test pinv vs pinv_svd
     - in robot_capsule:
         - Create struct for Link6 capsules + sphere
+    - in BLAST_ENABLE_TESTS:
+        - Add tests
 
 */
 
