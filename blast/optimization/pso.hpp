@@ -11,12 +11,12 @@ struct PsoParticle {
     real  best_f;     // Best known fitness of each particle i
 };
 
-real pso_optimize(Array& x, Optimisation& optim) {
+blast_fn real pso_optimize(Array& x, Optimisation& optim) {
     Assert(x.size == optim.bspline->xlen(*optim.task));
     const auto N_Dimensions = x.size;
     const int N_particles  = 400;
     const int N_iterations = 50;
-    const double w_min = 0.2;          
+    const double w_min = 0.2;
     const double w_max = 0.9;      // Inertia Weight [0, 1]
     //const double w = 0.5;
     const double c = 2;            // Cognitive weight [0, 2]

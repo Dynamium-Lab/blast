@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <iostream>
+#include <math.h>
 
 #ifdef BLAST_ENABLE_TESTS
 #define CATCH_CONFIG_MAIN
