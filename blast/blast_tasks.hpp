@@ -27,7 +27,7 @@ struct Manipulator_state {
 // Outputs :
 //      Manip_list               : List of Manipulator_state which indicate fully how the robot is positionned. Going through the list
 //                                 two elements at a time will give a task that must be completed.
-std::vector<Manipulator_state> pick_and_place(Link6 &manip, const Manipulator_state &Current_manip_state, const Matrix &Obj_list, const Matrix Drop_box_list, const real h) {
+std::vector<Manipulator_state> pick_and_place(Link6_dev &manip, const Manipulator_state &Current_manip_state, const Matrix &Obj_list, const Matrix Drop_box_list, const real h) {
 
     // Initialization
     int N_joints = Drop_box_list.rows;
