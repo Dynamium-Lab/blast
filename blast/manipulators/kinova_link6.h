@@ -70,7 +70,7 @@ struct Link6_dev {
     // collisions
     Array   internal_collisions(const Array &joint_position);
     Matrix  robot_capsules(const Array &joint_position);
-    Matrix  robot_capsules(const Matrix &pos, const int n_skip);
+    capslist  robot_capsules(const Matrix &pos, const int n_skip);
 };
 
 struct Optimisation_Link6_dev {
@@ -351,19 +351,8 @@ inline void cstr_world_link6_dev(unsigned m, double *result, unsigned xlen, cons
     internal_cstr_link6_single(m, result, xlen, x, opt);
 
     auto manip = opt->manip;
-    Matrix caps_matrix = manip->robot_capsules(opt->bspline->traj.pos, opt->n_collision_skip);
-    const int caps_size = caps_matrix.cols;
+    auto capsules = manip->robot_capsules(opt->bspline->traj.pos, opt->n_collision_skip);
 
-    capslist capsules;
-    capsules.caps.resize(caps_size * 5); // 5 capsules for each point along the trajectory
-    for (int i = 0; i < caps_size; i++) {
-        auto caps_tmp = caps_matrix.col(i);
-        for (u32 j = 0; j < 5 ; j++) {
-            capsules.caps[i*5 + j].p1 = {caps_tmp[0 + 7*j], caps_tmp[1 + 7*j], caps_tmp[2 + 7*j]};
-            capsules.caps[i*5 + j].p2 = {caps_tmp[3 + 7*j], caps_tmp[4 + 7*j], caps_tmp[5 + 7*j]};
-            capsules.caps[i*5 + j].r = caps_tmp[6 + 7*j];
-        }
-    }
     double* r = &result[ncon];
     std::vector<real> collisions = test_collision(&capsules, opt->world, opt->n_collision_constraints);
     for (int i = 0; i < opt->n_collision_constraints; i ++) {
@@ -379,15 +368,7 @@ inline void cstr_world_link6_dev(unsigned m, double *result, unsigned xlen, cons
             memcpy(x_plus.data, x, xlen * sizeof(real));
             x_plus[x_idx] += eps;
             internal_cstr_link6_single(m, r_plus.data, xlen, x_plus.data, opt);
-            Matrix caps_matrix_grad = manip->robot_capsules(opt->bspline->traj.pos, opt->n_collision_skip);
-            for (int i = 0; i < caps_size; i++) {
-                auto caps_tmp = caps_matrix_grad.col(i);
-                for (u32 j = 0; j < 5 ; j++) {
-                    capsules.caps[i*5 + j].p1 = {caps_tmp[0 + 7*j], caps_tmp[1 + 7*j], caps_tmp[2 + 7*j]};
-                    capsules.caps[i*5 + j].p2 = {caps_tmp[3 + 7*j], caps_tmp[4 + 7*j], caps_tmp[5 + 7*j]};
-                    capsules.caps[i*5 + j].r = caps_tmp[6 + 7*j];
-                }
-            }
+            auto capsules = manip->robot_capsules(opt->bspline->traj.pos, opt->n_collision_skip);
 
             std::vector<real> collisions_grad = test_collision(&capsules, opt->world, opt->n_collision_constraints);
             for (int i = 0; i < opt->n_collision_constraints; i ++) {
@@ -422,20 +403,9 @@ host_fn Array guess_shot_mean_collisions_link6(Optimisation_Link6_dev& opt, int 
         Array c1(manip->ncon(bspline->traj.t.size)); // todo: double check it is the right size
         manip->internal_constraints(bspline->traj, c1.data);
 
-        Matrix caps_matrix = manip->robot_capsules(bspline->traj.pos, opt.n_collision_skip);
-        const int caps_size = caps_matrix.cols;
-        Array c2(opt.n_collision_constraints);
+        auto capsules = manip->robot_capsules(bspline->traj.pos, opt.n_collision_skip);
 
-        capslist capsules;
-        capsules.caps.resize(caps_size * 5); // 5 capsules for each point along the trajectory
-        for (int i = 0; i < caps_size; i++) {
-            auto caps_tmp = caps_matrix.col(i);
-            for (u32 j = 0; j < 5 ; j++) {
-                capsules.caps[i*5 + j].p1 = {caps_tmp[0 + 7*j], caps_tmp[1 + 7*j], caps_tmp[2 + 7*j]};
-                capsules.caps[i*5 + j].p2 = {caps_tmp[3 + 7*j], caps_tmp[4 + 7*j], caps_tmp[5 + 7*j]};
-                capsules.caps[i*5 + j].r = caps_tmp[6 + 7*j];
-            }
-        }
+        Array c2(opt.n_collision_constraints);
         std::vector<real> collisions = test_collision(&capsules, world, opt.n_collision_constraints);
         for (int i = 0; i < opt.n_collision_constraints; i ++) {
             c2[i] = -collisions[i];
@@ -1013,7 +983,7 @@ inline Matrix Link6_dev::robot_capsules(const Array &joint_position) {
 }
 
 // Returns matrix size 35 x n (npoints) in trajectory (p1x p1y p1z p2x p2y p2z r) for five capsules for n points
-inline Matrix Link6_dev::robot_capsules(const Matrix &pos, const int n_skip) {
+inline capslist Link6_dev::robot_capsules(const Matrix &pos, const int n_skip) {
     const int points = pos.cols;
     Matrix result_capsules(35, points/n_skip);
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
@@ -1022,7 +992,7 @@ inline Matrix Link6_dev::robot_capsules(const Matrix &pos, const int n_skip) {
     Vec3 p_orig(0, 0, 0);
     Array s(7);
     Array c(7);
-    for (int i = 0; i < points/n_skip; i++) {
+    for (int i = 0; i < points; i+= n_skip) {
         blast::sincos(pos.col(i), s, c);
         Q1 = {c[0], -s[0],   0,   -s[0], -c[0],    0,     0,   0,  -1};      // base -> 0
         Q2 = {c[1],   0,   -s[1], -s[1],   0,    -c[1],   0,   1,   0};      // 0    -> 1
@@ -1114,9 +1084,21 @@ inline Matrix Link6_dev::robot_capsules(const Matrix &pos, const int n_skip) {
         result_capsules(idx + 4, i) = p2.y;
         result_capsules(idx + 5, i) = p2.z;
         result_capsules(idx + 6, i) = 0.085; // radius
-
     }
-    return result_capsules;
+
+    auto caps_size = result_capsules.cols;
+    capslist capsules;
+    capsules.caps.resize(caps_size * 5); // 5 capsules for each point along the trajectory
+    for (int i = 0; i < caps_size; i++) {
+        auto caps_tmp = result_capsules.col(i);
+        for (u32 j = 0; j < 5 ; j++) {
+            capsules.caps[i*5 + j].p1 = {caps_tmp[0 + 7*j], caps_tmp[1 + 7*j], caps_tmp[2 + 7*j]};
+            capsules.caps[i*5 + j].p2 = {caps_tmp[3 + 7*j], caps_tmp[4 + 7*j], caps_tmp[5 + 7*j]};
+            capsules.caps[i*5 + j].r = caps_tmp[6 + 7*j];
+        }
+    }
+
+    return capsules;
 }
 
 

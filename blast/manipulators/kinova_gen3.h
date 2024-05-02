@@ -2,6 +2,7 @@
 
 #include "blast_math.hpp"
 #include "blast_trajectory.hpp"
+#include "collisions/world.h"
 
 namespace blast {
 
@@ -46,7 +47,7 @@ struct Gen3 {
     Matrix  jacobian(const Array &joint_position);
 
     // collisions
-    Matrix  robot_capsules(const Matrix& pos, int n_collision_skip);
+    capslist  robot_capsules(const Matrix& pos, int n_collision_skip);
     Array   internal_collisions(const Array &joint_position);
 };
 
@@ -609,9 +610,9 @@ inline Array Gen3::internal_collisions(const Array &joint_position) {
     return {dist1sqr, dist2sqr, distTJ4, distTJ6, distTEE};
 }
 
-inline Matrix Gen3::robot_capsules(const Matrix& pos, int n_skip) {
+inline capslist Gen3::robot_capsules(const Matrix& pos, int n_skip) {
     const int points = pos.cols;
-    Matrix result_capsules(12, points/n_skip);
+    Matrix result_capsules(21, points/n_skip);
     Mat3 Q, Q1, Q2, Q3, Q4, Q5, Q6, Q7;
     Vec3 p_j2, p_j3, p_j4, p_j5, p_j6, p_j7, p_ee;
     Vec3 p_orig(0, 0, 0);
@@ -637,23 +638,52 @@ inline Matrix Gen3::robot_capsules(const Matrix& pos, int n_skip) {
         p_j7 = p_j6 + (Q *= Q6) * dv[5];
         p_ee = p_j7 + (Q *= Q7) * dv[6];
 
+        u32 idx = 0;
+        // Capsule 1
         result_capsules(0, i) = p_j2.x;
         result_capsules(1, i) = p_j2.y;
         result_capsules(2, i) = p_j2.z;
         result_capsules(3, i) = p_j4.x;
         result_capsules(4, i) = p_j4.y;
         result_capsules(5, i) = p_j4.z;
-        result_capsules(6, i) = p_j6.x;
-        result_capsules(7, i) = p_j6.y;
-        result_capsules(8, i) = p_j6.z;
-        result_capsules(9, i) = p_ee.x;
-        result_capsules(10, i) = p_ee.y;
-        result_capsules(11, i) = p_ee.z;
+        result_capsules(6, i) = 0.055;
+        idx += 7;
+
+        // Capsule 2
+        result_capsules(idx + 0, i) = p_j4.x;
+        result_capsules(idx + 1, i) = p_j4.y;
+        result_capsules(idx + 2, i) = p_j4.z;
+        result_capsules(idx + 3, i) = p_j6.x;
+        result_capsules(idx + 4, i) = p_j6.y;
+        result_capsules(idx + 5, i) = p_j6.z;
+        result_capsules(idx + 6, i) = 0.055;
+        idx += 7;
+
+        // Capsule 3
+        result_capsules(idx + 0, i) = p_j6.x;
+        result_capsules(idx + 1, i) = p_j6.y;
+        result_capsules(idx + 2, i) = p_j6.z;
+        result_capsules(idx + 3, i) = p_ee.x;
+        result_capsules(idx + 4, i) = p_ee.y;
+        result_capsules(idx + 5, i) = p_ee.z;
+        result_capsules(idx + 6, i) = 0.055;
     }
-    return result_capsules;
+
+    auto caps_size = result_capsules.cols;
+    capslist capsules;
+    capsules.caps.resize(caps_size * 3); // 3 capsules for each point along the trajectory
+    real radius = 0.055; // Hard coded radius of all robot capsules
+    for (int i = 0; i < caps_size; i++) {
+        auto caps_tmp = result_capsules.col(i);
+        for (u32 j = 0; j < 3 ; j++) {
+            capsules.caps[i*3 + j].p1 = {caps_tmp[0 + 7*j], caps_tmp[1 + 7*j], caps_tmp[2 + 7*j]};
+            capsules.caps[i*3 + j].p2 = {caps_tmp[3 + 7*j], caps_tmp[4 + 7*j], caps_tmp[5 + 7*j]};
+            capsules.caps[i*3 + j].r = caps_tmp[6 + 7*j];
+        }
+    }
+
+    return capsules;
 }
-
-
 
 #ifdef BLAST_ENABLE_TESTS
 TEST_CASE("SelfCollisionGen3", "[Manipulator]") {

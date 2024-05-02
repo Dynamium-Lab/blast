@@ -131,11 +131,11 @@ int main() {
         const u32 noptim = config.noptim;
         std::vector<Result> tmp_result_list(noptim);
 
-        Gen3_7DOF manip;
+        Gen3 manip;
         manip.set_payload_without_gripper(config.m);
         Bspline bspline(nctrl, npts, p, manip.joints);
 
-        Gen3_7DOF manip_more_points;
+        Gen3 manip_more_points;
         manip_more_points.set_payload_without_gripper(config.m);
         Bspline bspline_more_points(nctrl, 10000, p, manip_more_points.joints);
 
@@ -171,7 +171,7 @@ int main() {
             auto T1 = get_tick_us();
 
             // random optimization vector
-            auto x = config.nshot == 1 ? guess_random(manip, bspline, config.task) : guess_shot_mean_collisions(optim, config.nshot);
+            auto x = config.nshot == 1 ? guess_random(manip, bspline, config.task) : guess_shot_mean(manip, bspline, config.task, config.nshot);
             tmp_result_list[iter].x0 = x;
 
             // launch optimization
@@ -188,7 +188,9 @@ int main() {
             bool is_valid = max_con < 0.01;
 
             bspline_more_points.compute_trajectory(x, config.task);
-            auto max_con_more_points = array_max(manip_more_points.constraints(bspline_more_points.traj)); // todo: check obstacle avoidance with more points ?
+            Array c_more_points(manip_more_points.ncon(bspline.traj.t.size));
+            manip_more_points.internal_constraints(bspline.traj, c_more_points.data);
+            auto max_con_more_points = array_max(c_more_points); // todo: check obstacle avoidance with more points ?
             bool is_valid_more_points = max_con_more_points < 0.05;
 
             tmp_result_list[iter].success = is_valid && is_valid_more_points;

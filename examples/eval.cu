@@ -55,11 +55,11 @@ void eval_function() {
         const u32 noptim = config.noptim;
         std::vector<Result> tmp_result_list(noptim);
 
-        Gen3_7DOF manip;
+        Gen3 manip;
         manip.set_payload_without_gripper(config.m);
         Bspline bspline(nctrl, npts, p, manip.joints);
 
-        Gen3_7DOF manip_more_points;
+        Gen3 manip_more_points;
         manip_more_points.set_payload_without_gripper(config.m);
         Bspline bspline_more_points(nctrl, 10000, p, manip_more_points.joints);
 
@@ -104,11 +104,15 @@ void eval_function() {
 
             // check solution
             bspline.compute_trajectory(x, config.task);
-            auto max_con = array_max(manip.constraints(bspline.traj));
+            Array c(manip.ncon(bspline.traj.t.size));
+            manip.internal_constraints(bspline.traj, c.data);
+            auto max_con = array_max(c);
             bool is_valid = max_con < 0.01;
 
             bspline_more_points.compute_trajectory(x, config.task);
-            auto max_con_more_points = array_max(manip_more_points.constraints(bspline_more_points.traj));
+            Array c_more_points(manip_more_points.ncon(bspline.traj.t.size));
+            manip_more_points.internal_constraints(bspline.traj, c_more_points.data);
+            auto max_con_more_points = array_max(c_more_points);
             bool is_valid_more_points = max_con_more_points < 0.05;
 
             tmp_result_list[iter].success = is_valid && is_valid_more_points;
@@ -150,12 +154,12 @@ void eval_function_pso() {
         std::vector<Result> tmp_result_list(noptim);
 
         // Create the manipulator with given #points and #control points
-        Gen3_7DOF manip;
+        Gen3 manip;
         manip.set_payload_without_gripper(config.m);
         Bspline bspline(nctrl, npts, p, manip.joints);
 
         // Create a manipulator to check more constraints for validation
-        Gen3_7DOF manip_more_points;
+        Gen3 manip_more_points;
         manip_more_points.set_payload_without_gripper(config.m);
         Bspline bspline_more_points(nctrl, 10000, p, manip_more_points.joints);
 
@@ -176,11 +180,15 @@ void eval_function_pso() {
 
             // check solution
             bspline.compute_trajectory(x, config.task);
-            auto max_con = array_max(manip.constraints(bspline.traj));
+            Array c(manip.ncon(bspline.traj.t.size));
+            manip.internal_constraints(bspline.traj, c.data);
+            auto max_con = array_max(c);
             bool is_valid = max_con < 0.01;
 
             bspline_more_points.compute_trajectory(x, config.task);
-            auto max_con_more_points = array_max(manip_more_points.constraints(bspline_more_points.traj));
+            Array c_more_points(manip_more_points.ncon(bspline.traj.t.size));
+            manip_more_points.internal_constraints(bspline.traj, c_more_points.data);
+            auto max_con_more_points = array_max(c_more_points);
             bool is_valid_more_points = max_con_more_points < 0.05;
 
             tmp_result_list[iter].success = is_valid && is_valid_more_points;
@@ -219,12 +227,12 @@ void eval_function_gwo() {
         std::vector<Result> tmp_result_list(noptim);
 
         // Create the manipulator with given #points and #control points
-        Gen3_7DOF manip;
+        Gen3 manip;
         manip.set_payload_without_gripper(config.m);
         Bspline bspline(nctrl, npts, p, manip.joints);
 
         // Create a manipulator to check more constraints for validation
-        Gen3_7DOF manip_more_points;
+        Gen3 manip_more_points;
         manip_more_points.set_payload_without_gripper(config.m);
         Bspline bspline_more_points(nctrl, 10000, p, manip_more_points.joints);
 
@@ -245,11 +253,15 @@ void eval_function_gwo() {
 
             // check solution
             bspline.compute_trajectory(x, config.task);
-            auto max_con = array_max(manip.constraints(bspline.traj));
+            Array c(manip.ncon(bspline.traj.t.size));
+            manip.internal_constraints(bspline.traj, c.data);
+            auto max_con = array_max(c);
             bool is_valid = max_con < 0.01;
 
             bspline_more_points.compute_trajectory(x, config.task);
-            auto max_con_more_points = array_max(manip_more_points.constraints(bspline_more_points.traj));
+            Array c_more_points(manip_more_points.ncon(bspline.traj.t.size));
+            manip_more_points.internal_constraints(bspline.traj, c_more_points.data);
+            auto max_con_more_points = array_max(c_more_points);
             bool is_valid_more_points = max_con_more_points < 0.05;
 
             tmp_result_list[iter].success = is_valid && is_valid_more_points;
