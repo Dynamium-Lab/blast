@@ -785,7 +785,7 @@ blast_fn bool Vec3::operator==(const Vec3& a) const {
     return is_close(*this, a);
 }
 
-blast_fn Vec3 operator/(Vec3& a, real b) {
+blast_fn Vec3 operator/(const Vec3& a, real b) {
     return Vec3 {
         a.x / b,
         a.y / b,
