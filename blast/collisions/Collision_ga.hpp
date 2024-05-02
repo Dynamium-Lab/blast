@@ -9,12 +9,7 @@ struct GAIndividual {
     Array x;          // Position of each individual
     real fitness;     // Fitness of the individual
 };
-// Rosenbrock function to test 
-// double rosenbrock(Array x) {
-//     const double a = 1.0;
-//     const double b = 100.0;
-//     return pow(a - x[1], 2) + b * pow(x[2] - x[1] * x[1], 2);
-// }
+// Solves the collision distance problem with only one OBB at a time, returns best fitness score
 real collision_ga(const Matrix &caps_list, const OBB &OBB, const int N_individuals, const int N_iterations) {
     const auto N_Dimensions = 2;
     const double mutation_rate = 0.001; // Mutation rate
@@ -129,6 +124,7 @@ real collision_ga(const Matrix &caps_list, const OBB &OBB, const int N_individua
     return 1/gbest_f;
 }
 
+// Calls collision_pso to solve collision distance problem one OBB at a time, one member at a time. Returns best fitness score
 real test_collision_ga_OBB(const Matrix &cart_pos, const objlist* world, const int N_individuals, const int N_iterations) {
     int n_caps = cart_pos.rows / 3 - 1;
     real distmin = INF_REAL;
@@ -153,6 +149,7 @@ real test_collision_ga_OBB(const Matrix &cart_pos, const objlist* world, const i
     return distmin;
 }
 
+// Solves the collision distance problem with the full world, returns best fitness score
 real collision_ga(const Matrix &caps_list, objlist* world, int N_individuals, int N_iterations) {
     const auto N_Dimensions = 2;
     const double mutation_rate = 0.001; // Mutation rate
@@ -265,6 +262,7 @@ real collision_ga(const Matrix &caps_list, objlist* world, int N_individuals, in
     return 1/gbest_f;
 }
 
+// Calls collision_ga to solve collision distance problem with the full world, one member at a time. Returns best fitness score
 real test_collision_ga_world_1caps(const Matrix &cart_pos, objlist* world, int N_individuals, int N_iterations) {
     int n_caps = cart_pos.rows / 3 - 1;
     real distmin = INF_REAL;
@@ -286,6 +284,7 @@ real test_collision_ga_world_1caps(const Matrix &cart_pos, objlist* world, int N
     return distmin;
 }
 
+// Calls collision_ga to solve collision distance problem with the full world, all members at once. Returns best fitness score
 real test_collision_ga_world_full_robot(const Matrix &cart_pos, objlist* world, int N_individuals, int N_iterations) {
     real distmin = collision_ga(cart_pos, world, N_individuals, N_iterations);
     return distmin;

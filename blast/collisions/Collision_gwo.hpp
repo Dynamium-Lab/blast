@@ -8,6 +8,7 @@ struct Wolf1  {
     blast::Array x;
 };
 
+// Solves the collision distance problem with only one OBB at a time, returns best fitness score
 real collision_gwo(const Matrix &caps_list, OBB OBB, const int N_wol, const int N_it) {
     // Initialization of GWO parameters
     const int N_wolves = N_wol;    // Number of wolves    
@@ -95,6 +96,7 @@ real collision_gwo(const Matrix &caps_list, OBB OBB, const int N_wol, const int 
     return best_f;
 }
 
+// Calls collision_gwo to solve collision distance problem one OBB at a time, one member at a time. Returns best fitness score
 real test_collision_gwo_OBB(const Matrix &cart_pos, objlist* world, const int N_wol, const int N_it) {
     int n_caps = cart_pos.rows/3 - 1;
     int n_points = cart_pos.cols;
@@ -118,6 +120,7 @@ real test_collision_gwo_OBB(const Matrix &cart_pos, objlist* world, const int N_
     return min_dist;
 }
 
+// Solves the collision distance problem with the full world, returns best fitness score
 real collision_gwo(const Matrix &caps_list, const objlist* world, const int N_wol, const int N_it) {
     // Initialization of GWO parameters
     const int N_wolves = N_wol;    // Number of wolves    
@@ -208,6 +211,7 @@ real collision_gwo(const Matrix &caps_list, const objlist* world, const int N_wo
     return best_f;
 }
 
+// Calls collision_gwo to solve collision distance problem with the full world, one member at a time. Returns best fitness score
 real test_collision_gwo_world_1caps(const Matrix &cart_pos, const objlist* world, const int N_individuals, const int N_iterations) {
     int n_caps = cart_pos.rows / 3 - 1;
     real distmin = INF_REAL;
@@ -229,6 +233,7 @@ real test_collision_gwo_world_1caps(const Matrix &cart_pos, const objlist* world
     return distmin;
 }
 
+// Calls collision_gwo to solve collision distance problem with the full world, all members at once. Returns best fitness score
 real test_collision_gwo_world_full_robot(const Matrix &cart_pos, objlist* world, int N_particles, int N_iterations) {
     real distmin = collision_gwo(cart_pos, world, N_particles, N_iterations);
     return distmin;

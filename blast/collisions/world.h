@@ -1035,6 +1035,8 @@ host_fn real distmin_hull(OBB OBB, capsule caps) {
 }
 
 // Objective function for optimization-based approaches
+
+// Returns distance between an OBB and a point
 host_fn real dist_OBB_point(OBB OBB_test, Vec3 point) {
     Mat3 Rtrans = transpose(OBB_test.R);
  
@@ -1046,6 +1048,7 @@ host_fn real dist_OBB_point(OBB OBB_test, Vec3 point) {
     return result_if_inside > 0 ? norm(proj - point_OBB) : result_if_inside;
 }
 
+// Returns distance between a capsule and a point
 host_fn real dist_caps_point(capsule caps_test, Vec3 point) {
     sphere sph;
     sph.c = point;
@@ -1053,10 +1056,12 @@ host_fn real dist_caps_point(capsule caps_test, Vec3 point) {
     return distmin(caps_test, sph);
 }
 
+// Returns distance between a sphere and a point
 host_fn real dist_sph_point(sphere sph_test, Vec3 point) {
     return norm(point - sph_test.c) - sph_test.r;
 }
 
+// Gets the point by linear interpolation from caps_list according to values of x
 host_fn Vec3 get_point(const Array& x, const Matrix &caps_list) {
     real t = x[0]*(caps_list.cols-1);
     int t_step = t;
@@ -1077,6 +1082,7 @@ host_fn Vec3 get_point(const Array& x, const Matrix &caps_list) {
     return p;
 }
 
+// Calls get_point and tests this point against the full world
 host_fn real OBJ_function(const Array& x, const Matrix &caps_list, const objlist* world) {
     Vec3 p = get_point(x, caps_list);
 
@@ -1101,6 +1107,7 @@ host_fn real OBJ_function(const Array& x, const Matrix &caps_list, const objlist
     return distmin;
 }
 
+// Calls get_point and tests this point against the OBB
 host_fn real OBJ_function(const Array& x, const Matrix &caps_list, const OBB &OBB_test) {
     Vec3 p = get_point(x, caps_list);
     return dist_OBB_point(OBB_test, p);

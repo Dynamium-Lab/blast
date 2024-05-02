@@ -18,6 +18,7 @@ struct Optim_solution {
     Array best_x;
 };
 
+// Solves the collision distance problem with only one OBB at a time, returns best fitness score
 real collision_pso(const Matrix &caps_list, const OBB &OBB, const int N_particles, const int N_iterations) {
     //Assert(x.size == optim.bspline->xlen(*optim.task));
     const auto N_Dimensions = 2;
@@ -96,6 +97,7 @@ real collision_pso(const Matrix &caps_list, const OBB &OBB, const int N_particle
     return gbest_f;
 }
 
+// Solves the collision distance problem with only one OBB at a time, returns best fitness score and best particle position
 Optim_solution collision_pso_data(const Matrix &caps_list, const OBB &OBB, const int N_particles, const int N_iterations) {
     //Assert(x.size == optim.bspline->xlen(*optim.task));
     const auto N_Dimensions = 2;
@@ -177,13 +179,13 @@ Optim_solution collision_pso_data(const Matrix &caps_list, const OBB &OBB, const
     return solution;
 }
 
-real test_collision_pso_OBB(const Matrix &cart_pos,const  objlist* world, const int N_particles, const int N_iterations) {
+// Calls collision_pso to solve collision distance problem one OBB at a time, one member at a time. Returns best fitness score
+real test_collision_pso_OBB(const Matrix &cart_pos, const  objlist* world, const int N_particles, const int N_iterations) {
     int n_caps = cart_pos.rows/3 - 1;
     int n_points = cart_pos.cols;
     real min_dist = INF_REAL;
     real temp_dist;
     Matrix temp(6, n_points);
-    // for (int j = 0; j < n_caps; j++) {
     for (int j = 0; j < n_caps; j++) {
         for (int i = 0; i < n_points; i++) {
             temp(0, i) = cart_pos(j*3, i); 
@@ -201,7 +203,8 @@ real test_collision_pso_OBB(const Matrix &cart_pos,const  objlist* world, const 
     return min_dist;
 }
 
-Optim_solution test_collision_pso_OBB_data(const Matrix &cart_pos,const  objlist* world, const int N_particles, const int N_iterations) {
+// Calls collision_pso to solve collision distance problem one OBB at a time, one member at a time. Returns best best fitness score and best particle position
+Optim_solution test_collision_pso_OBB_data(const Matrix &cart_pos, const  objlist* world, const int N_particles, const int N_iterations) {
     int n_caps = cart_pos.rows/3 - 1;
     int n_points = cart_pos.cols;
     Optim_solution solution;
@@ -228,6 +231,7 @@ Optim_solution test_collision_pso_OBB_data(const Matrix &cart_pos,const  objlist
     return solution;
 }
 
+// Solves the collision distance problem with the full world, returns best fitness score
 real collision_pso(const Matrix &caps_list, const objlist* world, const int N_particles, const int N_iterations) {
     const auto N_Dimensions = 2;
     const double w_min = 0.2;          
@@ -303,6 +307,7 @@ real collision_pso(const Matrix &caps_list, const objlist* world, const int N_pa
     return gbest_f;
 }
 
+// Calls collision_pso to solve collision distance problem with the full world, one member at a time. Returns best fitness score
 real test_collision_pso_world_1caps(const Matrix &cart_pos, const objlist* world, const int N_individuals, const int N_iterations) {
     int n_caps = cart_pos.rows / 3 - 1;
     real distmin = INF_REAL;
@@ -324,6 +329,7 @@ real test_collision_pso_world_1caps(const Matrix &cart_pos, const objlist* world
     return distmin;
 }
 
+// Calls collision_pso to solve collision distance problem with the full world, all members at once. Returns best fitness score
 real test_collision_pso_world_full_robot(const Matrix &cart_pos, objlist* world, int N_particles, int N_iterations) {
     real distmin = collision_pso(cart_pos, world, N_particles, N_iterations);
     return distmin;

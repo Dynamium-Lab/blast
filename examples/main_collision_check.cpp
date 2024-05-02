@@ -16,6 +16,7 @@
 #include <string>
 
 using namespace blast;
+// This is given to the test function and contains all the informations neeeded to perform the tests.
 struct OptimTest {
     std::string csvInput;
     std::string csvOutput;
@@ -33,6 +34,7 @@ struct OptimTest {
     objlist* world;
 };
 
+// Reads a csv file from the string filename
 Matrix read_csv_matrix (const std::string& filename, Array dimensions) {
     std::ifstream file(filename);
     Assert(file.is_open());
@@ -52,6 +54,7 @@ Matrix read_csv_matrix (const std::string& filename, Array dimensions) {
     return pos;
 }
 
+// Tests algorithms as specified by Optim_information and writes the answers in a csv file
 void test_algorithms(OptimTest& Optim_information) {
     // ------------------------------
     // ---     Initialization     ---
@@ -59,8 +62,6 @@ void test_algorithms(OptimTest& Optim_information) {
     int n_collision_results = 1;
     Gen3_7DOF manip;
     real r = 0.0;
-    // real r = 0;
-    // std::ofstream* csvFile = &Optim_information.csvOutput;
     std::string csv_sep = Optim_information.csv_sep;
     const int n_tests = Optim_information.N_tests;
     objlist* world = Optim_information.world;
@@ -73,12 +74,6 @@ void test_algorithms(OptimTest& Optim_information) {
 
     // Get cartesian positions
     Matrix cart_pos = manip.robot_capsules(joint_pos, 1);
-    // Matrix cart_pos(cart_pos_temp.rows, 10330);
-    // for (int i = 0; i < 10330; i++) {
-    //     for (int j = 0; j < cart_pos_temp.rows; j++) {
-    //         cart_pos(j, i) = cart_pos_temp(j, i);
-    //     }
-    // }
     int npoint = cart_pos.cols;
 
     // Create capsules
@@ -94,7 +89,7 @@ void test_algorithms(OptimTest& Optim_information) {
         }
     }
 
-    // Open csv file
+    // Open output csv file
     std::ofstream csvFile(Optim_information.csvOutput);
     csvFile.clear();
     Assert(csvFile.is_open());
@@ -136,6 +131,7 @@ void test_algorithms(OptimTest& Optim_information) {
     }
     csvFile << std::endl;
 
+    // Declaring all possible arrays
     Array times_PSO_caps1obj(n_tests);
     Array result_PSO_caps1obj(n_tests);
     Array error_PSO_caps1obj(n_tests);
@@ -163,17 +159,16 @@ void test_algorithms(OptimTest& Optim_information) {
     Array times_GA_robotallobj(n_tests);
     Array result_GA_robotallobj(n_tests);
     Array error_GA_robotallobj(n_tests);
-
     
     // Theoretical minimum
+    // For now, just using PSO with a lot of iterations and particles. 
+    // todo: Add gradient descent function to find true minimum
     Optim_solution pso_min = test_collision_pso_OBB_data(cart_pos, world, 1000, 1000);
     // real theo_min = grad_desc()
+
     csvFile << Optim_information.N_tests << csv_sep << "tests" << csv_sep << "Optimal solution : " << csv_sep <<pso_min.best_f << std::endl;
-            
 
     std::vector<real> result_primitives(n_collision_results);
-    // std::vector<real> error_GWO_values;
-    // std::vector<real> error_PSO_values;
     for (int i = 0; i < Optim_information.N_individuals.size; i++) {
         for (int j = 0; j < Optim_information.N_iterations.size; j++) {
             // ------------------------------
@@ -271,51 +266,48 @@ void test_algorithms(OptimTest& Optim_information) {
                         error_GA_robotallobj[test] = (result_primitives[0] - result_GA_robotallobj[test])/result_primitives[0];
                     }
                 }
-                // ------------------------------
-                // ---     Test with SQP      ---
-                // ------------------------------
-                // csvFile << std::endl;
             }
 
             // Output information
             csvFile << Optim_information.N_individuals[i] << csv_sep << Optim_information.N_iterations[j] << csv_sep << result_primitives[0] << csv_sep << times_prim << csv_sep;
             if (Optim_information.PSO == true) {
                 if (Optim_information.caps1obj == true) {
-                    csvFile << sum(times_PSO_caps1obj)/n_tests << csv_sep << /*sum(result_PSO_caps1obj)/n_tests*/sum(error_PSO_caps1obj)/n_tests << csv_sep;
+                    csvFile << sum(times_PSO_caps1obj)/n_tests << csv_sep << sum(error_PSO_caps1obj)/n_tests << csv_sep;
                 }
                 if (Optim_information.capsallobj == true) {
-                    csvFile << sum(times_PSO_capsallobj)/n_tests << csv_sep << /*sum(result_PSO_capsallobj)/n_tests*/sum(error_PSO_capsallobj)/n_tests << csv_sep;
+                    csvFile << sum(times_PSO_capsallobj)/n_tests << csv_sep << sum(error_PSO_capsallobj)/n_tests << csv_sep;
                 }
                 if (Optim_information.robotallobj == true) {
-                    csvFile << sum(times_PSO_robotallobj)/n_tests << csv_sep << /*sum(result_PSO_robotallobj)/n_tests*/sum(error_PSO_robotallobj)/n_tests << csv_sep;
+                    csvFile << sum(times_PSO_robotallobj)/n_tests << csv_sep << sum(error_PSO_robotallobj)/n_tests << csv_sep;
                 }
             }
             if (Optim_information.GWO == true) {
                 if (Optim_information.caps1obj == true) {
-                    csvFile << sum(times_GWO_caps1obj)/n_tests << csv_sep << /*sum(result_GWO_caps1obj)/n_tests*/sum(error_GWO_caps1obj)/n_tests << csv_sep;
+                    csvFile << sum(times_GWO_caps1obj)/n_tests << csv_sep << sum(error_GWO_caps1obj)/n_tests << csv_sep;
                 }
                 if (Optim_information.capsallobj == true) {
-                    csvFile << sum(times_GWO_capsallobj)/n_tests << csv_sep << /*sum(result_GWO_capsallobj)/n_tests*/sum(error_GWO_capsallobj)/n_tests << csv_sep;
+                    csvFile << sum(times_GWO_capsallobj)/n_tests << csv_sep << sum(error_GWO_capsallobj)/n_tests << csv_sep;
                 }
                 if (Optim_information.robotallobj == true) {
-                    csvFile << sum(times_GWO_robotallobj)/n_tests << csv_sep << /*sum(result_GWO_robotallobj)/n_tests*/sum(error_GWO_robotallobj)/n_tests << csv_sep;
+                    csvFile << sum(times_GWO_robotallobj)/n_tests << csv_sep << sum(error_GWO_robotallobj)/n_tests << csv_sep;
                 }
             }
             if (Optim_information.GA == true) {
                 if (Optim_information.caps1obj == true) {
-                    csvFile << sum(times_GA_caps1obj)/n_tests << csv_sep << /*sum(result_GA_caps1obj)/n_tests*/sum(error_GA_caps1obj)/n_tests << csv_sep;
+                    csvFile << sum(times_GA_caps1obj)/n_tests << csv_sep << sum(error_GA_caps1obj)/n_tests << csv_sep;
                 }
                 if (Optim_information.capsallobj == true) {
-                    csvFile << sum(times_GA_capsallobj)/n_tests << csv_sep << /*sum(result_GA_capsallobj)/n_tests*/sum(error_GA_capsallobj)/n_tests << csv_sep;
+                    csvFile << sum(times_GA_capsallobj)/n_tests << csv_sep << sum(error_GA_capsallobj)/n_tests << csv_sep;
                 }
                 if (Optim_information.robotallobj == true) {
-                    csvFile << sum(times_GA_robotallobj)/n_tests << csv_sep << /*sum(result_GA_robotallobj)/n_tests*/sum(error_GA_robotallobj)/n_tests << csv_sep;
+                    csvFile << sum(times_GA_robotallobj)/n_tests << csv_sep << sum(error_GA_robotallobj)/n_tests << csv_sep;
                 }
             }
 
             csvFile << std::endl;
         }
     }
+    // note : This is not used for now but might be in the future for statistics
     // // -----------------------------------------
     // // ---     Quartiles Classification      ---
     // // -----------------------------------------
@@ -372,7 +364,9 @@ int main() {
     OptimTest Optim_information;
     objlist world;
 
-    // Figure box
+    //  --- CREATING WORLD ---
+
+    // Figure box (from the project)
     // add_OBB({0.9, -0.7, 0.1}, {0.1, 0.1, 0.1}, {1, 0, 0, 0, 1, 0, 0, 0, 1}, &world);
 
     // DEMO 1 - COMMENT ONE BOX TYPE (simple or complex)
@@ -395,34 +389,35 @@ int main() {
     add_OBB({0.8716, -0.2359, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //left
     add_OBB({0.8716, -0.5209, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //right
 
+    Optim_information.world = &world;
+
+    //  --- SETTING OPTIMIZATION PARAMETERS ---
     Array individuals = {10, 20, 50, 100, 150, 250};
     Optim_information.N_individuals = individuals;
     Array iterations = {10, 100, 500};
     Optim_information.N_iterations = iterations;
 
+    //  --- DECLARING ALGORITHMS THAT WILL BE TESTED ---
     Optim_information.PSO = TRUE;
     // Optim_information.GWO = TRUE;
     // Optim_information.GA = TRUE;
-
+    
+    //  --- DECLARING TYPE OF OPTIMIZATION ---
     Optim_information.caps1obj = TRUE;
     Optim_information.capsallobj = TRUE;
     // Optim_information.robotallobj = TRUE;
 
-    Optim_information.world = &world;
 
+    //  --- SETTING INPUT / OUTPUT PARAMETERS ---
     Optim_information.csv_sep = ";";
     Optim_information.N_tests = 100;
     Optim_information.csvInput = "examples/build/trajectory_100_pts.csv";
     Optim_information.csvOutput = "C:/Users/thoma/Desktop/data_collision_check_traj1.csv";
-    Array dimensions = {6, 100};
+    Array dimensions = {6, 100};    // SIZE OF THE CSV INPUT 
     Optim_information.input_dimensions = dimensions;
 
+    //  --- TESTING ALGORITHMS ---
     test_algorithms(Optim_information);
-    // Optim_information.csvInput = "examples/build/trajectory2.csv";
-    // dimensions = {7, 18316};
-    // Optim_information.input_dimensions = dimensions;
-    // Optim_information.csvOutput = "C:/Users/thoma/Desktop/data_collision_check_traj2.csv";
-    // test_algorithms(Optim_information);
 
     return 0;
 }
