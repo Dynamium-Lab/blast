@@ -57,11 +57,11 @@ void eval_function() {
         const u32 noptim = config.noptim;
         std::vector<Result> tmp_result_list(noptim);
 
-        Gen3_7DOF manip;
+        Gen3 manip;
         manip.set_payload_without_gripper(config.m);
         Bspline bspline(nctrl, npts, p, manip.joints);
 
-        Gen3_7DOF manip_more_points;
+        Gen3 manip_more_points;
         manip_more_points.set_payload_without_gripper(config.m);
         Bspline bspline_more_points(nctrl, 10000, p, manip_more_points.joints);
 
@@ -90,7 +90,6 @@ void eval_function() {
         Assert(result == NLOPT_SUCCESS);
         result = nlopt_set_maxeval(o, 10000);
         Assert(result == NLOPT_SUCCESS);
-
         auto start_time = get_tick_us();
         for (int iter = 0; iter < noptim; iter++) {
             auto T1 = get_tick_us();
@@ -113,7 +112,9 @@ void eval_function() {
             bool is_valid = max_con < 0.01;
 
             bspline_more_points.compute_trajectory(x, config.task);
-            auto max_con_more_points = array_max(manip_more_points.constraints(bspline_more_points.traj)); // todo: check obstacle avoidance with more poiunts ?
+            Array c_more_points(manip_more_points.ncon(bspline.traj.t.size));
+            manip.internal_constraints(bspline.traj, c_more_points.data);
+            auto max_con_more_points = array_max(c_more_points); // todo: check obstacle avoidance with more poiunts ?
             bool is_valid_more_points = max_con_more_points < 0.05;
 
             tmp_result_list[iter].success = is_valid && is_valid_more_points;

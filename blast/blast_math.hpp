@@ -574,6 +574,17 @@ host_fn Array random_array(u32 n, real A) {
     return result;
 }
 
+// create a new array by concatenating two arrays
+host_fn Array concatenate_arrays(const Array& A, const Array& B) {
+    const int n = A.size + B.size;
+    Array result(n);
+    for (int i = 0; i < A.size; i++)
+        result[i] = A[i];
+    for (int i = 0; i < B.size; i++)
+        result[i + A.size] = B[i];
+    return result;
+}
+
 // return the value clamped to [mini, maxi]
 blast_fn real clamp(real val, real mini, real maxi) {
     real r = val < mini ? mini : val;
@@ -785,7 +796,7 @@ blast_fn bool Vec3::operator==(const Vec3& a) const {
     return is_close(*this, a);
 }
 
-blast_fn Vec3 operator/(Vec3& a, real b) {
+blast_fn Vec3 operator/(const Vec3& a, real b) {
     return Vec3 {
         a.x / b,
         a.y / b,
