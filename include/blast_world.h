@@ -38,9 +38,7 @@ struct Cylinder {
     real r;
 };
 
-struct capslist {
-    std::vector<Capsule> caps;
-};
+
 
 
 } // namespace blast

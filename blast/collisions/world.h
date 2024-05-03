@@ -12,30 +12,24 @@ namespace blast {
 
 #define COLLISION_EPSILON 1e-9
 
-struct segment {
+struct Segment {
     Vec3 p1;
     Vec3 p2;
 };
 
-struct OBB {
-    Vec3 c; // OBB center point
-    Vec3 e; // Positive halfwidth extents of OBB along each axis
-    Mat3 R; // Local x-, y-, and z-axes (Rotation matrix)
-};
-
-struct surf {
+struct Surf {
     Vec3 p;
     Vec3 d1;
     Vec3 d2;
 };
 
-struct capsule {
+struct Capsule {
     Vec3 p1;
     Vec3 p2;
     real r;
 };
 
-struct sphere {
+struct Sphere {
     Vec3 c;
     real r;
 };
@@ -46,12 +40,12 @@ struct cylinder {
     real r;
 };
 
-struct plane {
+struct Plane {
     Vec3 p;
     Vec3 n;
 };
 
-struct two_pts {
+struct TwoPts {
     Vec3 p1;
     Vec3 p2;
 };
@@ -70,7 +64,7 @@ struct triangle {
 };
 
 struct objlist {
-    std::vector<OBB> OBBlist;
+    std::vector<box> OBBlist;
     std::vector<cylinder> cyllist;
     std::vector<sphere> sphlist;
     std::vector<capsule> capslist;

@@ -8,8 +8,8 @@ struct Wolf1  {
     blast::Array x;
 };
 
-// Solves the collision distance problem with only one OBB at a time, returns best fitness score
-real collision_gwo(const Matrix &caps_list, OBB OBB, const int N_wol, const int N_it) {
+// Solves the collision distance problem with only one box at a time, returns best fitness score
+real collision_gwo(const Matrix &caps_list, box box, const int N_wol, const int N_it) {
     // Initialization of GWO parameters
     const int N_wolves = N_wol;    // Number of wolves    
     const int N_iterations = N_it;    // Number of iterations 
@@ -52,7 +52,7 @@ real collision_gwo(const Matrix &caps_list, OBB OBB, const int N_wol, const int 
         real a = 2.0 - k * (2.0 / N_iterations);
         for (int i = 0; i < N_wolves; i++) {
             // Evaluating fitness and deciding which wolves are Alpha, Beta and Delta
-            real fitness = OBJ_function(wolf[i].x, caps_list, OBB);
+            real fitness = OBJ_function(wolf[i].x, caps_list, box);
             // Alpha
             x_Alpha = (fitness < Alpha_fit) ? wolf[i].x : x_Alpha;
             Alpha_fit = (fitness < Alpha_fit) ? fitness : Alpha_fit; 
@@ -92,11 +92,11 @@ real collision_gwo(const Matrix &caps_list, OBB OBB, const int N_wol, const int 
             wolf[i].x = clamp(wolf[i].x, 0, 1);
         }
     }
-    real best_f = OBJ_function(x_Alpha, caps_list, OBB);
+    real best_f = OBJ_function(x_Alpha, caps_list, box);
     return best_f;
 }
 
-// Calls collision_gwo to solve collision distance problem one OBB at a time, one member at a time. Returns best fitness score
+// Calls collision_gwo to solve collision distance problem one box at a time, one member at a time. Returns best fitness score
 real test_collision_gwo_OBB(const Matrix &cart_pos, objlist* world, const int N_wol, const int N_it) {
     int n_caps = cart_pos.rows/3 - 1;
     int n_points = cart_pos.cols;

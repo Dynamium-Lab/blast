@@ -9,8 +9,9 @@ struct GAIndividual {
     Array x;          // Position of each individual
     real fitness;     // Fitness of the individual
 };
-// Solves the collision distance problem with only one OBB at a time, returns best fitness score
-real collision_ga(const Matrix &caps_list, const OBB &OBB, const int N_individuals, const int N_iterations) {
+
+// Solves the collision distance problem with only one box at a time, returns best fitness score
+real collision_ga(const Matrix &caps_list, const box &box, const int N_individuals, const int N_iterations) {
     const auto N_Dimensions = 2;
     const double mutation_rate = 0.001; // Mutation rate
     const double elite_percentage = 0.2; // Percentage of elite individuals to retain
@@ -55,7 +56,7 @@ real collision_ga(const Matrix &caps_list, const OBB &OBB, const int N_individua
         // Evaluate fitness
         real fitness_total = 0;
         for (int i = 0; i < N_individuals; i++) {
-            population[i].fitness = 1/OBJ_function(population[i].x, caps_list, OBB);
+            population[i].fitness = 1/OBJ_function(population[i].x, caps_list, box);
             fitness_total += population[i].fitness;
             // Update global best
             gbest_f = (population[i].fitness > gbest_f) ? population[i].fitness : gbest_f;
@@ -124,7 +125,7 @@ real collision_ga(const Matrix &caps_list, const OBB &OBB, const int N_individua
     return 1/gbest_f;
 }
 
-// Calls collision_pso to solve collision distance problem one OBB at a time, one member at a time. Returns best fitness score
+// Calls collision_pso to solve collision distance problem one box at a time, one member at a time. Returns best fitness score
 real test_collision_ga_OBB(const Matrix &cart_pos, const objlist* world, const int N_individuals, const int N_iterations) {
     int n_caps = cart_pos.rows / 3 - 1;
     real distmin = INF_REAL;
