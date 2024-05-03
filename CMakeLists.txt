@@ -10,6 +10,7 @@ project(
 
 add_executable(main 
     main.cpp
+    
     src/Math/math.cpp
     src/Math/Vec3.cpp
     src/Math/Mat3.cpp
