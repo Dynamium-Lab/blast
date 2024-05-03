@@ -2,25 +2,25 @@
 
 namespace blast {
 
-Trajectory compute_5order_trajectory(real T, Matrix &task) {
+Trajectory compute_5order_trajectory(real t, Matrix &task) {
     const u32 joints = task.rows;
-    const u32 points = (u32)ceil(T * 1000 + 1);
+    const u32 points = (u32)ceil(t * 1000 + 1);
 
     Trajectory result(points, joints);
 
-    const real deltaT = 0.001f;
-    T = (points - 1) * deltaT;
+    const real delta_t = 0.001f;
+    t = (points - 1) * delta_t;
 
     Matrix A(6, joints);
 
     for (u32 j = 0; j < joints; j++) {
         // todo: Fix for trajectory that has NaN values
         const auto p0 = task(j, 0);
-        const auto v0 = task(j, 1) * T;
-        const auto a0 = task(j, 2) * T * T;
+        const auto v0 = task(j, 1) * t;
+        const auto a0 = task(j, 2) * t * t;
         const auto pf = task(j, 3);
-        const auto vf = task(j, 4) * T;
-        const auto af = task(j, 5) * T * T;
+        const auto vf = task(j, 4) * t;
+        const auto af = task(j, 5) * t * t;
 
         A(0, j) = p0;
         A(1, j) = v0;
@@ -36,7 +36,7 @@ Trajectory compute_5order_trajectory(real T, Matrix &task) {
         const auto s3 = s2 * s;
         const auto s4 = s3 * s;
         const auto s5 = s4 * s;
-        result.t[i] = i * deltaT;
+        result.t[i] = i * delta_t;
         for (u32 j = 0; j < joints; j++) {
             const auto a = &A(0, j);
 
@@ -45,8 +45,8 @@ Trajectory compute_5order_trajectory(real T, Matrix &task) {
             const auto qdd = 2 * a[2] + 6 * a[3] * s + 12 * a[4] * s2 + 20 * a[5] * s3;
 
             result.pos(j, i) = q;
-            result.vel(j, i) = qd / T;
-            result.acc(j, i) = qdd / (T * T);
+            result.vel(j, i) = qd / t;
+            result.acc(j, i) = qdd / (t * t);
         }
     }
 
