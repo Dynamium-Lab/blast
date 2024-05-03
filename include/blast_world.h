@@ -6,6 +6,7 @@ struct Box;
 struct Capsule;
 struct Sphere;
 struct Cylinder;
+struct World;
 
 struct World {
     std::vector<Box>      boxes;

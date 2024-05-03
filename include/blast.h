@@ -14,6 +14,5 @@ using i64   = int64_t;
 
 } // namespace blast
 
-#include "blast_error.h"
 #include "blast_math.h"
 #include "blast_world.h"
