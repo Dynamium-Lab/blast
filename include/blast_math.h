@@ -428,5 +428,7 @@ Array&  sqr_inplace(Array&); // Square each element (modify Array)
 
 // Misc
 real sign(real v);
+void sincos(const Array& angles, Array& sines, Array& cosines);
+Matrix pinv(const Matrix& m);
 
 } // namespace blast

@@ -21,7 +21,7 @@ struct Trajectory {
 
     Trajectory() = default;
 };
-Trajectory compute_5order_trajectory(real t, Matrix &task);
+Trajectory compute_5order_trajectory(real T, Matrix &task);
 
 struct Bspline {
     Trajectory traj;
