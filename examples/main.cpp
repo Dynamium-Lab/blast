@@ -4,7 +4,7 @@
 
 int main() {
     using namespace blast;
-    Gen3_7DOF manip;
+    Gen3 manip;
 
     // init
     const u32 njoints = 7;

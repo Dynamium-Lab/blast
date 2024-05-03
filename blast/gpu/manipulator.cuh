@@ -376,7 +376,7 @@ TEST_CASE("GpuCpuManipCorrectness", "[Manipulator]") {
     Bspline host_bspline(ncontrol, points, p, joints);
     cuMultiBsplines gpu_bsplines(points, joints, p, ncontrol, ntrajectories);
 
-    Gen3_7DOF host_manip;
+    Gen3 host_manip;
     host_manip.set_payload(4);
     cuGen3MultiTraj gpu_manip(points, ntrajectories, 4);
 
@@ -403,7 +403,8 @@ TEST_CASE("GpuCpuManipCorrectness", "[Manipulator]") {
     }
 
     host_bspline.compute_trajectory(x, task);
-    auto host_constraints = host_manip.constraints(host_bspline.traj);
+    Array host_constraints(host_manip.ncon(host_bspline.traj.t.size));
+    host_manip.internal_constraints(host_bspline.traj, host_constraints.data);
 
     gpu_manip.compute_constraints(x_multi, task, gpu_bsplines);
     gpu_manip.fetch_constraints();

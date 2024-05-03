@@ -2,6 +2,7 @@
 
 #include "blast_math.hpp"
 #include "blast_trajectory.hpp"
+#include "collisions/world.h"
 
 namespace blast {
 
@@ -46,7 +47,7 @@ struct Gen3 {
     Matrix  jacobian(const Array &joint_position);
 
     // collisions
-    Matrix  robot_capsules(const Matrix& pos, int n_collision_skip);
+    std::vector<capsule>  robot_capsules(const Matrix& pos, int n_collision_skip);
     Array   internal_collisions(const Array &joint_position);
 };
 
@@ -71,7 +72,7 @@ inline void Gen3::set_payload(const real m_payload, const Vec3 cg_payload, const
     m[3] = 0.93f;
     m[4] = 0.678f;
     m[5] = 0.678f;
-    m[6] = 0.364f + 0.921f;
+    m[6] = 0.364f;
 
     I[0] = {0.004570f, 0.000001f, 0.000002f, 0.000001f, 0.004831f, 0.000448f, 0.000002f, 0.000448f, 0.001409f};
     I[1] = {0.011088f, 0.000005f, 0.000000f, 0.000005f, 0.001072f, 0.000691f, 0.000000f, 0.000691f, 0.011255f};
@@ -112,7 +113,7 @@ inline void Gen3::set_payload(const real m_payload, const Vec3 cg_payload, const
 
 
     // Adjust end effector link with payload
-    m[6] = 0.364f + 0.921f;
+    m[6] += 0.921f;
     av[6] = {-0.000093f, 0.000132f, -0.022905f};
     Vec3 av_tool(0, 0, -0.06f - 0.0615f);
     av[6] = (0.364f * av[6] + 0.921f * av_tool) * (1 / (0.364f + 0.921f));
@@ -215,6 +216,15 @@ inline void Gen3::set_payload_without_gripper(const real m_payload, const Vec3 c
     I[6](1, 1) += m_old*delta_av.y*delta_av.y + m_payload*av_to_mass.y*av_to_mass.y;
     I[6](2, 2) += m_old*delta_av.z*delta_av.z + m_payload*av_to_mass.z*av_to_mass.z;
     I[6] += I_payload;
+
+    // center of mass from next joint
+    sv[0] = dv[0] - av[0];
+    sv[1] = dv[1] - av[1];
+    sv[2] = dv[2] - av[2];
+    sv[3] = dv[3] - av[3];
+    sv[4] = dv[4] - av[4];
+    sv[5] = dv[5] - av[5];
+    sv[6] = dv[6] - av[6];
 }
 
 
@@ -600,9 +610,9 @@ inline Array Gen3::internal_collisions(const Array &joint_position) {
     return {dist1sqr, dist2sqr, distTJ4, distTJ6, distTEE};
 }
 
-inline Matrix Gen3::robot_capsules(const Matrix& pos, int n_skip) {
+inline std::vector<capsule> Gen3::robot_capsules(const Matrix& pos, int n_skip) {
     const int points = pos.cols;
-    Matrix result_capsules(12, points/n_skip);
+    Matrix result_capsules(21, points/n_skip);
     Mat3 Q, Q1, Q2, Q3, Q4, Q5, Q6, Q7;
     Vec3 p_j2, p_j3, p_j4, p_j5, p_j6, p_j7, p_ee;
     Vec3 p_orig(0, 0, 0);
@@ -628,23 +638,52 @@ inline Matrix Gen3::robot_capsules(const Matrix& pos, int n_skip) {
         p_j7 = p_j6 + (Q *= Q6) * dv[5];
         p_ee = p_j7 + (Q *= Q7) * dv[6];
 
+        u32 idx = 0;
+        // Capsule 1
         result_capsules(0, i) = p_j2.x;
         result_capsules(1, i) = p_j2.y;
         result_capsules(2, i) = p_j2.z;
         result_capsules(3, i) = p_j4.x;
         result_capsules(4, i) = p_j4.y;
         result_capsules(5, i) = p_j4.z;
-        result_capsules(6, i) = p_j6.x;
-        result_capsules(7, i) = p_j6.y;
-        result_capsules(8, i) = p_j6.z;
-        result_capsules(9, i) = p_ee.x;
-        result_capsules(10, i) = p_ee.y;
-        result_capsules(11, i) = p_ee.z;
+        result_capsules(6, i) = 0.055;
+        idx += 7;
+
+        // Capsule 2
+        result_capsules(idx + 0, i) = p_j4.x;
+        result_capsules(idx + 1, i) = p_j4.y;
+        result_capsules(idx + 2, i) = p_j4.z;
+        result_capsules(idx + 3, i) = p_j6.x;
+        result_capsules(idx + 4, i) = p_j6.y;
+        result_capsules(idx + 5, i) = p_j6.z;
+        result_capsules(idx + 6, i) = 0.055;
+        idx += 7;
+
+        // Capsule 3
+        result_capsules(idx + 0, i) = p_j6.x;
+        result_capsules(idx + 1, i) = p_j6.y;
+        result_capsules(idx + 2, i) = p_j6.z;
+        result_capsules(idx + 3, i) = p_ee.x;
+        result_capsules(idx + 4, i) = p_ee.y;
+        result_capsules(idx + 5, i) = p_ee.z;
+        result_capsules(idx + 6, i) = 0.055;
     }
-    return result_capsules;
+
+    auto caps_size = result_capsules.cols;
+    std::vector<capsule> capsules;
+    capsules.caps.resize(caps_size * 3); // 3 capsules for each point along the trajectory
+    real radius = 0.055; // Hard coded radius of all robot capsules
+    for (int i = 0; i < caps_size; i++) {
+        auto caps_tmp = result_capsules.col(i);
+        for (u32 j = 0; j < 3 ; j++) {
+            capsules.caps[i*3 + j].p1 = {caps_tmp[0 + 7*j], caps_tmp[1 + 7*j], caps_tmp[2 + 7*j]};
+            capsules.caps[i*3 + j].p2 = {caps_tmp[3 + 7*j], caps_tmp[4 + 7*j], caps_tmp[5 + 7*j]};
+            capsules.caps[i*3 + j].r = caps_tmp[6 + 7*j];
+        }
+    }
+
+    return capsules;
 }
-
-
 
 #ifdef BLAST_ENABLE_TESTS
 TEST_CASE("SelfCollisionGen3", "[Manipulator]") {

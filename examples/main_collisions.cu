@@ -83,18 +83,40 @@ int main() {
     result_list.reserve(config_list.size() * config_list[0].noptim);
 
     objlist world;
-    // Add bins for bin picking tasks (paper 1)
+    // // Add bins for bin picking tasks (paper 1)
     // add_OBB({0.6, 0.0, 0.05},       {0.1, 0.5, 0.05},   Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // bottom ledge
     // add_OBB({0.6, 0.0, 0.1025},     {0.1, 0.5, 0.0025}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // bottom of bins (horiz)
     // add_OBB({0.6, 0.0, 0.3},        {0.1, 0.5, 0.005},  Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // middle of bins (horiz)
-    add_OBB({0.6, 0.0, 0.4975},     {0.1, 0.5, 0.0025}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // top of bins (horiz)
-    add_OBB({0.6925, 0.0, 0.3},     {0.0025, 0.5, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // behind of bins (vert)
-    add_OBB({0.6, 0.4925, 0.3},     {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // first (left) of bins (vert)
-    add_OBB({0.6, 0.2925, 0.3},     {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // second (left) of bins (vert)
-    add_OBB({0.6, 0.0925, 0.3},     {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // third (left) of bins (vert)
+    // add_OBB({0.6, 0.0, 0.4975},     {0.1, 0.5, 0.0025}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // top of bins (horiz)
+    // add_OBB({0.6925, 0.0, 0.3},     {0.0025, 0.5, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // behind of bins (vert)
+    // add_OBB({0.6, 0.4925, 0.3},     {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // first (left) of bins (vert)
+    // add_OBB({0.6, 0.2925, 0.3},     {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // second (left) of bins (vert)
+    // add_OBB({0.6, 0.0925, 0.3},     {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // third (left) of bins (vert)
     // add_OBB({0.6, -0.0925, 0.3},    {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // fourth (left) of bins (vert)
     // add_OBB({0.6, -0.2925, 0.3},    {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // fifth (left) of bins (vert)
     // add_OBB({0.6, -0.4925, 0.3},    {0.1, 0.0025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // sixth (left) of bins (vert)
+
+    // DEMO 1 - COMMENT ONE BOX TYPE (simple or complex)
+    // // Bins for demo 1 (simple)
+    // add_OBB({0.4114, -0.3784, 0.01785}, {0.2125, 0.155, 0.075}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world);
+    // add_OBB({0.8716, -0.3784, 0.01785}, {0.2125, 0.155, 0.075}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world);
+
+    // Bins for demo 1 (complex)
+    // bin 1
+    add_OBB({0.4114, -0.3784, -0.04465}, {0.2125, 0.155, 0.0125}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //bottom
+    add_OBB({0.2114, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //front
+    add_OBB({0.6114, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //back
+    add_OBB({0.4114, -0.2359, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //left
+    add_OBB({0.4114, -0.5209, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //right
+
+    // bin 2
+    add_OBB({0.8716, -0.3784, -0.04465}, {0.2125, 0.155, 0.0125}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //bottom
+    add_OBB({0.6716, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //front
+    add_OBB({1.0716, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //back
+    add_OBB({0.8716, -0.2359, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //left
+    add_OBB({0.8716, -0.5209, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //right
+
+    // Add obstacles
 
     for (;;) {
         if (config_index >= config_list.size()) {
@@ -109,11 +131,11 @@ int main() {
         const u32 noptim = config.noptim;
         std::vector<Result> tmp_result_list(noptim);
 
-        Gen3_7DOF manip;
+        Gen3 manip;
         manip.set_payload_without_gripper(config.m);
         Bspline bspline(nctrl, npts, p, manip.joints);
 
-        Gen3_7DOF manip_more_points;
+        Gen3 manip_more_points;
         manip_more_points.set_payload_without_gripper(config.m);
         Bspline bspline_more_points(nctrl, 10000, p, manip_more_points.joints);
 
@@ -149,7 +171,7 @@ int main() {
             auto T1 = get_tick_us();
 
             // random optimization vector
-            auto x = config.nshot == 1 ? guess_random(manip, bspline, config.task) : guess_shot_mean_collisions(optim, config.nshot);
+            auto x = config.nshot == 1 ? guess_random(manip, bspline, config.task) : guess_shot_mean(manip, bspline, config.task, config.nshot);
             tmp_result_list[iter].x0 = x;
 
             // launch optimization
@@ -166,7 +188,9 @@ int main() {
             bool is_valid = max_con < 0.01;
 
             bspline_more_points.compute_trajectory(x, config.task);
-            auto max_con_more_points = array_max(manip_more_points.constraints(bspline_more_points.traj)); // todo: check obstacle avoidance with more points ?
+            Array c_more_points(manip_more_points.ncon(bspline.traj.t.size));
+            manip_more_points.internal_constraints(bspline.traj, c_more_points.data);
+            auto max_con_more_points = array_max(c_more_points); // todo: check obstacle avoidance with more points ?
             bool is_valid_more_points = max_con_more_points < 0.05;
 
             tmp_result_list[iter].success = is_valid && is_valid_more_points;
