@@ -1,5 +1,7 @@
 #include "blast.h"
 #include "blast_math.h"
+#include "blast_world.h"
+#include <algorithm>
 
 namespace blast {
 
@@ -9,7 +11,7 @@ struct GAIndividual {
 };
 
 // Solves the collision distance problem with only one box at a time, returns best fitness score
-real collision_ga(const Matrix &caps_list, const box &box, const int n_individuals, const int n_iterations) {
+real collision_ga(const Matrix &robot_cartesian_positions, const Box &box, const int n_individuals, const int n_iterations) {
     const auto n_dimensions = 2;
     const double mutation_rate = 0.001; // Mutation rate
     const double elite_percentage = 0.2; // Percentage of elite individuals to retain
@@ -54,7 +56,7 @@ real collision_ga(const Matrix &caps_list, const box &box, const int n_individua
         // Evaluate fitness
         real fitness_total = 0;
         for (int i = 0; i < n_individuals; i++) {
-            population[i].fitness = 1/OBJ_function(population[i].x, caps_list, box);
+            population[i].fitness = 1/obj_function(population[i].x, robot_cartesian_positions, box);
             fitness_total += population[i].fitness;
             // Update global best
             gbest_f = (population[i].fitness > gbest_f) ? population[i].fitness : gbest_f;
@@ -113,7 +115,7 @@ real collision_ga(const Matrix &caps_list, const box &box, const int n_individua
                 real lambda = 0.5*get_random() + 0.5;
                 new_population[i].x[j] = lambda*parent1[j] + (1-lambda)*parent2[j];
                 // Perform mutation
-                new_population[i].x[j] = (abs(get_random()) < mutation_rate) ? new_population[i].x[j] + 0.001 * get_random() : new_population[i].x[j];
+                new_population[i].x[j] = (std::abs(get_random()) < mutation_rate) ? new_population[i].x[j] + 0.001 * get_random() : new_population[i].x[j];
             }
             new_population[i].x = clamp(new_population[i].x, 0, 1);
         }
@@ -124,7 +126,7 @@ real collision_ga(const Matrix &caps_list, const box &box, const int n_individua
 }
 
 // Calls collision_pso to solve collision distance problem one box at a time, one member at a time. Returns best fitness score
-real test_collision_ga_OBB(const Matrix &cart_pos, const objlist* world, const int n_individuals, const int n_iterations) {
+real test_collision_ga_box(const Matrix &robot_cartesian_positions, const World* world, const int n_individuals, const int n_iterations) {
     int n_caps = cart_pos.rows / 3 - 1;
     real distmin = INF_REAL;
     real current_dist;
@@ -149,7 +151,7 @@ real test_collision_ga_OBB(const Matrix &cart_pos, const objlist* world, const i
 }
 
 // Solves the collision distance problem with the full world, returns best fitness score
-real collision_ga(const Matrix &caps_list, objlist* world, int n_individuals, int n_iterations) {
+real collision_ga(const Matrix &robot_cartesian_positions, World* world, int n_individuals, int n_iterations) {
     const auto n_dimensions = 2;
     const double mutation_rate = 0.001; // Mutation rate
     const double mutation_step = 0.001; // Mutation step
@@ -192,7 +194,7 @@ real collision_ga(const Matrix &caps_list, objlist* world, int n_individuals, in
         // Evaluate fitness
         real fitness_total = 0;
         for (int i = 0; i < n_individuals; i++) {
-            population[i].fitness = 1/OBJ_function(population[i].x, caps_list, world);
+            population[i].fitness = 1/obj_function(population[i].x, robot_cartesian_positions, world);
             fitness_total += population[i].fitness;
             // Update global best
             gbest_f = (population[i].fitness > gbest_f) ? population[i].fitness : gbest_f;
@@ -251,7 +253,7 @@ real collision_ga(const Matrix &caps_list, objlist* world, int n_individuals, in
                 real lambda = 0.5*get_random() + 0.5;
                 new_population[i].x[j] = lambda*parent1[j] + (1-lambda)*parent2[j];
                 // Perform mutation
-                new_population[i].x[j] = (abs(get_random()) < mutation_rate) ? new_population[i].x[j] + mutation_step * get_random() : new_population[i].x[j];
+                new_population[i].x[j] = (std::abs(get_random()) < mutation_rate) ? new_population[i].x[j] + mutation_step * get_random() : new_population[i].x[j];
             }
             new_population[i].x = clamp(new_population[i].x, 0, 1);
         }
@@ -262,7 +264,7 @@ real collision_ga(const Matrix &caps_list, objlist* world, int n_individuals, in
 }
 
 // Calls collision_ga to solve collision distance problem with the full world, one member at a time. Returns best fitness score
-real test_collision_ga_world_1caps(const Matrix &cart_pos, objlist* world, int n_individuals, int n_iterations) {
+real test_collision_ga_world_1caps(const Matrix &robot_cartesian_positions, World* world, int n_individuals, int n_iterations) {
     int n_caps = cart_pos.rows / 3 - 1;
     real distmin = INF_REAL;
     real current_dist;
@@ -284,7 +286,7 @@ real test_collision_ga_world_1caps(const Matrix &cart_pos, objlist* world, int n
 }
 
 // Calls collision_ga to solve collision distance problem with the full world, all members at once. Returns best fitness score
-real test_collision_ga_world_full_robot(const Matrix &cart_pos, objlist* world, int n_individuals, int n_iterations) {
+real test_collision_ga_world_full_robot(const Matrix &robot_cartesian_positions, World* world, int n_individuals, int n_iterations) {
     real distmin = collision_ga(cart_pos, world, n_individuals, n_iterations);
     return distmin;
 }

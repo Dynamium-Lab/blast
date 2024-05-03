@@ -702,7 +702,7 @@ void add_capsule(Vec3 point1, Vec3 point2, real radius, World* world) {
     world->capsules.push_back(new_capsule);
 }
 
-std::vector<real> test_collision(capslist* robot_capsule_list, World* world, int n_lowest_distances) {
+std::vector<real> test_collision(std::vector<Capsule>* robot_capsule_list, World* world, int n_lowest_distances) {
     std::vector<real> dist_min(n_lowest_distances, INF_REAL);
     real dist;
 
@@ -846,8 +846,8 @@ Vec3 get_point(const Array& x, const Matrix &capsule_list) {
 }
 
 // Calls get_point and tests this point against the full world
-real OBJ_function(const Array& x, const Matrix &cartesian_positions, const World* world) {
-    Vec3 p = get_point(x, cartesian_positions);
+real obj_function(const Array& x, const Matrix &robot_cartesian_positions, const World* world) {
+    Vec3 p = get_point(x, robot_cartesian_positions);
 
     real distmin = INF_REAL;
     real current_dist = 0;
@@ -871,9 +871,9 @@ real OBJ_function(const Array& x, const Matrix &cartesian_positions, const World
 }
 
 // Calls get_point and tests this point against the box
-real OBJ_function(const Array& x, const Matrix &cartesian_positions, const Box &OBB_test) {
-    Vec3 p = get_point(x, cartesian_positions);
-    return distance(OBB_test, p);
+real obj_function(const Array& x, const Matrix &robot_cartesian_positions, const Box &box) {
+    Vec3 p = get_point(x, robot_cartesian_positions);
+    return distance(box, p);
 }
 
 // ======================================
