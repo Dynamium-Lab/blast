@@ -38,7 +38,7 @@ std::mutex mut_result;
 void eval_function() {
     using namespace blast;
     objlist world;
-    add_OBB({0.25, 0.2, 0.05}, {0.05, 0.05, 0.05}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world);
+    add_box({0.25, 0.2, 0.05}, {0.05, 0.05, 0.05}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world);
 
     for (;;) {
         mut_config.lock();
