@@ -3,7 +3,7 @@
 
 namespace blast {
 
-Bspline::Bspline(u32 ncontrol, u32 npoints, u32 p, u32 njoints) :
+Bspline::Bspline(u32 ncontrol, u32 npoints, u32 P, u32 njoints) :
     traj(npoints, njoints),
     control(ncontrol, njoints),
     basis_p(ncontrol, npoints),
@@ -12,7 +12,7 @@ Bspline::Bspline(u32 ncontrol, u32 npoints, u32 p, u32 njoints) :
     joints(njoints),
     points(npoints),
     nctrl(ncontrol),
-    p(p) {
+    p(P) {
     compute_basis();
 }
 
@@ -37,7 +37,7 @@ void Bspline::compute_basis() {
             knots[i] = knots[i - 1] + du;
     }
 
-    Array n(m * (p + 1)); // triangle basis function
+    Array N(m * (p + 1)); // triangle basis function
     const real du = 1.0f / (points - 1);
     zero(basis_p);
     zero(basis_v);
@@ -49,37 +49,37 @@ void Bspline::compute_basis() {
         const real u = point * du;
 
         for (u32 i = 0; i < m; i++)
-            n[i] = u >= knots[i] && u < knots[i + 1] ? 1.0f : 0.0f;
+            N[i] = u >= knots[i] && u < knots[i + 1] ? 1.0f : 0.0f;
         if (point == points - 1)
-            n[nctrl - 1] = 1.0f;
+            N[nctrl - 1] = 1.0f;
         for (u32 pi = 1; pi <= p; pi++) {
             for (u32 i = 0; i < m - pi; i++) {
                 if (knots[i + pi] != knots[i])
-                    n[m * pi + i] = n[m * (pi - 1) + i] * (u - knots[i]) / (knots[i + pi] - knots[i]);
+                    N[m * pi + i] = N[m * (pi - 1) + i] * (u - knots[i]) / (knots[i + pi] - knots[i]);
                 else
-                    n[m * pi + i] = 0.0f;
+                    N[m * pi + i] = 0.0f;
                 if (knots[i + pi + 1] != knots[i + 1])
-                    n[m * pi + i] += n[m * (pi - 1) + i + 1] * (knots[i + pi + 1] - u) / (knots[i + pi + 1] - knots[i + 1]);
+                    N[m * pi + i] += N[m * (pi - 1) + i + 1] * (knots[i + pi + 1] - u) / (knots[i + pi + 1] - knots[i + 1]);
             }
         }
 
         // position basis functions
         for (u32 i = 0; i < nctrl; i++)
-            basis_p_col[i] = n[m * p + i];
+            basis_p_col[i] = N[m * p + i];
 
         // velocity basis functions
         for (u32 i = 0; i < nctrl - 1; i++)
-            basis_v_col[i] = -(real)p * n[m * (p - 1) + i + 1] / (knots[i + p + 1] - knots[i + 1]);
+            basis_v_col[i] = -(real)p * N[m * (p - 1) + i + 1] / (knots[i + p + 1] - knots[i + 1]);
         for (u32 i = 1; i < nctrl; i++)
-            basis_v_col[i] += (real)p * n[m * (p - 1) + i] / (knots[i + p] - knots[i]);
+            basis_v_col[i] += (real)p * N[m * (p - 1) + i] / (knots[i + p] - knots[i]);
 
         // acceleration basis functions
         for (u32 i = 0; i < nctrl - 2; i++)
-            basis_a_col[i] = (p * (p - 1)) * n[m * (p - 2) + i + 2] / ((knots[i + p + 1] - knots[i + 1]) * (knots[i + p + 1] - knots[i + 2]));
+            basis_a_col[i] = (p * (p - 1)) * N[m * (p - 2) + i + 2] / ((knots[i + p + 1] - knots[i + 1]) * (knots[i + p + 1] - knots[i + 2]));
         for (u32 i = 1; i < nctrl - 1; i++)
-            basis_a_col[i] -= (p * (p - 1)) * n[m * (p - 2) + i + 1] * (1.0f / (knots[i + p] - knots[i]) + 1.0f / (knots[i + p + 1] - knots[i + 1])) / (knots[i + p] - knots[i + 1]);
+            basis_a_col[i] -= (p * (p - 1)) * N[m * (p - 2) + i + 1] * (1.0f / (knots[i + p] - knots[i]) + 1.0f / (knots[i + p + 1] - knots[i + 1])) / (knots[i + p] - knots[i + 1]);
         for (u32 i = 2; i < nctrl; i++)
-            basis_a_col[i] += (p * (p - 1)) * n[m * (p - 2) + i] / ((knots[i + p - 1] - knots[i]) * (knots[i + p] - knots[i]));
+            basis_a_col[i] += (p * (p - 1)) * N[m * (p - 2) + i] / ((knots[i + p - 1] - knots[i]) * (knots[i + p] - knots[i]));
 
         // increment pointers
         basis_p_col += nctrl;
@@ -104,7 +104,7 @@ void Bspline::compute_basis_open() {
     print(knots);
 #endif
 
-    Matrix n(m, (p + 1));  // triangle basis function
+    Matrix N(m, (p + 1));  // triangle basis function
     const real du = 1.0f / (points - 1);
     zero(basis_p);
     zero(basis_v);
@@ -116,35 +116,35 @@ void Bspline::compute_basis_open() {
         const real u = point * du;
 
         for (u32 i = 0; i < m; i++)
-            n(i, 0) = u >= knots[i] && u <= knots[i + 1] ? 1.0f : 0.0f;
+            N(i, 0) = u >= knots[i] && u <= knots[i + 1] ? 1.0f : 0.0f;
         for (u32 pi = 1; pi <= p; pi++) {
             for (u32 i = 0; i < m - pi; i++) {
                 if (knots[i + pi] != knots[i])
-                    n(i, pi) = n(i, pi-1) * (u - knots[i]) / (knots[i + pi] - knots[i]);
+                    N(i, pi) = N(i, pi-1) * (u - knots[i]) / (knots[i + pi] - knots[i]);
                 else
-                    n(i, pi) = 0.0f;
+                    N(i, pi) = 0.0f;
                 if (knots[i + pi + 1] != knots[i + 1])
-                    n(i, pi) += n(i+1, pi-1) * (knots[i + pi + 1] - u) / (knots[i + pi + 1] - knots[i + 1]);
+                    N(i, pi) += N(i+1, pi-1) * (knots[i + pi + 1] - u) / (knots[i + pi + 1] - knots[i + 1]);
             }
         }
 
         // position basis functions
         for (u32 i = 0; i < nctrl; i++)
-            basis_p_col[i] = n(i, p);
+            basis_p_col[i] = N(i, p);
 
         // velocity basis functions
         for (u32 i = 0; i < nctrl - 1; i++)
-            basis_v_col[i] = -(real)p * n(i+1, p-1) / (knots[i + p + 1] - knots[i + 1]);
+            basis_v_col[i] = -(real)p * N(i+1, p-1) / (knots[i + p + 1] - knots[i + 1]);
         for (u32 i = 1; i < nctrl; i++)
-            basis_v_col[i] += (real)p * n(i, p-1) / (knots[i + p] - knots[i]);
+            basis_v_col[i] += (real)p * N(i, p-1) / (knots[i + p] - knots[i]);
 
         // acceleration basis functions
         for (u32 i = 0; i < nctrl - 2; i++)
-            basis_a_col[i] = (real)(p * (p - 1)) * n(i+2, p-2) / ((knots[i + p + 1] - knots[i + 1]) * (knots[i + p + 1] - knots[i + 2]));
+            basis_a_col[i] = (real)(p * (p - 1)) * N(i+2, p-2) / ((knots[i + p + 1] - knots[i + 1]) * (knots[i + p + 1] - knots[i + 2]));
         for (u32 i = 1; i < nctrl - 1; i++)
-            basis_a_col[i] -= (real)(p * (p - 1)) * n(i+1, p-2) * (1.0f / (knots[i + p] - knots[i]) + 1.0f / (knots[i + p + 1] - knots[i + 1])) / (knots[i + p] - knots[i + 1]);
+            basis_a_col[i] -= (real)(p * (p - 1)) * N(i+1, p-2) * (1.0f / (knots[i + p] - knots[i]) + 1.0f / (knots[i + p + 1] - knots[i + 1])) / (knots[i + p] - knots[i + 1]);
         for (u32 i = 2; i < nctrl; i++)
-            basis_a_col[i] += (p * (p - 1)) * n(i, p-2) / ((knots[i + p - 1] - knots[i]) * (knots[i + p] - knots[i]));
+            basis_a_col[i] += (p * (p - 1)) * N(i, p-2) / ((knots[i + p - 1] - knots[i]) * (knots[i + p] - knots[i]));
 
         // increment pointers
         basis_p_col += nctrl;
@@ -160,18 +160,18 @@ void Bspline::compute_control(const Array &x, const Matrix &task) {
 void Bspline::compute_control(const Array &x, const Matrix &task, real *dst) {
     using std::isnan;
     Assert(nctrl >= 6);
-    const real t = x[x.size - 1];
+    const real T = x[x.size - 1];
     const real du = 1.0f / (nctrl - p);
-    const real t2 = t * t;
-    const real one_over_t = 1 / t;
-    const real one_over_t2 = one_over_t * one_over_t;
+    const real T2 = T * T;
+    const real one_over_T = 1 / T;
+    const real one_over_T2 = one_over_T * one_over_T;
 
     u32 ctr_i = 0;
     u32 x_i = 0;
     auto ctr = dst;
 
-    const real kv = t * du / p;
-    const real ka = 2 * t2 * du * du / (p * (p - 1));
+    const real kv = T * du / p;
+    const real ka = 2 * T2 * du * du / (p * (p - 1));
     for (u32 joint = 0; joint < joints; joint++) {
         // Initial PVA
         const auto pi = task(joint, 0);
@@ -219,10 +219,10 @@ void Bspline::compute_trajectory(const Array &x, const Matrix &task) {
 
     compute_control(x, task);
 
-    const real t = x.back();
-    const real dt = t / (points - 1);
-    const real one_over_t = 1 / t;
-    const real one_over_t2 = one_over_t * one_over_t;
+    const real T = x.back();
+    const real dt = T / (points - 1);
+    const real one_over_T = 1 / T;
+    const real one_over_T2 = one_over_T * one_over_T;
 
     for (u32 point = 0; point < points; point++) {
         traj.t[point] = dt * point;
@@ -232,8 +232,8 @@ void Bspline::compute_trajectory(const Array &x, const Matrix &task) {
         for (u32 joint = 0; joint < joints; joint++) {
             auto c = control.col(joint);
             traj.pos(joint, point) = dot(c, bp);
-            traj.vel(joint, point) = dot(c, bv) * one_over_t;
-            traj.acc(joint, point) = dot(c, ba) * one_over_t2;
+            traj.vel(joint, point) = dot(c, bv) * one_over_T;
+            traj.acc(joint, point) = dot(c, ba) * one_over_T2;
         }
     }
 }
