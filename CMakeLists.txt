@@ -18,6 +18,11 @@ add_executable(main
     src/Math/Matrix.cpp
 
     src/World/world.cpp
+
+    src/Collision/pso.cpp
+    src/Collision/gwo.cpp
+    src/Collision/ga.cpp
+
 )
 
 target_include_directories(main PUBLIC
@@ -25,6 +30,7 @@ target_include_directories(main PUBLIC
     src
     src/Math
     src/World
+    src/Collision
     extern/mipp
 )
 
