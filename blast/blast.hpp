@@ -35,6 +35,5 @@
 #include "blast_optimization.hpp"
 #include "manipulators/kinova_gen3.h"
 #include "collisions/world.h"
-#include "blast_tasks.hpp"
 #include "optimization/gwo.hpp"
 #include "optimization/pso.hpp"

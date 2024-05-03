@@ -47,7 +47,7 @@ struct Gen3 {
     Matrix  jacobian(const Array &joint_position);
 
     // collisions
-    capslist  robot_capsules(const Matrix& pos, int n_collision_skip);
+    std::vector<capsule>  robot_capsules(const Matrix& pos, int n_collision_skip);
     Array   internal_collisions(const Array &joint_position);
 };
 
@@ -610,7 +610,7 @@ inline Array Gen3::internal_collisions(const Array &joint_position) {
     return {dist1sqr, dist2sqr, distTJ4, distTJ6, distTEE};
 }
 
-inline capslist Gen3::robot_capsules(const Matrix& pos, int n_skip) {
+inline std::vector<capsule> Gen3::robot_capsules(const Matrix& pos, int n_skip) {
     const int points = pos.cols;
     Matrix result_capsules(21, points/n_skip);
     Mat3 Q, Q1, Q2, Q3, Q4, Q5, Q6, Q7;
@@ -670,7 +670,7 @@ inline capslist Gen3::robot_capsules(const Matrix& pos, int n_skip) {
     }
 
     auto caps_size = result_capsules.cols;
-    capslist capsules;
+    std::vector<capsule> capsules;
     capsules.caps.resize(caps_size * 3); // 3 capsules for each point along the trajectory
     real radius = 0.055; // Hard coded radius of all robot capsules
     for (int i = 0; i < caps_size; i++) {

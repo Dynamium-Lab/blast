@@ -226,22 +226,13 @@ host_fn Array guess_shot_mean_collisions_link6(Optimization<T_manip>& opt, int n
 
 
 struct Optimisation {
-    Gen3* manip   = nullptr;
+    Manipulator* manip   = nullptr;
     Matrix*      task    = nullptr;
     Bspline*     bspline = nullptr;
     objlist*     world   = nullptr;
     int          n_collision_constraints = 5;
     int          n_collision_skip = 2;
 };
-
-// struct Optimisation_Link6_dev {
-//     Link6_dev*   manip   = nullptr;
-//     Matrix*      task    = nullptr;
-//     Bspline*     bspline = nullptr;
-//     objlist*     world   = nullptr;
-//     int          n_collision_constraints = 5;
-//     int          n_collision_skip = 2;
-// };
 
 //--------- OBJECTIVES AND CONSTRAINTS ----------------------------------------------------------
 
@@ -368,7 +359,7 @@ host_fn void cstr_world_gen3(unsigned m, double *result, unsigned xlen, const do
 
     Gen3* manip = (Gen3*) opt->manip;
     auto capsules = manip->robot_capsules(opt->bspline->traj.pos, opt->n_collision_skip);
-    
+
     double* r = &result[ncon];
     std::vector<real> collisions = test_collision(&capsules, opt->world, opt->n_collision_constraints);
     for (int i = 0; i < opt->n_collision_constraints; i ++) {
