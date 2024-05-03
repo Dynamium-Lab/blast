@@ -34,7 +34,7 @@ struct Bspline {
     u32 nctrl;
     u32 p;
 
-    Bspline(u32 ncontrol, u32 npoints, u32 P, u32 njoints);
+    Bspline(u32 ncontrol, u32 npoints, u32 p, u32 njoints);
     Bspline() = delete;
 
     // Compute a trajectory from the given optimization vector
