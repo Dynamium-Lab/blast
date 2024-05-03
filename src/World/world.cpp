@@ -794,6 +794,88 @@ std::vector<real> test_collision(capslist* robot_capsule_list, World* world, int
     return dist_min;
 }
 
+// Objective function for optimization-based approaches
+
+// Returns distance between an box and a point
+real distance(Box box, Vec3 point) {
+    Mat3 Rtrans = transpose(box.R);
+ 
+    Vec3 point_box = Rtrans * (point - box.c);
+ 
+    Vec3 proj = {clamp(point_box.x, -box.e.x, box.e.x), clamp(point_box.y, -box.e.y, box.e.y), clamp(point_box.z, -box.e.z, box.e.z)};
+    Array dist_in(3);
+    dist_in[0] = std::abs(point.x) - box.e.x;
+    dist_in[0] = std::abs(point.y) - box.e.y;
+    dist_in[0] = std::abs(point.z) - box.e.z;
+    real result_if_inside = max(dist_in);
+    return result_if_inside > 0 ? norm(proj - point_box) : result_if_inside;
+}
+
+// Returns distance between a capsule and a point
+real distance(Capsule capsule, Vec3 point) {
+    Segment segment;
+    segment.p1 = capsule.p1;
+    segment.p2 = capsule.p2;
+    return distance(segment, point) - capsule.r;
+}
+
+// Returns distance between a sphere and a point
+real distance(Sphere sph_test, Vec3 point) {
+    return norm(point - sph_test.c) - sph_test.r;
+}
+
+// Gets the point by linear interpolation from caps_list according to values of x
+Vec3 get_point(const Array& x, const Matrix &capsule_list) {
+    real t = x[0]*(capsule_list.cols-1);
+    int t_step = t;
+    int t_step_plus1 = (t_step == (capsule_list).cols-1) ? t_step : t_step + 1;
+    real s = x[1]*(capsule_list.rows/3-1);
+    int s_step = s;
+    int s_step_plus1 = (s_step == (capsule_list).rows/3-1) ? s_step : s_step + 1;
+ 
+    Vec3 p1_1 = {capsule_list(3*s_step, t_step),             capsule_list(3*s_step + 1, t_step),             capsule_list(3*s_step + 2, t_step)};
+    Vec3 p1_2 = {capsule_list(3*s_step, t_step_plus1),       capsule_list(3*s_step + 1, t_step_plus1),       capsule_list(3*s_step + 2, t_step_plus1)};
+    Vec3 p2_1 = {capsule_list(3*s_step_plus1, t_step),       capsule_list(3*s_step_plus1 + 1, t_step),       capsule_list(3*s_step_plus1 + 2, t_step)};
+    Vec3 p2_2 = {capsule_list(3*s_step_plus1, t_step_plus1), capsule_list(3*s_step_plus1 + 1, t_step_plus1), capsule_list(3*s_step_plus1 + 2, t_step_plus1)};
+ 
+    Vec3 p1 = (1 - (t - t_step)) * p1_1 + (t - t_step) * p1_2;
+    Vec3 p2 = (1 - (t - t_step)) * p2_1 + (t - t_step) * p2_2;
+ 
+    Vec3 p = (1 - (s - s_step)) * p1 + (s - s_step) * p2;
+    return p;
+}
+
+// Calls get_point and tests this point against the full world
+real OBJ_function(const Array& x, const Matrix &cartesian_positions, const World* world) {
+    Vec3 p = get_point(x, cartesian_positions);
+
+    real distmin = INF_REAL;
+    real current_dist = 0;
+    for (auto box: (*world).boxes) {
+        current_dist = distance(box, p);
+        distmin = (distmin < 0) ? (current_dist > distmin && current_dist < 0 ? current_dist : distmin) :
+                                  (current_dist < distmin ? current_dist : distmin);
+    }
+    for (auto caps: (*world).capsules) {
+        current_dist = distance(caps, p);
+        distmin = (distmin < 0) ? (current_dist > distmin ? current_dist : distmin) :
+                                  (current_dist < distmin ? current_dist : distmin);
+    }
+    for (auto sph: (*world).spheres) {
+        current_dist = distance(sph, p);
+        distmin = (distmin < 0) ? (current_dist > distmin ? current_dist : distmin) :
+                                  (current_dist < distmin ? current_dist : distmin);
+    }
+ 
+    return distmin;
+}
+
+// Calls get_point and tests this point against the box
+real OBJ_function(const Array& x, const Matrix &cartesian_positions, const Box &OBB_test) {
+    Vec3 p = get_point(x, cartesian_positions);
+    return distance(OBB_test, p);
+}
+
 // ======================================
 //            GJK algorithm
 // ======================================
@@ -1069,7 +1151,7 @@ real distmin_origin(EPAHull face) {
 // (Function is BROKEN - infinite loop)
 real solve_epa_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vector<Vec3> v2) {
     // create a face vector that has three points and a normal
-    std::vector<EPA_hull> faces;
+    std::vector<EPAHull> faces;
     faces.reserve(12);
 
     // const int max_size = simplex.max_size;
@@ -1132,8 +1214,8 @@ real solve_epa_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vector<Vec3
         }
 
         // obtain a new support point in the direction of the edge normal
-        Vec3 support1 = GJK_get_support(v1, -faces[idx].n);
-        Vec3 support2 = GJK_get_support(v2, faces[idx].n);
+        Vec3 support1 = gjk_get_support(v1, -faces[idx].n);
+        Vec3 support2 = gjk_get_support(v2, faces[idx].n);
         Vec3 p = support2 - support1;
 
         // If the vertex does not expand the polytope in the direction of the normal, the minimum distance
@@ -1144,7 +1226,7 @@ real solve_epa_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vector<Vec3
         }
 
         // Get all the faces which are "seen" by the new point, add them to deleted_faces and delete them.
-        std::vector<EPA_hull> deleted_faces;
+        std::vector<EPAHull> deleted_faces;
         deleted_faces.reserve(size(faces)-1);
         int kept_face_idx = 0;
         // bool found_kept_face = false;
@@ -1191,7 +1273,7 @@ real solve_epa_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vector<Vec3
         }
 
         // rebuild simplex with new faces
-        EPA_hull new_face;
+        EPAHull new_face;
         Vec3 n;
         real dot_p1_n;
         for (int i = 0; i < size(loose_edges); i++) {
