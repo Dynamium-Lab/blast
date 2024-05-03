@@ -1,6 +1,7 @@
 #pragma once
 
 namespace blast {
+using capslist = std::vector<Capsule>;
 
 struct Box;
 struct Capsule;
@@ -38,6 +39,17 @@ struct Cylinder {
     real r;
 };
 
+struct capslist {
+    std::vector<Capsule> capsules;
+};
+
+// todo: What do we do with cylinder?
+
+void add_box(Vec3 center_point, Vec3 half_width, Mat3 rotation_matrix, World* world);
+void add_sphere(Vec3 center_point, real radius, World* world);
+void add_cylinder(Vec3 point1, Vec3 point2, real radius, World* world);
+void add_capsule(Vec3 point1, Vec3 point2, real radius, World* world);
+std::vector<real> test_collision(capslist* robot_capsule_list, World* world, int n_lowest_distances);
 // ======================================
 //            Optimization functions
 // ======================================
