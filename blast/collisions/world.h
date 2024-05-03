@@ -12,30 +12,24 @@ namespace blast {
 
 #define COLLISION_EPSILON 1e-9
 
-struct segment {
+struct Segment {
     Vec3 p1;
     Vec3 p2;
 };
 
-struct OBB {
-    Vec3 c; // OBB center point
-    Vec3 e; // Positive halfwidth extents of OBB along each axis
-    Mat3 R; // Local x-, y-, and z-axes (Rotation matrix)
-};
-
-struct surf {
+struct Surf {
     Vec3 p;
     Vec3 d1;
     Vec3 d2;
 };
 
-struct capsule {
+struct Capsule {
     Vec3 p1;
     Vec3 p2;
     real r;
 };
 
-struct sphere {
+struct Sphere {
     Vec3 c;
     real r;
 };
@@ -46,12 +40,12 @@ struct cylinder {
     real r;
 };
 
-struct plane {
+struct Plane {
     Vec3 p;
     Vec3 n;
 };
 
-struct two_pts {
+struct TwoPts {
     Vec3 p1;
     Vec3 p2;
 };
@@ -70,7 +64,7 @@ struct triangle {
 };
 
 struct objlist {
-    std::vector<OBB> OBBlist;
+    std::vector<box> OBBlist;
     std::vector<cylinder> cyllist;
     std::vector<sphere> sphlist;
     std::vector<capsule> capslist;
@@ -1034,6 +1028,85 @@ host_fn real distmin_hull(OBB OBB, capsule caps) {
     }
 }
 
+// Objective function for optimization-based approaches
+
+// Returns distance between an OBB and a point
+host_fn real dist_OBB_point(OBB OBB_test, Vec3 point) {
+    Mat3 Rtrans = transpose(OBB_test.R);
+ 
+    Vec3 point_OBB = Rtrans * (point - OBB_test.c);
+ 
+    Vec3 proj = {clamp(point_OBB.x, -OBB_test.e.x, OBB_test.e.x), clamp(point_OBB.y, -OBB_test.e.y, OBB_test.e.y), clamp(point_OBB.z, -OBB_test.e.z, OBB_test.e.z)};
+    Array dist_in = {abs(point.x) - OBB_test.e.x, abs(point.y) - OBB_test.e.y, abs(point.z) - OBB_test.e.z};
+    real result_if_inside = array_max(dist_in);
+    return result_if_inside > 0 ? norm(proj - point_OBB) : result_if_inside;
+}
+
+// Returns distance between a capsule and a point
+host_fn real dist_caps_point(capsule caps_test, Vec3 point) {
+    sphere sph;
+    sph.c = point;
+    sph.r = 0;
+    return distmin(caps_test, sph);
+}
+
+// Returns distance between a sphere and a point
+host_fn real dist_sph_point(sphere sph_test, Vec3 point) {
+    return norm(point - sph_test.c) - sph_test.r;
+}
+
+// Gets the point by linear interpolation from caps_list according to values of x
+host_fn Vec3 get_point(const Array& x, const Matrix &caps_list) {
+    real t = x[0]*(caps_list.cols-1);
+    int t_step = t;
+    int t_step_plus1 = (t_step == (caps_list).cols-1) ? t_step : t_step + 1;
+    real s = x[1]*(caps_list.rows/3-1);
+    int s_step = s;
+    int s_step_plus1 = (s_step == (caps_list).rows/3-1) ? s_step : s_step + 1;
+ 
+    Vec3 p1_1 = {caps_list(3*s_step, t_step),             caps_list(3*s_step + 1, t_step),             caps_list(3*s_step + 2, t_step)};
+    Vec3 p1_2 = {caps_list(3*s_step, t_step_plus1),       caps_list(3*s_step + 1, t_step_plus1),       caps_list(3*s_step + 2, t_step_plus1)};
+    Vec3 p2_1 = {caps_list(3*s_step_plus1, t_step),       caps_list(3*s_step_plus1 + 1, t_step),       caps_list(3*s_step_plus1 + 2, t_step)};
+    Vec3 p2_2 = {caps_list(3*s_step_plus1, t_step_plus1), caps_list(3*s_step_plus1 + 1, t_step_plus1), caps_list(3*s_step_plus1 + 2, t_step_plus1)};
+ 
+    Vec3 p1 = (1 - (t - t_step)) * p1_1 + (t - t_step) * p1_2;
+    Vec3 p2 = (1 - (t - t_step)) * p2_1 + (t - t_step) * p2_2;
+ 
+    Vec3 p = (1 - (s - s_step)) * p1 + (s - s_step) * p2;
+    return p;
+}
+
+// Calls get_point and tests this point against the full world
+host_fn real OBJ_function(const Array& x, const Matrix &caps_list, const objlist* world) {
+    Vec3 p = get_point(x, caps_list);
+
+    real distmin = INF_REAL;
+    real current_dist = 0;
+    for (auto OBB: (*world).OBBlist) {
+        current_dist = dist_OBB_point(OBB, p);
+        distmin = (distmin < 0) ? (current_dist > distmin && current_dist < 0 ? current_dist : distmin) :
+                                  (current_dist < distmin ? current_dist : distmin);
+    }
+    for (auto caps: (*world).capslist) {
+        current_dist = dist_caps_point(caps, p);
+        distmin = (distmin < 0) ? (current_dist > distmin ? current_dist : distmin) :
+                                  (current_dist < distmin ? current_dist : distmin);
+    }
+    for (auto sph: (*world).sphlist) {
+        current_dist = dist_sph_point(sph, p);
+        distmin = (distmin < 0) ? (current_dist > distmin ? current_dist : distmin) :
+                                  (current_dist < distmin ? current_dist : distmin);
+    }
+ 
+    return distmin;
+}
+
+// Calls get_point and tests this point against the OBB
+host_fn real OBJ_function(const Array& x, const Matrix &caps_list, const OBB &OBB_test) {
+    Vec3 p = get_point(x, caps_list);
+    return dist_OBB_point(OBB_test, p);
+}
+
 // ======================================
 //            Add primitives
 // ======================================
@@ -1076,12 +1149,13 @@ host_fn std::vector<real> test_collision(capslist* caps_list, objlist* world, in
     for (int c = 0; c < caps_list->caps.size(); c++) {
         // OBB collisions
         for (int i = 0; i < world->OBBlist.size(); i++) {
-            dist = distmin_vec(world->OBBlist[i], caps_list->caps[c]);
+            dist = distmin_vec_acc(world->OBBlist[i], caps_list->caps[c]);
             for (int j = 0; j < n_var; j++) {
                 if (dist < dist_min[j]) {
                     for (int k = n_var - 1; k > j; k--) {
                         dist_min[k] = dist_min[k-1];
                     }
+                    // std::cout << c << ", " << dist << ", " << std::endl;
                     dist_min[j] = dist;
                     break;
                 }
@@ -1160,6 +1234,7 @@ host_fn std::vector<real> test_collision(capslist* caps_list, objlist* world, in
     // }
     return dist_min;
 }
+
 
 // ======================================
 //            GJK algorithm
@@ -1692,6 +1767,98 @@ host_fn real GJK_OBB_caps(capsule caps, OBB box) {
 
     real dist = general_GJK(v1, v2) - caps.r;
     return dist;
+}
+
+host_fn std::vector<real> test_collision_GJK(capslist* caps_list, objlist* world, int n_var) {
+    std::vector<real> dist_min(n_var, INF_REAL);
+    real dist;
+
+    for (int c = 0; c < caps_list->caps.size(); c++) {
+        // OBB collisions
+        for (int i = 0; i < world->OBBlist.size(); i++) {
+            dist = GJK_OBB_caps(caps_list->caps[c], world->OBBlist[i]);
+            for (int j = 0; j < n_var; j++) {
+                if (dist < dist_min[j]) {
+                    for (int k = n_var - 1; k > j; k--) {
+                        dist_min[k] = dist_min[k-1];
+                    }
+                    dist_min[j] = dist;
+                    break;
+                }
+            }
+        }
+
+        // Capsule collisions
+        for (int i = 0; i < world->capslist.size(); i++) {
+            dist = distmin(caps_list->caps[c], world->capslist[i]);
+            for (int j = 0; j < n_var; j++) {
+                if (dist < dist_min[j]) {
+                    for (int k = n_var - 1; k > j; k--) {
+                        dist_min[k] = dist_min[k-1];
+                    }
+                    dist_min[j] = dist;
+                    break;
+                }
+            }
+        }
+
+        // Cylinder collisions
+        for (int i = 0; i < world->cyllist.size(); i++) {
+            dist = distmin(caps_list->caps[c], world->cyllist[i]);
+            for (int j = 0; j < n_var; j++) {
+                if (dist < dist_min[j]) {
+                    for (int k = n_var - 1; k > j; k--) {
+                        dist_min[k] = dist_min[k-1];
+                    }
+                    dist_min[j] = dist;
+                    break;
+                }
+            }
+        }
+
+        // Sphere collisions
+        for (int i = 0; i < world->sphlist.size(); i++) {
+            dist = distmin(caps_list->caps[c], world->sphlist[i]);
+            for (int j = 0; j < n_var; j++) {
+                if (dist < dist_min[j]) {
+                    for (int k = n_var - 1; k > j; k--) {
+                        dist_min[k] = dist_min[k-1];
+                    }
+                    dist_min[j] = dist;
+                    break;
+                }
+            }
+        }
+    }
+
+    // // Self-collision
+    // // note : this does not take into account the collision between two subsequent links of a robot,
+    // // which means that angle constraints must be put on the articulations.
+    // real n_pts = size(robot.pts);
+    // real n_link = n_pts - 1;
+    // capsule link[n_link];
+
+    // for (int i = 0; i < n_link; i++) {
+    //     link[i].p1 = robot.pts[i];
+    //     link[i].p2 = robot.pts[i+1];
+    //     link[i].r = robot.r[i];
+    // }
+
+    // for (int i = 0; i < n_link; i++) {
+    //     for (int j = 2 + i; j < n_link; j++) {
+    //         dist = distmin(link[i], link[i+j]);
+    //         for (int k = 0; k < n_var; k++){
+    //             if (dist < dist_min[j]) {
+    //                 for (int l = n_var; l > k; l--) {
+    //                     dist_min[l] = dist_min[l-1];
+    //                 }
+    //                 dist_min[k] = dist;
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // }
+    return dist_min;
 }
 
 #ifdef BLAST_ENABLE_TESTS

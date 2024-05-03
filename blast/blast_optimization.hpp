@@ -2,9 +2,11 @@
 #include "blast.hpp"
 #include "blast_math.hpp"
 #include "collisions/world.h"
-// #include "blast_manipulator.hpp"
 #include "manipulators/kinova_gen3.h"
 #include "manipulators/kinova_link6.h"
+#include "blast_manipulator.hpp"
+#include "collisions/Collision_pso.hpp"
+#include "collisions/Collision_gwo.hpp"
 
 namespace blast {
 
@@ -310,7 +312,7 @@ host_fn real penalty_obj_time(Array x, Optimisation optim) {
         // exponential
         f += cstr[i] > 0 ? ((i+1) * cstr[i]) : 0; // todo: explore alternatives
 
-    return f;
+    return f; 
 }
 host_fn void internal_cstr_manip_single(unsigned m, double* result, unsigned n, const double* x, blast::Optimisation* opt) {
     Array xv;
@@ -533,6 +535,90 @@ host_fn void cstr_manip_acc(unsigned m, double *result, unsigned xlen, const dou
     }
 }
 
+host_fn void cstr_world_gen3_pso(unsigned m, double *result, unsigned xlen, const double* x, double* grad, void* f_data) {
+    Optimisation* opt = (Optimisation*)f_data;
+    const int points = opt->bspline->points;
+    const auto ncon = opt->manip->ncon(points);
+
+    internal_cstr_manip_single(m, result, xlen, x, opt);
+
+    Gen3_7DOF* manip = (Gen3_7DOF*) opt->manip;
+    Matrix caps_matrix = manip->robot_capsules(opt->bspline->traj.pos, opt->n_collision_skip);
+    const int caps_size = caps_matrix.cols;
+    Matrix test_caps (6, caps_size); 
+
+    real radius = 0.055; // Hard coded radius of all robot capsules
+    Array min_dist(opt->n_collision_constraints);
+    double* r = &result[ncon];
+    // const int ncol = 3*size(opt->world->OBBlist);
+    const int ncol = ((caps_matrix.rows/3)-1)*size(opt->world->OBBlist);
+
+    std::vector<real> temp(ncol); 
+    int idx = 0;
+    for (int i = 0; i < caps_matrix.rows/3 - 1; i++) {
+        for (int k = 0; k < caps_size; k++) {
+            auto caps_tmp = caps_matrix.col(k);
+            Vec3 elem1 = {caps_tmp[3*i], caps_tmp[3*i+1], caps_tmp[3*i+2]};
+            Vec3 elem2 = {caps_tmp[3*i + 3], caps_tmp[3*i+4], caps_tmp[3*i+5]};
+            
+            test_caps(0, k) = elem1.x;
+            test_caps(1, k) = elem1.y;
+            test_caps(2, k) = elem1.z;
+            test_caps(3, k) = elem2.x;
+            test_caps(4, k) = elem2.y;
+            test_caps(5, k) = elem2.z;
+    
+        }
+        for (auto OBB:opt->world->OBBlist) {
+            // temp[idx++] = collision_pso(test_caps, OBB) - radius;
+            // temp[idx++] = collision_gwo(test_caps, OBB) - radius;
+
+        }
+    }
+    std::sort(temp.begin(), temp.end());
+    for (int i = 0; i < opt->n_collision_constraints; i ++) {
+        *r = -temp[i];
+        r++;
+    }
+    // if (grad) {
+    //     const real eps = 1e-5;
+    //     Array x_plus(xlen);
+    //     Array r_plus(m);
+    //     for (u32 j = 0; j < xlen; j++) {
+    //         memcpy(x_plus.data, x, xlen * sizeof(real));
+    //         x_plus[j] += eps;
+    //         internal_cstr_manip_single(m, r_plus.data, xlen, x_plus.data, opt);
+    //         caps_matrix = manip->robot_capsules(opt->bspline->traj.pos, opt->n_collision_skip);
+    //         const int ncol = 3*size(opt->world->OBBlist);
+    //         std::vector<real> temp(ncol); //not working 
+    //         int idx = 0;
+    //         for (int i = 0; i < caps_matrix.rows - 1; i++) {
+    //             for (int k = 0; k < caps_size; k++) {
+    //                 auto caps_tmp = caps_matrix.col(k);
+    //                 Vec3 elem1 = {caps_tmp[i], caps_tmp[i+1], caps_tmp[i+2]};
+    //                 Vec3 elem2 = {caps_tmp[3*i], caps_tmp[3*i+1], caps_tmp[3*i+2]};
+                    
+    //                 test_caps(0, k) = elem1.x;
+    //                 test_caps(1, k) = elem1.y;
+    //                 test_caps(2, k) = elem1.z;
+    //                 test_caps(3, k) = elem2.x;
+    //                 test_caps(4, k) = elem2.y;
+    //                 test_caps(5, k) = elem2.z;
+            
+    //             }
+    //             for (auto OBB:opt->world->OBBlist) {
+    //                 temp[idx++] = collision_pso(test_caps, OBB);
+    //             }
+    //         }
+    //         std::sort(temp.begin(), temp.end());
+    //         for (int i = 0; i < opt->n_collision_constraints; i ++) {
+    //             r_plus[ncon + i] = -temp[i];
+    //         }
+    //         for (u32 i = 0; i < m; i++)
+    //         grad[i*xlen + j] = (r_plus[i]-result[i])/eps;
+    //     }
+    // }
+}
 host_fn void cstr_world_gen3(unsigned m, double *result, unsigned xlen, const double* x, double* grad, void* f_data) {
     Optimisation* opt = (Optimisation*)f_data;
     const int points = opt->bspline->points;

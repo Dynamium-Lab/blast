@@ -37,3 +37,7 @@
 #include "collisions/world.h"
 #include "optimization/gwo.hpp"
 #include "optimization/pso.hpp"
+#include "collisions/Collision_pso.hpp"
+#include "collisions/Collision_gwo.hpp"
+#include "collisions/Collision_ga.hpp"
+
