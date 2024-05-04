@@ -12,14 +12,14 @@ struct PsoParticle1 {
 };
 
 // Solves the collision distance problem with only one box at a time, returns best fitness score and best particle position
-real collision_pso(const Matrix &robot_cartesian_positions, const Box &box, const int n_particles, const int n_iterations, Array* best_x = nullptr) {
+real collision_pso(const Matrix &robot_cartesian_positions, const Box &box, const int n_particles, const int n_iterations, Array* best_x) {
     //Assert(x.size == optim.bspline->xlen(*optim.task));
     const auto n_dimensions = 2;
-    const double w_min = 0.2;          
-    const double w_max = 0.9;      // Inertia Weight [0, 1]
+    const real w_min = (real)0.2;
+    const real w_max = (real)0.9;      // Inertia Weight [0, 1]
     //const double w = 0.5;
-    const double c = 2;            // Cognitive weight [0, 2]
-    const double s = 2;            // Social weight [0, 2]
+    const real c = (real)2;            // Cognitive weight [0, 2]
+    const real s = (real)2;            // Social weight [0, 2]
 
     Array gbest_x(n_dimensions);
     real  gbest_f = INF_REAL;
@@ -28,7 +28,7 @@ real collision_pso(const Matrix &robot_cartesian_positions, const Box &box, cons
     std::vector<PsoParticle1> particle(n_particles);
     for(int i = 4; i < n_particles; i++) {
         particle[i].x.resize(2);
-        real fraction = n_particles == 1 ? i / (n_particles) : i / (n_particles - 1);
+        real fraction = n_particles == 1 ? (real)i : (real)i / (n_particles - 1);
         for (int j = 0; j < n_dimensions; j++) {
             particle[i].x[j] = fraction;
         }
@@ -59,9 +59,9 @@ real collision_pso(const Matrix &robot_cartesian_positions, const Box &box, cons
 
     // Main loop
     for (int j = 0; j < n_iterations; j++) {
-        auto r1 = 0.5 * get_random() + 0.5;
-        auto r2 = 0.5 * get_random() + 0.5;
-        real w = w_max - j * ((w_max - w_min) / n_iterations);
+        real r1 = (real)0.5 * get_random() + (real)0.5;
+        real r2 = (real)0.5 * get_random() + (real)0.5;
+        real w = w_max - j * ((w_max - w_min) / (real)n_iterations);
 
         for(int i = 0; i < n_particles; i++) {
             for (int k = 0; k < n_dimensions; k++) {
@@ -86,13 +86,13 @@ real collision_pso(const Matrix &robot_cartesian_positions, const Box &box, cons
             gbest_f = (fitness < gbest_f) ? fitness : gbest_f;
         }
     }
-    
+
     *best_x = gbest_x;
     return gbest_f;
 }
 
 // Calls collision_pso to solve collision distance problem one box at a time, one member at a time. Returns best best fitness score and best particle position
-real test_collision_pso_box(const Matrix &robot_cartesian_positions, const  World* world, const int n_particles, const int n_iterations, Array* best_x = nullptr, int* robot_link = nullptr) {
+real test_collision_pso_box(const Matrix &robot_cartesian_positions, const  World* world, const int n_particles, const int n_iterations, Array* best_x, int* robot_link) {
     int n_caps = robot_cartesian_positions.rows/3 - 1;
     int n_points = robot_cartesian_positions.cols;
     real gbest_f= INF_REAL;
@@ -103,12 +103,12 @@ real test_collision_pso_box(const Matrix &robot_cartesian_positions, const  Worl
     // for (int j = 0; j < n_caps; j++) {
     for (int j = 0; j < n_caps; j++) {
         for (int i = 0; i < n_points; i++) {
-            temp(0, i) = robot_cartesian_positions(j*3, i); 
-            temp(1, i) = robot_cartesian_positions(j*3+1, i); 
-            temp(2, i) = robot_cartesian_positions(j*3+2, i); 
-            temp(3, i) = robot_cartesian_positions(j*3+3, i); 
-            temp(4, i) = robot_cartesian_positions(j*3+4, i); 
-            temp(5, i) = robot_cartesian_positions(j*3+5, i); 
+            temp(0, i) = robot_cartesian_positions(j*3, i);
+            temp(1, i) = robot_cartesian_positions(j*3+1, i);
+            temp(2, i) = robot_cartesian_positions(j*3+2, i);
+            temp(3, i) = robot_cartesian_positions(j*3+3, i);
+            temp(4, i) = robot_cartesian_positions(j*3+4, i);
+            temp(5, i) = robot_cartesian_positions(j*3+5, i);
         }
         for (int i = 0; i < world->boxes.size(); i++) {
             temp_dist = collision_pso(temp, world->boxes[i], n_particles, n_iterations, px);
@@ -123,11 +123,11 @@ real test_collision_pso_box(const Matrix &robot_cartesian_positions, const  Worl
 // Solves the collision distance problem with the full world, returns best fitness score
 real collision_pso(const Matrix &robot_cartesian_positions, const World* world, const int n_particles, const int n_iterations) {
     const auto n_dimensions = 2;
-    const double w_min = 0.2;          
-    const double w_max = 0.9;      // Inertia Weight [0, 1]
+    const real w_min = (real)0.2;
+    const real w_max = (real)0.9;      // Inertia Weight [0, 1]
     //const double w = 0.5;
-    const double c = 2;            // Cognitive weight [0, 2]
-    const double s = 2;            // Social weight [0, 2]
+    const real c = 2;            // Cognitive weight [0, 2]
+    const real s = 2;            // Social weight [0, 2]
 
     Array gbest_x(n_dimensions);
     real  gbest_f = INF_REAL;
@@ -136,7 +136,7 @@ real collision_pso(const Matrix &robot_cartesian_positions, const World* world, 
     std::vector<PsoParticle1> particle(n_particles);
     for(int i = 4; i < n_particles; i++) {
         particle[i].x.resize(2);
-        real fraction = n_particles == 1 ? i / (n_particles) : i / (n_particles - 1);
+        real fraction = n_particles == 1 ? (real)i : (real)i / (n_particles - 1);
         for (int j = 0; j < n_dimensions; j++) {
             particle[i].x[j] = fraction;
         }
@@ -166,8 +166,8 @@ real collision_pso(const Matrix &robot_cartesian_positions, const World* world, 
 
     // Main loop
     for (int j = 0; j < n_iterations; j++) {
-        auto r1 = 0.5 * get_random() + 0.5;
-        auto r2 = 0.5 * get_random() + 0.5;
+        real r1 = (real)0.5 * get_random() + (real)0.5;
+        real r2 = (real)0.5 * get_random() + (real)0.5;
         real w = w_max - j * ((w_max - w_min) / n_iterations);
 
         for(int i = 0; i < n_particles; i++) {
@@ -203,7 +203,7 @@ real test_collision_pso_world_1caps(const Matrix &robot_cartesian_positions, con
     real current_dist;
     Matrix temp(6, robot_cartesian_positions.cols);
     for (int j = 0; j < n_caps; j++) {
-        for (int i = 0; i < robot_cartesian_positions.cols; i++) {
+        for (u32 i = 0; i < robot_cartesian_positions.cols; i++) {
             temp(0, i) = robot_cartesian_positions(j * 3, i);
             temp(1, i) = robot_cartesian_positions(j * 3 + 1, i);
             temp(2, i) = robot_cartesian_positions(j * 3 + 2, i);
@@ -213,7 +213,7 @@ real test_collision_pso_world_1caps(const Matrix &robot_cartesian_positions, con
         }
         current_dist = collision_pso(temp, world, n_particles, n_iterations);
         distmin = (distmin < 0) ? (current_dist > distmin ? current_dist : distmin) :
-                                (current_dist < distmin ? current_dist : distmin);
+                  (current_dist < distmin ? current_dist : distmin);
     }
     return distmin;
 }
