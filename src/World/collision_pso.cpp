@@ -97,7 +97,8 @@ real test_collision_pso_box(const Matrix &robot_cartesian_positions, const  Worl
     int n_points = robot_cartesian_positions.cols;
     real gbest_f= INF_REAL;
     real temp_dist;
-    Array* px;
+    Array x;
+    Array* px = &x;
     Matrix temp(6, n_points);
     for (int j = 0; j < n_caps; j++) {
         for (int i = 0; i < n_points; i++) {

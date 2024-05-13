@@ -1,10 +1,7 @@
 #include <stdio.h>
-#include "blast.hpp"
-#include "blast_math.hpp"
-#include "blast_manipulator.hpp"
-#include "collisions/Collision_pso.hpp"
-#include "collisions/Collision_gwo.hpp"
-#include "collisions/Collision_ga.hpp"
+#include "blast.h"
+#include "blast_math.h"
+#include "blast_manipulator.h"
 #include "collisions/world.h"
 #include "nlopt.h"
 #include "json.hpp"
