@@ -19,9 +19,9 @@ add_executable(main
 
     src/World/world.cpp
 
-    src/Collision/pso.cpp
-    src/Collision/gwo.cpp
-    src/Collision/ga.cpp
+    src/World/collision_pso.cpp
+    src/World/collision_gwo.cpp
+    src/World/collision_ga.cpp
 
 )
 

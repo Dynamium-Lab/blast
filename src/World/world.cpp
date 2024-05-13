@@ -799,9 +799,9 @@ std::vector<real> test_collision(std::vector<Capsule>* robot_capsule_list, World
 // Returns distance between an box and a point
 real distance(Box box, Vec3 point) {
     Mat3 Rtrans = transpose(box.R);
- 
+
     Vec3 point_box = Rtrans * (point - box.c);
- 
+
     Vec3 proj = {clamp(point_box.x, -box.e.x, box.e.x), clamp(point_box.y, -box.e.y, box.e.y), clamp(point_box.z, -box.e.z, box.e.z)};
     Array dist_in(3);
     dist_in[0] = std::abs(point.x) - box.e.x;
@@ -827,20 +827,20 @@ real distance(Sphere sph_test, Vec3 point) {
 // Gets the point by linear interpolation from caps_list according to values of x
 Vec3 get_point(const Array& x, const Matrix &capsule_list) {
     real t = x[0]*(capsule_list.cols-1);
-    int t_step = t;
+    int t_step = (int)floor(t);
     int t_step_plus1 = (t_step == (capsule_list).cols-1) ? t_step : t_step + 1;
     real s = x[1]*(capsule_list.rows/3-1);
-    int s_step = s;
+    int s_step = (int)floor(s);
     int s_step_plus1 = (s_step == (capsule_list).rows/3-1) ? s_step : s_step + 1;
- 
+
     Vec3 p1_1 = {capsule_list(3*s_step, t_step),             capsule_list(3*s_step + 1, t_step),             capsule_list(3*s_step + 2, t_step)};
     Vec3 p1_2 = {capsule_list(3*s_step, t_step_plus1),       capsule_list(3*s_step + 1, t_step_plus1),       capsule_list(3*s_step + 2, t_step_plus1)};
     Vec3 p2_1 = {capsule_list(3*s_step_plus1, t_step),       capsule_list(3*s_step_plus1 + 1, t_step),       capsule_list(3*s_step_plus1 + 2, t_step)};
     Vec3 p2_2 = {capsule_list(3*s_step_plus1, t_step_plus1), capsule_list(3*s_step_plus1 + 1, t_step_plus1), capsule_list(3*s_step_plus1 + 2, t_step_plus1)};
- 
+
     Vec3 p1 = (1 - (t - t_step)) * p1_1 + (t - t_step) * p1_2;
     Vec3 p2 = (1 - (t - t_step)) * p2_1 + (t - t_step) * p2_2;
- 
+
     Vec3 p = (1 - (s - s_step)) * p1 + (s - s_step) * p2;
     return p;
 }
@@ -863,7 +863,7 @@ real obj_function(const Array& x, const Matrix &robot_cartesian_positions, const
         current_dist = distance(sph, p);
         distmin = current_dist < distmin ? current_dist : distmin;
     }
- 
+
     return distmin;
 }
 
