@@ -36,7 +36,7 @@ real penalty_obj_time(Array x, Optimization<T_manip> optim) {
 }
 
 template <typename T_manip>
-void internal_cstr_manip_single(unsigned m, double* result, unsigned n, const double* x, Optimization<T_manip>* opt) {
+void internal_cstr_manip_single(double* result, unsigned n, const double* x, Optimization<T_manip>* opt) {
     Array xv;
     xv.alias(x, n);
     opt->bspline->compute_trajectory(xv, *opt->task);
@@ -58,7 +58,7 @@ template <typename T_manip>
 void cstr_manip(unsigned m, double *result, unsigned xlen, const double* x, double* grad, void* f_data) {
     Optimization<T_manip>* opt = (Optimization<T_manip>*)f_data;
 
-    internal_cstr_manip_single(m, result, xlen, x, opt);
+    internal_cstr_manip_single(result, xlen, x, opt);
 
     if (grad) {
         const real eps = 1e-5;
@@ -68,24 +68,24 @@ void cstr_manip(unsigned m, double *result, unsigned xlen, const double* x, doub
         for (u32 j = 0; j < xlen; j++) {
             memcpy(x_plus.data, x, xlen * sizeof(real));
             x_plus[j] += eps;
-            internal_cstr_manip_single(m, r_plus.data, xlen, x_plus.data, opt);
+            internal_cstr_manip_single(r_plus.data, xlen, x_plus.data, opt);
             for (u32 i = 0; i < m; i++)
                 grad[i*xlen + j] = (r_plus[i]-result[i])/eps;
         }
     }
 }
 
+// template <typename T_manip>
 template <typename T_manip>
 void cstr_world(unsigned m, double *result, unsigned xlen, const double* x, double* grad, void* f_data) {
     Optimization<T_manip>* opt = (Optimization<T_manip>*)f_data;
-    const int points = opt->bspline->points;
-    const auto ncon = opt->manip->ncon(points);
-
-    internal_cstr_manip_single(m, result, xlen, x, opt);
-
     auto manip = opt->manip;
-    std::vector<Capsule> capsules = manip->robot_capsules(opt->bspline->traj.pos, opt->n_collision_skip);
+    const int points = opt->bspline->points;
+    const auto ncon = manip->ncon(points);
 
+    internal_cstr_manip_single(result, xlen, x, opt);
+
+    std::vector<Capsule> capsules = manip->robot_capsules(opt->bspline->traj.pos, opt->n_collision_skip);
     double* r = &result[ncon];
     std::vector<real> collisions = test_collision(&capsules, opt->world, opt->n_collision_constraints);
     for (int i = 0; i < opt->n_collision_constraints; i ++) {
@@ -96,11 +96,11 @@ void cstr_world(unsigned m, double *result, unsigned xlen, const double* x, doub
     if (grad) {
         const real eps = 1e-5;
         Array x_plus(xlen);
-        Array r_plus(m);
+        Array r_plus(m + opt->n_collision_constraints);
         for (u32 j = 0; j < xlen; j++) {
             memcpy(x_plus.data, x, xlen * sizeof(real));
             x_plus[j] += eps;
-            internal_cstr_manip_single(m, r_plus.data, xlen, x_plus.data, opt);
+            internal_cstr_manip_single(r_plus.data, xlen, x_plus.data, opt);
             capsules = manip->robot_capsules(opt->bspline->traj.pos, opt->n_collision_skip);
 
             collisions = test_collision(&capsules, opt->world, opt->n_collision_constraints);
@@ -159,7 +159,7 @@ Array guess_shot_mean(Optimization<T_manip>& opt, int nshotgun) {
         Array c1(manip->ncon(bspline->traj.t.size)); // todo: double check it is the right size
         manip->internal_constraints(bspline->traj, c1.data);
 
-        auto capsules = manip->robot_capsules(bspline->traj.pos, opt.n_collision_skip);
+        std::vector<Capsule> capsules = manip->robot_capsules(bspline->traj.pos, opt.n_collision_skip);
 
         Array c2(opt.n_collision_constraints);
         std::vector<real> collisions = test_collision(&capsules, world, opt.n_collision_constraints);
@@ -179,6 +179,5 @@ Array guess_shot_mean(Optimization<T_manip>& opt, int nshotgun) {
     }
     return best_x;
 }
-
 
 }

@@ -41,7 +41,9 @@ struct Result {
 std::vector<Result> result_list;
 std::mutex mut_result;
 
-std::ofstream file_handle_traj("./examples/trajectory.csv");
+std::ofstream file_handle_result("./result_list.json");
+
+std::ofstream file_handle_traj("./trajectory.csv");
 blast::Trajectory traj_csv;
 blast::real time_csv = 0;
 std::mutex mut_csv;
@@ -146,16 +148,16 @@ void eval_function() {
         manip_more_points.dynamics(traj_csv);
         auto trajectory_torque = manip._efforts;
 
-        mut_csv.lock();
-        for (u32 i = 0; i < traj_csv.t.size; i++)
-            file_handle_traj << traj_csv.t[i] + time_csv
-                             << "," << traj_csv.pos(0, i) << "," << traj_csv.pos(1, i) << "," << traj_csv.pos(2, i) << "," << traj_csv.pos(3, i) << "," << traj_csv.pos(4, i) << "," << traj_csv.pos(5, i)
-                             << "," << traj_csv.vel(0, i) << "," << traj_csv.vel(1, i) << "," << traj_csv.vel(2, i) << "," << traj_csv.vel(3, i) << "," << traj_csv.vel(4, i) << "," << traj_csv.vel(5, i)
-                             << "," << traj_csv.acc(0, i) << "," << traj_csv.acc(1, i) << "," << traj_csv.acc(2, i) << "," << traj_csv.acc(3, i) << "," << traj_csv.acc(4, i) << "," << traj_csv.acc(5, i)
-                             << "," << trajectory_torque(0, i) << "," << trajectory_torque(1, i) << "," << trajectory_torque(2, i) << "," << trajectory_torque(3, i) << "," << trajectory_torque(4, i) << "," << trajectory_torque(5, i)
-                             << std::endl;
-        mut_csv.unlock();
-        time_csv += traj_csv.t[traj_csv.t.size - 1];
+        // mut_csv.lock();
+        // for (u32 i = 0; i < traj_csv.t.size; i++)
+        //     file_handle_traj << traj_csv.t[i] + time_csv
+        //                      << "," << traj_csv.pos(0, i) << "," << traj_csv.pos(1, i) << "," << traj_csv.pos(2, i) << "," << traj_csv.pos(3, i) << "," << traj_csv.pos(4, i) << "," << traj_csv.pos(5, i)
+        //                      << "," << traj_csv.vel(0, i) << "," << traj_csv.vel(1, i) << "," << traj_csv.vel(2, i) << "," << traj_csv.vel(3, i) << "," << traj_csv.vel(4, i) << "," << traj_csv.vel(5, i)
+        //                      << "," << traj_csv.acc(0, i) << "," << traj_csv.acc(1, i) << "," << traj_csv.acc(2, i) << "," << traj_csv.acc(3, i) << "," << traj_csv.acc(4, i) << "," << traj_csv.acc(5, i)
+        //                      << "," << trajectory_torque(0, i) << "," << trajectory_torque(1, i) << "," << trajectory_torque(2, i) << "," << trajectory_torque(3, i) << "," << trajectory_torque(4, i) << "," << trajectory_torque(5, i)
+        //                      << std::endl;
+        // mut_csv.unlock();
+        // time_csv += traj_csv.t[traj_csv.t.size - 1];
 
         auto total_time = (get_tick_us() - start_time) / 1000.0;
     }
@@ -363,10 +365,9 @@ int main() {
     add_box({0.4506, -1.3479, 0.3248}, {0.381, 0.635, 0.381}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // next to gen3lite
 
     // Add Obstacle
-    add_box({0.6477, -0.1956, -0.0562}, {0.375, 0.01, 0.375}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // vertical plate
+    add_box({0.6477, -0.1956, -0.0562}, {0.375/2, 0.01, 0.375/2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // vertical plate
 
-    // todo: Add Cables
-    // add_box({}, {}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world);
+    add_box({0, -0.75, 1.0}, {0.10, 0.15, 2.0}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // cables
 
     if (robots_is_OBB) {
         // Robots as OBB
@@ -426,6 +427,94 @@ int main() {
     for (int i = 0; i < thread_count; i++)
         workers.push_back(std::thread(eval_function));
 
+    /*for (;;) {
+
+        if (config_index >= config_list.size()) {
+            break;
+        }
+        auto config = config_list[config_index];
+        config_index++;
+
+        // init
+        const u32 npts = config.npts;
+        const u32 nctrl = config.nctrl;
+        const u32 p = config.p;
+        const u32 noptim = config.noptim;
+        std::vector<Result> tmp_result_list(noptim);
+
+        Link6 manip;
+        manip.set_payload(config.m);
+        Bspline bspline(nctrl, npts, p, manip.joints);
+
+        Link6 manip_more_points;
+        manip_more_points.set_payload(config.m);
+        Bspline bspline_more_points(nctrl, 10000, p, manip_more_points.joints);
+
+        // prep optimization
+        Optimization<Link6> opt{&manip, &config.task, &bspline, &world};
+        u32 ncon = manip.ncon(npts);
+        Array con_tol(ncon, 0.001);
+        Array xtol(bspline.xlen(config.task), 0.000001);
+
+        std::cout << "Setting up Optimization" << std::endl;
+        nlopt_opt o = nlopt_create(nlopt_algorithm::NLOPT_LD_SLSQP, bspline.xlen(config.task));
+        nlopt_result result;
+        result = nlopt_add_inequality_mconstraint(o, ncon, cstr_world<Link6>, &opt, con_tol.data);
+        Assert(result == NLOPT_SUCCESS);
+        result = nlopt_set_min_objective(o, obj_time, &opt);
+        Assert(result == NLOPT_SUCCESS);
+        result = nlopt_set_lower_bound(o, bspline.xlen(config.task) - 1, 0.1);
+        Assert(result == NLOPT_SUCCESS);
+        result = nlopt_set_upper_bound(o, bspline.xlen(config.task) - 1, 60.0);
+        Assert(result == NLOPT_SUCCESS);
+        result = nlopt_set_ftol_abs(o, 0.001);
+        Assert(result == NLOPT_SUCCESS);
+        result = nlopt_set_xtol_abs(o, xtol.data);
+        Assert(result == NLOPT_SUCCESS);
+        result = nlopt_set_maxtime(o, 5.0);
+        Assert(result == NLOPT_SUCCESS);
+        result = nlopt_set_maxeval(o, 10000);
+        Assert(result == NLOPT_SUCCESS);
+
+        std::cout << "Start optimization iterations" << std::endl;
+        auto start_time = get_tick_us();
+        for (u32 iter = 0; iter < noptim; iter++) {
+            auto T1 = get_tick_us();
+            // random optimization vector
+            auto x = config.nshot == 1 ? guess_random(bspline, config.task) : guess_shot_mean(opt, config.nshot);
+            tmp_result_list[iter].x0 = x;
+
+            // launch optimization
+            double f;
+            result = nlopt_optimize(o, x.data, &f);
+            auto T2 = get_tick_us();
+            double time = (T2 - T1) / 1000.0;
+
+            // check solution
+            bspline.compute_trajectory(x, config.task);
+            Array constraints_points(manip.ncon(bspline.traj.t.size));
+            manip.internal_constraints(bspline.traj, constraints_points.data);
+            auto max_con = max(constraints_points);
+            bool is_valid = max_con < 0.01;
+
+            bspline_more_points.compute_trajectory(x, config.task);
+            Array constraints_more_points(manip.ncon(bspline_more_points.traj.t.size));
+            manip_more_points.internal_constraints(bspline_more_points.traj, constraints_more_points.data);
+            auto max_con_more_points = max(constraints_more_points);
+            bool is_valid_more_points = max_con_more_points < 0.05;
+
+            tmp_result_list[iter].success = is_valid && is_valid_more_points;
+            tmp_result_list[iter].success_false = is_valid && !is_valid_more_points;
+            tmp_result_list[iter].compute_time = time;
+            tmp_result_list[iter].config = config;
+            tmp_result_list[iter].x = x;
+        }
+        result_list.insert(result_list.end(), tmp_result_list.begin(), tmp_result_list.end());
+
+        auto total_time = (get_tick_us() - start_time) / 1000.0;
+        std::cout << "Total time: " << total_time << std::endl;
+    }*/
+
     for (auto &t : workers)
         t.join();
 
@@ -472,7 +561,6 @@ int main() {
             j_current["x0"][j] = result_list[i].x0[j];
     }
 
-    std::ofstream file_handle_result("./examples/result_list.json");
     file_handle_result << j_result;
 
 

@@ -783,6 +783,7 @@ std::vector<Capsule> Link6::robot_capsules(const Matrix &pos, const int n_skip) 
     Vec3 p_orig(0, 0, 0);
     Array s(7);
     Array c(7);
+    int counter = 0;
     for (int i = 0; i < points; i+= n_skip) {
         blast::sincos(pos.col(i), s, c);
         Q1 = {c[0], -s[0],   0,   -s[0], -c[0],    0,     0,   0,  -1};      // base -> 0
@@ -820,61 +821,62 @@ std::vector<Capsule> Link6::robot_capsules(const Matrix &pos, const int n_skip) 
         // Capsule 1
         p1 = p_j2 - 0.02218*z2 + 0.00010104*(p_j3-p_j2);
         p2 = p1 + 0.8845*(p_j3-p_j2);
-        result_capsules(0, i) = p1.x;
-        result_capsules(1, i) = p1.y;
-        result_capsules(2, i) = p1.z;
-        result_capsules(3, i) = p2.x;
-        result_capsules(4, i) = p2.y;
-        result_capsules(5, i) = p2.z;
-        result_capsules(6, i) = 0.110; // radius
+        result_capsules(0, counter) = p1.x;
+        result_capsules(1, counter) = p1.y;
+        result_capsules(2, counter) = p1.z;
+        result_capsules(3, counter) = p2.x;
+        result_capsules(4, counter) = p2.y;
+        result_capsules(5, counter) = p2.z;
+        result_capsules(6, counter) = 0.110; // radius
         idx += 7;
 
         // Capsule 2
         p1 = p_j3 - 0.11388*z3;
         p2 = p1 - 0.375*z4;
-        result_capsules(idx + 0, i) = p1.x;
-        result_capsules(idx + 1, i) = p1.y;
-        result_capsules(idx + 2, i) = p1.z;
-        result_capsules(idx + 3, i) = p2.x;
-        result_capsules(idx + 4, i) = p2.y;
-        result_capsules(idx + 5, i) = p2.z;
-        result_capsules(idx + 6, i) = 0.061; // radius
+        result_capsules(idx + 0, counter) = p1.x;
+        result_capsules(idx + 1, counter) = p1.y;
+        result_capsules(idx + 2, counter) = p1.z;
+        result_capsules(idx + 3, counter) = p2.x;
+        result_capsules(idx + 4, counter) = p2.y;
+        result_capsules(idx + 5, counter) = p2.z;
+        result_capsules(idx + 6, counter) = 0.061; // radius
         idx += 7;
 
         // Capsule 3
         p1 = p_j5;
         p2 = p1 - 0.08*z5;
-        result_capsules(idx + 0, i) = p1.x;
-        result_capsules(idx + 1, i) = p1.y;
-        result_capsules(idx + 2, i) = p1.z;
-        result_capsules(idx + 3, i) = p2.x;
-        result_capsules(idx + 4, i) = p2.y;
-        result_capsules(idx + 5, i) = p2.z;
-        result_capsules(idx + 6, i) = 0.060; // radius
+        result_capsules(idx + 0, counter) = p1.x;
+        result_capsules(idx + 1, counter) = p1.y;
+        result_capsules(idx + 2, counter) = p1.z;
+        result_capsules(idx + 3, counter) = p2.x;
+        result_capsules(idx + 4, counter) = p2.y;
+        result_capsules(idx + 5, counter) = p2.z;
+        result_capsules(idx + 6, counter) = 0.060; // radius
         idx += 7;
 
         // Capsule 4
         p1 = p_j6 + 0.08583*z6;
         p2 = p1 - 0.15*z6;
-        result_capsules(idx + 0, i) = p1.x;
-        result_capsules(idx + 1, i) = p1.y;
-        result_capsules(idx + 2, i) = p1.z;
-        result_capsules(idx + 3, i) = p2.x;
-        result_capsules(idx + 4, i) = p2.y;
-        result_capsules(idx + 5, i) = p2.z;
-        result_capsules(idx + 6, i) = 0.060; // radius
+        result_capsules(idx + 0, counter) = p1.x;
+        result_capsules(idx + 1, counter) = p1.y;
+        result_capsules(idx + 2, counter) = p1.z;
+        result_capsules(idx + 3, counter) = p2.x;
+        result_capsules(idx + 4, counter) = p2.y;
+        result_capsules(idx + 5, counter) = p2.z;
+        result_capsules(idx + 6, counter) = 0.060; // radius
         idx += 7;
 
         // Capsule 5
         p1 = p_ee - 0.01289*zee - 0.2125*yee;
         p2 = p1 - 0.150*zee;
-        result_capsules(idx + 0, i) = p1.x;
-        result_capsules(idx + 1, i) = p1.y;
-        result_capsules(idx + 2, i) = p1.z;
-        result_capsules(idx + 3, i) = p2.x;
-        result_capsules(idx + 4, i) = p2.y;
-        result_capsules(idx + 5, i) = p2.z;
-        result_capsules(idx + 6, i) = 0.085; // radius
+        result_capsules(idx + 0, counter) = p1.x;
+        result_capsules(idx + 1, counter) = p1.y;
+        result_capsules(idx + 2, counter) = p1.z;
+        result_capsules(idx + 3, counter) = p2.x;
+        result_capsules(idx + 4, counter) = p2.y;
+        result_capsules(idx + 5, counter) = p2.z;
+        result_capsules(idx + 6, counter) = 0.085; // radius
+        counter++;
     }
 
     auto caps_size = result_capsules.cols;

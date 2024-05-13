@@ -665,6 +665,7 @@ std::vector<Capsule> Gen3::robot_capsules(const Matrix& pos, int n_skip) {
     Vec3 p_orig(0, 0, 0);
     Array s(7);
     Array c(7);
+    int counter = 0;
     for (int i = 0; i < points; i += n_skip) {
         blast::sincos(pos.col(i), s, c);
 
@@ -687,33 +688,34 @@ std::vector<Capsule> Gen3::robot_capsules(const Matrix& pos, int n_skip) {
 
         u32 idx = 0;
         // Capsule 1
-        result_capsules(0, i) = p_j2.x;
-        result_capsules(1, i) = p_j2.y;
-        result_capsules(2, i) = p_j2.z;
-        result_capsules(3, i) = p_j4.x;
-        result_capsules(4, i) = p_j4.y;
-        result_capsules(5, i) = p_j4.z;
-        result_capsules(6, i) = 0.055;
+        result_capsules(0, counter) = p_j2.x;
+        result_capsules(1, counter) = p_j2.y;
+        result_capsules(2, counter) = p_j2.z;
+        result_capsules(3, counter) = p_j4.x;
+        result_capsules(4, counter) = p_j4.y;
+        result_capsules(5, counter) = p_j4.z;
+        result_capsules(6, counter) = 0.055;
         idx += 7;
 
         // Capsule 2
-        result_capsules(idx + 0, i) = p_j4.x;
-        result_capsules(idx + 1, i) = p_j4.y;
-        result_capsules(idx + 2, i) = p_j4.z;
-        result_capsules(idx + 3, i) = p_j6.x;
-        result_capsules(idx + 4, i) = p_j6.y;
-        result_capsules(idx + 5, i) = p_j6.z;
-        result_capsules(idx + 6, i) = 0.055;
+        result_capsules(idx + 0, counter) = p_j4.x;
+        result_capsules(idx + 1, counter) = p_j4.y;
+        result_capsules(idx + 2, counter) = p_j4.z;
+        result_capsules(idx + 3, counter) = p_j6.x;
+        result_capsules(idx + 4, counter) = p_j6.y;
+        result_capsules(idx + 5, counter) = p_j6.z;
+        result_capsules(idx + 6, counter) = 0.055;
         idx += 7;
 
         // Capsule 3
-        result_capsules(idx + 0, i) = p_j6.x;
-        result_capsules(idx + 1, i) = p_j6.y;
-        result_capsules(idx + 2, i) = p_j6.z;
-        result_capsules(idx + 3, i) = p_ee.x;
-        result_capsules(idx + 4, i) = p_ee.y;
-        result_capsules(idx + 5, i) = p_ee.z;
-        result_capsules(idx + 6, i) = 0.055;
+        result_capsules(idx + 0, counter) = p_j6.x;
+        result_capsules(idx + 1, counter) = p_j6.y;
+        result_capsules(idx + 2, counter) = p_j6.z;
+        result_capsules(idx + 3, counter) = p_ee.x;
+        result_capsules(idx + 4, counter) = p_ee.y;
+        result_capsules(idx + 5, counter) = p_ee.z;
+        result_capsules(idx + 6, counter) = 0.055;
+        counter++;
     }
 
     auto caps_size = result_capsules.cols;
