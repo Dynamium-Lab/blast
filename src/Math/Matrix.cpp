@@ -254,7 +254,7 @@ bool is_close(const Matrix& m1, const Matrix& m2, real eps) {
     return true;
 }
 
-Matrix& zero(Matrix& m, real val) {
+Matrix& zero(Matrix& m) {
     for (u32 i = 0; i < m.size; i++)
         m.data[i] = (real)0.0;
     return m;

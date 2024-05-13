@@ -15,6 +15,9 @@ struct Matrix;
 
 
 // uses doubles by default unless BLAST_USE_DOUBLES is set to 0
+#ifndef BLAST_USE_DOUBLES
+#define BLAST_USE_DOUBLES 1
+#endif
 #if BLAST_USE_DOUBLES
 using real  = double;
 #define BLAST_SIZEOF_REAL 8

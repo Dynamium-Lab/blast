@@ -1,5 +1,7 @@
 #pragma once
 
+#include "blast.h"
+
 namespace blast {
 
 struct Box;
@@ -46,6 +48,11 @@ void add_sphere(Vec3 center_point, real radius, World* world);
 void add_cylinder(Vec3 point1, Vec3 point2, real radius, World* world);
 void add_capsule(Vec3 point1, Vec3 point2, real radius, World* world);
 std::vector<real> test_collision(std::vector<Capsule>* robot_capsule_list, World* world, int n_lowest_distances);
+
+real distance(Capsule capsule, Cylinder cylinder);
+real distance(Capsule capsule, Sphere sphere);
+real distance(Capsule capsule1, Capsule capsule2);
+real distance(Capsule capsule, Box box);
 // ======================================
 //            Optimization functions
 // ======================================

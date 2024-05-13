@@ -251,7 +251,7 @@ void Gen3::dynamics(const Trajectory& traj) {
     Vec3 n1, n2, n3, n4, n5, n6, n7;
 
     // loop all points
-    for (int i = 0; i < points; i++) {
+    for (u32 i = 0; i < points; i++) {
         auto p = traj.pos.col(i);
         auto v = traj.vel.col(i);
         auto a = traj.acc.col(i);
@@ -720,7 +720,7 @@ std::vector<Capsule> Gen3::robot_capsules(const Matrix& pos, int n_skip) {
     std::vector<Capsule> capsules;
     capsules.resize(caps_size * 3); // 3 capsules for each point along the trajectory
     real radius = 0.055; // Hard coded radius of all robot capsules
-    for (int i = 0; i < caps_size; i++) {
+    for (u32 i = 0; i < caps_size; i++) {
         auto caps_tmp = result_capsules.col(i);
         for (u32 j = 0; j < 3 ; j++) {
             capsules[i*3 + j].p1 = {caps_tmp[0 + 7*j], caps_tmp[1 + 7*j], caps_tmp[2 + 7*j]};

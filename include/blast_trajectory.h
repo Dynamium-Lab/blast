@@ -48,5 +48,4 @@ struct Bspline {
     void compute_control(const Array &x, const Matrix &task, real *dst);
 };
 
-
 }
