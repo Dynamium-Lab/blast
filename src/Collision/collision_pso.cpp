@@ -97,10 +97,8 @@ real test_collision_pso_box(const Matrix &robot_cartesian_positions, const  Worl
     int n_points = robot_cartesian_positions.cols;
     real gbest_f= INF_REAL;
     real temp_dist;
-    Array x(2);
-    Array* px = &x;
+    Array* px;
     Matrix temp(6, n_points);
-    // for (int j = 0; j < n_caps; j++) {
     for (int j = 0; j < n_caps; j++) {
         for (int i = 0; i < n_points; i++) {
             temp(0, i) = robot_cartesian_positions(j*3, i); 
@@ -180,10 +178,8 @@ real collision_pso(const Matrix &robot_cartesian_positions, const World* world, 
                 particle[i].x[k] += particle[i].v[k];
                 particle[i].x[k] = clamp(particle[i].x[k], 0, 1);
             }
-            //particle[i].x.back() = clamp(particle[i].x.back(), 0.1, 10);
             // Evaluate fitness
             real fitness = obj_function(particle[i].x, robot_cartesian_positions, world);
-            // printf("fitness with penalty = %f \n", fitness);
 
             // Updating local best
             particle[i].best_x = (fitness < particle[i].best_f) ? particle[i].x : particle[i].best_x;
@@ -212,8 +208,7 @@ real test_collision_pso_world_1caps(const Matrix &robot_cartesian_positions, con
             temp(5, i) = robot_cartesian_positions(j * 3 + 5, i);
         }
         current_dist = collision_pso(temp, world, n_particles, n_iterations);
-        distmin = (distmin < 0) ? (current_dist > distmin ? current_dist : distmin) :
-                                (current_dist < distmin ? current_dist : distmin);
+        distmin = current_dist < distmin ? current_dist : distmin;
     }
     return distmin;
 }
