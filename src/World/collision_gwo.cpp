@@ -1,5 +1,4 @@
 #include "blast.h"
-#include "blast_math.h"
 
 namespace blast {
 
@@ -31,7 +30,7 @@ real collision_gwo(const Matrix &robot_cartesian_positions, Box box, const int n
     wolf[0].x.resize(2);
     wolf[0].x[0] = 0;
     wolf[0].x[1] = 0;
-    
+
     wolf[1].x.resize(2);
     wolf[1].x[0] = 0;
     wolf[1].x[1] = 1;
@@ -52,28 +51,28 @@ real collision_gwo(const Matrix &robot_cartesian_positions, Box box, const int n
             real fitness = obj_function(wolf[i].x, robot_cartesian_positions, box);
             // Alpha
             x_alpha = (fitness < alpha_fit) ? wolf[i].x : x_alpha;
-            alpha_fit = (fitness < alpha_fit) ? fitness : alpha_fit; 
-            
+            alpha_fit = (fitness < alpha_fit) ? fitness : alpha_fit;
+
             // Beta
             x_beta = (fitness > alpha_fit && fitness < beta_fit) ? wolf[i].x : x_beta;
-            beta_fit = (fitness > alpha_fit && fitness < beta_fit) ? fitness : beta_fit; 
+            beta_fit = (fitness > alpha_fit && fitness < beta_fit) ? fitness : beta_fit;
 
             // Delta
             x_delta = (fitness > alpha_fit && fitness > beta_fit && fitness < delta_fit) ? wolf[i].x : x_delta;
-            delta_fit = (fitness > alpha_fit && fitness > beta_fit && fitness < delta_fit) ? fitness : delta_fit; 
-            
+            delta_fit = (fitness > alpha_fit && fitness > beta_fit && fitness < delta_fit) ? fitness : delta_fit;
+
             // Search for the Prey (Diverging the wolves from each other)
-            real a_alpha = a * ((2*((real)0.5 * get_random() + (real)0.5))-(real)1);
-            real a_beta = a * ((2*((real)0.5 * get_random() + (real)0.5))-(real)1);
-            real a_delta = a * ((2*((real)0.5 * get_random() + (real)0.5))-(real)1);
-                
-            // Emphasising exploration 
+            real a_alpha = a * ((2*(0.5 * get_random() + 0.5))-1);
+            real a_beta = a * ((2*(0.5 * get_random() + 0.5))-1);
+            real a_delta = a * ((2*(0.5 * get_random() + 0.5))-1);
+
+            // Emphasising exploration
             // Effects of obstacles to approaching prey in nature
             // Works like a weight to make it harder for the wolf to reach the prey
-            real c_alpha = (real)2* ((real)0.5 * get_random() + (real)0.5);
-            real c_beta = (real)2* ((real)0.5 * get_random() + (real)0.5);
-            real c_delta = (real)2* ((real)0.5 * get_random() + (real)0.5);
-                
+            real c_alpha = 2* (0.5 * get_random() + 0.5);
+            real c_beta = 2* (0.5 * get_random() + 0.5);
+            real c_delta = 2* (0.5 * get_random() + 0.5);
+
             for (int j = 0; j < n_dimensions; j++) {
                 // Search Agent updates its position
                 real d_alpha = std::abs(c_alpha * x_alpha[j] - wolf[i].x[j]);;
@@ -102,13 +101,13 @@ real test_collision_gwo_box(const Matrix &robot_cartesian_positions, World* worl
     Matrix temp(6, n_points);
     for (int j = 0; j < n_caps; j++) {
         for (int i = 0; i < n_points; i++) {
-            temp(0, i) = robot_cartesian_positions(j*3, i); 
-            temp(1, i) = robot_cartesian_positions(j*3+1, i); 
-            temp(2, i) = robot_cartesian_positions(j*3+2, i); 
-            temp(3, i) = robot_cartesian_positions(j*3+3, i); 
-            temp(4, i) = robot_cartesian_positions(j*3+4, i); 
-            temp(5, i) = robot_cartesian_positions(j*3+5, i); 
-        } 
+            temp(0, i) = robot_cartesian_positions(j*3, i);
+            temp(1, i) = robot_cartesian_positions(j*3+1, i);
+            temp(2, i) = robot_cartesian_positions(j*3+2, i);
+            temp(3, i) = robot_cartesian_positions(j*3+3, i);
+            temp(4, i) = robot_cartesian_positions(j*3+4, i);
+            temp(5, i) = robot_cartesian_positions(j*3+5, i);
+        }
         for (int i = 0; i < world->boxes.size(); i++) {
             temp_dist = collision_gwo(temp, world->boxes[i], n_wolves, n_iterations);
             min_dist = temp_dist < min_dist ? temp_dist : min_dist;
@@ -162,31 +161,31 @@ real collision_gwo(const Matrix &robot_cartesian_positions, const World* world, 
             real fitness = obj_function(wolf[i].x, robot_cartesian_positions, world);
             // Alpha
             x_alpha = (fitness < alpha_fit) ? wolf[i].x : x_alpha;
-            alpha_fit = (fitness < alpha_fit) ? fitness : alpha_fit; 
-            
+            alpha_fit = (fitness < alpha_fit) ? fitness : alpha_fit;
+
             // Beta
             x_beta = (fitness > alpha_fit && fitness < beta_fit) ? wolf[i].x : x_beta;
-            beta_fit = (fitness > alpha_fit && fitness < beta_fit) ? fitness : beta_fit; 
+            beta_fit = (fitness > alpha_fit && fitness < beta_fit) ? fitness : beta_fit;
 
             // Delta
             x_delta = (fitness > alpha_fit && fitness > beta_fit && fitness < delta_fit) ? wolf[i].x : x_delta;
-            delta_fit = (fitness > alpha_fit && fitness > beta_fit && fitness < delta_fit) ? fitness : delta_fit; 
-            
+            delta_fit = (fitness > alpha_fit && fitness > beta_fit && fitness < delta_fit) ? fitness : delta_fit;
+
             // Hunting
-            // Approaching the prey 
-            
+            // Approaching the prey
+
             // Search for the Prey (Diverging the wolves from each other)
-            real a_alpha = a * (((real)2*((real)0.5 * get_random() + (real)0.5))-(real)1);
-            real a_beta = a * (((real)2*((real)0.5 * get_random() + (real)0.5))-(real)1);
-            real a_delta = a * (((real)2*((real)0.5 * get_random() + (real)0.5))-(real)1);
-                
-            // Emphasising exploration 
+            real a_alpha = a * ((2*(0.5 * get_random() + 0.5))-1);
+            real a_beta = a * ((2*(0.5 * get_random() + 0.5))-1);
+            real a_delta = a * ((2*(0.5 * get_random() + 0.5))-1);
+
+            // Emphasising exploration
             // Effects of obstacles to approaching prey in nature
             // Works like a weight to make it harder for the wolf to reach the prey
-            real c_alpha = (real)2* ((real)0.5 * get_random() + (real)0.5);
-            real c_beta = (real)2* ((real)0.5 * get_random() + (real)0.5);
-            real c_delta = (real)2* ((real)0.5 * get_random() + (real)0.5);
-                
+            real c_alpha = 2* (0.5 * get_random() + 0.5);
+            real c_beta = 2* (0.5 * get_random() + 0.5);
+            real c_delta = 2* (0.5 * get_random() + 0.5);
+
             for (int j = 0; j < n_dimensions; j++) {
                 // Search Agent updates its position
                 real d_alpha = std::abs(c_alpha * x_alpha[j] - wolf[i].x[j]);;
@@ -208,11 +207,11 @@ real collision_gwo(const Matrix &robot_cartesian_positions, const World* world, 
 
 // Calls collision_gwo to solve collision distance problem with the full world, one member at a time. Returns best fitness score
 real test_collision_gwo_world_1caps(const Matrix &robot_cartesian_positions, const World* world, const int n_wolves, const int n_iterations) {
-    int n_caps = robot_cartesian_positions.rows / 3 - 1;
+    u32 n_caps = robot_cartesian_positions.rows / 3 - 1;
     real distmin = INF_REAL;
     real current_dist;
     Matrix temp(6, robot_cartesian_positions.cols);
-    for (int j = 0; j < n_caps; j++) {
+    for (u32 j = 0; j < n_caps; j++) {
         for (u32 i = 0; i < robot_cartesian_positions.cols; i++) {
             temp(0, i) = robot_cartesian_positions(j * 3, i);
             temp(1, i) = robot_cartesian_positions(j * 3 + 1, i);
@@ -223,7 +222,7 @@ real test_collision_gwo_world_1caps(const Matrix &robot_cartesian_positions, con
         }
         current_dist = collision_gwo(temp, world, n_wolves, n_iterations);
         distmin = (distmin < 0) ? (current_dist > distmin ? current_dist : distmin) :
-                                (current_dist < distmin ? current_dist : distmin);
+                  (current_dist < distmin ? current_dist : distmin);
     }
     return distmin;
 }

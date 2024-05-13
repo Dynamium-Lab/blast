@@ -269,7 +269,7 @@ void Link6::dynamics(const Trajectory& traj) {
     Vec3 n1, n2, n3, n4, n5, n6;
 
     // loop all points
-    for (int i = 0; i < points; i++) {
+    for (u32 i = 0; i < points; i++) {
         auto p = traj.pos.col(i);
         auto v = traj.vel.col(i);
         auto a = traj.acc.col(i);
@@ -880,7 +880,7 @@ std::vector<Capsule> Link6::robot_capsules(const Matrix &pos, const int n_skip) 
     auto caps_size = result_capsules.cols;
     std::vector<Capsule> capsules;
     capsules.resize(caps_size * 5); // 5 capsules for each point along the trajectory
-    for (int i = 0; i < caps_size; i++) {
+    for (u32 i = 0; i < caps_size; i++) {
         auto caps_tmp = result_capsules.col(i);
         for (u32 j = 0; j < 5 ; j++) {
             capsules[i*5 + j].p1 = {caps_tmp[0 + 7*j], caps_tmp[1 + 7*j], caps_tmp[2 + 7*j]};

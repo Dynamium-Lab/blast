@@ -18,3 +18,4 @@ using i64   = int64_t;
 #include "blast_world.h"
 #include "blast_trajectory.h"
 #include "blast_manipulator.h"
+#include "blast_optimization.h"

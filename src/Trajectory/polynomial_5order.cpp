@@ -1,4 +1,4 @@
-#include "blast_trajectory.h"
+#include "blast.h"
 
 namespace blast {
 

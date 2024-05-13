@@ -1,6 +1,4 @@
 #include "blast.h"
-#include "blast_math.h"
-#include "blast_world.h"
 #include <algorithm>
 
 namespace blast {
@@ -15,13 +13,13 @@ real collision_ga(const Matrix &robot_cartesian_positions, const Box &box, const
     const auto n_dimensions = 2;
     const double mutation_rate = 0.001; // Mutation rate
     const double elite_percentage = 0.2; // Percentage of elite individuals to retain
-    const int elite_count = elite_percentage * n_individuals;
+    const int elite_count = (int)(elite_percentage * n_individuals);
     Array fitness_fraction(n_individuals);
 
     Array gbest_x(n_dimensions);
     real gbest_f = -INF_REAL;
 
-    // Initialize random population 
+    // Initialize random population
     std::vector<GAIndividual> population(n_individuals);
     population.resize(n_individuals);
     for (int i = 4; i < n_individuals; ++i) {
@@ -127,11 +125,11 @@ real collision_ga(const Matrix &robot_cartesian_positions, const Box &box, const
 
 // Calls collision_pso to solve collision distance problem one box at a time, one member at a time. Returns best fitness score
 real test_collision_ga_box(const Matrix &robot_cartesian_positions, const World* world, const int n_individuals, const int n_iterations) {
-    int n_caps = robot_cartesian_positions.rows / 3 - 1;
+    u32 n_caps = robot_cartesian_positions.rows / 3 - 1;
     real distmin = INF_REAL;
     real current_dist;
     Matrix temp(6, robot_cartesian_positions.cols);
-    for (int j = 0; j < n_caps; j++) {
+    for (u32 j = 0; j < n_caps; j++) {
         for (u32 i = 0; i < robot_cartesian_positions.cols; i++) {
             temp(0, i) = robot_cartesian_positions(j * 3, i);
             temp(1, i) = robot_cartesian_positions(j * 3 + 1, i);
@@ -143,7 +141,7 @@ real test_collision_ga_box(const Matrix &robot_cartesian_positions, const World*
         for (int i = 0; i < world->boxes.size(); i++) {
             current_dist = collision_ga(temp, world->boxes[i], n_individuals, n_iterations);
             distmin = (distmin < 0) ? (current_dist > distmin ? current_dist : distmin) :
-                                  (current_dist < distmin ? current_dist : distmin);
+                      (current_dist < distmin ? current_dist : distmin);
         }
     }
     // std::cout << distmin << std::endl;
@@ -156,13 +154,13 @@ real collision_ga(const Matrix &robot_cartesian_positions, World* world, int n_i
     const double mutation_rate = 0.001; // Mutation rate
     const double mutation_step = 0.001; // Mutation step
     const double elite_percentage = 0.2; // Percentage of elite individuals to retain
-    const int elite_count = elite_percentage * n_individuals;
+    const int elite_count = (int)(elite_percentage * n_individuals);
     Array fitness_fraction(n_individuals);
 
     Array gbest_x(n_dimensions);
     real gbest_f = -INF_REAL;
 
-    // Initialize random population 
+    // Initialize random population
     std::vector<GAIndividual> population(n_individuals);
     population.resize(n_individuals);
     for (int i = 4; i < n_individuals; ++i) {
@@ -259,17 +257,17 @@ real collision_ga(const Matrix &robot_cartesian_positions, World* world, int n_i
         }
         // Update population
         population = std::move(new_population);
-    }  
+    }
     return 1/gbest_f;
 }
 
 // Calls collision_ga to solve collision distance problem with the full world, one member at a time. Returns best fitness score
 real test_collision_ga_world_1caps(const Matrix &robot_cartesian_positions, World* world, int n_individuals, int n_iterations) {
-    int n_caps = robot_cartesian_positions.rows / 3 - 1;
+    u32 n_caps = robot_cartesian_positions.rows / 3 - 1;
     real distmin = INF_REAL;
     real current_dist;
     Matrix temp(6, robot_cartesian_positions.cols);
-    for (int j = 0; j < n_caps; j++) {
+    for (u32 j = 0; j < n_caps; j++) {
         for (u32 i = 0; i < robot_cartesian_positions.cols; i++) {
             temp(0, i) = robot_cartesian_positions(j * 3, i);
             temp(1, i) = robot_cartesian_positions(j * 3 + 1, i);
@@ -280,7 +278,7 @@ real test_collision_ga_world_1caps(const Matrix &robot_cartesian_positions, Worl
         }
         current_dist = collision_ga(temp, world, n_individuals, n_iterations);
         distmin = (distmin < 0) ? (current_dist > distmin ? current_dist : distmin) :
-                                (current_dist < distmin ? current_dist : distmin);
+                  (current_dist < distmin ? current_dist : distmin);
     }
     return distmin;
 }

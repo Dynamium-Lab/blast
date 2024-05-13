@@ -4,6 +4,9 @@
 
 namespace blast {
 
+struct Gen3;
+struct Link6;
+
 struct Gen3 {
     // basic manipulator properties
     int     joints = 7;

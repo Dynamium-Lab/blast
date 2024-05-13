@@ -7,36 +7,22 @@ project(
     LANGUAGES CXX
 )
 
+add_compile_options("/MT")
+set(CMAKE_INCLUDE_CURRENT_DIR   ON)
 
 add_executable(main 
     main.cpp
-    
-    src/Math/math.cpp
-    src/Math/Vec3.cpp
-    src/Math/Mat3.cpp
-    src/Math/Array.cpp
-    src/Math/Matrix.cpp
-
-    src/World/world.cpp
-
-    src/World/collision_pso.cpp
-    src/World/collision_gwo.cpp
-    src/World/collision_ga.cpp
-
 )
-
-target_include_directories(main PUBLIC
-    include
-    src
-    src/Math
-    src/World
-    src/Collision
-    extern/mipp
-)
-
+   
 target_compile_features(main PUBLIC
     cxx_std_17
 )
+
+add_subdirectory(src)
+
+add_subdirectory(examples)
+
+target_link_libraries(main PRIVATE blast)
 
 
 # Only build examples, docs, and tests if main projects, not if included as a dependancy to another project.
