@@ -802,8 +802,8 @@ real distance(Box box, Vec3 point) {
     Vec3 proj = {clamp(point_box.x, -box.e.x, box.e.x), clamp(point_box.y, -box.e.y, box.e.y), clamp(point_box.z, -box.e.z, box.e.z)};
     Array dist_in(3);
     dist_in[0] = std::abs(point.x) - box.e.x;
-    dist_in[0] = std::abs(point.y) - box.e.y;
-    dist_in[0] = std::abs(point.z) - box.e.z;
+    dist_in[1] = std::abs(point.y) - box.e.y;
+    dist_in[2] = std::abs(point.z) - box.e.z;
     real result_if_inside = max(dist_in);
     return result_if_inside > 0 ? norm(proj - point_box) : result_if_inside;
 }
@@ -850,18 +850,15 @@ real obj_function(const Array& x, const Matrix &robot_cartesian_positions, const
     real current_dist = 0;
     for (auto box: (*world).boxes) {
         current_dist = distance(box, p);
-        distmin = (distmin < 0) ? (current_dist > distmin && current_dist < 0 ? current_dist : distmin) :
-                  (current_dist < distmin ? current_dist : distmin);
+        distmin = current_dist < distmin ? current_dist : distmin;
     }
     for (auto caps: (*world).capsules) {
         current_dist = distance(caps, p);
-        distmin = (distmin < 0) ? (current_dist > distmin ? current_dist : distmin) :
-                  (current_dist < distmin ? current_dist : distmin);
+        distmin = current_dist < distmin ? current_dist : distmin;
     }
     for (auto sph: (*world).spheres) {
         current_dist = distance(sph, p);
-        distmin = (distmin < 0) ? (current_dist > distmin ? current_dist : distmin) :
-                  (current_dist < distmin ? current_dist : distmin);
+        distmin = current_dist < distmin ? current_dist : distmin;
     }
 
     return distmin;

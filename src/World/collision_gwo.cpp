@@ -21,10 +21,10 @@ real collision_gwo(const Matrix &robot_cartesian_positions, Box box, const int n
     // Initialization of wolves' positions
     for (int i = 4; i < n_wolves; i++) {
         wolf[i].x.resize(2);
-        real fraction = (n_dimensions == 1) ? i / (n_dimensions) : i / (n_dimensions - 1);
+        real fraction = (n_dimensions == 1) ? i : (real)i / ((real)n_dimensions - 1);
         for (int j = 0; j < n_dimensions; j++) {
             wolf[i].x[j] = fraction;
-            wolf[i].x[j] = 0.5*get_random() + 0.5;
+            wolf[i].x[j] = (real)0.5*get_random() + (real)0.5;
         }
     }
     wolf[0].x.resize(2);
@@ -45,7 +45,7 @@ real collision_gwo(const Matrix &robot_cartesian_positions, Box box, const int n
 
     // GWO Computation
     for (int k = 0; k < n_iterations; k++) {
-        real a = 2.0 - k * (2.0 / n_iterations);
+        real a = (real)2.0 - k * ((real)2.0 / n_iterations);
         for (int i = 0; i < n_wolves; i++) {
             // Evaluating fitness and deciding which wolves are Alpha, Beta and Delta
             real fitness = obj_function(wolf[i].x, robot_cartesian_positions, box);
@@ -131,10 +131,10 @@ real collision_gwo(const Matrix &robot_cartesian_positions, const World* world, 
     // Initialization of wolves' positions
     for (int i = 4; i < n_wolves; i++) {
         wolf[i].x.resize(2);
-        real fraction = (n_dimensions == 1) ? i / (n_dimensions) : i / (n_dimensions - 1);
+        real fraction = (n_dimensions == 1) ? i : (real)i / ((real)n_dimensions - 1);
         for (int j = 0; j < n_dimensions; j++) {
             wolf[i].x[j] = fraction;
-            wolf[i].x[j] = 0.5*get_random() + 0.5;
+            wolf[i].x[j] = (real)0.5*get_random() + (real)0.5;
         }
     }
     wolf[0].x.resize(2);
@@ -155,7 +155,7 @@ real collision_gwo(const Matrix &robot_cartesian_positions, const World* world, 
 
     // GWO Computation
     for (int k = 0; k < n_iterations; k++) {
-        real a = 2.0 - k * (2.0 / n_iterations);
+        real a = (real)2.0 - k * ((real)2.0 / (real)n_iterations);
         for (int i = 0; i < n_wolves; i++) {
             // Evaluating fitness and deciding which wolves are Alpha, Beta and Delta
             real fitness = obj_function(wolf[i].x, robot_cartesian_positions, world);

@@ -25,8 +25,8 @@ real collision_ga(const Matrix &robot_cartesian_positions, const Box &box, const
     for (int i = 4; i < n_individuals; ++i) {
         population[i].x.resize(2);
         for (int j = 0; j < n_dimensions; ++j) {
-            population[i].x[j] = 0.5*get_random() + 0.5; // Initialize with random values between [0, 1]
-        }
+            population[i].x[j] = (real)0.5*get_random() + (real)0.5; // Initialize with random values between [0, 1]
+        } 
     }
     population[0].x.resize(2);
     population[0].x[0] = 0;
@@ -81,15 +81,15 @@ real collision_ga(const Matrix &robot_cartesian_positions, const Box &box, const
         }
         for (int i = elite_count/2; i < elite_count; ++i) {
             for (int j = 0; j < n_dimensions; j++) {
-                new_population[i].x[j] = sorted_fit[i-elite_count/2].x[j] + 0.001 * get_random(); // Mutate elite individuals
+                new_population[i].x[j] = sorted_fit[i-elite_count/2].x[j] + (real)0.001 * get_random(); // Mutate elite individuals
             }
             new_population[i].x = clamp(new_population[i].x, 0, 1);
         }
         // Perform selection and crossover
         for (int i = elite_count; i < n_individuals; ++i) {
             // Select parents based on their fitness
-            real parent_idx1 = 0.5*get_random() + 0.5; // Select parent 1
-            real parent_idx2 = 0.5*get_random() + 0.5; // Select parent 2
+            real parent_idx1 = (real)0.5*get_random() + (real)0.5; // Select parent 1
+            real parent_idx2 = (real)0.5*get_random() + (real)0.5; // Select parent 2
 
             Array parent1(n_individuals);
             int fit_frac1;
@@ -110,10 +110,10 @@ real collision_ga(const Matrix &robot_cartesian_positions, const Box &box, const
 
             for (int j = 0; j < n_dimensions; j++) {
                 // Perform crossover
-                real lambda = 0.5*get_random() + 0.5;
+                real lambda = (real)0.5*get_random() + (real)0.5;
                 new_population[i].x[j] = lambda*parent1[j] + (1-lambda)*parent2[j];
                 // Perform mutation
-                new_population[i].x[j] = (std::abs(get_random()) < mutation_rate) ? new_population[i].x[j] + 0.001 * get_random() : new_population[i].x[j];
+                new_population[i].x[j] = (std::abs(get_random()) < (real)mutation_rate) ? new_population[i].x[j] + (real)0.001 * get_random() : new_population[i].x[j];
             }
             new_population[i].x = clamp(new_population[i].x, 0, 1);
         }
@@ -166,8 +166,8 @@ real collision_ga(const Matrix &robot_cartesian_positions, World* world, int n_i
     for (int i = 4; i < n_individuals; ++i) {
         population[i].x.resize(2);
         for (int j = 0; j < n_dimensions; ++j) {
-            population[i].x[j] = 0.5*get_random() + 0.5; // Initialize with random values between [0, 1]
-        }
+            population[i].x[j] = (real)0.5*get_random() + (real)0.5; // Initialize with random values between [0, 1]
+        } 
     }
     population[0].x.resize(2);
     population[1].x.resize(2);
@@ -219,15 +219,15 @@ real collision_ga(const Matrix &robot_cartesian_positions, World* world, int n_i
         }
         for (int i = elite_count/2; i < elite_count; ++i) {
             for (int j = 0; j < n_dimensions; j++) {
-                new_population[i].x[j] = sorted_fit[i-elite_count/2].x[j] + mutation_step * get_random(); // Mutate elite individuals
+                new_population[i].x[j] = sorted_fit[i-elite_count/2].x[j] + (real)mutation_step * get_random(); // Mutate elite individuals
             }
             new_population[i].x = clamp(new_population[i].x, 0, 1);
         }
         // Perform selection and crossover
         for (int i = elite_count; i < n_individuals; ++i) {
             // Select parents based on their fitness
-            real parent_idx1 = 0.5*get_random() + 0.5; // Select parent 1
-            real parent_idx2 = 0.5*get_random() + 0.5; // Select parent 2
+            real parent_idx1 = (real)0.5*get_random() + (real)0.5; // Select parent 1
+            real parent_idx2 = (real)0.5*get_random() + (real)0.5; // Select parent 2
 
             Array parent1(n_individuals);
             int fit_frac1;
@@ -248,10 +248,10 @@ real collision_ga(const Matrix &robot_cartesian_positions, World* world, int n_i
 
             for (int j = 0; j < n_dimensions; j++) {
                 // Perform crossover
-                real lambda = 0.5*get_random() + 0.5;
+                real lambda = (real)0.5*get_random() + (real)0.5;
                 new_population[i].x[j] = lambda*parent1[j] + (1-lambda)*parent2[j];
                 // Perform mutation
-                new_population[i].x[j] = (std::abs(get_random()) < mutation_rate) ? new_population[i].x[j] + mutation_step * get_random() : new_population[i].x[j];
+                new_population[i].x[j] = (std::abs(get_random()) < (real)mutation_rate) ? new_population[i].x[j] + (real)mutation_step * get_random() : new_population[i].x[j];
             }
             new_population[i].x = clamp(new_population[i].x, 0, 1);
         }
