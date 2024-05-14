@@ -1,4 +1,5 @@
 #include "blast.h"
+#include "world.h"
 
 namespace blast {
 

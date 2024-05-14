@@ -664,10 +664,6 @@ real distance(Capsule capsule, Box box) {
     return dist_min - capsule.r;
 }
 
-// ======================================
-//            Add primitives
-// ======================================
-
 void add_box(Vec3 center_point, Vec3 half_width, Mat3 rotation_matrix, World* world) {
     Box new_box;
     new_box.c = center_point;
@@ -699,8 +695,8 @@ void add_capsule(Vec3 point1, Vec3 point2, real radius, World* world) {
     world->capsules.push_back(new_capsule);
 }
 
-std::vector<real> test_collision(std::vector<Capsule>* robot_capsule_list, World* world, int n_lowest_distances) {
-    std::vector<real> dist_min(n_lowest_distances, INF_REAL);
+Array test_collision(std::vector<Capsule>* robot_capsule_list, World* world, int n_lowest_distances) {
+    Array dist_min(n_lowest_distances, INF_REAL);
     real dist;
 
     for (int c = 0; c < (*robot_capsule_list).size(); c++) {
@@ -761,8 +757,9 @@ std::vector<real> test_collision(std::vector<Capsule>* robot_capsule_list, World
         }
     }
 
+// todo: remove?
     // // Self-collision
-    // // note : this does not take into account the collision between two subsequent links of a robot,
+    // // note: this does not take into account the collision between two subsequent links of a robot,
     // // which means that angle constraints must be put on the articulations.
     // real n_pts = size(robot.pts);
     // real n_link = n_pts - 1;
@@ -790,8 +787,6 @@ std::vector<real> test_collision(std::vector<Capsule>* robot_capsule_list, World
     // }
     return dist_min;
 }
-
-// Objective function for optimization-based approaches
 
 // Returns distance between an box and a point
 real distance(Box box, Vec3 point) {

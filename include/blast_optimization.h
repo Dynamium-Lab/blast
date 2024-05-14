@@ -75,7 +75,7 @@ void cstr_manip(unsigned m, double *result, unsigned xlen, const double* x, doub
     }
 }
 
-// template <typename T_manip>
+// Constraints function that applies internal constraints from T_manip and collision constraints with the world
 template <typename T_manip>
 void cstr_world(unsigned m, double *result, unsigned xlen, const double* x, double* grad, void* f_data) {
     Optimization<T_manip>* opt = (Optimization<T_manip>*)f_data;
@@ -87,7 +87,7 @@ void cstr_world(unsigned m, double *result, unsigned xlen, const double* x, doub
 
     std::vector<Capsule> capsules = manip->robot_capsules(opt->bspline->traj.pos, opt->n_collision_skip);
     double* r = &result[ncon];
-    std::vector<real> collisions = test_collision(&capsules, opt->world, opt->n_collision_constraints);
+    auto collisions = test_collision(&capsules, opt->world, opt->n_collision_constraints);
     for (int i = 0; i < opt->n_collision_constraints; i ++) {
         *r = -collisions[i];
         r++;
@@ -113,7 +113,12 @@ void cstr_world(unsigned m, double *result, unsigned xlen, const double* x, doub
     }
 }
 
+//--- Initial guess generators -------------------------------------------------------------------------
+
+// Random initial guess
 Array guess_random(Bspline& bspline, Matrix& task);
+
+// Best of 'nshotgun' random guesses. Best means the lowest max constraints violation.
 template <typename T_manip>
 Array guess_shot_max(Optimization<T_manip>& opt, int nshotgun) {
     auto manip = opt.manip;
@@ -144,6 +149,8 @@ Array guess_shot_max(Optimization<T_manip>& opt, int nshotgun) {
     }
     return best_x;
 }
+
+// Best of 'nshotgun' random guesses. Best means the lowest average constraints violation.
 template <typename T_manip>
 Array guess_shot_mean(Optimization<T_manip>& opt, int nshotgun) {
     auto manip = opt.manip;
@@ -162,15 +169,15 @@ Array guess_shot_mean(Optimization<T_manip>& opt, int nshotgun) {
         std::vector<Capsule> capsules = manip->robot_capsules(bspline->traj.pos, opt.n_collision_skip);
 
         Array c2(opt.n_collision_constraints);
-        std::vector<real> collisions = test_collision(&capsules, world, opt.n_collision_constraints);
+        auto collisions = test_collision(&capsules, world, opt.n_collision_constraints);
         for (int i = 0; i < opt.n_collision_constraints; i ++) {
             c2[i] = -collisions[i];
         }
         real r = 0;
         for (u32 i = 0; i < c1.size; i++)
-            r += c1[i] > 0 ? c1[i] : 0;
+            r += std::max({c1[i], 0.0});
         for (u32 i = 0; i < c2.size; i++)
-            r += c2[i] > 0 ? c2[i] : 0;
+            r += std::max({c2[i], 0.0});
         Assert( ! isnan(r));
         if (r < best_val) {
             best_x = x;
@@ -181,3 +188,4 @@ Array guess_shot_mean(Optimization<T_manip>& opt, int nshotgun) {
 }
 
 }
+

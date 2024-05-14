@@ -1,6 +1,8 @@
 #include "blast.h"
 #include <algorithm>
 
+#include "world.h"
+
 namespace blast {
 
 struct GAIndividual {
@@ -26,7 +28,7 @@ real collision_ga(const Matrix &robot_cartesian_positions, const Box &box, const
         population[i].x.resize(2);
         for (int j = 0; j < n_dimensions; ++j) {
             population[i].x[j] = (real)0.5*get_random() + (real)0.5; // Initialize with random values between [0, 1]
-        } 
+        }
     }
     population[0].x.resize(2);
     population[0].x[0] = 0;
@@ -167,7 +169,7 @@ real collision_ga(const Matrix &robot_cartesian_positions, World* world, int n_i
         population[i].x.resize(2);
         for (int j = 0; j < n_dimensions; ++j) {
             population[i].x[j] = (real)0.5*get_random() + (real)0.5; // Initialize with random values between [0, 1]
-        } 
+        }
     }
     population[0].x.resize(2);
     population[1].x.resize(2);
