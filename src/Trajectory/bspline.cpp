@@ -19,7 +19,11 @@ Bspline::Bspline(u32 ncontrol, u32 npoints, u32 P, u32 njoints) :
 u32 Bspline::xlen(const Matrix &task) {
     Assert(task.rows == joints);
     Assert(task.cols == 6);
+
+    // minimum number of variables (number of free control points + total time)
     auto results = joints * (nctrl - 6) + 1;
+
+    // add extra variables for less defined tasks
     for (u32 i = 0; i < task.size; i++)
         if (std::isnan(task.data[i]))
             results++;
@@ -153,10 +157,6 @@ void Bspline::compute_basis_open() {
     }
 }
 
-void Bspline::compute_control(const Array &x, const Matrix &task) {
-    compute_control(x, task, control.data);
-}
-
 void Bspline::compute_control(const Array &x, const Matrix &task, real *dst) {
     using std::isnan;
     Assert(nctrl >= 6);
@@ -217,7 +217,7 @@ void Bspline::compute_trajectory(const Array &x, const Matrix &task) {
     Assert(task.rows == joints);
     Assert(task.cols == 6);
 
-    compute_control(x, task);
+    compute_control(x, task, control.data);
 
     const real T = x.back();
     const real dt = T / (points - 1);

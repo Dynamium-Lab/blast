@@ -44,7 +44,6 @@ struct Bspline {
 
     void compute_basis();
     void compute_basis_open();
-    void compute_control(const Array &x, const Matrix &task);
     void compute_control(const Array &x, const Matrix &task, real *dst);
 };
 
