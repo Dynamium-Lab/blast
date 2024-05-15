@@ -2,43 +2,37 @@
 
 ## General
 * [ ] More robust Error handling
-* [ ] Basic example
+* [ ] Basic examples
 * [ ] Documentation for external API
 * [ ] Exposed objective function and constraint API
-* [ ] Easy interface with MoveIt
-* [ ] Generic manipulator
 * [ ] Read scene from file
-* [ ] Cleanup
+* [x] Cleanup
 * [ ] GPU
     - [ ] Fast constraints computation
     - [ ] PSO
     - [ ] Gray wolf algorithm
-
-## Collision detection
-* [ ] Collision detection
-    - [ ] Collision for general shapes
-    - [ ] Example scene
-    - [ ] Broad-narrow phase
-    - [ ] Incremental detection for speed
+* [ ] Generic manipulator
+* [ ] Easy interface with MoveIt
 
 ## Optimization
 * [ ] Hide optimization details and setup
-* [ ] Dissociate trajectory data from functions
-* [ ] Hide trajectory generation details and setup
+* [x] Dissociate trajectory data from functions
 
 ## API
 * [ ] User friendly API
-    - [ ] Cleanup Manipulator
+    - [x] Cleanup Manipulator
 
 ## Robot support
 * [ ] Tested dynamic models for supported robots
-    - [ ] Link6
-    - [ ] Gen3 7dof
-    - [ ] UR5e
+    - [x] Kinova Link6
+    - [x] Kinova Gen3
+    - [ ] Universal Robots UR5e
+    - [ ] Yaskawa HC10DTP
 
 ## Collision detection
 * [x] Fast collision distance detection
     - [x] 4 basic primitives
-
-## Definitely will not have but would be awesome
-- Automatic scene construction from 3D scan
+    - [ ] Example scene
+    - [ ] Incremental detection for speed
+    - [ ] Collision for general shapes
+    - [ ] Broad-narrow phase
