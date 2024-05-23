@@ -96,7 +96,7 @@ void cstr_world(unsigned m, double *result, unsigned xlen, const double* x, doub
     if (grad) {
         const real eps = 1e-5;
         Array x_plus(xlen);
-        Array r_plus(m + opt->n_collision_constraints);
+        Array r_plus(m);
         for (u32 j = 0; j < xlen; j++) {
             memcpy(x_plus.data, x, xlen * sizeof(real));
             x_plus[j] += eps;
@@ -178,6 +178,7 @@ Array guess_shot_mean(Optimization<T_manip>& opt, int nshotgun) {
             r += std::max({c1[i], 0.0});
         for (u32 i = 0; i < c2.size; i++)
             r += std::max({c2[i], 0.0});
+        r *= x.data[x.size - 1]; // todo: Add the right format to penalize for longer trajectories (avoid local minimums)
         Assert( ! isnan(r));
         if (r < best_val) {
             best_x = x;
