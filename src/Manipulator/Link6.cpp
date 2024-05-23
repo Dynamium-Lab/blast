@@ -232,7 +232,7 @@ void Link6::internal_constraints(const Trajectory& traj, real* dst) {
 }
 
 bool Link6::validate_task(const Matrix &task, World *world) {
-    Link6 manip;
+
     Trajectory traj(2, 6);
     traj.pos.col(0) = task.col(0);
     traj.pos.col(1) = task.col(3);
@@ -249,12 +249,13 @@ bool Link6::validate_task(const Matrix &task, World *world) {
     auto max_con = max(con);
 
     if (world) {
+        Link6 manip;
         std::vector<Capsule> capsules = manip.robot_capsules(traj.pos, 1);
         auto worst_collision = - test_collision(&capsules, world, 1);
         max_con = (worst_collision[0] > max_con) ? worst_collision[0] : max_con;
     }
 
-    return max_con;
+    return max_con <= 0;
 }
 
 int Link6::ncon(int points) {
