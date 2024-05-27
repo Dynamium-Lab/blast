@@ -171,13 +171,13 @@ void Gen3::set_payload_without_gripper(const real m_payload, const Vec3 cg_paylo
     I[6] += I_payload;
 
     // center of mass from next joint
-    sv[0] = dv[0] - av[0];
-    sv[1] = dv[1] - av[1];
-    sv[2] = dv[2] - av[2];
-    sv[3] = dv[3] - av[3];
-    sv[4] = dv[4] - av[4];
-    sv[5] = dv[5] - av[5];
-    sv[6] = dv[6] - av[6];
+    sv[0] = -dv[0] + av[0];
+    sv[1] = -dv[1] + av[1];
+    sv[2] = -dv[2] + av[2];
+    sv[3] = -dv[3] + av[3];
+    sv[4] = -dv[4] + av[4];
+    sv[5] = -dv[5] + av[5];
+    sv[6] = -dv[6] + av[6];
 }
 
 void Gen3::internal_constraints(const Trajectory& traj, real* dst) {
