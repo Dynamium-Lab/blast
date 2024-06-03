@@ -93,13 +93,13 @@ void Gen3::set_payload(const real m_payload, const Vec3 cg_payload, const Mat3 I
     I[6] += I_payload;
 
     // center of mass from next joint
-    sv[0] = -(dv[0] - av[0]);
-    sv[1] = -(dv[1] - av[1]);
-    sv[2] = -(dv[2] - av[2]);
-    sv[3] = -(dv[3] - av[3]);
-    sv[4] = -(dv[4] - av[4]);
-    sv[5] = -(dv[5] - av[5]);
-    sv[6] = -(dv[6] - av[6]);
+    sv[0] = -dv[0] + av[0];
+    sv[1] = -dv[1] + av[1];
+    sv[2] = -dv[2] + av[2];
+    sv[3] = -dv[3] + av[3];
+    sv[4] = -dv[4] + av[4];
+    sv[5] = -dv[5] + av[5];
+    sv[6] = -dv[6] + av[6];
 
 }
 
@@ -171,13 +171,13 @@ void Gen3::set_payload_without_gripper(const real m_payload, const Vec3 cg_paylo
     I[6] += I_payload;
 
     // center of mass from next joint
-    sv[0] = dv[0] - av[0];
-    sv[1] = dv[1] - av[1];
-    sv[2] = dv[2] - av[2];
-    sv[3] = dv[3] - av[3];
-    sv[4] = dv[4] - av[4];
-    sv[5] = dv[5] - av[5];
-    sv[6] = dv[6] - av[6];
+    sv[0] = -dv[0] + av[0];
+    sv[1] = -dv[1] + av[1];
+    sv[2] = -dv[2] + av[2];
+    sv[3] = -dv[3] + av[3];
+    sv[4] = -dv[4] + av[4];
+    sv[5] = -dv[5] + av[5];
+    sv[6] = -dv[6] + av[6];
 }
 
 void Gen3::internal_constraints(const Trajectory& traj, real* dst) {
@@ -213,7 +213,7 @@ void Gen3::internal_constraints(const Trajectory& traj, real* dst) {
     }
 }
 
-bool Gen3::validate_task(const Matrix &task) {
+bool Gen3::validate_task(const Matrix &task, World *world) {
     Trajectory traj(2, 7);
     traj.pos.col(0) = task.col(0);
     traj.pos.col(1) = task.col(3);
@@ -227,7 +227,16 @@ bool Gen3::validate_task(const Matrix &task) {
     Array con(ncon(2));
     internal_constraints(traj, con.data);
 
-    return max(con) <= 0;
+    auto max_con = max(con);
+
+    if (world) {
+        Gen3 manip;
+        std::vector<Capsule> capsules = manip.robot_capsules(traj.pos, 1);
+        auto worst_collision = - test_collision(&capsules, world, 1);
+        max_con = (worst_collision[0] > max_con) ? worst_collision[0] : max_con;
+    }
+
+    return max_con <= 0;
 }
 
 int Gen3::ncon(int points) {
@@ -418,22 +427,22 @@ Array Gen3::dynamics(const Array& pos, const Array& vel, const Array& acc) {
     n7 = I[6] * wd7 + cross(w7, I[6] * w7) + cross(av[6], f7);
 
     f6 = m[5] * cdd6 + Q7 * f7;
-    n6 = I[5] * wd6 + cross(w6, I[5] * w6) + Q7 * n7 + cross(av[5], f6) + cross(sv[5], (Q7 * f7));
+    n6 = I[5] * wd6 + cross(w6, I[5] * w6) + Q7 * n7 + cross(av[5], f6) - cross(sv[5], (Q7 * f7));
 
     f5 = m[4] * cdd5 + Q6 * f6;
-    n5 = I[4] * wd5 + cross(w5, I[4] * w5) + Q6 * n6 + cross(av[4], f5) + cross(sv[4], (Q6 * f6));
+    n5 = I[4] * wd5 + cross(w5, I[4] * w5) + Q6 * n6 + cross(av[4], f5) - cross(sv[4], (Q6 * f6));
 
     f4 = m[3] * cdd4 + Q5 * f5;
-    n4 = I[3] * wd4 + cross(w4, I[3] * w4) + Q5 * n5 + cross(av[3], f4) + cross(sv[3], (Q5 * f5));
+    n4 = I[3] * wd4 + cross(w4, I[3] * w4) + Q5 * n5 + cross(av[3], f4) - cross(sv[3], (Q5 * f5));
 
     f3 = m[2] * cdd3 + Q4 * f4;
-    n3 = I[2] * wd3 + cross(w3, I[2] * w3) + Q4 * n4 + cross(av[2], f3) + cross(sv[2], (Q4 * f4));
+    n3 = I[2] * wd3 + cross(w3, I[2] * w3) + Q4 * n4 + cross(av[2], f3) - cross(sv[2], (Q4 * f4));
 
     f2 = m[1] * cdd2 + Q3 * f3;
-    n2 = I[1] * wd2 + cross(w2, I[1] * w2) + Q3 * n3 + cross(av[1], f2) + cross(sv[1], (Q3 * f3));
+    n2 = I[1] * wd2 + cross(w2, I[1] * w2) + Q3 * n3 + cross(av[1], f2) - cross(sv[1], (Q3 * f3));
 
     f1 = m[0] * cdd1 + Q2 * f2;
-    n1 = I[0] * wd1 + cross(w1, I[0] * w1) + Q2 * n2 + cross(av[0], f1) + cross(sv[0], (Q2 * f2));
+    n1 = I[0] * wd1 + cross(w1, I[0] * w1) + Q2 * n2 + cross(av[0], f1) - cross(sv[0], (Q2 * f2));
 
     //-- extract torques (last element of each moment vector)
     Array result(7);

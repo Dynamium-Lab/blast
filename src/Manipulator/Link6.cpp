@@ -113,12 +113,12 @@ void Link6::set_payload(const real m_payload, const Vec3 cg_payload, const Mat3 
     I[5] += I_payload;
 
     // center of mass from next joint
-    sv[0] = dv[0] - av[0];
-    sv[1] = dv[1] - av[1];
-    sv[2] = dv[2] - av[2];
-    sv[3] = dv[3] - av[3];
-    sv[4] = dv[4] - av[4];
-    sv[5] = dv[5] - av[5];
+    sv[0] = -dv[0] + av[0];
+    sv[1] = -dv[1] + av[1];
+    sv[2] = -dv[2] + av[2];
+    sv[3] = -dv[3] + av[3];
+    sv[4] = -dv[4] + av[4];
+    sv[5] = -dv[5] + av[5];
 }
 
 void Link6::set_payload_without_gripper(const real m_payload, const Vec3 cg_payload, const Mat3 I_payload) {
@@ -183,12 +183,12 @@ void Link6::set_payload_without_gripper(const real m_payload, const Vec3 cg_payl
     I[5] += I_payload;
 
     // center of mass from next joint
-    sv[0] = dv[0] - av[0];
-    sv[1] = dv[1] - av[1];
-    sv[2] = dv[2] - av[2];
-    sv[3] = dv[3] - av[3];
-    sv[4] = dv[4] - av[4];
-    sv[5] = dv[5] - av[5];
+    sv[0] = -dv[0] + av[0];
+    sv[1] = -dv[1] + av[1];
+    sv[2] = -dv[2] + av[2];
+    sv[3] = -dv[3] + av[3];
+    sv[4] = -dv[4] + av[4];
+    sv[5] = -dv[5] + av[5];
 }
 
 void Link6::internal_constraints(const Trajectory& traj, real* dst) {
@@ -231,7 +231,8 @@ void Link6::internal_constraints(const Trajectory& traj, real* dst) {
     }
 }
 
-bool Link6::validate_task(const Matrix &task) {
+bool Link6::validate_task(const Matrix &task, World *world) {
+
     Trajectory traj(2, 6);
     traj.pos.col(0) = task.col(0);
     traj.pos.col(1) = task.col(3);
@@ -245,7 +246,16 @@ bool Link6::validate_task(const Matrix &task) {
     Array con(ncon(2));
     internal_constraints(traj, con.data);
 
-    return max(con) <= 0;
+    auto max_con = max(con);
+
+    if (world) {
+        Link6 manip;
+        std::vector<Capsule> capsules = manip.robot_capsules(traj.pos, 1);
+        auto worst_collision = - test_collision(&capsules, world, 1);
+        max_con = (worst_collision[0] > max_con) ? worst_collision[0] : max_con;
+    }
+
+    return max_con <= 0;
 }
 
 int Link6::ncon(int points) {
@@ -424,19 +434,19 @@ Array Link6::dynamics(const Array& pos, const Array& vel, const Array& acc) {
     n6 = I[5] * wd6 + cross(w6, I[5] * w6) + cross(av[5], f6);
 
     f5 = m[4] * cdd5 + Q6 * f6;
-    n5 = I[4] * wd5 + cross(w5, I[4] * w5) + Q6 * n6 + cross(av[4], f5) + cross(sv[4], (Q6 * f6));
+    n5 = I[4] * wd5 + cross(w5, I[4] * w5) + Q6 * n6 + cross(av[4], f5) - cross(sv[4], (Q6 * f6));
 
     f4 = m[3] * cdd4 + Q5 * f5;
-    n4 = I[3] * wd4 + cross(w4, I[3] * w4) + Q5 * n5 + cross(av[3], f4) + cross(sv[3], (Q5 * f5));
+    n4 = I[3] * wd4 + cross(w4, I[3] * w4) + Q5 * n5 + cross(av[3], f4) - cross(sv[3], (Q5 * f5));
 
     f3 = m[2] * cdd3 + Q4 * f4;
-    n3 = I[2] * wd3 + cross(w3, I[2] * w3) + Q4 * n4 + cross(av[2], f3) + cross(sv[2], (Q4 * f4));
+    n3 = I[2] * wd3 + cross(w3, I[2] * w3) + Q4 * n4 + cross(av[2], f3) - cross(sv[2], (Q4 * f4));
 
     f2 = m[1] * cdd2 + Q3 * f3;
-    n2 = I[1] * wd2 + cross(w2, I[1] * w2) + Q3 * n3 + cross(av[1], f2) + cross(sv[1], (Q3 * f3));
+    n2 = I[1] * wd2 + cross(w2, I[1] * w2) + Q3 * n3 + cross(av[1], f2) - cross(sv[1], (Q3 * f3));
 
     f1 = m[0] * cdd1 + Q2 * f2;
-    n1 = I[0] * wd1 + cross(w1, I[0] * w1) + Q2 * n2 + cross(av[0], f1) + cross(sv[0], (Q2 * f2));
+    n1 = I[0] * wd1 + cross(w1, I[0] * w1) + Q2 * n2 + cross(av[0], f1) - cross(sv[0], (Q2 * f2));
 
     //-- extract torques (last element of each moment vector)
     results[0] = n1.z;
@@ -677,13 +687,14 @@ Matrix Link6::robot_capsules(const Array &joint_position) {
     Vec3 p_orig(0, 0, 0);
     Vec3 p_j2;
     Vec3 p_j3;
-    // Vec3 p_j4;
     Vec3 p_j5;
     Vec3 p_j6;
     Vec3 p_ee;
 
     Vec3 z2;
+    Vec3 y2;
     Vec3 z3;
+    Vec3 y3;
     Vec3 z4;
     Vec3 z5;
     Vec3 z6;
@@ -692,24 +703,38 @@ Matrix Link6::robot_capsules(const Array &joint_position) {
 
     auto p_tmp = p_base;
     auto Q_tmp = Q1;
+
     p_tmp += Q_tmp * dv[0];
     p_j2 = p_tmp;
+    Q_tmp *= Q2;
     z2 = Q_tmp.col_copy(2);
-    p_tmp += (Q_tmp *= Q2) * dv[1];
+
+    p_tmp += Q_tmp * dv[1];
     p_j3 = p_tmp;
+    Q_tmp *= Q3;
+    y3 = Q_tmp.col_copy(1);
     z3 = Q_tmp.col_copy(2);
-    p_tmp += (Q_tmp *= Q3) * dv[2];
+
+    p_tmp += Q_tmp * dv[2];
+    // p_j4 (not needed)
+    Q_tmp *= Q4;
     z4 = Q_tmp.col_copy(2);
-    p_tmp += (Q_tmp *= Q4) * dv[3];
+
+    p_tmp += Q_tmp * dv[3];
     p_j5 = p_tmp;
+    Q_tmp *= Q5;
     z5 = Q_tmp.col_copy(2);
-    p_tmp += (Q_tmp *= Q5) * dv[4];
+
+    p_tmp += Q_tmp * dv[4];
     p_j6 = p_tmp;
+    Q_tmp *= Q6;
     z6 = Q_tmp.col_copy(2);
-    p_tmp += (Q_tmp *= Q6) * dv[5];
-    zee = Q_tmp.col_copy(2);
-    yee = Q_tmp.col_copy(1);
+
+    p_tmp += Q_tmp * dv[5];
     p_ee = p_tmp;
+    // Q_ee = +x, -y, -z
+    yee = -Q_tmp.col_copy(1);
+    zee = -Q_tmp.col_copy(2);
 
     Matrix capsules_robot(7, 5);
 
@@ -717,8 +742,8 @@ Matrix Link6::robot_capsules(const Array &joint_position) {
     Vec3 p2;
 
     // Capsule 1
-    p1 = p_j2 - 0.02218*z2 + 0.00010104*(p_j3-p_j2);
-    p2 = p1 + 0.8845*(p_j3-p_j2);
+    p1 = p_j2 - 0.02218*z2 + 0.04855*y2;
+    p2 = p1 + 0.425*y2;
     capsules_robot(0, 0) = p1.x;
     capsules_robot(1, 0) = p1.y;
     capsules_robot(2, 0) = p1.z;
@@ -728,7 +753,7 @@ Matrix Link6::robot_capsules(const Array &joint_position) {
     capsules_robot(6, 0) = 0.110; // radius
 
     // Capsule 2
-    p1 = p_j3 - 0.11388*z3;
+    p1 = p_j3 - 0.0917*z3 +0.00695*y3;
     p2 = p1 - 0.375*z4;
     capsules_robot(0, 1) = p1.x;
     capsules_robot(1, 1) = p1.y;
@@ -761,8 +786,8 @@ Matrix Link6::robot_capsules(const Array &joint_position) {
     capsules_robot(6, 3) = 0.060; // radius
 
     // Capsule 5
-    p1 = p_ee - 0.01289*zee - 0.2125*yee;
-    p2 = p1 - 0.150*zee;
+    p1 = p_ee + 0.01289*zee - 0.02125*yee;
+    p2 = p1 + 0.150*zee;
     capsules_robot(0, 4) = p1.x;
     capsules_robot(1, 4) = p1.y;
     capsules_robot(2, 4) = p1.z;
@@ -779,13 +804,12 @@ std::vector<Capsule> Link6::robot_capsules(const Matrix &pos, const int n_skip) 
     Matrix result_capsules(35, points/n_skip);
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
     Vec3 p_j2, p_j3, p_j5, p_j6, p_ee;
-    Vec3 z2, z3, z4, z5, z6, zee, yee;
+    Vec3 y2, z2, y3, z3, z4, z5, z6, zee, yee;
     Vec3 p_orig(0, 0, 0);
     Array s(7);
     Array c(7);
-    int counter = 0;
-    for (int i = 0; i < points; i+= n_skip) {
-        blast::sincos(pos.col(i), s, c);
+    for (int i = 0; i < points/n_skip; i++) {
+        blast::sincos(pos.col(i*n_skip), s, c);
         Q1 = {c[0], -s[0],   0,   -s[0], -c[0],    0,     0,   0,  -1};      // base -> 0
         Q2 = {c[1],   0,   -s[1], -s[1],   0,    -c[1],   0,   1,   0};      // 0    -> 1
         Q3 = {c[2], -s[2],   0,   -s[2], -c[2],    0,     0,   0,  -1};      // 1    -> 2
@@ -795,88 +819,107 @@ std::vector<Capsule> Link6::robot_capsules(const Matrix &pos, const int n_skip) 
 
         auto p_tmp = p_base;
         auto Q_tmp = Q1;
+
         p_tmp += Q_tmp * dv[0];
         p_j2 = p_tmp;
+        Q_tmp *= Q2;
+        y2 = Q_tmp.col_copy(1);
         z2 = Q_tmp.col_copy(2);
-        p_tmp += (Q_tmp *= Q2) * dv[1];
+
+        p_tmp += Q_tmp * dv[1];
         p_j3 = p_tmp;
+        Q_tmp *= Q3;
+        y3 = Q_tmp.col_copy(1);
         z3 = Q_tmp.col_copy(2);
-        p_tmp += (Q_tmp *= Q3) * dv[2];
+
+        p_tmp += Q_tmp * dv[2];
+        // p_j4 (not needed)
+        Q_tmp *= Q4;
         z4 = Q_tmp.col_copy(2);
-        p_tmp += (Q_tmp *= Q4) * dv[3];
+
+        p_tmp += Q_tmp * dv[3];
         p_j5 = p_tmp;
+        Q_tmp *= Q5;
         z5 = Q_tmp.col_copy(2);
-        p_tmp += (Q_tmp *= Q5) * dv[4];
+
+        p_tmp += Q_tmp * dv[4];
         p_j6 = p_tmp;
+        Q_tmp *= Q6;
         z6 = Q_tmp.col_copy(2);
-        p_tmp += (Q_tmp *= Q6) * dv[5];
-        zee = Q_tmp.col_copy(2);
-        yee = Q_tmp.col_copy(1);
+
+        p_tmp += Q_tmp * dv[5];
         p_ee = p_tmp;
+        // Q_ee = +x, -y, -z
+        yee = -Q_tmp.col_copy(1);
+        zee = -Q_tmp.col_copy(2);
 
         Vec3 p1;
         Vec3 p2;
 
         u32 idx = 0;
         // Capsule 1
-        p1 = p_j2 - 0.02218*z2 + 0.00010104*(p_j3-p_j2);
-        p2 = p1 + 0.8845*(p_j3-p_j2);
-        result_capsules(0, counter) = p1.x;
-        result_capsules(1, counter) = p1.y;
-        result_capsules(2, counter) = p1.z;
-        result_capsules(3, counter) = p2.x;
-        result_capsules(4, counter) = p2.y;
-        result_capsules(5, counter) = p2.z;
-        result_capsules(6, counter) = 0.110; // radius
+        p1 = p_j2 - 0.02218*z2 + 0.04855*y2;
+        p2 = p1 + 0.425*y2;
+        result_capsules(0, i) = p1.x;
+        result_capsules(1, i) = p1.y;
+        result_capsules(2, i) = p1.z;
+        result_capsules(3, i) = p2.x;
+        result_capsules(4, i) = p2.y;
+        result_capsules(5, i) = p2.z;
+        result_capsules(6, i) = 0.110; // radius
         idx += 7;
 
         // Capsule 2
-        p1 = p_j3 - 0.11388*z3;
+        p1 = p_j3 - 0.0917*z3 +0.00695*y3;
         p2 = p1 - 0.375*z4;
-        result_capsules(idx + 0, counter) = p1.x;
-        result_capsules(idx + 1, counter) = p1.y;
-        result_capsules(idx + 2, counter) = p1.z;
-        result_capsules(idx + 3, counter) = p2.x;
-        result_capsules(idx + 4, counter) = p2.y;
-        result_capsules(idx + 5, counter) = p2.z;
-        result_capsules(idx + 6, counter) = 0.061; // radius
+        result_capsules(idx + 0, i) = p1.x;
+        result_capsules(idx + 1, i) = p1.y;
+        result_capsules(idx + 2, i) = p1.z;
+        result_capsules(idx + 3, i) = p2.x;
+        result_capsules(idx + 4, i) = p2.y;
+        result_capsules(idx + 5, i) = p2.z;
+        result_capsules(idx + 6, i) = 0.061; // radius
         idx += 7;
 
         // Capsule 3
         p1 = p_j5;
         p2 = p1 - 0.08*z5;
-        result_capsules(idx + 0, counter) = p1.x;
-        result_capsules(idx + 1, counter) = p1.y;
-        result_capsules(idx + 2, counter) = p1.z;
-        result_capsules(idx + 3, counter) = p2.x;
-        result_capsules(idx + 4, counter) = p2.y;
-        result_capsules(idx + 5, counter) = p2.z;
-        result_capsules(idx + 6, counter) = 0.060; // radius
+        result_capsules(idx + 0, i) = p1.x;
+        result_capsules(idx + 1, i) = p1.y;
+        result_capsules(idx + 2, i) = p1.z;
+        result_capsules(idx + 3, i) = p2.x;
+        result_capsules(idx + 4, i) = p2.y;
+        result_capsules(idx + 5, i) = p2.z;
+        result_capsules(idx + 6, i) = 0.060; // radius
         idx += 7;
 
         // Capsule 4
         p1 = p_j6 + 0.08583*z6;
         p2 = p1 - 0.15*z6;
-        result_capsules(idx + 0, counter) = p1.x;
-        result_capsules(idx + 1, counter) = p1.y;
-        result_capsules(idx + 2, counter) = p1.z;
-        result_capsules(idx + 3, counter) = p2.x;
-        result_capsules(idx + 4, counter) = p2.y;
-        result_capsules(idx + 5, counter) = p2.z;
-        result_capsules(idx + 6, counter) = 0.060; // radius
+        result_capsules(idx + 0, i) = p1.x;
+        result_capsules(idx + 1, i) = p1.y;
+        result_capsules(idx + 2, i) = p1.z;
+        result_capsules(idx + 3, i) = p2.x;
+        result_capsules(idx + 4, i) = p2.y;
+        result_capsules(idx + 5, i) = p2.z;
+        result_capsules(idx + 6, i) = 0.060; // radius
         idx += 7;
 
+        // // Capsule 5 (with gripper)
+        // // todo: Fix and refine capsule with gripper
+        // p1 = p_ee - 1.10211*zee + 0.2125*yee;
+        // p2 = p1 + 0.345*zee;
+
         // Capsule 5
-        p1 = p_ee - 0.01289*zee - 0.2125*yee;
-        p2 = p1 - 0.150*zee;
-        result_capsules(idx + 0, counter) = p1.x;
-        result_capsules(idx + 1, counter) = p1.y;
-        result_capsules(idx + 2, counter) = p1.z;
-        result_capsules(idx + 3, counter) = p2.x;
-        result_capsules(idx + 4, counter) = p2.y;
-        result_capsules(idx + 5, counter) = p2.z;
-        result_capsules(idx + 6, counter) = 0.085; // radius
-        counter++;
+        p1 = p_ee + 0.01289*zee - 0.02125*yee;
+        p2 = p1 + 0.150*zee;
+        result_capsules(idx + 0, i) = p1.x;
+        result_capsules(idx + 1, i) = p1.y;
+        result_capsules(idx + 2, i) = p1.z;
+        result_capsules(idx + 3, i) = p2.x;
+        result_capsules(idx + 4, i) = p2.y;
+        result_capsules(idx + 5, i) = p2.z;
+        result_capsules(idx + 6, i) = 0.085; // radius
     }
 
     auto caps_size = result_capsules.cols;

@@ -357,6 +357,12 @@ struct Matrix {
     //  - note: new Array is aliasing our data
     Array col(u32 c) const;
 };
+Matrix operator+(const Matrix& m1, const Matrix& m2);
+Matrix operator-(const Matrix& m1, const Matrix& m2);
+Matrix operator*(const Matrix& lhs, const Matrix& rhs);
+Array operator*(const Matrix& m, const Array& v);
+Matrix operator*(real& r, const Matrix& m);
+Matrix operator/(const Matrix& m, real& r);
 
 // Conversion functions
 real  wrap2pi(real);

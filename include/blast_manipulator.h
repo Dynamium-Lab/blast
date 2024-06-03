@@ -36,7 +36,7 @@ struct Gen3 {
 
     // optimization
     void    internal_constraints(const Trajectory& traj, real* dst);
-    bool    validate_task(const Matrix &task);
+    bool    validate_task(const Matrix &task, World *world = nullptr);
     int     ncon(int points);
 
     // dynamics
@@ -83,7 +83,7 @@ struct Link6 {
 
     // optimization
     void    internal_constraints(const Trajectory& traj, real* dst);
-    bool    validate_task(const Matrix &task);
+    bool    validate_task(const Matrix &task, World *world = nullptr);
     int     ncon(int points);
 
     // dynamics
