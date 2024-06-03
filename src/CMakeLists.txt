@@ -2,6 +2,7 @@ add_library(blast
     
     Manipulator/Gen3.cpp
     Manipulator/Link6.cpp
+    Manipulator/R2.cpp
 
     Math/math.cpp
     Math/Vec3.cpp

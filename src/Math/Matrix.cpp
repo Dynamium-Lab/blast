@@ -4,19 +4,30 @@
 
 namespace blast {
 
+
+#if defined(_MSC_VER)
+#define Malloc(a, s) _aligned_malloc(s, a)
+#define Free _aligned_free
+#else
+#define Malloc aligned_alloc
+#define Free free
+#endif
+const u32 ALIGN = 64;
+
+
 Matrix::Matrix(u32 r, u32 c) {
     size = r * c;
     rows = r;
     cols = c;
     if (size) {
-        data = (real*)malloc(size * sizeof(real));
+        data = (real*)Malloc(ALIGN, size * sizeof(real));
         memset(data, 0, size * sizeof(real));
     }
 }
 
 Matrix::Matrix(const Matrix& m) : size(m.size), cols(m.cols), rows(m.rows), is_alias(false) {
     if (size) {
-        data = (real*)malloc(size * sizeof(real));
+        data = (real*)Malloc(ALIGN, size * sizeof(real));
         memcpy(data, m.data, size*sizeof(real));
     }
 }
@@ -38,7 +49,7 @@ Matrix::Matrix(real* d, u32 r, u32 c) {
 
 Matrix::Matrix(const Array& v) : size(v.size), cols(1), rows(v.size), is_alias(false) {
     if (size) {
-        data = (real*)malloc(size * sizeof(real));
+        data = (real*)Malloc(ALIGN, size * sizeof(real));
         memcpy(data, v.data, size*sizeof(real));
     }
 }
@@ -52,9 +63,12 @@ void Matrix::resize(u32 r, u32 c) {
     Assert(!is_alias);
 
     if (data == nullptr)
-        data = (real*)malloc(r*c * sizeof(real));
-    else if (size < r*c)
+        data = (real*)Malloc(ALIGN, size * sizeof(real));
+    else if (size < r*c) {
+        real* tmp = (real*)Malloc(ALIGN, r*c * sizeof(real));
+        Free(data);
         data = (real*)realloc(data, r*c * sizeof(real));
+    }
     size = r*c;
     rows = r;
     cols = c;
@@ -266,6 +280,11 @@ Matrix& constant(Matrix& m, real val) {
     return m;
 }
 
+Matrix& fill_random(Matrix& m, real A) {
+    for (int i = 0; i < (int)m.size; i++)
+        m.data[i] = A * get_random();
+    return m;
+}
 
 // Linear algebra functions
 

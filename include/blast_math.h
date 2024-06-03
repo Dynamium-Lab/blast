@@ -407,6 +407,7 @@ bool is_small(const Mat4&,   real eps = 1e-05);
 // Random
 real    get_random();
 Array&  fill_random(Array&,     real amplitude);
+Matrix& fill_random(Matrix&,    real amplitude);
 Array   random_array(u32 size,  real amplitude);
 
 // Clamp

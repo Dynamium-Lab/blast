@@ -15,25 +15,20 @@ add_subdirectory(src)
 
 # Only build examples, docs, and tests if main projects, not if included as a dependancy to another project.
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+    set(CMAKE_CXX_EXTENSIONS OFF)
+    set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
     # build examples
     add_subdirectory(examples)
 
-    add_executable(main 
-        main.cpp
-    )  
-    target_compile_features(main PUBLIC
-        cxx_std_17
-    )
+    add_executable(main main.cpp)  
+    target_compile_features(main PUBLIC cxx_std_17)
     target_link_libraries(main PRIVATE blast)
 
-    # # Let's ensure -std=c++xx instead of -std=g++xx
-    # set(CMAKE_CXX_EXTENSIONS OFF)
 
-    # # Let's nicely support folders in IDEs
-    # set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-
-    # # add tests
-    # include(CTest)
+    # add tests
+    enable_testing()
+    add_subdirectory(tests)
 
     # # Generate documentation
     # find_package(Doxygen)

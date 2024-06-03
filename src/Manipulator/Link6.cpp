@@ -328,19 +328,19 @@ void Link6::dynamics(const Trajectory& traj) {
         n6 = I[5] * wd6 + cross(w6, I[5] * w6) + cross(av[5], f6);
 
         f5 = m[4] * cdd5 + Q6 * f6;
-        n5 = I[4] * wd5 + cross(w5, I[4] * w5) + Q6 * n6 + cross(av[4], f5) + cross(sv[4], (Q6 * f6));
+        n5 = I[4] * wd5 + cross(w5, I[4] * w5) + Q6 * n6 + cross(av[4], f5) - cross(sv[4], (Q6 * f6));
 
         f4 = m[3] * cdd4 + Q5 * f5;
-        n4 = I[3] * wd4 + cross(w4, I[3] * w4) + Q5 * n5 + cross(av[3], f4) + cross(sv[3], (Q5 * f5));
+        n4 = I[3] * wd4 + cross(w4, I[3] * w4) + Q5 * n5 + cross(av[3], f4) - cross(sv[3], (Q5 * f5));
 
         f3 = m[2] * cdd3 + Q4 * f4;
-        n3 = I[2] * wd3 + cross(w3, I[2] * w3) + Q4 * n4 + cross(av[2], f3) + cross(sv[2], (Q4 * f4));
+        n3 = I[2] * wd3 + cross(w3, I[2] * w3) + Q4 * n4 + cross(av[2], f3) - cross(sv[2], (Q4 * f4));
 
         f2 = m[1] * cdd2 + Q3 * f3;
-        n2 = I[1] * wd2 + cross(w2, I[1] * w2) + Q3 * n3 + cross(av[1], f2) + cross(sv[1], (Q3 * f3));
+        n2 = I[1] * wd2 + cross(w2, I[1] * w2) + Q3 * n3 + cross(av[1], f2) - cross(sv[1], (Q3 * f3));
 
         f1 = m[0] * cdd1 + Q2 * f2;
-        n1 = I[0] * wd1 + cross(w1, I[0] * w1) + Q2 * n2 + cross(av[0], f1) + cross(sv[0], (Q2 * f2));
+        n1 = I[0] * wd1 + cross(w1, I[0] * w1) + Q2 * n2 + cross(av[0], f1) - cross(sv[0], (Q2 * f2));
 
         //-- extract torques (last element of each moment vector)
         _efforts(0, i) = n1.z;

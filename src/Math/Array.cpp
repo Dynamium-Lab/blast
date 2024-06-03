@@ -1,23 +1,30 @@
 #include "blast.h"
 #include "blast_error.h"
 #include "mipp.h"
+#include <cstdlib>
 
 namespace blast {
 
+#if defined(_MSC_VER)
+#define Malloc(a, s) _aligned_malloc(s, a)
+#define Free _aligned_free
+#else
+#define Malloc aligned_alloc
+#define Free free
+#endif
+const u32 ALIGN = 64;
 
 // Member functions
-
-
 Array::Array(u32 new_size) : size(new_size) {
     if (size) {
-        data = (real*)malloc(size * sizeof(real));
+        data = (real*)Malloc(ALIGN, size * sizeof(real));
         memset(data, 0, size * sizeof(real));
     }
 }
 
 Array::Array(u32 n, real value) : size(n) {
     if (n) {
-        data = (real*)malloc(size * sizeof(real));
+        data = (real*)Malloc(ALIGN, size * sizeof(real));
         for (u32 i = 0; i < n; i++)
             data[i] = value;
     }
@@ -25,7 +32,7 @@ Array::Array(u32 n, real value) : size(n) {
 
 Array::Array(const Array& a) : size(a.size) {
     if (size) {
-        data = (real*)malloc(size * sizeof(real));
+        data = (real*)Malloc(ALIGN, size * sizeof(real));
         memcpy(data, a.data, size*sizeof(real));
     }
 }
@@ -36,7 +43,7 @@ Array::Array(Array&& a) : data(a.data), size(a.size), is_alias(a.is_alias) {
 
 Array::Array(const std::initializer_list<real>& list) : size((u32)list.size()) {
     if (size) {
-        data = (real*)malloc(size * sizeof(real));
+        data = (real*)Malloc(ALIGN, size * sizeof(real));
         memcpy(data, list.begin(), list.size() * sizeof(real));
     }
 }
@@ -50,24 +57,24 @@ Array::Array(real* d, u32 n) {
 Array::Array(const svector& v) {
     size = (u32)v.size();
     if (size) {
-        data = (real*)calloc(size, sizeof(real));
+        data = (real*)Malloc(ALIGN, size * sizeof(real));
         memcpy(data, v.data(), size*sizeof(real));
     }
 }
 
 Array::~Array() {
     if (!is_alias && data) {
-        free(data);
+        Free(data);
     }
 }
 
 Array& Array::operator=(const Array& a) {
     if (this != &a) {
         if (data && !is_alias)
-            free(data);
+            Free(data);
         size = a.size;
         if (size) {
-            data = (real*)malloc(a.size * sizeof(real));
+            data = (real*)Malloc(ALIGN, a.size * sizeof(real));
             memcpy(data, a.data, size*sizeof(real));
         }
         is_alias = false;
@@ -78,7 +85,7 @@ Array& Array::operator=(const Array& a) {
 Array& Array::operator=(Array&& a) {
     if (this != &a) {
         if (data && !is_alias)
-            std::free(data);
+            Free(data);
         data = a.data;
         size = a.size;
         is_alias = a.is_alias;
@@ -130,7 +137,7 @@ real Array::operator[](u32 i) const {
 
 Array& Array::alias(svector& v) {
     if (data && !is_alias)
-        free(data);
+        Free(data);
     data = v.data();
     size = (u32)v.size();
     is_alias = true;
@@ -139,7 +146,7 @@ Array& Array::alias(svector& v) {
 
 Array& Array::alias(Matrix& m) {
     if (data && !is_alias)
-        free(data);
+        Free(data);
     data = m.data;
     size = m.size;
     is_alias = true;
@@ -149,7 +156,7 @@ Array& Array::alias(Matrix& m) {
 Array& Array::alias(real* p, u32 n) {
     Assert(p);
     if (data && !is_alias)
-        free(data);
+        Free(data);
     data = p;
     size = n;
     is_alias = true;
