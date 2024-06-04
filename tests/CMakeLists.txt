@@ -2,14 +2,17 @@
 
 include(FetchContent)
 FetchContent_Declare(
-    googletest
-    URL https://github.com/google/googletest/archive/f8d7d77c06936315286eb55f8de22cd23c188571.zip
-)
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
+  catch
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG v2.13.6)
+FetchContent_MakeAvailable(catch)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMake/Modules/)
+include(ParseAndAddCatchTests)
 
-include(GoogleTest)
-gtest_add_tests(TARGET      maniptest
-                TEST_SUFFIX .noArgs
-                TEST_LIST   noArgsTests
-)
+set(AVX_FLAGS)
+if (MSVC)
+    set(AVX_FLAGS "/arch:AVX2")
+else ()
+    set(AVX_FLAGS " -mavx2")
+endif ()
+message(avxflags="${AVX_FLAGS}")
