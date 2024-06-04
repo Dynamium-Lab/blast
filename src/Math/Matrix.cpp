@@ -62,10 +62,14 @@ Matrix::~Matrix() {
 void Matrix::resize(u32 r, u32 c) {
     Assert(!is_alias);
 
-    if (data == nullptr)
+    if (data == nullptr) {
         data = (real*)Malloc(ALIGN, size * sizeof(real));
+        memset(data, 0, r*c * sizeof(real));
+    }
     else if (size < r*c) {
         real* tmp = (real*)Malloc(ALIGN, r*c * sizeof(real));
+        memset(tmp, 0, r*c * sizeof(real));
+        memcpy(tmp, data, size*sizeof(real));
         Free(data);
         data = tmp;
     }

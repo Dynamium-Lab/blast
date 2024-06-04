@@ -176,8 +176,11 @@ Array& Array::alias(const real* p, u32 n) {
 void Array::resize(u32 new_size) {
     Assert(!is_alias);
     if (new_size > size) {
-        data = (real*)realloc(data, new_size*sizeof(real));
-        memset(data + size, 0, (new_size-size)*sizeof(real));
+        real* tmp = (real*)Malloc(ALIGN, new_size * sizeof(real));
+        memset(tmp, 0, new_size * sizeof(real));
+        memcpy(tmp, data, size * sizeof(real));
+        Free(data);
+        data = tmp;
     }
     size = new_size;
 }
