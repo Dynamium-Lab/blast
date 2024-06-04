@@ -363,6 +363,10 @@ Matrix operator*(const Matrix& lhs, const Matrix& rhs);
 Array operator*(const Matrix& m, const Array& v);
 Matrix operator*(real& r, const Matrix& m);
 Matrix operator/(const Matrix& m, real& r);
+Matrix pw_mult(const Matrix& m1, const Matrix& m2);
+Matrix eye(const u32 s);
+Matrix transpose(const Matrix& m);
+Matrix pinv_svd(const Matrix& m);
 
 // Conversion functions
 real  wrap2pi(real);

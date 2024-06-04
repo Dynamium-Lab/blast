@@ -38,3 +38,13 @@ target_include_directories(blast PUBLIC
 target_compile_features(blast PUBLIC
     cxx_std_17
 )
+
+
+set(AVX_FLAGS)
+if (MSVC)
+    set(AVX_FLAGS "/arch:AVX2")
+else ()
+    set(AVX_FLAGS " -mavx2")
+endif ()
+message(avxflags="${AVX_FLAGS}")
+target_compile_options(blast PUBLIC ${AVX_FLAGS})
