@@ -102,7 +102,7 @@ struct Link6 {
 };
 
 struct R2 {
-    int     joints = 2;
+    const int     joints = 2;
 
     Vec3    p_base;
     Vec3    dv[2]; // vector to next joint

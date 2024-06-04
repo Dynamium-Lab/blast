@@ -56,7 +56,7 @@ Matrix::Matrix(const Array& v) : size(v.size), cols(1), rows(v.size), is_alias(f
 
 Matrix::~Matrix() {
     if (!is_alias && data)
-        free(data);
+        Free(data);
 }
 
 void Matrix::resize(u32 r, u32 c) {
@@ -82,7 +82,7 @@ Matrix& Matrix::operator=(const Matrix& m) {
             rows = 0;
             cols = 0;
             if (data)
-                free(data);
+                Free(data);
             data = nullptr;
             return *this;
         }
@@ -90,7 +90,7 @@ Matrix& Matrix::operator=(const Matrix& m) {
             data = (real*)malloc(m.size * sizeof(real));
         }
         else {
-            free(data);
+            Free(data);
             data = (real*)malloc(m.size * sizeof(real));
         }
         Assert(data);
@@ -106,7 +106,7 @@ Matrix& Matrix::operator=(const Matrix& m) {
 Matrix& Matrix::operator=(Matrix&& m) {
     if (this != &m) {
         if (data && !is_alias)
-            free(data);
+            Free(data);
         data = m.data;
         size = m.size;
         rows = m.rows;
@@ -138,7 +138,7 @@ bool Matrix::operator!=(const Matrix& m) const {
 Matrix& Matrix::alias(Array& a) {
     Assert(a.data);
     if (data && !is_alias)
-        free(data);
+        Free(data);
     size = a.size;
     rows = size;
     cols = 1;
@@ -150,7 +150,7 @@ Matrix& Matrix::alias(Array& a) {
 Matrix& Matrix::alias(std::vector<real>& v) {
     Assert(!v.empty());
     if (data && !is_alias)
-        free(data);
+        Free(data);
     size = (u32)v.size();
     rows = size;
     cols = 1;
@@ -162,7 +162,7 @@ Matrix& Matrix::alias(std::vector<real>& v) {
 Matrix& Matrix::alias(real* p, u32 r, u32 c) {
     Assert(p);
     if (data && !is_alias)
-        free(data);
+        Free(data);
     size = r*c;
     rows = r;
     cols = c;
