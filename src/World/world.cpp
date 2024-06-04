@@ -695,17 +695,17 @@ void add_capsule(Vec3 point1, Vec3 point2, real radius, World* world) {
     world->capsules.push_back(new_capsule);
 }
 
-Array test_collision(std::vector<Capsule>* robot_capsule_list, World* world, int n_lowest_distances) {
+Array test_collision(std::vector<Capsule>* robot_capsule_list, World* world, u32 n_lowest_distances) {
     Array dist_min(n_lowest_distances, INF_REAL);
     real dist;
 
-    for (int c = 0; c < (*robot_capsule_list).size(); c++) {
+    for (u32 c = 0; c < (*robot_capsule_list).size(); c++) {
         // Box collisions
-        for (int i = 0; i < world->boxes.size(); i++) {
+        for (u32 i = 0; i < world->boxes.size(); i++) {
             dist = distance((*robot_capsule_list)[c], world->boxes[i]);
-            for (int j = 0; j < n_lowest_distances; j++) {
+            for (u32 j = 0; j < n_lowest_distances; j++) {
                 if (dist < dist_min[j]) {
-                    for (int k = n_lowest_distances - 1; k > j; k--) {
+                    for (u32 k = n_lowest_distances - 1; k > j; k--) {
                         dist_min[k] = dist_min[k-1];
                     }
                     dist_min[j] = dist;
@@ -715,11 +715,11 @@ Array test_collision(std::vector<Capsule>* robot_capsule_list, World* world, int
         }
 
         // Capsule collisions
-        for (int i = 0; i < world->capsules.size(); i++) {
+        for (u32 i = 0; i < world->capsules.size(); i++) {
             dist = distance((*robot_capsule_list)[c], world->capsules[i]);
-            for (int j = 0; j < n_lowest_distances; j++) {
+            for (u32 j = 0; j < n_lowest_distances; j++) {
                 if (dist < dist_min[j]) {
-                    for (int k = n_lowest_distances - 1; k > j; k--) {
+                    for (u32 k = n_lowest_distances - 1; k > j; k--) {
                         dist_min[k] = dist_min[k-1];
                     }
                     dist_min[j] = dist;
@@ -729,11 +729,11 @@ Array test_collision(std::vector<Capsule>* robot_capsule_list, World* world, int
         }
 
         // Cylinder collisions
-        for (int i = 0; i < world->cylinders.size(); i++) {
+        for (u32 i = 0; i < world->cylinders.size(); i++) {
             dist = distance((*robot_capsule_list)[c], world->cylinders[i]);
-            for (int j = 0; j < n_lowest_distances; j++) {
+            for (u32 j = 0; j < n_lowest_distances; j++) {
                 if (dist < dist_min[j]) {
-                    for (int k = n_lowest_distances - 1; k > j; k--) {
+                    for (u32 k = n_lowest_distances - 1; k > j; k--) {
                         dist_min[k] = dist_min[k-1];
                     }
                     dist_min[j] = dist;
@@ -743,11 +743,11 @@ Array test_collision(std::vector<Capsule>* robot_capsule_list, World* world, int
         }
 
         // Sphere collisions
-        for (int i = 0; i < world->spheres.size(); i++) {
+        for (u32 i = 0; i < world->spheres.size(); i++) {
             dist = distance((*robot_capsule_list)[c], world->spheres[i]);
-            for (int j = 0; j < n_lowest_distances; j++) {
+            for (u32 j = 0; j < n_lowest_distances; j++) {
                 if (dist < dist_min[j]) {
-                    for (int k = n_lowest_distances - 1; k > j; k--) {
+                    for (u32 k = n_lowest_distances - 1; k > j; k--) {
                         dist_min[k] = dist_min[k-1];
                     }
                     dist_min[j] = dist;
@@ -757,34 +757,6 @@ Array test_collision(std::vector<Capsule>* robot_capsule_list, World* world, int
         }
     }
 
-// todo: remove?
-    // // Self-collision
-    // // note: this does not take into account the collision between two subsequent links of a robot,
-    // // which means that angle constraints must be put on the articulations.
-    // real n_pts = size(robot.pts);
-    // real n_link = n_pts - 1;
-    // capsule link[n_link];
-
-    // for (int i = 0; i < n_link; i++) {
-    //     link[i].p1 = robot.pts[i];
-    //     link[i].p2 = robot.pts[i+1];
-    //     link[i].r = robot.r[i];
-    // }
-
-    // for (int i = 0; i < n_link; i++) {
-    //     for (int j = 2 + i; j < n_link; j++) {
-    //         dist = distance(link[i], link[i+j]);
-    //         for (int k = 0; k < n_var; k++){
-    //             if (dist < dist_min[j]) {
-    //                 for (int l = n_var; l > k; l--) {
-    //                     dist_min[l] = dist_min[l-1];
-    //                 }
-    //                 dist_min[k] = dist;
-    //                 break;
-    //             }
-    //         }
-    //     }
-    // }
     return dist_min;
 }
 

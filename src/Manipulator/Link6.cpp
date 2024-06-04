@@ -248,7 +248,7 @@ bool Link6::validate_task(const Matrix &task, World *world) {
 
     auto max_con = max(con);
 
-    if (world) {
+    if (&world) {
         Link6 manip;
         std::vector<Capsule> capsules = manip.robot_capsules(traj.pos, 1);
         auto worst_collision = - test_collision(&capsules, world, 1);

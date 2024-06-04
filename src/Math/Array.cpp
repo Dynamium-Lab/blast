@@ -6,8 +6,8 @@
 namespace blast {
 
 #if defined(_MSC_VER)
-#define Malloc(a, s) _aligned_malloc(s, a)
-#define Free _aligned_free
+#define Malloc(a, s) malloc(s)
+#define Free free
 #else
 #define Malloc aligned_alloc
 #define Free free

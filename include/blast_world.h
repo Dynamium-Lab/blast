@@ -47,7 +47,7 @@ void add_box(Vec3 center_point, Vec3 half_width, Mat3 rotation_matrix, World* wo
 void add_sphere(Vec3 center_point, real radius, World* world);
 void add_cylinder(Vec3 point1, Vec3 point2, real radius, World* world);
 void add_capsule(Vec3 point1, Vec3 point2, real radius, World* world);
-Array test_collision(std::vector<Capsule>* robot_capsule_list, World* world, int n_lowest_distances);
+Array test_collision(std::vector<Capsule>* robot_capsule_list, World* world, u32 n_lowest_distances);
 
 real distance(Capsule capsule,  Cylinder cylinder);
 real distance(Capsule capsule,  Sphere sphere);
