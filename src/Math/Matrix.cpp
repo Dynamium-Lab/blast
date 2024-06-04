@@ -63,7 +63,7 @@ void Matrix::resize(u32 r, u32 c) {
     Assert(!is_alias);
 
     if (data == nullptr) {
-        data = (real*)Malloc(ALIGN, size * sizeof(real));
+        data = (real*)Malloc(ALIGN, r*c * sizeof(real));
         memset(data, 0, r*c * sizeof(real));
     }
     else if (size < r*c) {
