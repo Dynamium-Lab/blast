@@ -87,11 +87,11 @@ Matrix& Matrix::operator=(const Matrix& m) {
             return *this;
         }
         else if (data == nullptr || is_alias) {
-            data = (real*)Malloc(m.size * sizeof(real));
+            data = (real*)Malloc(ALIGN, m.size * sizeof(real));
         }
         else {
             Free(data);
-            data = (real*)Malloc(m.size * sizeof(real));
+            data = (real*)Malloc(ALIGN, m.size * sizeof(real));
         }
         Assert(data);
         size = m.size;
