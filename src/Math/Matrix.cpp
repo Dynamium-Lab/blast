@@ -67,7 +67,7 @@ void Matrix::resize(u32 r, u32 c) {
     else if (size < r*c) {
         real* tmp = (real*)Malloc(ALIGN, r*c * sizeof(real));
         Free(data);
-        data = (real*)realloc(data, r*c * sizeof(real));
+        data = tmp;
     }
     size = r*c;
     rows = r;
@@ -87,11 +87,11 @@ Matrix& Matrix::operator=(const Matrix& m) {
             return *this;
         }
         else if (data == nullptr || is_alias) {
-            data = (real*)malloc(m.size * sizeof(real));
+            data = (real*)Malloc(m.size * sizeof(real));
         }
         else {
             Free(data);
-            data = (real*)malloc(m.size * sizeof(real));
+            data = (real*)Malloc(m.size * sizeof(real));
         }
         Assert(data);
         size = m.size;
