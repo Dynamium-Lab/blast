@@ -761,7 +761,7 @@ Array test_collision(std::vector<Capsule>* robot_capsule_list, World* world, u32
 }
 
 // Returns distance between an box and a point
-real distance(Box box, Vec3 point) {
+real distance(const Box &box, const Vec3 &point) {
     Mat3 Rtrans = transpose(box.R);
 
     Vec3 point_box = Rtrans * (point - box.c);
@@ -776,7 +776,7 @@ real distance(Box box, Vec3 point) {
 }
 
 // Returns distance between a capsule and a point
-real distance(Capsule capsule, Vec3 point) {
+real distance(const Capsule &capsule, const Vec3 &point) {
     Segment segment;
     segment.p1 = capsule.p1;
     segment.p2 = capsule.p2;
@@ -784,7 +784,7 @@ real distance(Capsule capsule, Vec3 point) {
 }
 
 // Returns distance between a sphere and a point
-real distance(Sphere sph_test, Vec3 point) {
+real distance(const Sphere &sph_test, const Vec3 &point) {
     return norm(point - sph_test.c) - sph_test.r;
 }
 
