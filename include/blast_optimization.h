@@ -141,7 +141,7 @@ Array guess_shot_max(Optimization<T_manip>& opt, int nshotgun) {
         for (int i = 0; i < opt.n_collision_constraints; i ++) {
             c2[i] = -collisions[i];
         }
-        auto r = max(max(c1), max(c2));
+        auto r = max(array_max(c1), array_max(c2));
         if (r < best_val) {
             best_x = x;
             best_val = r;
