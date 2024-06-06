@@ -64,6 +64,20 @@ Mat3 operator*(const Mat3& m, const Mat3 rhs) {
     return r;
 }
 
+Mat3 operator*(const real x, const Mat3& m) {
+    Mat3 r;
+    r.data[0] = x*m.data[0];
+    r.data[1] = x*m.data[1];
+    r.data[2] = x*m.data[2];
+    r.data[3] = x*m.data[3];
+    r.data[4] = x*m.data[4];
+    r.data[5] = x*m.data[5];
+    r.data[6] = x*m.data[6];
+    r.data[7] = x*m.data[7];
+    r.data[8] = x*m.data[8];
+    return r;
+}
+
 Mat3& operator*=(Mat3& lhs, const Mat3& rhs) {
     lhs = lhs * rhs;
     return lhs;

@@ -93,6 +93,7 @@ Mat3& zero(Mat3&);
 Mat3& transpose_inplace(Mat3& m);
 Mat3  transpose(const Mat3& m);
 Mat3  operator*(const Mat3& m, const Mat3 rhs);
+Mat3 operator*(const real x, const Mat3& m);
 Mat3& operator*=(Mat3& lhs, const Mat3& rhs);
 Mat3  operator+(const Mat3& lhs, const Mat3& rhs);
 Mat3& operator+=(Mat3& lhs, const Mat3& rhs);
