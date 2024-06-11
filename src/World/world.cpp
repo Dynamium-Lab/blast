@@ -695,14 +695,14 @@ void add_capsule(Vec3 point1, Vec3 point2, real radius, World* world) {
     world->capsules.push_back(new_capsule);
 }
 
-Array test_collision(std::vector<Capsule>* robot_capsule_list, World* world, u32 n_lowest_distances) {
+Array test_collision(std::vector<Capsule> robot_capsule_list, World* world, u32 n_lowest_distances) {
     Array dist_min(n_lowest_distances, INF_REAL);
     real dist;
 
-    for (u32 c = 0; c < (*robot_capsule_list).size(); c++) {
+    for (u32 c = 0; c < robot_capsule_list.size(); c++) {
         // Box collisions
         for (u32 i = 0; i < world->boxes.size(); i++) {
-            dist = distance((*robot_capsule_list)[c], world->boxes[i]);
+            dist = distance(robot_capsule_list[c], world->boxes[i]);
             for (u32 j = 0; j < n_lowest_distances; j++) {
                 if (dist < dist_min[j]) {
                     for (u32 k = n_lowest_distances - 1; k > j; k--) {
@@ -716,7 +716,7 @@ Array test_collision(std::vector<Capsule>* robot_capsule_list, World* world, u32
 
         // Capsule collisions
         for (u32 i = 0; i < world->capsules.size(); i++) {
-            dist = distance((*robot_capsule_list)[c], world->capsules[i]);
+            dist = distance(robot_capsule_list[c], world->capsules[i]);
             for (u32 j = 0; j < n_lowest_distances; j++) {
                 if (dist < dist_min[j]) {
                     for (u32 k = n_lowest_distances - 1; k > j; k--) {
@@ -730,7 +730,7 @@ Array test_collision(std::vector<Capsule>* robot_capsule_list, World* world, u32
 
         // Cylinder collisions
         for (u32 i = 0; i < world->cylinders.size(); i++) {
-            dist = distance((*robot_capsule_list)[c], world->cylinders[i]);
+            dist = distance(robot_capsule_list[c], world->cylinders[i]);
             for (u32 j = 0; j < n_lowest_distances; j++) {
                 if (dist < dist_min[j]) {
                     for (u32 k = n_lowest_distances - 1; k > j; k--) {
@@ -744,7 +744,7 @@ Array test_collision(std::vector<Capsule>* robot_capsule_list, World* world, u32
 
         // Sphere collisions
         for (u32 i = 0; i < world->spheres.size(); i++) {
-            dist = distance((*robot_capsule_list)[c], world->spheres[i]);
+            dist = distance(robot_capsule_list[c], world->spheres[i]);
             for (u32 j = 0; j < n_lowest_distances; j++) {
                 if (dist < dist_min[j]) {
                     for (u32 k = n_lowest_distances - 1; k > j; k--) {
@@ -875,7 +875,7 @@ Vec3 get_point_with_directions(const Array& x, const Matrix &capsule_list, Array
     Array dir(6);
     dir = { dx_normalized[0], dx_normalized[1], dx_normalized[2], dy_normalized[0], dy_normalized[1], dy_normalized[2] };
     (*directions) = dir;
-    
+
     return p;
 }
 
@@ -897,7 +897,7 @@ real distance_with_directions(const Box &box, const Vec3 &point, Vec3* d) {
 
     // Condition ? outside : inside
     (*d) = result_if_inside > 0 ? (proj - point_box) : dir_inside;
-    
+
     // Condition ? outside : inside
     return result_if_inside > 0 ? norm(proj - point_box) : result_if_inside;
 }

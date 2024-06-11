@@ -15,8 +15,8 @@ struct Optimization {
     Matrix*     task    = nullptr;
     Bspline*    bspline = nullptr;
     World*      world   = nullptr;
-    int         n_collision_constraints = 5;
-    int         n_collision_skip = 2;
+    u32         n_collision_constraints = 5;
+    u32         n_collision_skip = 2;
 };
 
 double obj_time(unsigned n, const double* x, double* grad, void*);
@@ -87,8 +87,8 @@ void cstr_world(unsigned m, double *result, unsigned xlen, const double* x, doub
 
     std::vector<Capsule> capsules = manip->robot_capsules(opt->bspline->traj.pos, opt->n_collision_skip);
     double* r = &result[ncon];
-    auto collisions = test_collision(&capsules, opt->world, opt->n_collision_constraints);
-    for (int i = 0; i < opt->n_collision_constraints; i ++) {
+    auto collisions = test_collision(capsules, opt->world, opt->n_collision_constraints);
+    for (u32 i = 0; i < opt->n_collision_constraints; i ++) {
         *r = -collisions[i];
         r++;
     }
@@ -103,8 +103,8 @@ void cstr_world(unsigned m, double *result, unsigned xlen, const double* x, doub
             internal_cstr_manip_single(r_plus.data, xlen, x_plus.data, opt);
             capsules = manip->robot_capsules(opt->bspline->traj.pos, opt->n_collision_skip);
 
-            collisions = test_collision(&capsules, opt->world, opt->n_collision_constraints);
-            for (int i = 0; i < opt->n_collision_constraints; i ++) {
+            collisions = test_collision(capsules, opt->world, opt->n_collision_constraints);
+            for (u32 i = 0; i < opt->n_collision_constraints; i ++) {
                 r_plus[ncon + i] = -collisions[i];
             }
             for (u32 i = 0; i < m; i++)
@@ -137,7 +137,7 @@ Array guess_shot_max(Optimization<T_manip>& opt, int nshotgun) {
         auto capsules = manip->robot_capsules(bspline->traj.pos, opt.n_collision_skip);
 
         Array c2(opt.n_collision_constraints);
-        std::vector<real> collisions = test_collision(&capsules, world, opt.n_collision_constraints);
+        std::vector<real> collisions = test_collision(capsules, world, opt.n_collision_constraints);
         for (int i = 0; i < opt.n_collision_constraints; i ++) {
             c2[i] = -collisions[i];
         }
@@ -169,8 +169,8 @@ Array guess_shot_mean(Optimization<T_manip>& opt, int nshotgun) {
         std::vector<Capsule> capsules = manip->robot_capsules(bspline->traj.pos, opt.n_collision_skip);
 
         Array c2(opt.n_collision_constraints);
-        auto collisions = test_collision(&capsules, world, opt.n_collision_constraints);
-        for (int i = 0; i < opt.n_collision_constraints; i ++) {
+        auto collisions = test_collision(capsules, world, opt.n_collision_constraints);
+        for (u32 i = 0; i < opt.n_collision_constraints; i ++) {
             c2[i] = -collisions[i];
         }
         real r = 0;

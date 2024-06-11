@@ -232,7 +232,7 @@ bool Gen3::validate_task(const Matrix &task, World *world) {
     if (world) {
         Gen3 manip;
         std::vector<Capsule> capsules = manip.robot_capsules(traj.pos, 1);
-        auto worst_collision = - test_collision(&capsules, world, 1);
+        auto worst_collision = - test_collision(capsules, world, 1);
         max_con = (worst_collision[0] > max_con) ? worst_collision[0] : max_con;
     }
 
