@@ -27,7 +27,7 @@ real penalty_obj_time(Array x, Optimization<T_manip> optim) {
 
     Array cstr(optim.manip->ncon(points));
     auto f = obj_time(x.size, x.data, nullptr, nullptr);
-    cstr_manip(optim.manip->ncon(points), cstr.data, x.size, x.data, nullptr, &optim);
+    cstr_manip(optim.manip->ncon(points), cstr.data, x.size, x.data, nullptr, &optim); // todo: Fix for Optimization<T_manip> ??
 
     for (int i = 0; i < (int)cstr.size; i++)
         f += cstr[i] > 0 ? ((i+1) * cstr[i]) : 0; // todo: explore alternatives

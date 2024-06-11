@@ -234,14 +234,17 @@ void Link6::internal_constraints(const Trajectory& traj, real* dst) {
 bool Link6::validate_task(const Matrix &task, World *world) {
 
     Trajectory traj(2, 6);
-    traj.pos.col(0) = task.col(0);
-    traj.pos.col(1) = task.col(3);
+    for(u32 i=0; i < 6; i++) {
+        traj.pos(i, 0) = task.col(0)[i];
+        traj.pos(i, 1) = task.col(3)[i];
 
-    traj.vel.col(0) = task.col(1);
-    traj.vel.col(1) = task.col(4);
+        traj.vel(i, 0) = task.col(1)[i];
+        traj.vel(i, 1) = task.col(4)[i];
 
-    traj.acc.col(0) = task.col(2);
-    traj.acc.col(1) = task.col(5);
+        traj.acc(i, 0) = task.col(2)[i];
+        traj.acc(i, 1) = task.col(5)[i];
+
+    }
 
     Array con(ncon(2));
     internal_constraints(traj, con.data);
@@ -786,8 +789,8 @@ Matrix Link6::robot_capsules(const Array &joint_position) {
     capsules_robot(6, 3) = 0.060; // radius
 
     // Capsule 5
-    p1 = p_ee + 0.01289*zee - 0.02125*yee;
-    p2 = p1 + 0.150*zee;
+    p1 = p_ee - 0.0875*zee - 0.02125*yee;
+    p2 = p1 - 0.150*zee;
     capsules_robot(0, 4) = p1.x;
     capsules_robot(1, 4) = p1.y;
     capsules_robot(2, 4) = p1.z;
@@ -905,14 +908,9 @@ std::vector<Capsule> Link6::robot_capsules(const Matrix &pos, const int n_skip) 
         result_capsules(idx + 6, i) = 0.060; // radius
         idx += 7;
 
-        // // Capsule 5 (with gripper)
-        // // todo: Fix and refine capsule with gripper
-        // p1 = p_ee - 1.10211*zee + 0.2125*yee;
-        // p2 = p1 + 0.345*zee;
-
-        // Capsule 5
-        p1 = p_ee + 0.01289*zee - 0.02125*yee;
-        p2 = p1 + 0.150*zee;
+        // Capsule 5 todo: Refine capsule
+        p1 = p_ee - 0.085*zee - 0.02125*yee;
+        p2 = p1 - 0.150*zee;
         result_capsules(idx + 0, i) = p1.x;
         result_capsules(idx + 1, i) = p1.y;
         result_capsules(idx + 2, i) = p1.z;

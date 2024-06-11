@@ -66,7 +66,7 @@ real collision_ga(const Matrix &robot_cartesian_positions,  const World* world, 
 Vec3 get_point(const Array &x, const Matrix &robot_cartesian_positions);
 real distance(const Box &box, const Vec3 &point);
 real distance(const Capsule &capsule, const Vec3 &point);
-real distance(const Sphere &sphere,const  Vec3 &point);
+real distance(const Sphere &sphere, const  Vec3 &point);
 
 
 } // namespace blast
