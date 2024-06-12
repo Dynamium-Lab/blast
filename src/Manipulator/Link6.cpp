@@ -661,16 +661,32 @@ Array Link6::internal_collisions(const Array &joint_position) {
     caps5.p2 = {capsules(3, 4), capsules(4, 4), capsules(5, 4)};
     caps5.r = capsules(6, 4);
 
-    real dist1 = distance(caps1, caps3);
-    real dist2 = distance(caps1, caps4);
-    real dist3 = distance(caps1, caps5);
+    // capsule covering gripper & vision module
+    Capsule caps6;
+    caps6.p1 = {capsules(0, 5), capsules(1, 5), capsules(2, 5)};
+    caps6.p2 = {capsules(3, 5), capsules(4, 5), capsules(5, 5)};
+    caps6.r = capsules(6, 5);
 
-    real dist4 = distance(caps2, sph_base);
-    real dist5 = distance(caps3, sph_base);
+    // capsule covering gripper & vision module
+    Capsule caps7;
+    caps7.p1 = {capsules(0, 6), capsules(1, 6), capsules(2, 6)};
+    caps7.p2 = {capsules(3, 6), capsules(4, 6), capsules(5, 6)};
+    caps7.r = capsules(6, 6);
+
+
+    real dist1 = distance(caps1, caps6);
+    real dist2 = distance(caps1, caps7);
+
+    real dist3 = distance(caps2, caps5);
+    real dist4 = distance(caps2, caps6);
+    real dist5 = distance(caps2, caps7);
+
     real dist6 = distance(caps4, sph_base);
     real dist7 = distance(caps5, sph_base);
+    real dist8 = distance(caps6, sph_base);
+    real dist9 = distance(caps7, sph_base);
 
-    return {dist1, dist2, dist3, dist4, dist5, dist6, dist7};
+    return {dist1, dist2, dist3, dist4, dist5, dist6, dist7, dist8, dist9};
 }
 
 Matrix Link6::robot_capsules(const Array &joint_position) {
@@ -739,72 +755,94 @@ Matrix Link6::robot_capsules(const Array &joint_position) {
     yee = -Q_tmp.col_copy(1);
     zee = -Q_tmp.col_copy(2);
 
-    Matrix capsules_robot(7, 5);
+    Matrix capsules_robot(7, 7);
 
     Vec3 p1;
     Vec3 p2;
 
     // Capsule 1
-    p1 = p_j2 - 0.02218*z2 + 0.04855*y2;
-    p2 = p1 + 0.425*y2;
+    p1 = p_j2 - 0.065*z2;
+    p2 = p1 + 0.11*z2;
     capsules_robot(0, 0) = p1.x;
     capsules_robot(1, 0) = p1.y;
     capsules_robot(2, 0) = p1.z;
     capsules_robot(3, 0) = p2.x;
     capsules_robot(4, 0) = p2.y;
     capsules_robot(5, 0) = p2.z;
-    capsules_robot(6, 0) = 0.110; // radius
+    capsules_robot(6, 0) = 0.065; // radius
 
     // Capsule 2
-    p1 = p_j3 - 0.0917*z3 +0.00695*y3;
-    p2 = p1 - 0.375*z4;
+    p1 = p_j2 - 0.08*z2;
+    p2 = p1 + 0.485*y2;
     capsules_robot(0, 1) = p1.x;
     capsules_robot(1, 1) = p1.y;
     capsules_robot(2, 1) = p1.z;
     capsules_robot(3, 1) = p2.x;
     capsules_robot(4, 1) = p2.y;
     capsules_robot(5, 1) = p2.z;
-    capsules_robot(6, 1) = 0.061; // radius
+    capsules_robot(6, 1) = 0.065; // radius
 
     // Capsule 3
-    p1 = p_j5;
-    p2 = p1 - 0.08*z5;
+    p1 = p_j3 - 0.065*z3;
+    p2 = p1 + 0.150*z3;
     capsules_robot(0, 2) = p1.x;
     capsules_robot(1, 2) = p1.y;
     capsules_robot(2, 2) = p1.z;
     capsules_robot(3, 2) = p2.x;
     capsules_robot(4, 2) = p2.y;
     capsules_robot(5, 2) = p2.z;
-    capsules_robot(6, 2) = 0.060; // radius
+    capsules_robot(6, 2) = 0.065; // radius
 
     // Capsule 4
-    p1 = p_j6 + 0.08583*z6;
-    p2 = p1 - 0.15*z6;
+    p1 = p_j3 - 0.0917*z3 +0.00695*y3;
+    p2 = p1 - 0.375*z4;
     capsules_robot(0, 3) = p1.x;
     capsules_robot(1, 3) = p1.y;
     capsules_robot(2, 3) = p1.z;
     capsules_robot(3, 3) = p2.x;
     capsules_robot(4, 3) = p2.y;
     capsules_robot(5, 3) = p2.z;
-    capsules_robot(6, 3) = 0.060; // radius
+    capsules_robot(6, 3) = 0.061; // radius
 
     // Capsule 5
-    p1 = p_ee - 0.0875*zee - 0.02125*yee;
-    p2 = p1 - 0.150*zee;
+    p1 = p_j5;
+    p2 = p1 - 0.08*z5;
     capsules_robot(0, 4) = p1.x;
     capsules_robot(1, 4) = p1.y;
     capsules_robot(2, 4) = p1.z;
     capsules_robot(3, 4) = p2.x;
     capsules_robot(4, 4) = p2.y;
     capsules_robot(5, 4) = p2.z;
-    capsules_robot(6, 4) = 0.085; // radius
+    capsules_robot(6, 4) = 0.060; // radius
+
+    // Capsule 6
+    p1 = p_j6 + 0.08583*z6;
+    p2 = p1 - 0.15*z6;
+    capsules_robot(0, 5) = p1.x;
+    capsules_robot(1, 5) = p1.y;
+    capsules_robot(2, 5) = p1.z;
+    capsules_robot(3, 5) = p2.x;
+    capsules_robot(4, 5) = p2.y;
+    capsules_robot(5, 5) = p2.z;
+    capsules_robot(6, 5) = 0.060; // radius
+
+    // Capsule 7 todo: Refine capsule
+    p1 = p_ee - 0.085*zee - 0.02125*yee;
+    p2 = p1 - 0.150*zee;
+    capsules_robot(0, 6) = p1.x;
+    capsules_robot(1, 6) = p1.y;
+    capsules_robot(2, 6) = p1.z;
+    capsules_robot(3, 6) = p2.x;
+    capsules_robot(4, 6) = p2.y;
+    capsules_robot(5, 6) = p2.z;
+    capsules_robot(6, 6) = 0.085; // radius
 
     return capsules_robot;
 }
 
 std::vector<Capsule> Link6::robot_capsules(const Matrix &pos, const int n_skip) {
     const int points = pos.cols;
-    Matrix result_capsules(35, points/n_skip);
+    Matrix result_capsules(49, points/n_skip);
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6;
     Vec3 p_j2, p_j3, p_j5, p_j6, p_ee;
     Vec3 y2, z2, y3, z3, z4, z5, z6, zee, yee;
@@ -861,18 +899,42 @@ std::vector<Capsule> Link6::robot_capsules(const Matrix &pos, const int n_skip) 
 
         u32 idx = 0;
         // Capsule 1
-        p1 = p_j2 - 0.02218*z2 + 0.04855*y2;
-        p2 = p1 + 0.425*y2;
+        p1 = p_j2 - 0.065*z2;
+        p2 = p1 + 0.11*z2;
         result_capsules(0, i) = p1.x;
         result_capsules(1, i) = p1.y;
         result_capsules(2, i) = p1.z;
         result_capsules(3, i) = p2.x;
         result_capsules(4, i) = p2.y;
         result_capsules(5, i) = p2.z;
-        result_capsules(6, i) = 0.110; // radius
+        result_capsules(6, i) = 0.065; // radius
         idx += 7;
 
         // Capsule 2
+        p1 = p_j2 - 0.08*z2;
+        p2 = p1 + 0.485*y2;
+        result_capsules(0 + idx, i) = p1.x;
+        result_capsules(1 + idx, i) = p1.y;
+        result_capsules(2 + idx, i) = p1.z;
+        result_capsules(3 + idx, i) = p2.x;
+        result_capsules(4 + idx, i) = p2.y;
+        result_capsules(5 + idx, i) = p2.z;
+        result_capsules(6 + idx, i) = 0.065; // radius
+        idx += 7;
+
+        // Capsule 3
+        p1 = p_j3 - 0.065*z3;
+        p2 = p1 + 0.150*z3;
+        result_capsules(0 + idx, i) = p1.x;
+        result_capsules(1 + idx, i) = p1.y;
+        result_capsules(2 + idx, i) = p1.z;
+        result_capsules(3 + idx, i) = p2.x;
+        result_capsules(4 + idx, i) = p2.y;
+        result_capsules(5 + idx, i) = p2.z;
+        result_capsules(6 + idx, i) = 0.065; // radius
+        idx += 7;
+
+        // Capsule 4
         p1 = p_j3 - 0.0917*z3 +0.00695*y3;
         p2 = p1 - 0.375*z4;
         result_capsules(idx + 0, i) = p1.x;
@@ -884,7 +946,7 @@ std::vector<Capsule> Link6::robot_capsules(const Matrix &pos, const int n_skip) 
         result_capsules(idx + 6, i) = 0.061; // radius
         idx += 7;
 
-        // Capsule 3
+        // Capsule 5
         p1 = p_j5;
         p2 = p1 - 0.08*z5;
         result_capsules(idx + 0, i) = p1.x;
@@ -896,7 +958,7 @@ std::vector<Capsule> Link6::robot_capsules(const Matrix &pos, const int n_skip) 
         result_capsules(idx + 6, i) = 0.060; // radius
         idx += 7;
 
-        // Capsule 4
+        // Capsule 6
         p1 = p_j6 + 0.08583*z6;
         p2 = p1 - 0.15*z6;
         result_capsules(idx + 0, i) = p1.x;
@@ -908,7 +970,7 @@ std::vector<Capsule> Link6::robot_capsules(const Matrix &pos, const int n_skip) 
         result_capsules(idx + 6, i) = 0.060; // radius
         idx += 7;
 
-        // Capsule 5 todo: Refine capsule
+        // Capsule 7 todo: Refine capsule
         p1 = p_ee - 0.085*zee - 0.02125*yee;
         p2 = p1 - 0.150*zee;
         result_capsules(idx + 0, i) = p1.x;
@@ -922,17 +984,16 @@ std::vector<Capsule> Link6::robot_capsules(const Matrix &pos, const int n_skip) 
 
     auto caps_size = result_capsules.cols;
     std::vector<Capsule> capsules;
-    capsules.resize(caps_size * 5); // 5 capsules for each point along the trajectory
+    capsules.resize(caps_size * 7); // 7 capsules for each point along the trajectory
     for (u32 i = 0; i < caps_size; i++) {
         auto caps_tmp = result_capsules.col(i);
-        for (u32 j = 0; j < 5 ; j++) {
-            capsules[i*5 + j].p1 = {caps_tmp[0 + 7*j], caps_tmp[1 + 7*j], caps_tmp[2 + 7*j]};
-            capsules[i*5 + j].p2 = {caps_tmp[3 + 7*j], caps_tmp[4 + 7*j], caps_tmp[5 + 7*j]};
-            capsules[i*5 + j].r = caps_tmp[6 + 7*j];
+        for (u32 j = 0; j < 7 ; j++) {
+            capsules[i*7 + j].p1 = {caps_tmp[0 + 7*j], caps_tmp[1 + 7*j], caps_tmp[2 + 7*j]};
+            capsules[i*7 + j].p2 = {caps_tmp[3 + 7*j], caps_tmp[4 + 7*j], caps_tmp[5 + 7*j]};
+            capsules[i*7 + j].r = caps_tmp[6 + 7*j];
         }
     }
 
     return capsules;
 }
-
 }
