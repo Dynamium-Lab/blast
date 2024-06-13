@@ -666,6 +666,51 @@ Array Gen3::internal_collisions(const Array &joint_position) {
     return {dist1sqr, dist2sqr, distTJ4, distTJ6, distTEE};
 }
 
+Matrix Gen3::cartesian_positions(const Matrix& pos) {
+    const int points = pos.cols;
+    Matrix result_capsules(21, points);
+    Mat3 Q, Q1, Q2, Q3, Q4, Q5, Q6, Q7;
+    Vec3 p_j2, p_j3, p_j4, p_j5, p_j6, p_j7, p_ee;
+    Vec3 p_orig(0, 0, 0);
+    Array s(7);
+    Array c(7);
+    for (int i = 0; i < points; i ++) {
+        blast::sincos(pos.col(i), s, c);
+ 
+        Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
+        Q2 = {c[1], 0, s[1], -s[1], 0, c[1], 0, -1, 0};
+        Q3 = {c[2], 0, -s[2], -s[2], 0, -c[2], 0, 1, 0};
+        Q4 = {c[3], 0, s[3], -s[3], 0, c[3], 0, -1, 0};
+        Q5 = {c[4], 0, -s[4], -s[4], 0, -c[4], 0, 1, 0};
+        Q6 = {c[5], 0, s[5], -s[5], 0, c[5], 0, -1, 0};
+        Q7 = {c[6], 0, -s[6], -s[6], 0, -c[6], 0, 1, 0};
+ 
+        Q = Q1;
+        p_j2 = p_base + Q * dv[0];
+        p_j3 = p_j2 + (Q *= Q2) * dv[1];
+        p_j4 = p_j3 + (Q *= Q3) * dv[2];
+        p_j5 = p_j4 + (Q *= Q4) * dv[3];
+        p_j6 = p_j5 + (Q *= Q5) * dv[4];
+        p_j7 = p_j6 + (Q *= Q6) * dv[5];
+        p_ee = p_j7 + (Q *= Q7) * dv[6];
+ 
+        result_capsules(0, i) = p_j2.x;
+        result_capsules(1, i) = p_j2.y;
+        result_capsules(2, i) = p_j2.z;
+        result_capsules(3, i) = p_j4.x;
+        result_capsules(4, i) = p_j4.y;
+        result_capsules(5, i) = p_j4.z;
+        result_capsules(6, i) = p_j6.x;
+        result_capsules(7, i) = p_j6.y;
+        result_capsules(8, i) = p_j6.z;
+        result_capsules(9, i) = p_ee.x;
+        result_capsules(10, i) = p_ee.y;
+        result_capsules(11, i) = p_ee.z;
+    }
+ 
+    return result_capsules;
+}
+
 std::vector<Capsule> Gen3::robot_capsules(const Matrix& pos, int n_skip) {
     const int points = pos.cols;
     Matrix result_capsules(21, points/n_skip);
