@@ -1,12 +1,14 @@
 #include "blast.h"
 #include "blast_error.h"
 #include <cstdlib>
+#include <xmmintrin.h>
+#include <immintrin.h>
 
 namespace blast {
 
 #if defined(_MSC_VER)
-#define Malloc(a, s) malloc(s)
-#define Free free
+#define Malloc(a, s) _aligned_malloc(s, a)
+#define Free _aligned_free
 #else
 #define Malloc aligned_alloc
 #define Free free
@@ -342,12 +344,6 @@ Array& sqr_inplace(Array& a) {
     return a;
 }
 
-
-
-
-
-
-
 real dot(const Array& a, const Array& b) {
     Assert(a.size == b.size);
     real r = 0;
@@ -386,8 +382,7 @@ real dot(const Array& a, const Array& b) {
 }
 
 void sincos(const Array& angles, Array& sines, Array& cosines) {
-    Assert(sines.size >= angles.size && cosines.size >= angles.size);
-
+    Assert(angles.size <= sines.size && angles.size <= cosines.size);
     int i = 0;
 
 #if BLAST_USE_DOUBLES
