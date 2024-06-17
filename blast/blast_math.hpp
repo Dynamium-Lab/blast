@@ -14,10 +14,6 @@
 #include <math_constants.h>
 #endif
 
-#include "Eigen/Dense"
-
-#include "mipp/mipp.h"
-
 namespace blast {
 
 using Eigen::MatrixXd;
