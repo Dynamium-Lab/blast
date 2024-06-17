@@ -1,6 +1,7 @@
 #pragma once
 
 #include "blast.h"
+#include <vector>
 
 namespace blast {
 
@@ -115,7 +116,7 @@ struct R2 {
 
     R2();
     Matrix    dynamics(const Trajectory& traj);
-
+    void      dynamics(const Trajectory& traj, Matrix& result);
 };
 
 }

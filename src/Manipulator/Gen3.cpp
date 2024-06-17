@@ -1,5 +1,8 @@
 #include "blast.h"
 #include "blast_error.h"
+#include <iostream>
+#include <xmmintrin.h>
+#include <immintrin.h>
 
 namespace blast {
 
@@ -246,8 +249,9 @@ int Gen3::ncon(int points) {
 void Gen3::dynamics(const Trajectory& traj) {
     const auto points = traj.pos.cols;
     const auto joints = traj.pos.rows;
-    if (_efforts.cols != points || _efforts.rows != joints)
+    if (_efforts.cols != points || _efforts.rows != joints) {
         _efforts.resize(joints, points);
+    }
 
 
     Mat3 Q1, Q2, Q3, Q4, Q5, Q6, Q7;
@@ -261,13 +265,38 @@ void Gen3::dynamics(const Trajectory& traj) {
 
     // loop all points
     for (u32 i = 0; i < points; i++) {
-        auto p = traj.pos.col(i);
-        auto v = traj.vel.col(i);
-        auto a = traj.acc.col(i);
+        // auto p = traj.pos.col(i);
+        // auto v = traj.vel.col(i);
+        // auto a = traj.acc.col(i);
 
-        Array s(7);
-        Array c(7);
-        blast::sincos(p, s, c);
+        // Array s(7);
+        // Array c(7);
+        // blast::sincos(p, s, c);
+
+        auto v = &traj.vel.data[i * joints];
+        auto a = &traj.acc.data[i * joints];
+        auto p = &traj.pos.data[i * joints];
+#if BLAST_SIZEOF_REAL == 8
+        real s[8];
+        real c[8];
+        __m256d s_tmp;
+        __m256d c_tmp;
+        for (u32 j = 0; j < 8; j += 4) {
+            __m256d angle_v = _mm256_load_pd(p + j);
+            s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+            _mm256_storeu_pd(s + j, s_tmp);
+            _mm256_storeu_pd(c + j, c_tmp);
+        }
+#else
+        real s[8];
+        real c[8];
+        __m256 s_tmp;
+        __m256 c_tmp;
+        __m256 angle_v = _mm256_load_ps(p);
+        s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
+        _mm256_storeu_ps(s, s_tmp);
+        _mm256_storeu_ps(c, c_tmp);
+#endif
 
         // note: these are stored column-wise
         Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
