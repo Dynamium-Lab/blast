@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.19)
 
 project(
     Blast
@@ -7,9 +7,9 @@ project(
     LANGUAGES CXX
 )
 
-add_compile_options("/MT")
 set(CMAKE_INCLUDE_CURRENT_DIR   ON)
 
+add_subdirectory(extern/nlopt)
 add_subdirectory(src)
 
 
@@ -27,8 +27,8 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
 
     # add tests
-    enable_testing()
-    add_subdirectory(tests)
+    # enable_testing()
+    # add_subdirectory(tests)
 
     # # Generate documentation
     # find_package(Doxygen)

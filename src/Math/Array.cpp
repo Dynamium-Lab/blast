@@ -1,6 +1,5 @@
 #include "blast.h"
 #include "blast_error.h"
-#include "mipp.h"
 #include <cstdlib>
 
 namespace blast {
@@ -352,64 +351,84 @@ Array& sqr_inplace(Array& a) {
 real dot(const Array& a, const Array& b) {
     Assert(a.size == b.size);
     real r = 0;
-#if defined(__CUDA_ARCH__)
-    for (int i = 0; i < (int)a.size; i++)
-        r += a[i] * b[i];
-#else
     int i = 0;
+#if defined(__CUDA_ARCH__)
+    ;
+#elif BLAST_USE_DOUBLES
 
     // SIMD what you can
-    mipp::Reg<real> ra; // wide register for part of the 'a' array
-    mipp::Reg<real> rb; // wide register for part of the 'b' array
-    mipp::Reg<real> accum = 0.0;
-    auto vecLoopSize = (a.size / mipp::N<real>()) * mipp::N<real>();
-    for (; i < (int)vecLoopSize; i += mipp::N<real>()) {
-        ra.load(&a.data[i]);
-        rb.load(&b.data[i]);
-        accum = mipp::fmadd(ra, rb, accum);
+    __m256d ra;
+    __m256d rb;
+    __m256d accum = {0, 0, 0, 0};
+    int vecLoopSize = (int)(a.size / 4) * 4;
+    for (; i < vecLoopSize; i += 4) {
+        ra = _mm256_load_pd(&a.data[i]);
+        rb = _mm256_load_pd(&b.data[i]);
+        accum = _mm256_fmadd_pd(ra, rb, accum);
     }
-    r = accum.hadd();
+    r = simd_hadd(accum);
+
+#else
+    __m256 ra;
+    __m256 rb;
+    __m256 accum = {0, 0, 0, 0, 0, 0, 0, 0};
+    int vecLoopSize = (int)(a.size / 8) * 8;
+    for (; i < vecLoopSize; i += 8) {
+        ra = _mm256_load_ps(&a.data[i]);
+        rb = _mm256_load_ps(&b.data[i]);
+        accum = _mm256_fmadd_ps(ra, rb, accum);
+    }
+    r = simd_hadd(accum);
+#endif
     for (; i < (int)a.size; i++)
         r += a[i] * b[i];
-#endif
     return r;
 }
 
 void sincos(const Array& angles, Array& sines, Array& cosines) {
     Assert(sines.size >= angles.size && cosines.size >= angles.size);
 
-#if defined(__CUDA_ARCH__)
-#if BLAST_USE_DOUBLES
-    for (int i = 0; i < angles.size; i++)
-        ::sincos(angles[i], &sines[i], &cosines[i]);
-#else
-    for (int i = 0; i < angles.size; i++)
-        ::sincosf(angles[i], &sines[i], &cosines[i]);
-#endif
-#elif defined(__INTEL_COMPILER)
     int i = 0;
-    // simd what you can
-    mipp::Reg<real> a;
-    // mipp::Reg<real> c;
-    // mipp::Reg<real> s;
-    auto vecLoopSize = (angles.size / mipp::N<real>()) * mipp::N<real>();
-    for (; i < vecLoopSize; i += mipp::N<real>()) {
-        a.load(angles.data + i);
-        auto r = mipp::sincos(a);
-        r[0].store(sines.data + i);
-        r[1].store(cosines.data + i);
+
+#if BLAST_USE_DOUBLES
+#if defined(__CUDA_ARCH__)
+    for (; i < angles.size; i++)
+        ::sincos(angles[i], &sines[i], &cosines[i]);
+
+#elif defined(__INTEL_COMPILER) || defined(_MSC_VER)
+    __m256d s_tmp;
+    __m256d c_tmp;
+    auto vecLoopSize = (angles.size / 4) * 4;
+    for (; i < vecLoopSize; i += 4) {
+        __m256d angle_v = _mm256_loadu_pd(angles.data + i);
+        s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+        _mm256_storeu_pd(sines.data+i, s_tmp);
+        _mm256_storeu_pd(sines.data+i, c_tmp);
     }
+#else
+    ;
+#endif
+#else // single precision
+#if defined(__CUDA_ARCH__)
+    for (; i < angles.size; i++)
+        ::sincosf(angles[i], &sines[i], &cosines[i]);
+#else
+    __m256 s_tmp;
+    __m256 c_tmp;
+    auto vecLoopSize = (angles.size / 8) * 8;
+    for (; i < vecLoopSize; i += 4) {
+        __m256 angle_v = _mm256_load_ps(angles.data+i);
+        s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
+        _mm256_storeu_ps(sines.data+i, s_tmp);
+        _mm256_storeu_ps(sines.data+i, c_tmp);
+    }
+#endif
+#endif
     // serialize the rest
     for (; i < (int)angles.size; i++) {
         sines[i] = sin(angles[i]);
         cosines[i] = cos(angles[i]);
     }
-#else
-    for (int i = 0; i < (int)angles.size; i++) {
-        sines[i] = sin(angles[i]);
-        cosines[i] = cos(angles[i]);
-    }
-#endif
 }
 
 bool is_close(const Array& a1, const Array& a2, real eps) {

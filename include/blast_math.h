@@ -1,5 +1,6 @@
 #pragma once
 
+#include <immintrin.h>
 #include <limits>
 #include <vector>
 
@@ -445,5 +446,30 @@ Array&  sqr_inplace(Array&); // Square each element (modify Array)
 real sign(real v);
 void sincos(const Array& angles, Array& sines, Array& cosines);
 Matrix pinv(const Matrix& m);
+
+// https://stackoverflow.com/a/49943540
+inline double simd_hadd(__m256d v) {
+    __m128d vlow  = _mm256_castpd256_pd128(v);
+    __m128d vhigh = _mm256_extractf128_pd(v, 1);
+    vlow  = _mm_add_pd(vlow, vhigh);
+
+    __m128d high64 = _mm_unpackhi_pd(vlow, vlow);
+    return  _mm_cvtsd_f64(_mm_add_sd(vlow, high64));
+}
+
+// https://stackoverflow.com/a/35270026
+inline float simd_hadd(__m128 v) {
+    __m128 shuf = _mm_movehdup_ps(v);        // broadcast elements 3,1 to 2,0
+    __m128 sums = _mm_add_ps(v, shuf);
+    shuf        = _mm_movehl_ps(shuf, sums); // high half -> low half
+    sums        = _mm_add_ss(sums, shuf);
+    return        _mm_cvtss_f32(sums);
+}
+inline float simd_hadd(__m256 v) {
+    __m128 vlow  = _mm256_castps256_ps128(v);
+    __m128 vhigh = _mm256_extractf128_ps(v, 1); // high 128
+    vlow  = _mm_add_ps(vlow, vhigh);     // add the low 128
+    return simd_hadd(vlow);
+}
 
 } // namespace blast
