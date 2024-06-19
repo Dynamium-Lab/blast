@@ -70,7 +70,7 @@ Vec3  operator-(Vec3, Vec3);
 Vec3  operator+(Vec3, Vec3);
 Vec3  operator*(real, Vec3);
 Vec3  operator*(Vec3, real);
-Vec3  operator/(Vec3&, real);
+Vec3  operator/(Vec3, real);
 Vec3& operator+=(Vec3&, const Vec3&);
 Vec3& operator*=(Vec3&, real);
 
