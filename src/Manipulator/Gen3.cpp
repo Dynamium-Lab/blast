@@ -1,8 +1,6 @@
 #include "blast.h"
 #include "blast_error.h"
 #include <iostream>
-#include <xmmintrin.h>
-#include <immintrin.h>
 
 namespace blast {
 
@@ -84,7 +82,8 @@ void Gen3::set_payload(const real m_payload, const Vec3 cg_payload, const Mat3 I
     auto m_old = m[6];
 
     auto m_new = m_old + m_payload;
-    auto av_new = (m_old*av_old + m_payload*av_payload) / m_new;
+    Vec3 av_new = (m_old*av_old + m_payload*av_payload);
+    av_new *= 1 / m_new;
     auto delta_av = av_new - av_old; // shift in center of mass
     auto av_to_mass = av_payload - av_new; // vector from payload to new center of mass
 
@@ -160,7 +159,8 @@ void Gen3::set_payload_without_gripper(const real m_payload, const Vec3 cg_paylo
     auto m_old = m[6];
 
     auto m_new = m_old + m_payload;
-    auto av_new = (m_old*av_old + m_payload*av_payload) /m_new;
+    Vec3 av_new = (m_old*av_old + m_payload*av_payload);
+    av_new *= 1/m_new;
     auto sv_new = dv[6] - av_new;
     auto delta_av = av_new - av_old; // shift in center of mass
     auto av_to_mass = av_payload - av_new; // vector from payload to new center of mass
@@ -276,9 +276,10 @@ void Gen3::dynamics(const Trajectory& traj) {
         auto v = &traj.vel.data[i * joints];
         auto a = &traj.acc.data[i * joints];
         auto p = &traj.pos.data[i * joints];
-#if BLAST_SIZEOF_REAL == 8
         real s[8];
         real c[8];
+#if defined(_MSC_VER) || defined (__INTEL_COMPILER)
+#if BLAST_SIZEOF_REAL == 8
         __m256d s_tmp;
         __m256d c_tmp;
         for (u32 j = 0; j < 8; j += 4) {
@@ -288,8 +289,6 @@ void Gen3::dynamics(const Trajectory& traj) {
             _mm256_storeu_pd(c + j, c_tmp);
         }
 #else
-        real s[8];
-        real c[8];
         __m256 s_tmp;
         __m256 c_tmp;
         __m256 angle_v = _mm256_load_ps(p);
@@ -297,6 +296,15 @@ void Gen3::dynamics(const Trajectory& traj) {
         _mm256_storeu_ps(s, s_tmp);
         _mm256_storeu_ps(c, c_tmp);
 #endif
+#else
+        #pragma omp simd
+        for (u32 j = 0; j < 7; j++) {
+            s[j] = sin(p[j]);
+            c[j] = cos(p[j]);
+        }
+#endif
+
+
 
         // note: these are stored column-wise
         Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};

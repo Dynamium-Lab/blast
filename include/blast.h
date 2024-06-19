@@ -1,6 +1,9 @@
 #pragma once
 
 #include <vector>
+#include <cstdint>
+#include <immintrin.h>
+#include <cmath>
 
 namespace blast {
 

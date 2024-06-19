@@ -95,7 +95,7 @@ Vec3 operator*(Vec3 a, real b) {
     };
 }
 
-Vec3 operator/(Vec3& a, real b) {
+Vec3 operator/(Vec3 a, real b) {
     return Vec3 {
         a.x / b,
         a.y / b,
