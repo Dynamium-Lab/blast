@@ -51,6 +51,7 @@ struct Gen3 {
     // collisions
     Array   internal_collisions(const Array &joint_position);
     std::vector<Capsule>  robot_capsules(const Matrix& pos, int n_collision_skip);
+    Matrix  cartesian_positions(const Matrix& pos);
 };
 
 struct Link6 {
