@@ -1,9 +1,10 @@
+#pragma once
 #include "blast.h"
 #include <cmath>
 #include <algorithm>
 #include "blast_error.h"
 
-using std::vector;
+// using std::vector;
 
 namespace blast {
 

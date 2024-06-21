@@ -59,9 +59,9 @@ real distance(Capsule capsule,  Box box);
 // ======================================
 
 
-real collision_pso(const Matrix &robot_cartesian_positions, const World* world, int n_particles,   int n_iterations);
-real collision_gwo(const Matrix &robot_cartesian_positions, const World* world, int n_wolves,      int n_iterations);
-real collision_ga(const Matrix &robot_cartesian_positions,  const World* world, int n_individuals, int n_iterations);
+// real collision_pso(const Matrix &robot_cartesian_positions, const World* world, int n_particles,   int n_iterations);
+// real collision_gwo(const Matrix &robot_cartesian_positions, const World* world, int n_wolves,      int n_iterations);
+// real collision_ga(const Matrix &robot_cartesian_positions,  const World* world, int n_individuals, int n_iterations);
 
 Vec3 get_point(const Array &x, const Matrix &robot_cartesian_positions);
 real distance(const Box &box, const Vec3 &point);

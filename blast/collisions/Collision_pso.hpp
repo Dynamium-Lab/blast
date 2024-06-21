@@ -197,32 +197,4 @@ real collision_pso(const Matrix &caps_list, const objlist* world, const int N_pa
     return gbest_f;
 }
 
-// Calls collision_pso to solve collision distance problem with the full world, one member at a time. Returns best fitness score
-real test_collision_pso_world_1caps(const Matrix &cart_pos, const objlist* world, const int N_individuals, const int N_iterations) {
-    int n_caps = cart_pos.rows / 3 - 1;
-    real distmin = INF_REAL;
-    real current_dist;
-    Matrix temp(6, cart_pos.cols);
-    for (int j = 0; j < n_caps; j++) {
-        for (int i = 0; i < cart_pos.cols; i++) {
-            temp(0, i) = cart_pos(j * 3, i);
-            temp(1, i) = cart_pos(j * 3 + 1, i);
-            temp(2, i) = cart_pos(j * 3 + 2, i);
-            temp(3, i) = cart_pos(j * 3 + 3, i);
-            temp(4, i) = cart_pos(j * 3 + 4, i);
-            temp(5, i) = cart_pos(j * 3 + 5, i);
-        }
-        current_dist = collision_pso(temp, world, N_individuals, N_iterations);
-        distmin = (distmin < 0) ? (current_dist > distmin ? current_dist : distmin) :
-                                (current_dist < distmin ? current_dist : distmin);
-    }
-    return distmin;
-}
-
-// Calls collision_pso to solve collision distance problem with the full world, all members at once. Returns best fitness score
-real test_collision_pso_world_full_robot(const Matrix &cart_pos, objlist* world, int N_particles, int N_iterations) {
-    real distmin = collision_pso(cart_pos, world, N_particles, N_iterations);
-    return distmin;
-}
-
 } // namespace blast
