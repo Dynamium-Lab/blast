@@ -1,12 +1,19 @@
 #pragma once
 
+#if _WIN32
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <intrin.h>
+#include <Windows.h>
+#undef NOMINMAX
+#undef WIN32_LEAN_AND_MEAN
+#endif
+
 namespace blast {
+#define ArrayCount(Array) (sizeof(Array)/sizeof((Array)[0]))
 
 
 #if _WIN32
-
-#include <intrin.h>
-#include <windows.h>
 
 static u64 GetOSTimerFreq(void) {
     LARGE_INTEGER Freq;
@@ -41,15 +48,7 @@ static u64 ReadOSTimer(void) {
 
 #endif
 
-/* NOTE(casey): This does not need to be "inline", it could just be "static"
-   because compilers will inline it anyway. But compilers will warn about
-   static functions that aren't used. So "inline" is just the simplest way
-   to tell them to stop complaining about that. */
 inline u64 ReadCPUTimer(void) {
-    // NOTE(casey): If you were on ARM, you would need to replace __rdtsc
-    // with one of their performance counter read instructions, depending
-    // on which ones are available on your platform.
-
     return __rdtsc();
 }
 
@@ -89,16 +88,17 @@ static u64 EstimateCPUTimerFreq(void) {
 #if PROFILER
 
 struct profile_anchor {
-    u64 TSCElapsedExclusive; // NOTE(casey): Does NOT include children
-    u64 TSCElapsedInclusive; // NOTE(casey): DOES include children
+    u64 TSCElapsedExclusive;
+    u64 TSCElapsedInclusive;
     u64 HitCount;
+    u64 ProcessedByteCount;
     char const *Label;
 };
 static profile_anchor GlobalProfilerAnchors[4096];
 static u32 GlobalProfilerParent;
 
 struct profile_block {
-    profile_block(char const *Label_, u32 AnchorIndex_) {
+    profile_block(char const *Label_, u32 AnchorIndex_, u64 ByteCount) {
         ParentIndex = GlobalProfilerParent;
 
         AnchorIndex = AnchorIndex_;
@@ -106,6 +106,7 @@ struct profile_block {
 
         profile_anchor *Anchor = GlobalProfilerAnchors + AnchorIndex;
         OldTSCElapsedInclusive = Anchor->TSCElapsedInclusive;
+        Anchor->ProcessedByteCount += ByteCount;
 
         GlobalProfilerParent = AnchorIndex;
         StartTSC = READ_BLOCK_TIMER();
@@ -139,31 +140,45 @@ struct profile_block {
 
 #define NameConcat2(A, B) A##B
 #define NameConcat(A, B) NameConcat2(A, B)
-#define TimeBlock(Name) profile_block NameConcat(Block, __LINE__)(Name, __COUNTER__ + 1);
-#define ProfilerEndOfCompilationUnit static_assert(__COUNTER__ < ArrayCount(GlobalProfilerAnchors), "Number of profile points exceeds size of profiler::Anchors array")
+#define TimeBandwidth(Name, bytes) blast::profile_block NameConcat(Block, __LINE__)(Name, __COUNTER__ + 1, bytes);
+#define ProfilerEndOfCompilationUnit static_assert(__COUNTER__ < ArrayCount(blast::GlobalProfilerAnchors), "Number of profile points exceeds size of profiler::Anchors array")
 
-static void PrintTimeElapsed(u64 TotalTSCElapsed, profile_anchor *Anchor) {
-    f64 Percent = 100.0 * ((f64)Anchor->TSCElapsedExclusive / (f64)TotalTSCElapsed);
+static void PrintTimeElapsed(u64 TotalTSCElapsed, u64 TimerFreq, profile_anchor *Anchor) {
+    double Percent = 100.0 * ((double)Anchor->TSCElapsedExclusive / (double)TotalTSCElapsed);
     printf("  %s[%llu]: %llu (%.2f%%", Anchor->Label, Anchor->HitCount, Anchor->TSCElapsedExclusive, Percent);
     if(Anchor->TSCElapsedInclusive != Anchor->TSCElapsedExclusive) {
-        f64 PercentWithChildren = 100.0 * ((f64)Anchor->TSCElapsedInclusive / (f64)TotalTSCElapsed);
+        double PercentWithChildren = 100.0 * ((double)Anchor->TSCElapsedInclusive / (double)TotalTSCElapsed);
         printf(", %.2f%% w/children", PercentWithChildren);
     }
-    printf(")\n");
+    printf(")");
+
+    if(Anchor->ProcessedByteCount) {
+        double Megabyte = 1024.0f*1024.0f;
+        double Gigabyte = Megabyte*1024.0f;
+
+        double Seconds = (double)Anchor->TSCElapsedInclusive / (double)TimerFreq;
+        double BytesPerSecond = (double)Anchor->ProcessedByteCount / Seconds;
+        double Megabytes = (double)Anchor->ProcessedByteCount / (double)Megabyte;
+        double GigabytesPerSecond = BytesPerSecond / Gigabyte;
+
+        printf("  %.3fmb at %.2fgb/s", Megabytes, GigabytesPerSecond);
+    }
+
+    printf("\n");
 }
 
-static void PrintAnchorData(u64 TotalCPUElapsed) {
+static void PrintAnchorData(u64 TotalCPUElapsed, u64 TimerFreq) {
     for(u32 AnchorIndex = 0; AnchorIndex < ArrayCount(GlobalProfilerAnchors); ++AnchorIndex) {
         profile_anchor *Anchor = GlobalProfilerAnchors + AnchorIndex;
         if(Anchor->TSCElapsedInclusive) {
-            PrintTimeElapsed(TotalCPUElapsed, Anchor);
+            PrintTimeElapsed(TotalCPUElapsed, TimerFreq, Anchor);
         }
     }
 }
 
 #else
 
-#define TimeBlock(...)
+#define TimeBandwidth(...)
 #define PrintAnchorData(...)
 #define ProfilerEndOfCompilationUnit
 
@@ -175,6 +190,7 @@ struct profiler {
 };
 static profiler GlobalProfiler;
 
+#define TimeBlock(Name) TimeBandwidth(Name, 0)
 #define TimeFunction TimeBlock(__func__)
 
 static u64 EstimateBlockTimerFreq(void) {
@@ -218,7 +234,7 @@ static void EndAndPrintProfile() {
         printf("\nTotal time: %0.4fms (timer freq %llu)\n", 1000.0 * (double)TotalTSCElapsed / (double)TimerFreq, TimerFreq);
     }
 
-    PrintAnchorData(TotalTSCElapsed);
+    PrintAnchorData(TotalTSCElapsed, TimerFreq);
 }
 
 } // namespace blast
