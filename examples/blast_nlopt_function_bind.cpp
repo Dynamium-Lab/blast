@@ -1,6 +1,5 @@
 #include "blast.h"
-#include "blast_error.h"
-#include "blast_utilities.h"
+#include "blast_utilities.hpp"
 
 #include "nlopt.h"
 #include "json.hpp"

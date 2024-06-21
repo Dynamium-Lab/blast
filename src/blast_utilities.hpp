@@ -1,18 +1,32 @@
-// #include "blast.h"
-#include "blast_utilities.h"
+#pragma once
+
+#include "blast.h"
+
+#if defined(_MSC_VER)
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#undef NOMINMAX
+#undef WIN32_LEAN_AND_MEAN
+#else
+#include <time.h>
+#endif
+#include <cmath>
+#include <string>
+#include <fstream>
 
 namespace blast {
 
-void print(Vec3 v) {
+inline void print(Vec3 v) {
     printf("[% 0.4f, % 0.4f, % 0.4f]\n", v.x, v.y, v.z);
 }
 
-void print(Mat3 m) {
+inline void print(Mat3 m) {
     printf("\n[% 0.4f, % 0.4f, % 0.4f]\n[% 0.4f, % 0.4f, % 0.4f]\n[% 0.4f, % 0.4f, % 0.4f]\n",
            m(0, 0), m(0, 1), m(0, 2), m(1, 0), m(1, 1), m(1, 2), m(2, 0), m(2, 1), m(2, 2));
 }
 
-void print(const Array& a) {
+inline void print(const Array& a) {
     using namespace std;
     if(a.size == 0)
         return;
@@ -22,7 +36,7 @@ void print(const Array& a) {
     printf("% 0.4f]\n", a[a.size-1]);
 }
 
-void print(const Matrix& m) {
+inline void print(const Matrix& m) {
     if(m.size == 0)
         return;
     for (u32 i = 0; i < m.rows; i++) {
@@ -33,21 +47,21 @@ void print(const Matrix& m) {
     }
 }
 
-void print(double* data, unsigned size) {
+inline void print(double* data, unsigned size) {
     printf("[");
     for (u32 i = 0; i < size-1; i++)
         printf("% 0.4f, ", data[i]);
     printf("% 0.4f]\n", data[size-1]);
 }
 
-void print(float* data, unsigned size) {
+inline void print(float* data, unsigned size) {
     printf("[");
     for (u32 i = 0; i < size-1; i++)
         printf("% 0.4f, ", data[i]);
     printf("% 0.4f]\n", data[size-1]);
 }
 
-void print(double* data, unsigned rows, unsigned cols) {
+inline void print(double* data, unsigned rows, unsigned cols) {
     for (u32 i = 0; i < rows; i++) {
         printf("[");
         for (u32 j = 0; j < cols-1; j++)
@@ -56,7 +70,7 @@ void print(double* data, unsigned rows, unsigned cols) {
     }
 }
 
-void print(float* data, unsigned rows, unsigned cols) {
+inline void print(float* data, unsigned rows, unsigned cols) {
     for (u32 i = 0; i < rows; i++) {
         printf("[");
         for (u32 j = 0; j < cols-1; j++)
@@ -65,7 +79,7 @@ void print(float* data, unsigned rows, unsigned cols) {
     }
 }
 
-void print_to_csv(const Matrix& m, const std::string &filename) {
+inline host_fn void print_to_csv(const Matrix& m, const std::string &filename) {
     std::ofstream file;
     file.open(filename);
     for (u32 i = 0; i < m.rows; i++) {
@@ -76,8 +90,7 @@ void print_to_csv(const Matrix& m, const std::string &filename) {
     file.close();
 }
 
-// get the time
-int64_t get_tick_us() {
+inline host_fn int64_t get_tick_us() {
 #if defined(_MSC_VER)
     LARGE_INTEGER start, frequency;
     QueryPerformanceFrequency(&frequency);
@@ -92,9 +105,8 @@ int64_t get_tick_us() {
 
 // note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
-
 // print the properties of all connected GPUs
-void print_device_properties() {
+inline host_fn void print_device_properties() {
     int nDevices;
     cudaGetDeviceCount(&nDevices);
     for (int i = 0; i < nDevices; i++) {

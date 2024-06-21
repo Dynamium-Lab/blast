@@ -1,7 +1,6 @@
 #pragma once
 
 #include "blast.h"
-#include "blast_error.h"
 #include <functional>
 #include <cstring>
 

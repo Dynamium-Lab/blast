@@ -1,5 +1,4 @@
 #include "blast.h"
-#include "blast_error.h"
 
 namespace blast {
 

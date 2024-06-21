@@ -1,20 +1,11 @@
 #include "blast.h"
-#include "blast_error.h"
 
 namespace blast {
 
 
-#if defined(_MSC_VER)
-#define Malloc(a, s) _aligned_malloc(s, a)
-#define Free _aligned_free
-#else
-#define Malloc aligned_alloc
-#define Free free
-#endif
-const u32 ALIGN = 64;
 
 
-Matrix::Matrix(u32 r, u32 c) {
+inline blast_fn Matrix::Matrix(u32 r, u32 c) {
     size = r * c;
     rows = r;
     cols = c;
@@ -24,21 +15,21 @@ Matrix::Matrix(u32 r, u32 c) {
     }
 }
 
-Matrix::Matrix(const Matrix& m) : size(m.size), cols(m.cols), rows(m.rows), is_alias(false) {
+inline blast_fn Matrix::Matrix(const Matrix& m) : size(m.size), cols(m.cols), rows(m.rows), is_alias(false) {
     if (size) {
         data = (real*)Malloc(ALIGN, size * sizeof(real));
         memcpy(data, m.data, size*sizeof(real));
     }
 }
 
-Matrix::Matrix(Matrix&& m) : data(m.data), size(m.size), cols(m.cols), rows(m.rows), is_alias(m.is_alias) {
+inline blast_fn Matrix::Matrix(Matrix&& m) : data(m.data), size(m.size), cols(m.cols), rows(m.rows), is_alias(m.is_alias) {
     m.data = nullptr;
     m.size = 0;
     m.rows = 0;
     m.cols = 0;
 }
 
-Matrix::Matrix(real* d, u32 r, u32 c) {
+inline blast_fn Matrix::Matrix(real* d, u32 r, u32 c) {
     data = d;
     rows = r;
     cols = c;
@@ -46,19 +37,19 @@ Matrix::Matrix(real* d, u32 r, u32 c) {
     is_alias = true;
 }
 
-Matrix::Matrix(const Array& v) : size(v.size), cols(1), rows(v.size), is_alias(false) {
+inline blast_fn Matrix::Matrix(const Array& v) : size(v.size), cols(1), rows(v.size), is_alias(false) {
     if (size) {
         data = (real*)Malloc(ALIGN, size * sizeof(real));
         memcpy(data, v.data, size*sizeof(real));
     }
 }
 
-Matrix::~Matrix() {
+inline blast_fn Matrix::~Matrix() {
     if (!is_alias && data)
         Free(data);
 }
 
-void Matrix::resize(u32 r, u32 c) {
+inline blast_fn void Matrix::resize(u32 r, u32 c) {
     Assert(!is_alias);
 
     if (data == nullptr) {
@@ -78,7 +69,7 @@ void Matrix::resize(u32 r, u32 c) {
     Assert(data);
 }
 
-Matrix& Matrix::operator=(const Matrix& m) {
+inline blast_fn Matrix& Matrix::operator=(const Matrix& m) {
     if (this != &m) {
         if (m.size == 0) {
             size = 0;
@@ -106,7 +97,7 @@ Matrix& Matrix::operator=(const Matrix& m) {
     return *this;
 }
 
-Matrix& Matrix::operator=(Matrix&& m) {
+inline blast_fn Matrix& Matrix::operator=(Matrix&& m) {
     if (this != &m) {
         if (data && !is_alias)
             Free(data);
@@ -120,25 +111,25 @@ Matrix& Matrix::operator=(Matrix&& m) {
     return *this;
 }
 
-Matrix Matrix::operator-() {
+inline blast_fn Matrix Matrix::operator-() {
     Matrix result(rows, cols);
     for (u32 i = 0; i < size; i++)
         result.data[i] = -data[i];
     return result;
 }
 
-bool Matrix::operator==(const Matrix& m) const {
+inline blast_fn bool Matrix::operator==(const Matrix& m) const {
     Assert(cols == m.cols && rows == m.rows);
     return is_close(*this, m);
 }
 
-bool Matrix::operator!=(const Matrix& m) const {
+inline blast_fn bool Matrix::operator!=(const Matrix& m) const {
     Assert(cols == m.cols && rows == m.rows);
     auto result = is_close(*this, m);
     return !result;
 }
 
-Matrix& Matrix::alias(Array& a) {
+inline blast_fn Matrix& Matrix::alias(Array& a) {
     Assert(a.data);
     if (data && !is_alias)
         Free(data);
@@ -150,7 +141,7 @@ Matrix& Matrix::alias(Array& a) {
     return *this;
 }
 
-Matrix& Matrix::alias(std::vector<real>& v) {
+inline blast_fn Matrix& Matrix::alias(std::vector<real>& v) {
     Assert(!v.empty());
     if (data && !is_alias)
         Free(data);
@@ -162,7 +153,7 @@ Matrix& Matrix::alias(std::vector<real>& v) {
     return *this;
 }
 
-Matrix& Matrix::alias(real* p, u32 r, u32 c) {
+inline blast_fn Matrix& Matrix::alias(real* p, u32 r, u32 c) {
     Assert(p);
     if (data && !is_alias)
         Free(data);
@@ -174,22 +165,22 @@ Matrix& Matrix::alias(real* p, u32 r, u32 c) {
     return *this;
 }
 
-real& Matrix::operator()(u32 row, u32 col) {
+inline blast_fn real& Matrix::operator()(u32 row, u32 col) {
     Assert(row < rows && col < cols);
     return data[row + rows*col];
 }
 
-real Matrix::operator()(u32 row, u32 col) const {
+inline blast_fn real Matrix::operator()(u32 row, u32 col) const {
     Assert(row < rows && col < cols);
     return data[row + rows*col];
 }
 
-real* Matrix::address(u32 row, u32 col) const {
+inline blast_fn real* Matrix::address(u32 row, u32 col) const {
     Assert(row < rows && col < cols);
     return &data[row + rows*col];
 }
 
-Array Matrix::col(u32 c) const {
+inline blast_fn Array Matrix::col(u32 c) const {
     Assert(c < this->cols);
     Array result;
     result.data = data + rows*c;
@@ -201,7 +192,7 @@ Array Matrix::col(u32 c) const {
 
 // Misc operators
 
-Matrix operator+(const Matrix& m1, const Matrix& m2) {
+inline blast_fn Matrix operator+(const Matrix& m1, const Matrix& m2) {
     Assert(m1.cols == m2.cols && m1.rows == m2.rows);
     Matrix result = m1;
     for (u32 i = 0; i < m1.size; i++)
@@ -210,7 +201,7 @@ Matrix operator+(const Matrix& m1, const Matrix& m2) {
     return result;
 }
 
-Matrix operator-(const Matrix& m1, const Matrix& m2) {
+inline blast_fn Matrix operator-(const Matrix& m1, const Matrix& m2) {
     Assert(m1.cols == m2.cols && m1.rows == m2.rows);
     Matrix result = m1;
     for (u32 i = 0; i < m1.size; i++)
@@ -218,7 +209,7 @@ Matrix operator-(const Matrix& m1, const Matrix& m2) {
     return result;
 }
 
-Matrix operator*(const Matrix& lhs, const Matrix& rhs) {
+inline blast_fn Matrix operator*(const Matrix& lhs, const Matrix& rhs) {
     Assert(lhs.cols == rhs.rows);
     Matrix result(lhs.rows, rhs.cols);
     for (u32 i = 0; i < lhs.rows; i++) {
@@ -233,7 +224,7 @@ Matrix operator*(const Matrix& lhs, const Matrix& rhs) {
     return result;
 }
 
-Array operator*(const Matrix& m, const Array& v) {
+inline blast_fn Array operator*(const Matrix& m, const Array& v) {
     Assert(m.cols == v.size);
     Array result(m.rows);
     for (u32 i = 0; i < m.rows; i++) {
@@ -246,14 +237,14 @@ Array operator*(const Matrix& m, const Array& v) {
     return result;
 }
 
-Matrix operator*(real& r, const Matrix& m) {
+inline blast_fn Matrix operator*(real& r, const Matrix& m) {
     Matrix result = m;
     for (u32 i = 0; i < m.size; i++)
         result.data[i] *= r;
     return result;
 }
 
-Matrix operator/(const Matrix& m, real& r) {
+inline blast_fn Matrix operator/(const Matrix& m, real& r) {
     Matrix result =  m;
     for (u32 i = 0; i < m.size; i++)
         result.data[i] /= r;
@@ -263,7 +254,7 @@ Matrix operator/(const Matrix& m, real& r) {
 
 // Fundamental functions
 
-bool is_close(const Matrix& m1, const Matrix& m2, real eps) {
+inline blast_fn bool is_close(const Matrix& m1, const Matrix& m2, real eps) {
     Assert(m1.cols == m2.cols && m1.rows == m2.rows);
     for (u32 i =0; i < m1.size; i++)
         if(m1.data[i] - m2.data[i] > eps || m1.data[i] - m2.data[i] < -eps)
@@ -271,27 +262,35 @@ bool is_close(const Matrix& m1, const Matrix& m2, real eps) {
     return true;
 }
 
-Matrix& zero(Matrix& m) {
+inline blast_fn Matrix& zero(Matrix& m) {
     for (u32 i = 0; i < m.size; i++)
         m.data[i] = (real)0.0;
     return m;
 }
 
-Matrix& constant(Matrix& m, real val) {
+inline blast_fn Matrix& constant(Matrix& m, real val) {
     for (u32 i = 0; i < m.size; i++)
         m.data[i] = val;
     return m;
 }
 
-Matrix& fill_random(Matrix& m, real A) {
+inline blast_fn Matrix& fill_random(Matrix& m, real A) {
+#if defined(__CUDA_ARCH__)
+    curandState state;
+    unsigned long long seed = clock64()+blockIdx.x*blockDim.x+threadIdx.x;
+    curand_init(seed, 0, 0, &state);
+    for (int i = 0; i < (int)m.size; i++)
+        m.data[i] = A * curand_uniform(&state);
+#else
     for (int i = 0; i < (int)m.size; i++)
         m.data[i] = A * get_random();
+#endif
     return m;
 }
 
 // Linear algebra functions
 
-Matrix pw_mult(const Matrix& m1, const Matrix& m2) {
+inline blast_fn Matrix pw_mult(const Matrix& m1, const Matrix& m2) {
     Assert(m1.cols == m2.cols && m1.rows == m2.rows);
     auto result = m1;
     for (u32 i = 0; i < m1.size; i++)
@@ -300,7 +299,7 @@ Matrix pw_mult(const Matrix& m1, const Matrix& m2) {
     return result;
 }
 
-Matrix eye(const u32 s) {
+inline blast_fn Matrix eye(const u32 s) {
     Matrix result(s, s);
     for (u32 i = 0; i < s; ++i) {
         for (u32 j = 0; j < s; ++j) {
@@ -310,7 +309,7 @@ Matrix eye(const u32 s) {
     return result;
 }
 
-Matrix transpose(const Matrix& m) {
+inline blast_fn Matrix transpose(const Matrix& m) {
     Matrix result(m.cols, m.rows);
     for (u32 i = 0; i < m.rows; ++i) {
         for (u32 j = 0; j < m.cols; ++j) {
@@ -320,7 +319,7 @@ Matrix transpose(const Matrix& m) {
     return result;
 }
 
-real determinant(const Matrix & m) {
+inline blast_fn real determinant(const Matrix & m) {
     int n = m.rows;
     Matrix LU = m;
 
@@ -341,7 +340,7 @@ real determinant(const Matrix & m) {
     return det;
 }
 
-Matrix LU_decomp(const Matrix& m) {
+inline blast_fn Matrix LU_decomp(const Matrix& m) {
     int n = m.rows;
     Matrix LU = m;
 
@@ -356,7 +355,7 @@ Matrix LU_decomp(const Matrix& m) {
     return LU;
 }
 
-Array solveLU(const Matrix& LU, const Array& b) {
+inline blast_fn Array solveLU(const Matrix& LU, const Array& b) {
     int n = LU.rows;
     Array x(n, 0.0);
 
@@ -380,7 +379,7 @@ Array solveLU(const Matrix& LU, const Array& b) {
     return x;
 }
 
-Matrix inverse(const Matrix& m) {
+inline blast_fn Matrix inverse(const Matrix& m) {
     Assert(m.rows == m.cols); // square matrix
 
     int n = m.rows;
@@ -401,7 +400,7 @@ Matrix inverse(const Matrix& m) {
     return inv;
 }
 
-Matrix pinv(const Matrix& m) {
+inline blast_fn Matrix pinv(const Matrix& m) {
     Matrix res(m.cols, m.rows);
     if (m.cols >= m.rows) {
         res = transpose(m) * inverse(m * transpose(m));
@@ -412,7 +411,7 @@ Matrix pinv(const Matrix& m) {
     return res;
 }
 
-void QR_decomp(const Matrix& A, Matrix& Q, Matrix& R) {
+inline blast_fn void QR_decomp(const Matrix& A, Matrix& Q, Matrix& R) {
     Matrix u(A.rows, A.cols);
     Array e(A.rows);
     Array sum(A.cols);
@@ -453,7 +452,7 @@ void QR_decomp(const Matrix& A, Matrix& Q, Matrix& R) {
     R = Q_t*A;
 }
 
-Array eigen_values(const Matrix& A, Matrix& Q, Matrix& R, Matrix& eig_vec) {
+inline blast_fn Array eigen_values(const Matrix& A, Matrix& Q, Matrix& R, Matrix& eig_vec) {
     Array eig_val(A.rows);
     Array sing_val(A.rows);
 
@@ -492,7 +491,7 @@ Array eigen_values(const Matrix& A, Matrix& Q, Matrix& R, Matrix& eig_vec) {
     return eig_val;
 }
 
-void SVD_decomp(const Matrix& A, Matrix& U, Matrix& S, Matrix& V) {
+inline blast_fn void SVD_decomp(const Matrix& A, Matrix& U, Matrix& S, Matrix& V) {
     Matrix Q1(A.rows, A.cols);
     Matrix Q2(A.rows, A.cols);
     Matrix R1(A.rows, A.cols);
@@ -511,7 +510,7 @@ void SVD_decomp(const Matrix& A, Matrix& U, Matrix& S, Matrix& V) {
     }
 }
 
-Matrix inverse_svd(const Matrix& m, Matrix& U, Matrix& S, Matrix& V) {
+inline blast_fn Matrix inverse_svd(const Matrix& m, Matrix& U, Matrix& S, Matrix& V) {
     SVD_decomp(m, U, S, V);
     auto V_t = transpose(V);
     auto S_inv = S;
@@ -527,7 +526,7 @@ Matrix inverse_svd(const Matrix& m, Matrix& U, Matrix& S, Matrix& V) {
     return W_inv;
 }
 
-Matrix pinv_svd(const Matrix& m) {
+inline blast_fn Matrix pinv_svd(const Matrix& m) {
     Matrix res(m.cols, m.rows);
     if (m.cols >= m.rows) {
         auto W = m * transpose(m);
