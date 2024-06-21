@@ -5,18 +5,19 @@
 
 
 int main() {
-    blast::BeginProfile();
+    blast::begin_profile();
     using blast::print;
     using std::cout;
     using std::endl;
     {
-        TimeBlock("Main");
+        blast_time_function;
         {
-            TimeBlock("Sleep");
+            blast_time_block("Sleep");
             Sleep(1000);
         }
     }
-    blast::EndAndPrintProfile();
+    blast::end_profile();
     return 0;
 }
-ProfilerEndOfCompilationUnit;
+
+blast_profiler_end_compilation_unit;
