@@ -1,6 +1,6 @@
 #define PROFILER 1
 #include "blast.h"
-#include "blast_utilities.h"
+#include "blast_utilities.hpp"
 #include <iostream>
 
 

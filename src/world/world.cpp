@@ -1,7 +1,6 @@
 #include "blast.h"
 #include <cmath>
 #include <algorithm>
-#include "blast_error.h"
 
 using std::vector;
 

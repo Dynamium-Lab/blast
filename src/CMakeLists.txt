@@ -1,20 +1,14 @@
 add_library(blast
-    Manipulator/Gen3.cpp
-    Manipulator/Link6.cpp
-    Manipulator/R2.cpp
-    Math/math.cpp
-    Math/Vec3.cpp
-    Math/Mat3.cpp
-    Math/Array.cpp
-    Math/Matrix.cpp
-    Optimization/Optimization.cpp
-    Trajectory/bspline.cpp
-    Trajectory/polynomial_5order.cpp
-    World/world.cpp
-    World/collision_pso.cpp
-    World/collision_gwo.cpp
-    World/collision_ga.cpp
-    blast_utilities.cpp
+    manipulator/Gen3.cpp
+    manipulator/Link6.cpp
+    manipulator/R2.cpp
+    optimization/optimization.cpp
+    trajectory/bspline.cpp
+    trajectory/polynomial_5order.cpp
+    world/world.cpp
+    world/collision_pso.cpp
+    world/collision_gwo.cpp
+    world/collision_ga.cpp
 )
 
 target_include_directories(blast PUBLIC

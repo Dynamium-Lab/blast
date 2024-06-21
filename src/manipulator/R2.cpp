@@ -1,7 +1,4 @@
 #include "blast.h"
-#include "blast_error.h"
-#include "blast_utilities.h"
-#include <iostream>
 
 namespace blast {
 

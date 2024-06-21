@@ -4,8 +4,11 @@
 #include <limits>
 #include <vector>
 
+
+
 namespace blast {
 
+const u32 ALIGN = 64;
 
 // Types declared in this file
 struct Vec3;
@@ -65,7 +68,7 @@ Vec3& zero(Vec3&);
 Vec3& constant(Vec3&, real value);
 real  dot(Vec3, Vec3);
 real  norm(Vec3);
-Vec3  operator-(const Vec3&);
+Vec3  operator-(Vec3);
 Vec3  operator-(Vec3, Vec3);
 Vec3  operator+(Vec3, Vec3);
 Vec3  operator*(real, Vec3);
@@ -99,84 +102,6 @@ Mat3& operator*=(Mat3& lhs, const Mat3& rhs);
 Mat3  operator+(const Mat3& lhs, const Mat3& rhs);
 Mat3& operator+=(Mat3& lhs, const Mat3& rhs);
 Vec3  operator*(const Mat3& m, const Vec3 v);
-
-
-// 4x4 matrix
-struct Mat4 {
-    real data[16] = {0};
-
-    // default
-    Mat4() = default;
-
-    // copy constructor
-    Mat4(const Mat4&);
-
-    // create a diagonal matrix with the value
-    Mat4(real v);
-
-    // copy list into the matrix
-    //  - note: the rest are NOT initialized if the list does not have 16 elements
-    Mat4(const std::initializer_list<real>&);
-
-    // set every value to 0
-    void zero();
-
-    // copy assignment
-    Mat4& operator=(const Mat4&);
-
-    // copy list into the matrix
-    //  - note: the rest are NOT initialized if the list does not have 16 elements
-    Mat4& operator=(const std::initializer_list<real>&);
-
-    // access the given element
-    real& operator()(u32 row, u32 col);
-
-    // access the given element (value)
-    real operator()(u32 row, u32 col) const;
-
-    // access the element
-    //  - note: does not check out of bounds
-    real& operator[](u32 i);
-
-    // access value of the element
-    //  - note: does not check out of bounds
-    real operator[](u32 i) const;
-
-    // unary minus
-    Mat4 operator-();
-
-    // matrix multiply inplace
-    Mat4& operator*=(Mat4&);
-
-    // multiply each element by the value inplace
-    Mat4& operator*=(real);
-
-    // matrix multiply inplace
-    Mat4& operator+=(Mat4&);
-
-    // matrix multiply inplace
-    Mat4& operator-=(Mat4&);
-
-    // check if all values of another array are the same
-    bool operator==(const Mat4&);
-
-    // return a 4D array pointing to the column
-    //  - note: the resulting array is an alias
-    Array col(u32 c);
-
-    // return a 4D array copying the given colum
-    //  - note: Copies data because we are const
-    //  - note: resulting Array is NOT an alias
-    Array col(u32 c) const;
-
-    // // interpret as a Matrix
-    // //  note: the resulting Matrix is an alias
-    // operator Matrix&();
-
-    // // interpret as a 16D Array
-    // //  note: the resulting Array is an alias
-    // operator Array&();
-};
 
 
 // Array of real numbers
@@ -473,3 +398,20 @@ inline float simd_hadd(__m256 v) {
 }
 
 } // namespace blast
+
+#if defined(_MSC_VER)
+#define Malloc(a, s) _aligned_malloc(s, a)
+#define Free _aligned_free
+#elif defined(__NVCC__)
+#define Malloc(a, s) malloc(s)
+#define Free free
+#else
+#define Malloc aligned_alloc
+#define Free free
+#endif
+
+#include "math/Array.hpp"
+#include "math/Matrix.hpp"
+#include "math/Vec3.hpp"
+#include "math/Mat3.hpp"
+#include "math/misc.hpp"
