@@ -7,7 +7,7 @@ project(
     LANGUAGES CXX
 )
 
-add_compile_options("/MT")
+# add_compile_options("/MT")
 set(CMAKE_INCLUDE_CURRENT_DIR   ON)
 
 add_subdirectory(src)
