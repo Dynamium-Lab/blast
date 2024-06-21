@@ -31,6 +31,7 @@ using i64   = int64_t;
 
 } // namespace blast
 
+#include "blast_profile.hpp"
 #include "blast_error.hpp"
 #include "blast_math.hpp"
 
