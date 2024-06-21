@@ -136,9 +136,25 @@ void R2::dynamics(const Trajectory& traj, Matrix& result) {
         auto v = traj.vel.col(i);
         auto a = traj.acc.col(i);
 
+#if 0
+        // note: this is absurdly slow on linux
+        // todo: check on windows
         Array s(2);
         Array c(2);
         blast::sincos(p, s, c);
+#elif 1
+        real s[] = {std::sin(p[0]), std::sin(p[1])};
+        real c[] = {std::cos(p[0]), std::cos(p[1])};
+#else
+        __m128d s_tmp;
+        __m128d c_tmp;
+        __m128d angle = _mm_load_pd(p.data);
+        s_tmp = _mm_sincos_pd(&c_tmp, angle);
+        real s[2];
+        real c[2];
+        _mm_store_pd(s, s_tmp);
+        _mm_store_pd(c, c_tmp);
+#endif
 
         // note: these are stored column-wise
         Q1 = {c[0], s[0],   0,   -s[0],  c[0],    0,     0,   0,  1};
