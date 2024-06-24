@@ -726,7 +726,7 @@ Array Gen3::internal_collisions(const Array &joint_position) {
 
 Matrix Gen3::cartesian_positions(const Matrix& pos) {
     const int points = pos.cols;
-    Matrix result_capsules(21, points);
+    Matrix result_capsules(12, points);
     Mat3 Q, Q1, Q2, Q3, Q4, Q5, Q6, Q7;
     Vec3 p_j2, p_j3, p_j4, p_j5, p_j6, p_j7, p_ee;
     Vec3 p_orig(0, 0, 0);
