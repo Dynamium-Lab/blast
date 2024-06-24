@@ -248,7 +248,7 @@ int Gen3::ncon(int points) {
 void Gen3::dynamics(const Trajectory& traj) {
     const auto points = traj.pos.cols;
     const auto joints = traj.pos.rows;
-    if (_efforts.cols != points || _efforts.rows != joints) {
+    if (_efforts.cols < points || _efforts.rows < joints) {
         _efforts.resize(joints, points);
     }
 
@@ -404,9 +404,38 @@ Array Gen3::dynamics(const Array& pos, const Array& vel, const Array& acc) {
     auto v = vel;
     auto a = acc;
 
-    Array s(7);
-    Array c(7);
-    blast::sincos(p, s, c);
+
+
+    auto v = vel.data;
+    auto a = acc.data;
+    auto p = pos.data;
+    real s[8];
+    real c[8];
+#if defined(_MSC_VER) || defined (__INTEL_COMPILER)
+#if BLAST_SIZEOF_REAL == 8
+    __m256d s_tmp;
+    __m256d c_tmp;
+    for (u32 j = 0; j < 8; j += 4) {
+        __m256d angle_v = _mm256_load_pd(p + j);
+        s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+        _mm256_storeu_pd(s + j, s_tmp);
+        _mm256_storeu_pd(c + j, c_tmp);
+    }
+#else
+    __m256 s_tmp;
+    __m256 c_tmp;
+    __m256 angle_v = _mm256_load_ps(p);
+    s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
+    _mm256_storeu_ps(s, s_tmp);
+    _mm256_storeu_ps(c, c_tmp);
+#endif
+#else
+    #pragma omp simd
+    for (u32 j = 0; j < 7; j++) {
+        s[j] = sin(p[j]);
+        c[j] = cos(p[j]);
+    }
+#endif
 
     // note: these are stored column-wise
     Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
