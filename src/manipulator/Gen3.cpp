@@ -399,13 +399,6 @@ Array Gen3::dynamics(const Array& pos, const Array& vel, const Array& acc) {
     Vec3 f1, f2, f3, f4, f5, f6, f7;
     Vec3 n1, n2, n3, n4, n5, n6, n7;
 
-    // loop all points
-    auto p = pos;
-    auto v = vel;
-    auto a = acc;
-
-
-
     auto v = vel.data;
     auto a = acc.data;
     auto p = pos.data;
