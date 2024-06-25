@@ -1,6 +1,7 @@
 #pragma once
 
 #include "blast.h"
+#include "blast_trajectory.h"
 
 #if defined(_MSC_VER)
 #define NOMINMAX
