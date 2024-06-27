@@ -35,6 +35,8 @@ using i64   = int64_t;
 #include "blast_error.hpp"
 #include "blast_math.hpp"
 
+#include "blast_utilities.hpp"
+
 #include "blast_world.h"
 #include "blast_trajectory.h"
 #include "blast_manipulator.h"

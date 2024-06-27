@@ -107,7 +107,7 @@ struct ProfileBlock {
 
 static void print_time_elapsed(u64 total_elapsed, u64 freq, ProfileAnchor *anchor) {
     double percent = 100.0 * ((double)anchor->TSC_elapsed_exclusive / (double)total_elapsed);
-    printf("  %s[%lu]: %lu (%.2f%%", anchor->label, anchor->hit_count, anchor->TSC_elapsed_exclusive, percent);
+    printf("  %s[%I64u]: %I64u (%.2f%%", anchor->label, anchor->hit_count, anchor->TSC_elapsed_exclusive, percent);
     if(anchor->TSC_elapsed_inclusive != anchor->TSC_elapsed_exclusive) {
         double percent_w_children = 100.0 * ((double)anchor->TSC_elapsed_inclusive / (double)total_elapsed);
         printf(", %.2f%% w/children", percent_w_children);
@@ -115,12 +115,12 @@ static void print_time_elapsed(u64 total_elapsed, u64 freq, ProfileAnchor *ancho
     printf(")");
 
     if(anchor->byte_count) {
-        double MB = 1024.0f*1024.0f;
-        double GB = MB*1024.0f;
+        double MB = 1024.0*1024.0;
+        double GB = MB*1024.0;
 
         double seconds = (double)anchor->TSC_elapsed_inclusive / (double)freq;
         double bytes_per_second = (double)anchor->byte_count / seconds;
-        double megabytes = (double)anchor->byte_count / (double)MB;
+        double megabytes = (double)anchor->byte_count / MB;
         double GB_per_second = bytes_per_second / GB;
 
         printf("  %.3fmb at %.2fgb/s", megabytes, GB_per_second);
@@ -191,7 +191,7 @@ static void end_profile() {
     u64 total_elapsed = g_profiler.end_TSC - g_profiler.start_TSC;
 
     if(freq) {
-        printf("\nTotal time: %0.4fms (timer freq %lu)\n", 1000.0 * (double)total_elapsed / (double)freq, freq);
+        printf("\nTotal time: %0.4fms (timer freq %I64u)\n", 1000.0 * (double)total_elapsed / (double)freq, freq);
     }
 
     print_anchor(total_elapsed, freq);

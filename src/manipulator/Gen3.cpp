@@ -248,7 +248,7 @@ int Gen3::ncon(int points) {
 void Gen3::dynamics(const Trajectory& traj) {
     const auto points = traj.pos.cols;
     const auto joints = traj.pos.rows;
-    if (_efforts.cols != points || _efforts.rows != joints) {
+    if (_efforts.cols < points || _efforts.rows < joints) {
         _efforts.resize(joints, points);
     }
 
@@ -399,14 +399,36 @@ Array Gen3::dynamics(const Array& pos, const Array& vel, const Array& acc) {
     Vec3 f1, f2, f3, f4, f5, f6, f7;
     Vec3 n1, n2, n3, n4, n5, n6, n7;
 
-    // loop all points
-    auto p = pos;
-    auto v = vel;
-    auto a = acc;
-
-    Array s(7);
-    Array c(7);
-    blast::sincos(p, s, c);
+    auto v = vel.data;
+    auto a = acc.data;
+    auto p = pos.data;
+    real s[8];
+    real c[8];
+#if defined(_MSC_VER) || defined (__INTEL_COMPILER)
+#if BLAST_SIZEOF_REAL == 8
+    __m256d s_tmp;
+    __m256d c_tmp;
+    for (u32 j = 0; j < 8; j += 4) {
+        __m256d angle_v = _mm256_load_pd(p + j);
+        s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
+        _mm256_storeu_pd(s + j, s_tmp);
+        _mm256_storeu_pd(c + j, c_tmp);
+    }
+#else
+    __m256 s_tmp;
+    __m256 c_tmp;
+    __m256 angle_v = _mm256_load_ps(p);
+    s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
+    _mm256_storeu_ps(s, s_tmp);
+    _mm256_storeu_ps(c, c_tmp);
+#endif
+#else
+    #pragma omp simd
+    for (u32 j = 0; j < 7; j++) {
+        s[j] = sin(p[j]);
+        c[j] = cos(p[j]);
+    }
+#endif
 
     // note: these are stored column-wise
     Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
@@ -702,16 +724,50 @@ Array Gen3::internal_collisions(const Array &joint_position) {
     return {dist1sqr, dist2sqr, distTJ4, distTJ6, distTEE};
 }
 
-// Matrix Gen3::cartesian_positions(const Matrix& pos) {
-//     const int points = pos.cols;
-//     Matrix result_capsules(21, points);
-//     Mat3 Q, Q1, Q2, Q3, Q4, Q5, Q6, Q7;
-//     Vec3 p_j2, p_j3, p_j4, p_j5, p_j6, p_j7, p_ee;
-//     Vec3 p_orig(0, 0, 0);
-//     Array s(7);
-//     Array c(7);
-//     for (int i = 0; i < points; i ++) {
-//         blast::sincos(pos.col(i), s, c);
+Matrix Gen3::cartesian_positions(const Matrix& pos) {
+    const int points = pos.cols;
+    Matrix result_capsules(12, points);
+    Mat3 Q, Q1, Q2, Q3, Q4, Q5, Q6, Q7;
+    Vec3 p_j2, p_j3, p_j4, p_j5, p_j6, p_j7, p_ee;
+    Vec3 p_orig(0, 0, 0);
+    Array s(7);
+    Array c(7);
+    for (int i = 0; i < points; i ++) {
+        blast::sincos(pos.col(i), s, c);
+
+        Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
+        Q2 = {c[1], 0, s[1], -s[1], 0, c[1], 0, -1, 0};
+        Q3 = {c[2], 0, -s[2], -s[2], 0, -c[2], 0, 1, 0};
+        Q4 = {c[3], 0, s[3], -s[3], 0, c[3], 0, -1, 0};
+        Q5 = {c[4], 0, -s[4], -s[4], 0, -c[4], 0, 1, 0};
+        Q6 = {c[5], 0, s[5], -s[5], 0, c[5], 0, -1, 0};
+        Q7 = {c[6], 0, -s[6], -s[6], 0, -c[6], 0, 1, 0};
+
+        Q = Q1;
+        p_j2 = p_base + Q * dv[0];
+        p_j3 = p_j2 + (Q *= Q2) * dv[1];
+        p_j4 = p_j3 + (Q *= Q3) * dv[2];
+        p_j5 = p_j4 + (Q *= Q4) * dv[3];
+        p_j6 = p_j5 + (Q *= Q5) * dv[4];
+        p_j7 = p_j6 + (Q *= Q6) * dv[5];
+        p_ee = p_j7 + (Q *= Q7) * dv[6];
+
+        result_capsules(0, i) = p_j2.x;
+        result_capsules(1, i) = p_j2.y;
+        result_capsules(2, i) = p_j2.z;
+        result_capsules(3, i) = p_j4.x;
+        result_capsules(4, i) = p_j4.y;
+        result_capsules(5, i) = p_j4.z;
+        result_capsules(6, i) = p_j6.x;
+        result_capsules(7, i) = p_j6.y;
+        result_capsules(8, i) = p_j6.z;
+        result_capsules(9, i) = p_ee.x;
+        result_capsules(10, i) = p_ee.y;
+        result_capsules(11, i) = p_ee.z;
+    }
+
+    return result_capsules;
+}
 
 //         Q1 = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
 //         Q2 = {c[1], 0, s[1], -s[1], 0, c[1], 0, -1, 0};

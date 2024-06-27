@@ -1,6 +1,7 @@
 #pragma once
 
 #include "blast.h"
+#include "blast_trajectory.h"
 
 #if defined(_MSC_VER)
 #define NOMINMAX
@@ -86,6 +87,36 @@ inline host_fn void print_to_csv(const Matrix& m, const std::string &filename) {
         for (u32 j = 0; j < m.cols-1; j++)
             file << m(i, j) << ",";
         file << m(i, m.cols-1) << std::endl;
+    }
+    file.close();
+}
+
+inline host_fn void print_to_csv(const Trajectory& traj, const std::string &filename) {
+    std::ofstream file;
+    file.open(filename);
+
+    // print header
+    {
+        file << "t";
+        for (u32 i = 0; i < traj.pos.rows; i++)
+            file << ",p[" << i << "]";
+        for (u32 i = 0; i < traj.vel.rows; i++)
+            file << ",v[" << i << "]";
+        for (u32 i = 0; i < traj.acc.rows; i++)
+            file << ",a[" << i << "]";
+        file << std::endl;
+    }
+
+    // print data
+    for (u32 i = 0; i < traj.t.size; i++) {
+        file << traj.t[i];
+        for (u32 j = 0; j < traj.pos.rows; j++)
+            file << "," << traj.pos(j, i);
+        for (u32 j = 0; j < traj.vel.rows; j++)
+            file << "," << traj.vel(j, i);
+        for (u32 j = 0; j < traj.acc.rows; j++)
+            file << "," << traj.acc(j, i);
+        file << std::endl;
     }
     file.close();
 }
