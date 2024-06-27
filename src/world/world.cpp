@@ -1,4 +1,3 @@
-#pragma once
 #include "blast.h"
 #include <cmath>
 #include <algorithm>

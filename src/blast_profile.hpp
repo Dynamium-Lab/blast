@@ -14,6 +14,8 @@
 
 namespace blast {
 #define array_count(array) (sizeof(array)/sizeof((array)[0]))
+using std::cout;
+using std::endl;
 
 
 #if _WIN32
@@ -132,9 +134,8 @@ static void print_time_elapsed(u64 total_elapsed, u64 freq, ProfileAnchor *ancho
 static void print_anchor(u64 total_CPU_elapsed, u64 freq) {
     for(u32 anchor_id = 0; anchor_id < array_count(g_profiler_anchors); ++anchor_id) {
         ProfileAnchor *anchor = g_profiler_anchors + anchor_id;
-        if(anchor->TSC_elapsed_inclusive) {
+        if(anchor->TSC_elapsed_inclusive)
             print_time_elapsed(total_CPU_elapsed, freq, anchor);
-        }
     }
 }
 
@@ -173,9 +174,8 @@ static u64 estimate_block_freq(void) {
     u64 block_elapsed = block_end - block_start;
 
     u64 block_freq = 0;
-    if(os_elapsed) {
+    if(os_elapsed)
         block_freq = os_freq * block_elapsed / os_elapsed;
-    }
 
     return block_freq;
 }
@@ -190,9 +190,8 @@ static void end_profile() {
 
     u64 total_elapsed = g_profiler.end_TSC - g_profiler.start_TSC;
 
-    if(freq) {
-        printf("\nTotal time: %0.4fms (timer freq %I64u)\n", 1000.0 * (double)total_elapsed / (double)freq, freq);
-    }
+    if(freq)
+        cout << "Total time: " << 1000.0 * (double)total_elapsed / (double)freq << "ms (timer freq " << freq << ")" << endl;
 
     print_anchor(total_elapsed, freq);
 }
