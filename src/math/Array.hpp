@@ -389,7 +389,7 @@ inline blast_fn void sincos(const Array& angles, Array& sines, Array& cosines) {
         __m256d angle_v = _mm256_loadu_pd(angles.data + i);
         s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
         _mm256_storeu_pd(sines.data+i, s_tmp);
-        _mm256_storeu_pd(sines.data+i, c_tmp);
+        _mm256_storeu_pd(cosines.data+i, c_tmp);
     }
 #else
     ;
@@ -406,7 +406,7 @@ inline blast_fn void sincos(const Array& angles, Array& sines, Array& cosines) {
         __m256 angle_v = _mm256_load_ps(angles.data+i);
         s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
         _mm256_storeu_ps(sines.data+i, s_tmp);
-        _mm256_storeu_ps(sines.data+i, c_tmp);
+        _mm256_storeu_ps(cosines.data+i, c_tmp);
     }
 #endif
 #endif
