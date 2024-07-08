@@ -206,7 +206,9 @@ void Link6::internal_constraints(const Trajectory& traj, real* dst) {
         dst[4] = -tmp_coll[4]; // dist5
         dst[5] = -tmp_coll[5]; // dist6
         dst[6] = -tmp_coll[6]; // dist7
-        dst += 7;
+        dst[7] = -tmp_coll[7]; // dist7
+        dst[8] = -tmp_coll[8]; // dist7
+        dst += 9;
 
         // 6 velocity limits
         for (int j = 0; j < (int)joints; j++)
@@ -261,7 +263,7 @@ bool Link6::validate_task(const Matrix &task, World *world) {
 }
 
 int Link6::ncon(int points) {
-    return (7 + 6 * 3) * points;
+    return (9 + 6 * 3) * points;
 }
 
 void Link6::dynamics(const Trajectory& traj) {
@@ -630,37 +632,37 @@ Array Link6::internal_collisions(const Array &joint_position) {
     sph_base.c = p_base;
     sph_base.r = 0.2375;
 
-    // capsule covering first link
+    // capsule covering second joint
     Capsule caps1;
     caps1.p1 = {capsules(0, 0), capsules(1, 0), capsules(2, 0)};
     caps1.p2 = {capsules(3, 0), capsules(4, 0), capsules(5, 0)};
     caps1.r = capsules(6, 0);
 
-    // capsule covering second link
+    // capsule covering first link
     Capsule caps2;
     caps2.p1 = {capsules(0, 1), capsules(1, 1), capsules(2, 1)};
     caps2.p2 = {capsules(3, 1), capsules(4, 1), capsules(5, 1)};
     caps2.r = capsules(6, 1);
 
-    // capsule covering joint 5
+    // capsule covering third joint
     Capsule caps3;
     caps3.p1 = {capsules(0, 2), capsules(1, 2), capsules(2, 2)};
     caps3.p2 = {capsules(3, 2), capsules(4, 2), capsules(5, 2)};
     caps3.r = capsules(6, 2);
 
-    // capsule covering last link
+    // capsule covering second link
     Capsule caps4;
     caps4.p1 = {capsules(0, 3), capsules(1, 3), capsules(2, 3)};
     caps4.p2 = {capsules(3, 3), capsules(4, 3), capsules(5, 3)};
     caps4.r = capsules(6, 3);
 
-    // capsule covering gripper & vision module
+    // capsule covering fifth joint
     Capsule caps5;
     caps5.p1 = {capsules(0, 4), capsules(1, 4), capsules(2, 4)};
     caps5.p2 = {capsules(3, 4), capsules(4, 4), capsules(5, 4)};
     caps5.r = capsules(6, 4);
 
-    // capsule covering gripper & vision module
+    // capsule covering last link
     Capsule caps6;
     caps6.p1 = {capsules(0, 5), capsules(1, 5), capsules(2, 5)};
     caps6.p2 = {capsules(3, 5), capsules(4, 5), capsules(5, 5)};
