@@ -30,10 +30,14 @@ inline blast_fn Array::Array(const Array& a) : size(a.size) {
 }
 
 inline blast_fn Array::Array(Array&& a) : data(a.data), size(a.size), is_alias(a.is_alias) {
+    a.data = nullptr;
+    a.size = 0;
     a.is_alias = true;
 }
 
-inline blast_fn Array::Array(const std::initializer_list<real>& list) : size((u32)list.size()) {
+inline blast_fn Array::Array(const std::initializer_list<real>& list) {
+    size = (u32)list.size();
+    is_alias = false;
     if (size) {
         data = (real*)Malloc(ALIGN, size * sizeof(real));
         memcpy(data, list.begin(), list.size() * sizeof(real));
@@ -81,6 +85,7 @@ inline blast_fn Array& Array::operator=(Array&& a) {
         data = a.data;
         size = a.size;
         is_alias = a.is_alias;
+        a.is_alias = true;
         a.data = nullptr;
         a.size = 0;
     }

@@ -136,7 +136,7 @@ struct Array {
     // create an Array from a const std::vector<real
     //  - note: copies data
     //  - note: not available on CUDA
-    Array(const svector&);
+    Array(const std::vector<real>&);
 
     // free memory if not an alias
     ~Array();
