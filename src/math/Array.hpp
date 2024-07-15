@@ -93,7 +93,8 @@ inline blast_fn Array& Array::operator=(Array&& a) {
 }
 
 inline blast_fn Array& Array::operator=(const std::initializer_list<real>& other) {
-    Assert(other.size() <= size);
+    if (size < other.size())
+        resize((u32)other.size());
     memcpy(data, other.begin(), other.size() * sizeof(real));
     return *this;
 }
