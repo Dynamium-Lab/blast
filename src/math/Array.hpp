@@ -4,6 +4,11 @@
 #include <xmmintrin.h>
 #include <immintrin.h>
 
+#if defined(__CUDA_ARCH__)
+#include <curand.h>
+#include <curand_kernel.h>
+#endif
+
 namespace blast {
 
 // Member functions
@@ -279,7 +284,7 @@ inline blast_fn real min(const Array& a) {
     Assert(a.size > 0);
     real result = INF_REAL;
     for (u32 i = 0; i < a.size; i++)
-        result = std::min(result, a[i]);
+        result = result < a[i] ? result : a[i];
     return result;
 }
 
@@ -287,7 +292,7 @@ inline blast_fn real max(const Array& a) {
     Assert(a.size > 0);
     real result = -INF_REAL;
     for (u32 i = 0; i < a.size; i++)
-        result = std::max(result, a[i]);
+        result = result > a[i] ? result : a[i];
     return result;
 }
 

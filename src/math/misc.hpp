@@ -47,20 +47,21 @@ inline blast_fn Array deg2rad(const Array& a) {
 }
 
 inline blast_fn real clamp(real val, real mini, real maxi) {
-    return std::min(maxi, std::max(val, mini));
+    return val > maxi ? maxi: val < mini ? mini: val;
 }
 
 inline blast_fn real& clamp_inplace(real& val, real mini, real maxi) {
-    val = clamp(val, mini, maxi);
+    val = val > maxi ? maxi: val < mini ? mini: val;
     return val;
 }
 
+#ifndef __CUDA_ARCH__
 inline host_fn real get_random() {
     static thread_local std::random_device rd;
     static thread_local std::mt19937 e2(rd());
     static thread_local std::uniform_real_distribution<blast::real> dis(-1, 1);
     return dis(e2);
 }
-
+#endif
 
 } // namespace blast
