@@ -512,13 +512,14 @@ Matrix Link6::forward_kinematics(const Matrix &pos) {
         Q6 = { 0,    s[5],  c[5],   0,    c[5],  -s[5],  -1,   0,   0};      // 4    -> 5
 
         auto Q = Q1;
-        p_ee = p_base
-               + Q * dv[0]
-               + (Q *= Q2) * dv[1]
-               + (Q *= Q3) * dv[2]
-               + (Q *= Q4) * dv[3]
-               + (Q *= Q5) * dv[4]
-               + (Q *= Q6) * dv[5];
+        p_ee = p_base;
+        p_ee += Q * dv[0];
+        p_ee += (Q *= Q2) * dv[1];
+        p_ee += (Q *= Q3) * dv[2];
+        p_ee += (Q *= Q4) * dv[3];
+        p_ee += (Q *= Q5) * dv[4];
+        p_ee += (Q *= Q6) * dv[5];
+
         poses(0, point) = p_ee.x;
         poses(1, point) = p_ee.y;
         poses(2, point) = p_ee.z;
