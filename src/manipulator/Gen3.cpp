@@ -530,14 +530,14 @@ Array Gen3::forward_kinematics(const Array &pos) {
     Mat3 Q7(c[6],   0,   -s[6],  -s[6],    0,   -c[6],  0,   1,  0);
 
     auto Q = Q1;
-    auto p_ee = p_base
-                + Q * dv[0]
-                + (Q *= Q2) * dv[1]
-                + (Q *= Q3) * dv[2]
-                + (Q *= Q4) * dv[3]
-                + (Q *= Q5) * dv[4]
-                + (Q *= Q6) * dv[5]
-                + (Q *= Q7) * dv[6];
+    auto p_ee = p_base;
+    p_ee += Q * dv[0];
+    p_ee += (Q *= Q2) * dv[1];
+    p_ee += (Q *= Q3) * dv[2];
+    p_ee += (Q *= Q4) * dv[3];
+    p_ee += (Q *= Q5) * dv[4];
+    p_ee += (Q *= Q6) * dv[5];
+    p_ee += (Q *= Q7) * dv[6];
 
     Array pose(6);
     pose[0] = p_ee.x;
@@ -566,14 +566,15 @@ Matrix Gen3::forward_kinematics(const Matrix &pos) {
         Q6 = {c[5], 0, s[5], -s[5], 0, c[5], 0, -1, 0};
         Q7 = {c[6], 0, -s[6], -s[6], 0, -c[6], 0, 1, 0};
         auto Q = Q1;
-        p_ee = p_base
-               + Q * dv[0]
-               + (Q *= Q2) * dv[1]
-               + (Q *= Q3) * dv[2]
-               + (Q *= Q4) * dv[3]
-               + (Q *= Q5) * dv[4]
-               + (Q *= Q6) * dv[5]
-               + (Q *= Q7) * dv[6];
+        p_ee = p_base;
+        p_ee += Q * dv[0];
+        p_ee += (Q *= Q2) * dv[1];
+        p_ee += (Q *= Q3) * dv[2];
+        p_ee += (Q *= Q4) * dv[3];
+        p_ee += (Q *= Q5) * dv[4];
+        p_ee += (Q *= Q6) * dv[5];
+        p_ee += (Q *= Q7) * dv[6];
+
         poses(0, point) = p_ee.x;
         poses(1, point) = p_ee.y;
         poses(2, point) = p_ee.z;
