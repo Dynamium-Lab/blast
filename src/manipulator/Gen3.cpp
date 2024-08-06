@@ -11,6 +11,10 @@ void compute_minimum_parameters(i32* edge, real end[][2], real b, real c, real e
 
 Gen3::Gen3() {
     p_base = {0, 0, 0.1564f};
+    Q_base =   {1.0f, 0.0f, 0.0f,
+                0.0f, 1.0f, 0.0f,
+                0.0f, 0.0f, 1.0f
+               };
     pmax.resize(7);
     vmax.resize(7);
     tau_max.resize(7);

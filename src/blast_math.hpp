@@ -84,12 +84,13 @@ blast_fn Vec3& operator*=(Vec3&, real);
 // 3x3 matrix
 struct Mat3 {
     real data[9] = {0};
-     Mat3() = default;
+    Mat3() = default;
     blast_fn Mat3(const Mat3& m);
     blast_fn Mat3(real x1, real y1, real z1,
-         real x2, real y2, real z2,
-         real x3, real y3, real z3);
+                  real x2, real y2, real z2,
+                  real x3, real y3, real z3);
     blast_fn real& operator()(u32 row, u32 col);
+    blast_fn real  operator()(u32 row, u32 col) const;
     blast_fn real& operator[](u32 i);
     blast_fn real  operator[](u32 i) const ;
     blast_fn Mat3& zero();

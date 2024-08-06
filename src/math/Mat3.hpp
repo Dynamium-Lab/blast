@@ -1,4 +1,5 @@
 #include "blast.h"
+#include "blast_math.hpp"
 
 namespace blast {
 
@@ -20,6 +21,10 @@ inline blast_fn Mat3::Mat3(real x1, real y1, real z1, real x2, real y2, real z2,
 }
 
 inline blast_fn real& Mat3::operator()(u32 row, u32 col) {
+    return data[3*col + row];
+}
+
+inline real Mat3::operator()(u32 row, u32 col) const {
     return data[3*col + row];
 }
 
