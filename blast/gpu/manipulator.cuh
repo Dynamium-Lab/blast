@@ -1,6 +1,6 @@
 #pragma once
 #include <math_constants.h>
-#include "blast_math.hpp"
+#include "blast.h"
 #include "gpu/trajectory.cuh"
 
 namespace blast {
@@ -52,7 +52,7 @@ struct cuGen3MultiTraj {
     //----------
 
     // compute the constraints based on the current trajectory point
-    dev_fn void compute_constraints_point(const real pos[7], const real vel[7], const real acc[7], real *con);
+    device_fn void compute_constraints_point(const real pos[7], const real vel[7], const real acc[7], real *con);
 };
 
 // note: must be a global variable because it is __constant__
@@ -212,7 +212,7 @@ __global__ void compute_constraints_kernel() {
     manip->compute_constraints_point(bspline->dev_pos, bspline->dev_vel, bspline->dev_acc, &manip->dev_constraints[manip->con_id(point, traj)]);
 }
 
-dev_fn void cuGen3MultiTraj::compute_constraints_point(const real pos[7], const real vel[7], const real acc[7], real *con) {
+device_fn void cuGen3MultiTraj::compute_constraints_point(const real pos[7], const real vel[7], const real acc[7], real *con) {
 #if BLAST_USE_DOUBLES
     real s[7];
     real c[7];
@@ -291,13 +291,13 @@ dev_fn void cuGen3MultiTraj::compute_constraints_point(const real pos[7], const 
     con[4] = -distTEE;
 
     //-- position constraints
-    con[5] = (abs(pos[3]) - pmax[3]) / pmax[3];
-    con[6] = (abs(pos[5]) - pmax[5]) / pmax[5];
+    con[5] = (::abs(pos[3]) - pmax[3]) / pmax[3];
+    con[6] = (::abs(pos[5]) - pmax[5]) / pmax[5];
 
     //-- velocity constraints
     auto current_result = &con[7];
     for (u32 i = 0; i < 7; i++)
-        current_result[i] = (abs(vel[i]) - vmax[i]) / vmax[i];
+        current_result[i] = (::abs(vel[i]) - vmax[i]) / vmax[i];
     current_result += 7;
 
     //-- Dynamic constraints
@@ -352,13 +352,13 @@ dev_fn void cuGen3MultiTraj::compute_constraints_point(const real pos[7], const 
     n1 = I[0] * wd1 + cross(w1, I[0] * w1) + Q2 * n2 + cross(av[0], f1) + cross(sv[0], (Q2 * f2));
 
     //-- extract torques (last element of each moment vector)
-    current_result[0] = (abs(n1.z) - tau_max[0]) / tau_max[0];
-    current_result[1] = (abs(n2.z) - tau_max[1]) / tau_max[1];
-    current_result[2] = (abs(n3.z) - tau_max[2]) / tau_max[2];
-    current_result[3] = (abs(n4.z) - tau_max[3]) / tau_max[3];
-    current_result[4] = (abs(n5.z) - tau_max[4]) / tau_max[4];
-    current_result[5] = (abs(n6.z) - tau_max[5]) / tau_max[5];
-    current_result[6] = (abs(n7.z) - tau_max[6]) / tau_max[6];
+    current_result[0] = (::abs(n1.z) - tau_max[0]) / tau_max[0];
+    current_result[1] = (::abs(n2.z) - tau_max[1]) / tau_max[1];
+    current_result[2] = (::abs(n3.z) - tau_max[2]) / tau_max[2];
+    current_result[3] = (::abs(n4.z) - tau_max[3]) / tau_max[3];
+    current_result[4] = (::abs(n5.z) - tau_max[4]) / tau_max[4];
+    current_result[5] = (::abs(n6.z) - tau_max[5]) / tau_max[5];
+    current_result[6] = (::abs(n7.z) - tau_max[6]) / tau_max[6];
 }
 
 } // namespace blast

@@ -1,7 +1,0 @@
-
-
-add_library(blast STATIC lib.cpp)
-
-target_include_directories  (blast PUBLIC   ../include)
-target_link_libraries       (blast PRIVATE  nlopt)
-target_compile_features     (blast PUBLIC   cxx_std_17)

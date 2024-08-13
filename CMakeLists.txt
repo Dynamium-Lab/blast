@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.16)
 
 project(
     Blast
@@ -9,8 +9,8 @@ project(
 
 set(CMAKE_INCLUDE_CURRENT_DIR   ON)
 
-add_subdirectory(extern/nlopt)
-add_subdirectory(src)
+add_subdirectory(extern/nlopt) # blast needs nlopt to be included first
+add_subdirectory(blast)
 
 
 # Only build examples, docs, and tests if main projects, not if included as a dependancy to another project.

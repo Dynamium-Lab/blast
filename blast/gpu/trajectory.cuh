@@ -1,5 +1,6 @@
 #pragma once
-#include "blast.cuh"
+#include "blast.h"
+#include "error.cuh"
 
 // note: CUDA stuff, only enabled if compiling for Nvidia GPUs
 #ifdef __NVCC__
@@ -63,7 +64,7 @@ struct cuMultiBsplines {
     host_fn void fetch_trajectories();
 
     // compute the trajectory for the given point on the GPU (only use from kernel)
-    dev_fn void compute_trajectory_point(unsigned point, unsigned traj_id);
+    device_fn void compute_trajectory_point(unsigned point, unsigned traj_id);
 
     // free all device memory but not if it's an alias
     host_fn ~cuMultiBsplines();
@@ -107,7 +108,7 @@ struct cuBspline {
     host_fn void compute_control_and_send(const Array &x, const Matrix &task);
 
     // compute the trajectory for the given point on the GPU (only use from kernel)
-    dev_fn void compute_trajectory(unsigned point);
+    device_fn void compute_trajectory(unsigned point);
 };
 
 //------ HOST FUNCTIONS ------------------------------------------------------------------------------------
@@ -280,7 +281,7 @@ host_fn void cuBspline::compute_control_and_send(const Array &x, const Matrix &t
     dt = x.back() / (real)(points - 1);
     one_over_T = 1 / x.back();
     one_over_T2 = one_over_T * one_over_T;
-    host->compute_control(x, task);
+    host->compute_control(x, task, host->control.data);
     cuda_check(cudaMemcpy(device_control, host->control.data, joints * ncontrol * sizeof(real), cudaMemcpyHostToDevice));
 }
 
@@ -295,7 +296,7 @@ __global__ void compute_trajectories_kernel() {
 
 //------ DEVICE FUNCTIONS ------------------------------------------------------------------------------------
 
-dev_fn void cuMultiBsplines::compute_trajectory_point(unsigned point, unsigned traj_id) {
+device_fn void cuMultiBsplines::compute_trajectory_point(unsigned point, unsigned traj_id) {
     t[traj_id*points + point] = dt[traj_id] * point;
     const auto bp = &dev_basis_p[point * ncontrol];
     const auto bv = &dev_basis_v[point * ncontrol];
@@ -317,7 +318,7 @@ dev_fn void cuMultiBsplines::compute_trajectory_point(unsigned point, unsigned t
     }
 }
 
-dev_fn void cuBspline::compute_trajectory(const unsigned point) {
+device_fn void cuBspline::compute_trajectory(const unsigned point) {
     device_t[point] = dt * point;
     const auto bp = device_basis_p + point * ncontrol;
     const auto bv = device_basis_v + point * ncontrol;
