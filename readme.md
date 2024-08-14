@@ -53,13 +53,13 @@ add_executable(<target> example.cpp)
 target_link_libraries(<target> PRIVATE blast nlopt)
 ```
 
-#### Build your application (windows + MSVC):
+Build your application (windows + MSVC):
 ```sh
 cmake -B build
 cmake --build build --config Release
 ```
 
-#### Build your application (almost every other build system):
+Build your application (almost every other build system):
 ```sh
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
