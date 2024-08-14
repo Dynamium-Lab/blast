@@ -20,14 +20,10 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     # build examples
     add_subdirectory(examples)
 
-    add_executable(main main.cpp)  
-    target_compile_features(main PUBLIC cxx_std_17)
-    target_link_libraries(main PRIVATE blast)
-
 
     # add tests
-    # enable_testing()
-    # add_subdirectory(tests)
+    enable_testing()
+    add_subdirectory(tests)
 
     # # Generate documentation
     # find_package(Doxygen)
@@ -38,11 +34,3 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     # endif()
 endif()
 
-# add dependancies
-# add_subdirectory(extern/eigen)
-# add_subdirectory(extern/nlopt)
-
-# if((CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OR MODERN_CMAKE_BUILD_TESTING)
-#    AND BUILD_TESTING)
-#   add_subdirectory(test)
-# endif()
