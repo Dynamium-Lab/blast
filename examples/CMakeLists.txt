@@ -6,4 +6,4 @@ target_compile_features(examples PUBLIC
     cxx_std_17
 )
 
-target_link_libraries(examples PRIVATE blast nlopt)
+target_link_libraries(examples PRIVATE blast)

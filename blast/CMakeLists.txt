@@ -1,3 +1,5 @@
+add_subdirectory(extern/nlopt)
+
 add_library(blast
     manipulator/Gen3.cpp
     manipulator/Link6.cpp
@@ -20,6 +22,7 @@ target_include_directories(blast PUBLIC
     Trajectory
     World
 )
+
 
 target_compile_features(blast PUBLIC cxx_std_17)
 target_link_libraries(blast PUBLIC nlopt)

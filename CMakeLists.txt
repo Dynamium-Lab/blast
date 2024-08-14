@@ -9,7 +9,6 @@ project(
 
 set(CMAKE_INCLUDE_CURRENT_DIR   ON)
 
-add_subdirectory(extern/nlopt) # blast needs nlopt to be included first
 add_subdirectory(blast)
 
 
