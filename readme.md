@@ -72,3 +72,15 @@ cmake --build build
 All files for `Blast` are in the `blast` subfolder. All `.cpp` files must be built. The `blast/CMakeLists.txt` file can help you locate them.
 
 
+## Contributing
+
+
+
+## ToDo for open source
+* [ ] Create better api for creating a Task
+* [ ] Create better api for launching optimization
+* [ ] Universal Robots UR5e
+* [ ] Yaskawa HC10DTP
+* [ ] Move all examples to `examples/`
+* [ ] Create better `examples`
+* [ ] Fill out documentation

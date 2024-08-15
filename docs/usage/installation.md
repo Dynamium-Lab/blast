@@ -8,19 +8,19 @@ You can find the latest release from the [Releases](https://github.com/Dynamium-
 
 ### As a git submodule
 To add `Blast` to a project as a submodule, run the following command from your git repository:
-```sh
+
+```console
 git submodule add https://github.com/Dynamium-Lab/blast.git <path>/blast/
 ```
-replace `<path>` with the path to where you store dependancies in your project, ex:
-```sh
-git submodule add https://github.com/Dynamium-Lab/blast.git extern/blast/
-```
+replace \<path\> with where you store dependancies in your project (extern/blast/ perhaps?).
+
+
 
 ## Build
 
 ### Cmake (easiest)
 The easiest method to build and use `Blast` is to use ``cmake``. Add the following to your ``CMakeLists.txt`` file:
-```Cmake
+```cmake
 # replace <path> with the path to where you stored 'Blast'
 add_subdirectory(<path>/blast)
 

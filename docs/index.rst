@@ -12,7 +12,6 @@ Blast documentation
 
 **Blast** is a fast C++ library for robot manipulator motion optimization that generates smooth, collision-free trajectories that respect kinematic constraints, dynamic constraints, and custom constraints. 
 
-
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
