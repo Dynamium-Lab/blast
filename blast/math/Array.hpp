@@ -360,8 +360,8 @@ inline blast_fn real dot(const Array& a, const Array& b) {
     __m256d accum = {0, 0, 0, 0};
     int vecLoopSize = (int)(a.size / 4) * 4;
     for (; i < vecLoopSize; i += 4) {
-        ra = _mm256_load_pd(&a.data[i]);
-        rb = _mm256_load_pd(&b.data[i]);
+        ra = _mm256_loadu_pd(&a.data[i]);
+        rb = _mm256_loadu_pd(&b.data[i]);
         accum = _mm256_fmadd_pd(ra, rb, accum);
     }
     r = simd_hadd(accum);
@@ -372,8 +372,8 @@ inline blast_fn real dot(const Array& a, const Array& b) {
     __m256 accum = {0, 0, 0, 0, 0, 0, 0, 0};
     int vecLoopSize = (int)(a.size / 8) * 8;
     for (; i < vecLoopSize; i += 8) {
-        ra = _mm256_load_ps(&a.data[i]);
-        rb = _mm256_load_ps(&b.data[i]);
+        ra = _mm256_loadu_ps(&a.data[i]);
+        rb = _mm256_loadu_ps(&b.data[i]);
         accum = _mm256_fmadd_ps(ra, rb, accum);
     }
     r = simd_hadd(accum);
@@ -414,7 +414,7 @@ inline blast_fn void sincos(const Array& angles, Array& sines, Array& cosines) {
     __m256 c_tmp;
     auto vecLoopSize = (angles.size / 8) * 8;
     for (; i < (int)vecLoopSize; i += 4) {
-        __m256 angle_v = _mm256_load_ps(angles.data+i);
+        __m256 angle_v = _mm256_loadu_ps(angles.data+i);
         s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
         _mm256_storeu_ps(sines.data+i, s_tmp);
         _mm256_storeu_ps(cosines.data+i, c_tmp);

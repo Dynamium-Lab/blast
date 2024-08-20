@@ -148,7 +148,7 @@ void R2::dynamics(const Trajectory& traj, Matrix& result) {
 #else
         __m128d s_tmp;
         __m128d c_tmp;
-        __m128d angle = _mm_load_pd(p.data);
+        __m128d angle = _mm_loadu_pd(p.data);
         s_tmp = _mm_sincos_pd(&c_tmp, angle);
         real s[2];
         real c[2];

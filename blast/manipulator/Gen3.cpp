@@ -283,7 +283,7 @@ void Gen3::dynamics(const Trajectory& traj) {
         __m256d s_tmp;
         __m256d c_tmp;
         for (u32 j = 0; j < 8; j += 4) {
-            __m256d angle_v = _mm256_load_pd(p + j);
+            __m256d angle_v = _mm256_loadu_pd(p + j);
             s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
             _mm256_storeu_pd(s + j, s_tmp);
             _mm256_storeu_pd(c + j, c_tmp);
@@ -291,7 +291,7 @@ void Gen3::dynamics(const Trajectory& traj) {
 #else
         __m256 s_tmp;
         __m256 c_tmp;
-        __m256 angle_v = _mm256_load_ps(p);
+        __m256 angle_v = _mm256_loadu_ps(p);
         s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
         _mm256_storeu_ps(s, s_tmp);
         _mm256_storeu_ps(c, c_tmp);
@@ -410,7 +410,7 @@ Array Gen3::dynamics(const Array& pos, const Array& vel, const Array& acc) {
     __m256d s_tmp;
     __m256d c_tmp;
     for (u32 j = 0; j < 8; j += 4) {
-        __m256d angle_v = _mm256_load_pd(p + j);
+        __m256d angle_v = _mm256_loadu_pd(p + j);
         s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
         _mm256_storeu_pd(s + j, s_tmp);
         _mm256_storeu_pd(c + j, c_tmp);
@@ -418,7 +418,7 @@ Array Gen3::dynamics(const Array& pos, const Array& vel, const Array& acc) {
 #else
     __m256 s_tmp;
     __m256 c_tmp;
-    __m256 angle_v = _mm256_load_ps(p);
+    __m256 angle_v = _mm256_loadu_ps(p);
     s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
     _mm256_storeu_ps(s, s_tmp);
     _mm256_storeu_ps(c, c_tmp);
