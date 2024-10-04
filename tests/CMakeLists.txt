@@ -10,3 +10,6 @@ include(ParseAndAddCatchTests)
 add_executable(profiler test_profiler.cpp)
 target_link_libraries(profiler PRIVATE blast)
 target_compile_definitions(profiler PRIVATE PROFILER=1)
+
+add_executable(link6_test test_manipulator/test_Link6.cpp)
+target_link_libraries(link6_test PRIVATE blast)
