@@ -728,6 +728,7 @@ Matrix Link6::robot_capsules(const Array &joint_position) {
     p_tmp += Q_tmp * dv[0];
     p_j2 = p_tmp;
     Q_tmp *= Q2;
+    y2 = Q_tmp.col_copy(1);
     z2 = Q_tmp.col_copy(2);
 
     p_tmp += Q_tmp * dv[1];
