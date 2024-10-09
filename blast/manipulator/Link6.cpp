@@ -49,7 +49,7 @@ void Link6::set_payload(const real m_payload, const Vec3 cg_payload, const Mat3 
     dv[4] = {0.08703, 0.0860, -0.07692};                    // 4 -> 5
     dv[5] = {0.0, 0.0, -0.0920};                            // 5 -> endeffector
     Vec3 dv_tool = {0.0, 0.0, - 0.0185 - 0.0185 - 0.163};   // endeffector -> vision + adapter + gripper
-    dv[5] = dv[5]  + dv_tool;
+    dv[5] += dv_tool;
     // todo: add option to know if tool is closed or opened (difference of 0.0135 in z)
 
     // unit joint direction
@@ -481,7 +481,7 @@ Array Link6::forward_kinematics(const Array &pos) {
     p_ee += (Q *= Q3) * dv[2];
     p_ee += (Q *= Q4) * dv[3];
     p_ee += (Q *= Q5) * dv[4];
-    p_ee += (Q *= Q6) * dv[5];;
+    p_ee += (Q *= Q6) * dv[5];
 
     Array pose(6);
     pose[0] = p_ee.x;
