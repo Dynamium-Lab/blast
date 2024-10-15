@@ -11,7 +11,7 @@ __global__ void pva_constraints_kernel(cuBspline pva) {
     blast::cuGen3MultiTraj* manip = (blast::cuGen3MultiTraj*)blast::manip_broadcast_arena;
     const u32 pva_offset = point * 7;
     const u32 constraints_offset = point * 21;
-    manip->compute_constraints(
+    manip->compute_constraints_point(
         pva.device_pos+pva_offset,
         pva.device_vel+pva_offset,
         pva.device_acc+pva_offset,
@@ -49,7 +49,7 @@ __global__ void constraints_no_pva_kernel(cuBspline pva) {
     }
     blast::cuGen3MultiTraj* manip = (blast::cuGen3MultiTraj*)blast::manip_broadcast_arena;
     const u32 constraints_offset = point * 21;
-    manip->compute_constraints(pos, vel, acc, manip->dev_constraints + constraints_offset);
+    manip->compute_constraints_point(pos, vel, acc, manip->dev_constraints + constraints_offset);
 }
 
 // kernel that uses shared memory to speed up constraint computation
@@ -92,6 +92,6 @@ __global__ void constraints_shared_kernel(cuBspline pva) {
 
     blast::cuGen3MultiTraj* manip = (blast::cuGen3MultiTraj*)blast::manip_broadcast_arena;
     const u32 constraints_offset = point * 21;
-    manip->compute_constraints(pos, vel, acc, manip->dev_constraints + constraints_offset);
+    manip->compute_constraints_point(pos, vel, acc, manip->dev_constraints + constraints_offset);
 }
 

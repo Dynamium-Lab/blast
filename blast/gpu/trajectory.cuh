@@ -9,7 +9,7 @@ namespace blast {
 // note: must be a global variable because it is __constant__
 // note: much faster if it's __constant__ because all threads access the same location (heavy use of broadcast operations)
 const int BSPLINE_BROADCAST_ARENA_SIZE = 256;
-__constant__ int bspline_broadcast_arena[BSPLINE_BROADCAST_ARENA_SIZE];
+__constant__ real bspline_broadcast_arena[BSPLINE_BROADCAST_ARENA_SIZE];
 
 struct cuMultiBsplines;
 
