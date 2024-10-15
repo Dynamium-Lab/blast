@@ -55,7 +55,7 @@ inline blast_fn Array::Array(real* d, u32 n) {
     is_alias = true;
 }
 
-inline blast_fn Array::Array(const svector& v) {
+inline host_fn Array::Array(const svector& v) {
     size = (u32)v.size();
     if (size) {
         data = (real*)Malloc(ALIGN, size * sizeof(real));
@@ -97,7 +97,7 @@ inline blast_fn Array& Array::operator=(Array&& a) {
     return *this;
 }
 
-inline blast_fn Array& Array::operator=(const std::initializer_list<real>& other) {
+inline host_fn Array& Array::operator=(const std::initializer_list<real>& other) {
     if (size < other.size())
         resize((u32)other.size());
     memcpy(data, other.begin(), other.size() * sizeof(real));
@@ -138,7 +138,7 @@ inline blast_fn real Array::operator[](u32 i) const {
     return data[i];
 }
 
-inline blast_fn Array& Array::alias(svector& v) {
+inline host_fn Array& Array::alias(svector& v) {
     if (data && !is_alias)
         Free(data);
     data = v.data();

@@ -140,7 +140,7 @@ struct Array {
     // create an Array from a const std::vector<real
     //  - note: copies data
     //  - note: not available on CUDA
-    blast_fn Array(const std::vector<real>&);
+    host_fn Array(const std::vector<real>&);
 
     // free memory if not an alias
     blast_fn ~Array();
@@ -153,7 +153,7 @@ struct Array {
 
     // copy data from a list
     //  - note: must be the same size
-    blast_fn Array& operator=(const std::initializer_list<real>& other);
+    host_fn Array& operator=(const std::initializer_list<real>& other);
 
     // access the element
     //  - note: does not check out of bounds
@@ -178,7 +178,7 @@ struct Array {
     // map the array to the data of the given std::vector<real>
     //  - note: becomes an alias
     //  - note: not available on CUDA
-    blast_fn Array& alias(svector&);
+    host_fn Array& alias(svector&);
 
     // map the array to the data of the given matrix
     //  - note: interpret all the data of the matrix as one long array, becomes an alias)
@@ -267,7 +267,7 @@ struct Matrix {
     //  - note: interpret as a n x 1 matrix
     //  - note: becomes an alias
     //  - note: not available on CUDA
-    blast_fn Matrix& alias(svector&);
+    host_fn Matrix& alias(svector&);
 
     // map the Matrix to the given data
     //  - note: becomes an alias
@@ -404,12 +404,12 @@ host_fn inline float simd_hadd(__m256 v) {
 
 } // namespace blast
 
-#if defined(_MSC_VER)
-#define Malloc(a, s) _aligned_malloc(s, a)
-#define Free _aligned_free
-#elif defined(__NVCC__)
+#if defined(__CUDA_ARCH__)
 #define Malloc(a, s) malloc(s)
 #define Free free
+#elif defined(_MSC_VER)
+#define Malloc(a, s) _aligned_malloc(s, a)
+#define Free _aligned_free
 #else
 #define Malloc aligned_alloc
 #define Free free

@@ -141,7 +141,7 @@ inline blast_fn Matrix& Matrix::alias(Array& a) {
     return *this;
 }
 
-inline blast_fn Matrix& Matrix::alias(std::vector<real>& v) {
+inline host_fn Matrix& Matrix::alias(std::vector<real>& v) {
     Assert(!v.empty());
     if (data && !is_alias)
         Free(data);
