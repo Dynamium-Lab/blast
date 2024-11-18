@@ -10,3 +10,6 @@ include(ParseAndAddCatchTests)
 add_executable(profiler test_profiler.cpp)
 target_link_libraries(profiler PRIVATE blast)
 target_compile_definitions(profiler PRIVATE PROFILER=1)
+
+add_executable(threadpool test_threadpool.cpp)
+target_link_libraries(threadpool PRIVATE blast)
