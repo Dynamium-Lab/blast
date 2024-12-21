@@ -26,7 +26,7 @@ target_include_directories(blast PUBLIC
 
 target_compile_features(blast PUBLIC cxx_std_17)
 target_link_libraries(blast PUBLIC nlopt)
-target_include_directories(blast PUBLIC extern/taskflow)
+target_include_directories(blast PUBLIC extern/taskflow extern/vcl)
 
 if(MSVC)
 target_compile_options(blast PUBLIC /arch:AVX2)
