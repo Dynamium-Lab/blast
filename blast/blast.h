@@ -18,6 +18,10 @@
 #define device_fn
 #endif
 
+#define VCL_NAMESPACE vcl
+#include "vectorclass.h"
+#include "vectormath_trig.h"
+
 namespace blast {
 
 using u8    = uint8_t;
