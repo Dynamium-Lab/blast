@@ -1,8 +1,9 @@
 #pragma once
 #include "blast.h"
 #include <cstdlib>
-#include <xmmintrin.h>
-#include <immintrin.h>
+// #include <xmmintrin.h>
+// #include <immintrin.h>
+#include "vectorclass.h"
 
 #if defined(__CUDA_ARCH__)
 #include <curand.h>
@@ -389,35 +390,33 @@ inline blast_fn void sincos(const Array& angles, Array& sines, Array& cosines) {
 
 #if BLAST_USE_DOUBLES
 #if defined(__CUDA_ARCH__)
+    // CUDA does not SIMD
     for (; i < angles.size; i++)
         ::sincos(angles[i], &sines[i], &cosines[i]);
 
-#elif defined(__INTEL_COMPILER) || defined(_MSC_VER)
-    __m256d s_tmp;
-    __m256d c_tmp;
-    auto vecLoopSize = (angles.size / 4) * 4;
-    for (; i < (int)vecLoopSize; i += 4) {
-        __m256d angle_v = _mm256_loadu_pd(angles.data + i);
-        s_tmp = _mm256_sincos_pd(&c_tmp, angle_v);
-        _mm256_storeu_pd(sines.data+i, s_tmp);
-        _mm256_storeu_pd(cosines.data+i, c_tmp);
-    }
 #else
-    ;
+    vcl::Vec4d a, c, s;
+    int vecLoopSize = (angles.size / 4) * 4; // todo: remove type cast
+    for (; i < vecLoopSize; i += 4) {
+        a.load(angles.data + i);
+        s = vcl::sincos(&c, a);
+        s.store(sines.data + i);
+        c.store(cosines.data + i);
+    }
 #endif
 #else // single precision
 #if defined(__CUDA_ARCH__)
+    // CUDA does not SIMD
     for (; i < angles.size; i++)
         ::sincosf(angles[i], &sines[i], &cosines[i]);
 #else
-    __m256 s_tmp;
-    __m256 c_tmp;
-    auto vecLoopSize = (angles.size / 8) * 8;
-    for (; i < (int)vecLoopSize; i += 4) {
-        __m256 angle_v = _mm256_loadu_ps(angles.data+i);
-        s_tmp = _mm256_sincos_ps(&c_tmp, angle_v);
-        _mm256_storeu_ps(sines.data+i, s_tmp);
-        _mm256_storeu_ps(cosines.data+i, c_tmp);
+    vcl::Vec8f a, c, s;
+    int vecLoopSize = (angles.size / 8) * 8; // todo: remove type cast
+    for (; i < vecLoopSize; i += 8) {
+        a.load(angles.data + i);
+        s = vcl::sincos(&c, a);
+        s.store(sines.data + i);
+        c.store(cosines.data + i);
     }
 #endif
 #endif

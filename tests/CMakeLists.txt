@@ -13,3 +13,6 @@ target_compile_definitions(profiler PRIVATE PROFILER=1)
 
 add_executable(link6_test test_manipulator/test_Link6.cpp)
 target_link_libraries(link6_test PRIVATE blast Catch2::Catch2)
+
+add_executable(threadpool test_threadpool.cpp)
+target_link_libraries(threadpool PRIVATE blast)
