@@ -175,9 +175,9 @@ Array guess_shot_mean(Optimization<T_manip>& opt, int nshotgun) {
         }
         real r = 0;
         for (u32 i = 0; i < c1.size; i++)
-            r += std::max({c1[i], 0.0});
+            r += std::max(c1[i], 0.0);
         for (u32 i = 0; i < c2.size; i++)
-            r += std::max({c2[i], 0.0});
+            r += std::max(c2[i], 0.0);
         r *= x.data[x.size - 1]; // todo: Add the right format to penalize for longer trajectories (avoid local minimums)
         Assert( ! isnan(r));
         if (r < best_val) {
