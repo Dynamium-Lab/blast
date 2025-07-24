@@ -40,8 +40,9 @@ using i64   = int64_t;
 #include "blast_math.hpp"
 
 #include "blast_utilities.hpp"
+#include "blast_containers.hpp"
 
-#include "blast_world.h"
-#include "blast_trajectory.h"
-#include "blast_manipulator.h"
-#include "blast_optimization.h"
+#include "blast_world.hpp"
+#include "blast_trajectory.hpp"
+#include "blast_manipulator.hpp"
+#include "blast_optimization.hpp"

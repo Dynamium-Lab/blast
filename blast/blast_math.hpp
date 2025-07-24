@@ -16,9 +16,12 @@ const u32 ALIGN = 64;
 // Types declared in this file
 struct Vec3;
 struct Mat3;
-struct Mat4;
 struct Array;
 struct Matrix;
+
+
+// Useful Functions
+inline Mat3 rpy2rotation(Vec3 rpy);
 
 
 // uses doubles by default unless BLAST_USE_DOUBLES is set to 0
@@ -100,12 +103,14 @@ struct Mat3 {
 blast_fn Mat3& zero(Mat3&);
 blast_fn Mat3& transpose_inplace(Mat3& m);
 blast_fn Mat3  transpose(const Mat3& m);
+blast_fn Mat3  eye();
 blast_fn Mat3  operator*(const Mat3& m, const Mat3 rhs);
-blast_fn Mat3 operator*(const real x, const Mat3& m);
+blast_fn Mat3  operator*(const real x, const Mat3& m);
+blast_fn Vec3  operator*(const Mat3& m, const Vec3 v);
 blast_fn Mat3& operator*=(Mat3& lhs, const Mat3& rhs);
 blast_fn Mat3  operator+(const Mat3& lhs, const Mat3& rhs);
 blast_fn Mat3& operator+=(Mat3& lhs, const Mat3& rhs);
-blast_fn Vec3  operator*(const Mat3& m, const Vec3 v);
+blast_fn Mat3  operator-(const Mat3& m, const Mat3& m2);
 
 
 // Array of real numbers
@@ -297,7 +302,6 @@ blast_fn Matrix operator/(const Matrix& m, real& r);
 blast_fn Matrix pw_mult(const Matrix& m1, const Matrix& m2);
 blast_fn Matrix eye(const u32 s);
 blast_fn Matrix transpose(const Matrix& m);
-blast_fn Matrix pinv_svd(const Matrix& m);
 
 // Conversion functions
 blast_fn real  wrap2pi(real);
@@ -310,14 +314,12 @@ blast_fn Array rad2deg(const Array&);
 // fill container with zeros (does not resize)
 blast_fn Vec3&   zero(Vec3&);
 blast_fn Mat3&   zero(Mat3&);
-blast_fn Mat4&   zero(Mat4&);
 blast_fn Array&  zero(Array&);
 blast_fn Matrix& zero(Matrix&);
 
 // fill container with given value (does not resize)
 blast_fn Vec3&   constant(Vec3&,    real val);
 blast_fn Mat3&   constant(Mat3&,    real val);
-blast_fn Mat4&   constant(Mat4&,    real val);
 blast_fn Array&  constant(Array&,   real val);
 blast_fn Matrix& constant(Matrix&,  real val);
 
@@ -336,14 +338,12 @@ blast_fn bool is_close(const Vec3&,   const Vec3&,   real eps = 1e-05);
 blast_fn bool is_close(const Array&,  const Array&,  real eps = 1e-05);
 blast_fn bool is_close(const Matrix&, const Matrix&, real eps = 1e-05);
 blast_fn bool is_close(const Mat3&,   const Mat3&,   real eps = 1e-05);
-blast_fn bool is_close(const Mat4&,   const Mat4&,   real eps = 1e-05);
 
 // Check if all values of the container are small (within eps)
 blast_fn bool is_small(const Array&,  real eps = 1e-05);
 blast_fn bool is_small(const Matrix&, real eps = 1e-05);
 blast_fn bool is_small(const Vec3&,   real eps = 1e-05);
 blast_fn bool is_small(const Mat3&,   real eps = 1e-05);
-blast_fn bool is_small(const Mat4&,   real eps = 1e-05);
 
 // Random
 blast_fn real    get_random();
@@ -377,7 +377,7 @@ blast_fn void sincos(const Array& angles, Array& sines, Array& cosines);
 blast_fn Matrix pinv(const Matrix& m);
 
 // https://stackoverflow.com/a/49943540
-host_fn inline double simd_hadd(__m256d v) {
+inline host_fn double simd_hadd(__m256d v) {
     __m128d vlow  = _mm256_castpd256_pd128(v);
     __m128d vhigh = _mm256_extractf128_pd(v, 1);
     vlow  = _mm_add_pd(vlow, vhigh);
@@ -387,7 +387,7 @@ host_fn inline double simd_hadd(__m256d v) {
 }
 
 // https://stackoverflow.com/a/35270026
-host_fn inline float simd_hadd(__m128 v) {
+inline host_fn float simd_hadd(__m128 v) {
     __m128 shuf = _mm_movehdup_ps(v);        // broadcast elements 3,1 to 2,0
     __m128 sums = _mm_add_ps(v, shuf);
     shuf        = _mm_movehl_ps(shuf, sums); // high half -> low half
@@ -395,7 +395,7 @@ host_fn inline float simd_hadd(__m128 v) {
     return        _mm_cvtss_f32(sums);
 }
 
-host_fn inline float simd_hadd(__m256 v) {
+inline host_fn float simd_hadd(__m256 v) {
     __m128 vlow  = _mm256_castps256_ps128(v);
     __m128 vhigh = _mm256_extractf128_ps(v, 1); // high 128
     vlow  = _mm_add_ps(vlow, vhigh);     // add the low 128

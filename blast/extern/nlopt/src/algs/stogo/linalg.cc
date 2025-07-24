@@ -3,8 +3,8 @@
    No attempt is made to check if the function arguments are valid
 */
 
-#include <iostream>
-#include <math.h>         // for sqrt()
+#include <ostream>
+#include <cmath>         // for sqrt()
 
 #include "linalg.h"
 
@@ -32,7 +32,9 @@ RVector::RVector() {
 RVector::RVector(int n) {
  // Constructor
  len=n;
- elements=new double[len]; (*this)=0.;
+ if (n > 0)
+   elements = new double[len];
+ (*this)=0.;
 }
 
 RVector::RVector(RCRVector vect)

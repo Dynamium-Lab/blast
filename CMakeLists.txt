@@ -18,7 +18,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
     # build examples
-    add_subdirectory(examples)
+    # add_subdirectory(examples)
 
 
     # add tests

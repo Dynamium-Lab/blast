@@ -1,5 +1,5 @@
 #pragma once
-#include "blast.h"
+#include <blast>
 #include <cstdlib>
 // #include <xmmintrin.h>
 // #include <immintrin.h>

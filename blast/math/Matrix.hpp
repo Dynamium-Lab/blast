@@ -1,4 +1,4 @@
-#include "blast.h"
+#include <blast>
 
 namespace blast {
 
@@ -258,6 +258,13 @@ inline blast_fn bool is_close(const Matrix& m1, const Matrix& m2, real eps) {
     Assert(m1.cols == m2.cols && m1.rows == m2.rows);
     for (u32 i =0; i < m1.size; i++)
         if(m1.data[i] - m2.data[i] > eps || m1.data[i] - m2.data[i] < -eps)
+            return false;
+    return true;
+}
+
+inline blast_fn bool is_small(const Matrix& m, real eps){
+    for (u32 i = 0; i < m.size; i++)
+        if (std::abs(m.data[i]) > eps)
             return false;
     return true;
 }

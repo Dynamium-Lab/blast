@@ -1,5 +1,5 @@
 #pragma once
-#include "blast.h"
+#include <blast>
 #include "error.cuh"
 
 // note: CUDA stuff, only enabled if compiling for Nvidia GPUs

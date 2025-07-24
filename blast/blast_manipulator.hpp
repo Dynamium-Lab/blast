@@ -1,6 +1,6 @@
 #pragma once
 
-#include "blast.h"
+#include <blast>
 #include <vector>
 
 namespace blast {

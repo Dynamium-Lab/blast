@@ -1,5 +1,5 @@
 add_executable(examples
-    blast_nlopt_function_bind.cpp
+    main.cpp
 )
 
 target_compile_features(examples PUBLIC

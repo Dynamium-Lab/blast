@@ -1,5 +1,4 @@
-#include "blast.h"
-#include "blast_utilities.hpp"
+#include <blast>
 
 #include "nlopt.h"
 #include "json.hpp"

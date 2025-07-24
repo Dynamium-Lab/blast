@@ -10,7 +10,7 @@
 Once built and linked, simply include the main `blast.h` header file. All functions and types are namespaced with `blast::`.
 
 ```c++
-#include "blast.h"
+#include <blast>
 
 int main() {
     blast::Vec3 a = {1,2,3};

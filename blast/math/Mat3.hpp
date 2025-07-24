@@ -1,5 +1,6 @@
-#include "blast.h"
-#include "blast_math.hpp"
+#pragma once
+
+#include <blast>
 
 namespace blast {
 
@@ -107,6 +108,13 @@ inline blast_fn Vec3 operator*(const Mat3& m, const Vec3 v) {
     return r;
 }
 
+inline blast_fn Mat3 operator-(const Mat3& m1, const Mat3& m2){
+    Mat3 r;
+    for (u32 i = 0; i < 9; i++)
+        r.data[i] = m1.data[i] - m2.data[i];
+    return r;
+}
+
 inline blast_fn Mat3 transpose(const Mat3& m) {
     Mat3 result {
         m.data[0],
@@ -120,6 +128,14 @@ inline blast_fn Mat3 transpose(const Mat3& m) {
         m.data[8]
     };
     return result;
+}
+
+inline blast_fn Mat3 eye() {
+    return Mat3 {
+        1, 0, 0,
+        0, 1, 0,
+        0, 0, 1
+    };
 }
 
 inline blast_fn Mat3& transpose_inplace(Mat3& m) {

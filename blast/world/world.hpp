@@ -1,8 +1,5 @@
-#include "blast.h"
-#include <cmath>
-#include <algorithm>
-
-// using std::vector;
+#pragma once
+#include <blast>
 
 namespace blast {
 

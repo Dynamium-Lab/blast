@@ -4,6 +4,7 @@
 // Converting NLopt/C++ exceptions to Python exceptions
 
 %{
+#ifndef Py_LIMITED_API
 
 #define ExceptionSubclass(EXCNAME, EXCDOC)				\
   static PyTypeObject MyExc_ ## EXCNAME = {				\
@@ -28,16 +29,23 @@ ExceptionSubclass(ForcedStop,
 ExceptionSubclass(RoundoffLimited,
 		  "Python version of nlopt::roundoff_limited exception.")
 
+#endif
 %}
 
 %init %{
+#ifndef Py_LIMITED_API
   init_ForcedStop(m);
   init_RoundoffLimited(m);
+#endif
 %}
 %pythoncode %{
-  ForcedStop = _nlopt.ForcedStop
-  RoundoffLimited = _nlopt.RoundoffLimited
-  __version__ = str(_nlopt.version_major())+'.'+str(_nlopt.version_minor())+'.'+str(_nlopt.version_bugfix())
+try:
+    ForcedStop = _nlopt.ForcedStop
+    RoundoffLimited = _nlopt.RoundoffLimited
+except AttributeError:
+    ForcedStop = RuntimeError
+    RoundoffLimited = RuntimeError
+__version__ = str(_nlopt.version_major())+'.'+str(_nlopt.version_minor())+'.'+str(_nlopt.version_bugfix())
 %}
 
 %typemap(throws) std::bad_alloc %{
@@ -47,12 +55,21 @@ ExceptionSubclass(RoundoffLimited,
 
 %typemap(throws) nlopt::forced_stop %{
   if (!PyErr_Occurred())
+#ifndef Py_LIMITED_API
     PyErr_SetString((PyObject*)&MyExc_ForcedStop, "NLopt forced stop");
+#else
+    PyErr_SetString(PyExc_RuntimeError, "NLopt forced stop");
+#endif
   SWIG_fail;
 %}
 
 %typemap(throws) nlopt::roundoff_limited %{
-  PyErr_SetString((PyObject*)&MyExc_RoundoffLimited, "NLopt roundoff-limited");
+  if (!PyErr_Occurred())
+#ifndef Py_LIMITED_API
+    PyErr_SetString((PyObject*)&MyExc_RoundoffLimited, "NLopt roundoff-limited");
+#else
+    PyErr_SetString(PyExc_RuntimeError, "NLopt roundoff-limited");
+#endif
   SWIG_fail;
 %}
 
@@ -107,8 +124,10 @@ ExceptionSubclass(RoundoffLimited,
 {
   npy_intp sz = $1.size();
   $result = PyArray_SimpleNew(1, &sz, NPY_DOUBLE);
-  std::memcpy(array_data($result), $1.empty() ? NULL : &$1[0],
-	      sizeof(double) * sz);
+  if (!$1.empty())
+  {
+    std::memcpy(array_data($result), &$1[0], sizeof(double) * sz);
+  }
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -134,7 +153,7 @@ static double func_python(unsigned n, const double *x, double *grad, void *f)
     : PyArray_SimpleNew(1, &sz0, NPY_DOUBLE);
   
   PyObject *arglist = Py_BuildValue("OO", xpy, gradpy);
-  PyObject *result = PyEval_CallObject((PyObject *) f, arglist);
+  PyObject *result = PyObject_Call((PyObject *) f, arglist, NULL);
   Py_DECREF(arglist);
 
   Py_DECREF(gradpy);
@@ -147,6 +166,10 @@ static double func_python(unsigned n, const double *x, double *grad, void *f)
   }
   else if (result && PyFloat_Check(result)) {
     val = PyFloat_AsDouble(result);
+    Py_DECREF(result);
+  }
+  else if (result && PyLong_Check(result)) {
+    val = PyLong_AsUnsignedLong(result);
     Py_DECREF(result);
   }
   else {
@@ -171,7 +194,7 @@ static void mfunc_python(unsigned m, double *result,
     : PyArray_SimpleNew(1, &sz0, NPY_DOUBLE);
   
   PyObject *arglist = Py_BuildValue("OOO", rpy, xpy, gradpy);
-  PyObject *res = PyEval_CallObject((PyObject *) f, arglist);
+  PyObject *res = PyObject_Call((PyObject *) f, arglist, NULL);
   Py_XDECREF(res);
   Py_DECREF(arglist);
 

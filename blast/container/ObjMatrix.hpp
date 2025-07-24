@@ -1,5 +1,5 @@
 #pragma once
-#include "blast.h"
+#include <blast>
 #include <vector>
 
 namespace blast {
@@ -118,10 +118,28 @@ inline const T& ObjMatrix<T>::operator()(int r, int c) const {
 template<typename T>
 inline void ObjMatrix<T>::resize(int r, int c) {
     Assert(r >= 0 && c >= 0);
-    rows = r;
-    cols = c;
-    size = r * c;
-    data.resize(size);
+    if (size == 0) {
+        this->rows = r;
+        this->cols = c;
+        this->size = r * c;
+        data.resize(c * r);
+    }
+    else {
+        auto old_matrix = *this;
+
+        this->rows = r;
+        this->cols = c;
+        this->size = r * c;
+        data.clear();
+        data.resize(c * r);
+
+        // Copy the old data into the new matrix but only up to the minimum of the old and new dimensions
+        for (int i = 0; i < std::min(old_matrix.rows, r); i++) {
+            for (int j = 0; j < std::min(old_matrix.cols, c); j++) {
+                (*this)(j, i) = old_matrix(j, i);
+            }
+        }
+    }
 }
 
 

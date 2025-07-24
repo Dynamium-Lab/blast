@@ -1,6 +1,6 @@
 #pragma once
 #include <math_constants.h>
-#include "blast.h"
+#include <blast>
 #include "gpu/trajectory.cuh"
 
 namespace blast {

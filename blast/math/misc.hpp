@@ -1,11 +1,45 @@
 #pragma once
-#include "blast.h"
+#include <blast>
 #include <random>
 
 namespace blast {
 
+
+// Returns a rotation matrix from roll, pitch, yaw angles
+inline Mat3 rpy2rotation(Vec3 rpy) {
+    // Pre-compute cosines and sines.
+    double cx = cos(rpy.x);
+    double sx = sin(rpy.x);
+    double cy = cos(rpy.y);
+    double sy = sin(rpy.y);
+    double cz = cos(rpy.z);
+    double sz = sin(rpy.z);
+
+    // Compute the rotation matrix components.
+    Mat3 R;
+    R(0, 0) = cy * cz;
+    R(0, 1) = -cy * sz;
+    R(0, 2) = sy;
+
+    R(1, 0) = sx * sy * cz + cx * sz;
+    R(1, 1) = -sx * sy * sz + cx * cz;
+    R(1, 2) = -sx * cy;
+
+    R(2, 0) = -cx * sy * cz + sx * sz;
+    R(2, 1) = cx * sy * sz + sx * cz;
+    R(2, 2) = cx * cy;
+
+    return R;
+}
+
+// Returns the sign of a real number (zero if it is zero).
 inline blast_fn real sign(real v) {
     return v > 0 ? (real)1: v == (real)0 ? 0: (real)-1;
+}
+
+// Returns the sign of a real number (zero will return 1).
+inline blast_fn real sign_no_zero(real v) {
+    return v >= 0 ? (real)1: (real)-1;
 }
 
 inline blast_fn real wrap2pi(real r) {

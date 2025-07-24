@@ -1,8 +1,10 @@
 #pragma once
 
-#include "blast.h"
+#include <blast>
 #include <functional>
 #include <cstring>
+
+#include "optimization/optimization.hpp"
 
 namespace blast {
 

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "blast.h"
-#include "blast_trajectory.h"
+#include <blast>
+#include "blast_trajectory.hpp"
 
 #if defined(_MSC_VER)
 #define NOMINMAX
@@ -15,19 +15,23 @@
 #include <cmath>
 #include <string>
 #include <fstream>
+#include <sstream>
+#include <iostream>
+#include <stdio.h>
+#include "json.hpp"
 
 namespace blast {
 
-inline void print(Vec3 v) {
+inline blast_fn void print(Vec3 v) {
     printf("[% 0.4f, % 0.4f, % 0.4f]\n", v.x, v.y, v.z);
 }
 
-inline void print(Mat3 m) {
+inline blast_fn void print(Mat3 m) {
     printf("\n[% 0.4f, % 0.4f, % 0.4f]\n[% 0.4f, % 0.4f, % 0.4f]\n[% 0.4f, % 0.4f, % 0.4f]\n",
            m(0, 0), m(0, 1), m(0, 2), m(1, 0), m(1, 1), m(1, 2), m(2, 0), m(2, 1), m(2, 2));
 }
 
-inline void print(const Array& a) {
+inline blast_fn void print(const Array& a) {
     using namespace std;
     if(a.size == 0)
         return;
@@ -37,7 +41,7 @@ inline void print(const Array& a) {
     printf("% 0.4f]\n", a[a.size-1]);
 }
 
-inline void print(const Matrix& m) {
+inline blast_fn void print(const Matrix& m) {
     if(m.size == 0)
         return;
     for (u32 i = 0; i < m.rows; i++) {
@@ -48,21 +52,21 @@ inline void print(const Matrix& m) {
     }
 }
 
-inline void print(double* data, unsigned size) {
+inline blast_fn void print(double* data, unsigned size) {
     printf("[");
     for (u32 i = 0; i < size-1; i++)
         printf("% 0.4f, ", data[i]);
     printf("% 0.4f]\n", data[size-1]);
 }
 
-inline void print(float* data, unsigned size) {
+inline blast_fn void print(float* data, unsigned size) {
     printf("[");
     for (u32 i = 0; i < size-1; i++)
         printf("% 0.4f, ", data[i]);
     printf("% 0.4f]\n", data[size-1]);
 }
 
-inline void print(double* data, unsigned rows, unsigned cols) {
+inline blast_fn void print(double* data, unsigned rows, unsigned cols) {
     for (u32 i = 0; i < rows; i++) {
         printf("[");
         for (u32 j = 0; j < cols-1; j++)
@@ -71,7 +75,7 @@ inline void print(double* data, unsigned rows, unsigned cols) {
     }
 }
 
-inline void print(float* data, unsigned rows, unsigned cols) {
+inline blast_fn void print(float* data, unsigned rows, unsigned cols) {
     for (u32 i = 0; i < rows; i++) {
         printf("[");
         for (u32 j = 0; j < cols-1; j++)
@@ -132,6 +136,93 @@ inline host_fn int64_t get_tick_us() {
     clock_gettime(CLOCK_MONOTONIC, &start);
     return (start.tv_sec * 1000000LLU) + (start.tv_nsec / 1000);
 #endif
+}
+
+inline host_fn blast::Matrix read_csv_matrix(const std::string& filename, const char* csv_sep = ",") {
+    std::ifstream file(filename);
+    std::cout << "Reading from file: " << filename << std::endl;
+    if (!file.is_open()) {
+        Assert(false);
+        std::cerr << "ERROR: File is unavailable" << std::endl;
+        return blast::Matrix(0, 0);
+    }
+
+    std::string line;
+    u32 num_rows = 0, num_cols = 0;
+
+    std::getline(file, line); //discard first line
+    // Determine number of rows and columns
+    if (std::getline(file, line)) {
+        num_cols = std::count(line.begin(), line.end(), *csv_sep) + 1;
+        num_rows++;
+    }
+    while (std::getline(file, line)) {
+        num_rows++;
+    }
+
+    // Rewind file to read again
+    file.clear();
+    file.seekg(0);
+
+    // Create matrix with detected dimensions
+    blast::Matrix pos(num_rows, num_cols);
+
+    std::getline(file, line); //discard first line
+    // Read the data into the matrix
+    for (u32 i = 0; i < num_rows; i++) {
+        std::getline(file, line);
+        std::istringstream iss(line);
+        for (u32 j = 0; j < num_cols; j++) {
+            std::string value;
+            if (std::getline(iss, value, *csv_sep)) {
+                pos(i, j) = std::stod(value);
+            }
+        }
+    }
+    return pos;
+}
+
+inline host_fn blast::Matrix read_csv_matrix_no_header(const std::string& filename, const char* csv_sep = ",") {
+    std::ifstream file(filename);
+    std::cout << "Reading from file: " << filename << std::endl;
+    if (!file.is_open()) {
+        Assert(false);
+        std::cerr << "ERROR: File is unavailable" << std::endl;
+        return blast::Matrix(0, 0);
+    }
+
+    std::string line;
+    u32 num_rows = 0, num_cols = 0;
+
+    // Determine number of rows and columns
+    if (std::getline(file, line)) {
+        num_cols = std::count(line.begin(), line.end(), *csv_sep) + 1;
+        num_rows++;
+    }
+    while (std::getline(file, line)) {
+        num_rows++;
+    }
+
+    // Rewind file to read again
+    file.clear();
+    file.seekg(0);
+
+    // Create matrix with detected dimensions
+    blast::Matrix pos(num_rows, num_cols);
+
+    // Read the data into the matrix
+    for (u32 i = 0; i < num_rows; i++) {
+        std::getline(file, line);
+        std::istringstream iss(line);
+        for (u32 j = 0; j < num_cols; j++) {
+            std::string value;
+            if (std::getline(iss, value, *csv_sep)) {
+                pos(i, j) = std::stod(value);
+            }
+        }
+    }
+
+    return pos;
 }
 
 // note: CUDA stuff, only enabled if compiling for Nvidia GPUs

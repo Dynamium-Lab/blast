@@ -1,4 +1,4 @@
-#include "blast.h"
+#include <blast>
 #include <iostream>
 
 namespace blast {

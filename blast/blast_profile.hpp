@@ -109,7 +109,7 @@ struct ProfileBlock {
 
 static void print_time_elapsed(u64 total_elapsed, u64 freq, ProfileAnchor *anchor) {
     double percent = 100.0 * ((double)anchor->TSC_elapsed_exclusive / (double)total_elapsed);
-    cout << "  " << anchor->label << "[" << anchor->hit_count << "]: " << anchor->TSC_elapsed_exclusive << " (" << percent << "%";
+    cout << "  " << anchor->label << "[" << anchor->hit_count << "]: " << 1000.0 * anchor->TSC_elapsed_exclusive / (double)freq << " ms (" << percent << "%";
     if(anchor->TSC_elapsed_inclusive != anchor->TSC_elapsed_exclusive) {
         double percent_w_children = 100.0 * ((double)anchor->TSC_elapsed_inclusive / (double)total_elapsed);
         printf(", %.2f%% w/children", percent_w_children);
