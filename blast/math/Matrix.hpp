@@ -306,11 +306,11 @@ inline blast_fn Matrix pw_mult(const Matrix& m1, const Matrix& m2) {
     return result;
 }
 
-inline blast_fn Matrix eye(const u32 s) {
+inline blast_fn Matrix eye(int s) {
     Matrix result(s, s);
     for (u32 i = 0; i < s; ++i) {
         for (u32 j = 0; j < s; ++j) {
-            result(j, i) = i == j ? (real)1 : (real)0;
+            result(j, i) = i == j ? 1 : 0;
         }
     }
     return result;

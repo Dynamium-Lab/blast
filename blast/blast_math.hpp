@@ -51,7 +51,7 @@ static_assert(sizeof(real) == BLAST_SIZEOF_REAL);
     constexpr real INF_REAL = std::numeric_limits<real>::infinity();
 #endif
 
-constexpr real PI = (real)3.1415;
+constexpr real PI = 3.141592653589793;
 
 
 // Type aliases
@@ -65,54 +65,54 @@ struct Vec3 {
     real z = 0;
     real _pad = 0;
     Vec3() = default;
-    blast_fn Vec3(real x, real y, real z);
+    inline blast_fn Vec3(real x, real y, real z);
 
-    blast_fn real& operator[](int i);
-    blast_fn real operator[](int i) const;
-    blast_fn bool operator==(const Vec3&) const;
+    inline blast_fn real& operator[](int i);
+    inline blast_fn real operator[](int i) const;
+    inline blast_fn bool operator==(const Vec3&) const;
 };
-blast_fn Vec3  cross(Vec3, Vec3);
-blast_fn Vec3& zero(Vec3&);
-blast_fn Vec3& constant(Vec3&, real val);
-blast_fn real  dot(Vec3, Vec3);
-blast_fn real  norm(Vec3);
-blast_fn Vec3  operator-(Vec3);
-blast_fn Vec3  operator-(Vec3, Vec3);
-blast_fn Vec3  operator+(Vec3, Vec3);
-blast_fn Vec3  operator*(real, Vec3);
-blast_fn Vec3  operator*(Vec3, real);
-blast_fn Vec3  operator/(Vec3, real);
-blast_fn Vec3& operator+=(Vec3&, const Vec3&);
-blast_fn Vec3& operator*=(Vec3&, real);
+inline blast_fn Vec3  cross(Vec3, Vec3);
+inline blast_fn Vec3& zero(Vec3&);
+inline blast_fn Vec3& constant(Vec3&, real val);
+inline blast_fn real  dot(Vec3, Vec3);
+inline blast_fn real  norm(Vec3);
+inline blast_fn Vec3  operator-(Vec3);
+inline blast_fn Vec3  operator-(Vec3, Vec3);
+inline blast_fn Vec3  operator+(Vec3, Vec3);
+inline blast_fn Vec3  operator*(real, Vec3);
+inline blast_fn Vec3  operator*(Vec3, real);
+inline blast_fn Vec3  operator/(Vec3, real);
+inline blast_fn Vec3& operator+=(Vec3&, const Vec3&);
+inline blast_fn Vec3& operator*=(Vec3&, real);
 
 
 // 3x3 matrix
 struct Mat3 {
     real data[9] = {0};
     Mat3() = default;
-    blast_fn Mat3(const Mat3& m);
-    blast_fn Mat3(real x1, real y1, real z1,
+    inline blast_fn Mat3(const Mat3& m);
+    inline blast_fn Mat3(real x1, real y1, real z1,
                   real x2, real y2, real z2,
                   real x3, real y3, real z3);
-    blast_fn real& operator()(u32 row, u32 col);
-    blast_fn real  operator()(u32 row, u32 col) const;
-    blast_fn real& operator[](u32 i);
-    blast_fn real  operator[](u32 i) const ;
-    blast_fn Mat3& zero();
-    blast_fn Array col(int c);
-    blast_fn Vec3  col_copy(int c) const;
+    inline blast_fn real& operator()(u32 row, u32 col);
+    inline blast_fn real  operator()(u32 row, u32 col) const;
+    inline blast_fn real& operator[](u32 i);
+    inline blast_fn real  operator[](u32 i) const ;
+    inline blast_fn Mat3& zero();
+    inline blast_fn Array col(int c);
+    inline blast_fn Vec3  col_copy(int c) const;
 };
-blast_fn Mat3& zero(Mat3&);
-blast_fn Mat3& transpose_inplace(Mat3& m);
-blast_fn Mat3  transpose(const Mat3& m);
-blast_fn Mat3  eye();
-blast_fn Mat3  operator*(const Mat3& m, const Mat3 rhs);
-blast_fn Mat3  operator*(const real x, const Mat3& m);
-blast_fn Vec3  operator*(const Mat3& m, const Vec3 v);
-blast_fn Mat3& operator*=(Mat3& lhs, const Mat3& rhs);
-blast_fn Mat3  operator+(const Mat3& lhs, const Mat3& rhs);
-blast_fn Mat3& operator+=(Mat3& lhs, const Mat3& rhs);
-blast_fn Mat3  operator-(const Mat3& m, const Mat3& m2);
+inline blast_fn Mat3& zero(Mat3&);
+inline blast_fn Mat3& transpose_inplace(Mat3& m);
+inline blast_fn Mat3  transpose(const Mat3& m);
+inline blast_fn Mat3  eye();
+inline blast_fn Mat3  operator*(const Mat3& m, Mat3 rhs);
+inline blast_fn Mat3  operator*(real x, const Mat3& m);
+inline blast_fn Vec3  operator*(const Mat3& m, Vec3 v);
+inline blast_fn Mat3& operator*=(Mat3& lhs, const Mat3& rhs);
+inline blast_fn Mat3  operator+(const Mat3& lhs, const Mat3& rhs);
+inline blast_fn Mat3& operator+=(Mat3& lhs, const Mat3& rhs);
+inline blast_fn Mat3  operator-(const Mat3& m, const Mat3& m2);
 
 
 // Array of real numbers
@@ -125,16 +125,16 @@ struct Array {
     Array() = default;
 
     // construct and allocate memory for 'n' elements
-    blast_fn explicit Array(u32 new_size);
+    inline blast_fn explicit Array(u32 new_size);
 
     // construct and fill with value
-    blast_fn Array(u32 n, real value);
+    inline blast_fn Array(u32 n, real value);
 
     // copy constructor
-    blast_fn Array(const Array&);
+    inline blast_fn Array(const Array&);
 
     // move constructor
-    blast_fn Array(Array&&) noexcept;
+    inline blast_fn Array(Array&&) noexcept;
 
     // initializer constructor
     //  - note: not available on CUDA
@@ -142,7 +142,7 @@ struct Array {
 
     // create an Array from pre-existing data
     //  - note: becomes an alias
-    blast_fn Array(real*, u32 n);
+    inline blast_fn Array(real*, u32 n);
 
     // create an Array from a const std::vector<real
     //  - note: copies data
@@ -150,70 +150,74 @@ struct Array {
     host_fn explicit Array(const std::vector<real>&);
 
     // free memory if not an alias
-    blast_fn ~Array();
+    inline blast_fn ~Array();
 
     // copy assignment
-    blast_fn Array& operator=(const Array&);
+    inline blast_fn Array& operator=(const Array&);
 
     // move assignment
-    blast_fn Array& operator=(Array&&) noexcept;
+    inline blast_fn Array& operator=(Array&&) noexcept;
 
     // copy data from a list
     //  - note: must be the same size
-    blast_fn Array& operator=(const std::initializer_list<real>& other);
+    inline blast_fn Array& operator=(const std::initializer_list<real>& other);
 
     // access the element
     //  - note: does not check out of bounds
-    blast_fn real& operator[](u32 i);
+    inline blast_fn real& operator[](u32 i);
 
     // access value of the element
     //  - note: does not check out of bounds
-    blast_fn real operator[](u32 i) const;
+    inline blast_fn real operator[](u32 i) const;
 
     // unary minus
-    blast_fn Array operator-();
+    inline blast_fn Array operator-();
 
     // multiply with another vector (in place)
-    blast_fn Array& operator*=(real);
+    inline blast_fn Array& operator*=(real);
 
     // divide with another vector (in place)
-    blast_fn Array& operator/=(real n);
+    inline blast_fn Array& operator/=(real n);
 
     // check if all values of another array are very close to this one (1e-06)
-    blast_fn bool operator==(Array&);
+    inline blast_fn bool operator==(Array&);
 
     // map the array to the data of the given std::vector<real>
     //  - note: becomes an alias
     //  - note: not available on CUDA
-    blast_fn Array& alias(svector&);
+    inline blast_fn Array& alias(svector&);
 
     // map the array to the data of the given matrix
     //  - note: interpret all the data of the matrix as one long array, becomes an alias)
-    blast_fn Array& alias(Matrix& m);
+    inline blast_fn Array& alias(Matrix& m);
 
     // map the Array to the given data
     //  - note: becomes an alias
-    blast_fn Array& alias(real*, u32);
-    blast_fn Array& alias(const real*, u32);
+    inline blast_fn Array& alias(real*, u32);
+    inline blast_fn Array& alias(const real*, u32);
 
     // resize the array
     //  - note: old pointers (aliases) to this data may be invalidated
     //  - note: fails if the array is an alias
     //  - note: not available on CUDA
-    blast_fn void resize(u32 new_size);
+    inline blast_fn void resize(u32 new_size);
 
     // access the last element
-    blast_fn real& back();
+    inline blast_fn real& back();
 
     // access the value of the last element
-    blast_fn real back() const;
+    inline blast_fn real back() const;
 };
-blast_fn Array operator-(const Array& v1, const Array& v2);
-blast_fn Array operator+(const Array& v1, const Array& v2);
-blast_fn Array operator/(const Array& a, real b);
-blast_fn Array operator*(const Array& a, real b);
-blast_fn Array operator*(real b, const Array& a);
-blast_fn real  dot(const Array& a, const Array& b);
+inline blast_fn Array operator-(const Array& v1, const Array& v2);
+inline blast_fn Array operator+(const Array& v1, const Array& v2);
+inline blast_fn Array operator/(const Array& a, real b);
+inline blast_fn Array operator*(const Array& a, real b);
+inline blast_fn Array operator*(real b, const Array& a);
+inline blast_fn real  dot(const Array& a, const Array& b);
+inline blast_fn real  min(const Array&);
+inline blast_fn u32   argmin(const Array&);
+inline blast_fn real  max(const Array&);
+inline blast_fn u32   argmax(const Array&);
 
 
 
@@ -230,153 +234,146 @@ struct Matrix {
     Matrix() = default;
 
     // construct and allocate memory for 'r x c' elements
-    blast_fn Matrix(u32 r, u32 c);
+    inline blast_fn Matrix(u32 r, u32 c);
 
     // copy constructor
-    blast_fn Matrix(const Matrix&);
+    inline blast_fn Matrix(const Matrix&);
 
     // move constructor
-    blast_fn Matrix(Matrix&&) noexcept;
+    inline blast_fn Matrix(Matrix&&) noexcept;
 
     // create a Matrix from pre-existing data
     //  - note: becomes an alias
-    blast_fn Matrix(real*, u32 r, u32 c);
+    inline blast_fn Matrix(real*, u32 r, u32 c);
 
     // create a matrix of a single columns from an array
     //  - note: creates a copy
-    blast_fn explicit Matrix(const Array&);
+    inline blast_fn explicit Matrix(const Array&);
 
     // free memory if not an alias
-    blast_fn ~Matrix();
+    inline blast_fn ~Matrix();
 
     // resize the matrix
     //  - note: not available on CUDA
-    blast_fn void resize(u32 r, u32 c);
+    inline blast_fn void resize(u32 r, u32 c);
 
     // copy assignment
-    blast_fn Matrix& operator=(const Matrix&);
+    inline blast_fn Matrix& operator=(const Matrix&);
 
     // move assignment
-    blast_fn Matrix& operator=(Matrix&&) noexcept;
+    inline blast_fn Matrix& operator=(Matrix&&) noexcept;
 
-    blast_fn Matrix operator-();
+    inline blast_fn Matrix operator-();
 
-    blast_fn bool operator==(const Matrix&) const;
+    inline blast_fn bool operator==(const Matrix&) const;
 
-    blast_fn bool operator!=(const Matrix&) const;
+    inline blast_fn bool operator!=(const Matrix&) const;
 
     // map the Matrix to the data of the given Array
     //  - note: interpret as a n x 1 matrix
     //  - note: becomes an alias
-    blast_fn Matrix& alias(Array&);
+    inline blast_fn Matrix& alias(Array&);
 
     // map the Matrix to the data of the given std::vector<real>
     //  - note: interpret as a n x 1 matrix
     //  - note: becomes an alias
     //  - note: not available on CUDA
-    blast_fn Matrix& alias(svector&);
+    inline blast_fn Matrix& alias(svector&);
 
     // map the Matrix to the given data
     //  - note: becomes an alias
-    blast_fn Matrix& alias(real*, u32 r, u32 c);
+    inline blast_fn Matrix& alias(real*, u32 r, u32 c);
 
     // access element
     //  - note: fails if the matrix is not big enough
-    blast_fn real& operator()(u32 row, u32 col);
+    inline blast_fn real& operator()(u32 row, u32 col);
 
     // access value of element
     //  - note: fails if the matrix is not big enough
-    blast_fn real operator()(u32 row, u32 col) const;
+    inline blast_fn real operator()(u32 row, u32 col) const;
 
     // get the address of an element
-    blast_fn real* address(u32 row, u32 col) const;
+    inline blast_fn real* address(u32 row, u32 col) const;
 
     // return an array accessing the given colum
     //  - note: new Array is aliasing our data
-    blast_fn Array col(u32 c) const;
+    inline blast_fn Array col(u32 c) const;
 };
-blast_fn Matrix operator+(const Matrix& m1, const Matrix& m2);
-blast_fn Matrix operator-(const Matrix& m1, const Matrix& m2);
-blast_fn Matrix operator*(const Matrix& lhs, const Matrix& rhs);
-blast_fn Array  operator*(const Matrix& m, const Array& v);
-blast_fn Matrix operator*(real& r, const Matrix& m);
-blast_fn Matrix operator/(const Matrix& m, real& r);
-blast_fn Matrix pw_mult(const Matrix& m1, const Matrix& m2);
-blast_fn Matrix eye(const u32 s);
-blast_fn Matrix transpose(const Matrix& m);
+inline blast_fn Matrix operator+(const Matrix& m1, const Matrix& m2);
+inline blast_fn Matrix operator-(const Matrix& m1, const Matrix& m2);
+inline blast_fn Matrix operator*(const Matrix& lhs, const Matrix& rhs);
+inline blast_fn Array  operator*(const Matrix& m, const Array& v);
+inline blast_fn Matrix operator*(real& r, const Matrix& m);
+inline blast_fn Matrix operator/(const Matrix& m, real& r);
+inline blast_fn Matrix pw_mult(const Matrix& m1, const Matrix& m2);
+inline blast_fn Matrix eye(int s);
+inline blast_fn Matrix transpose(const Matrix& m);
+inline blast_fn real   min(const Matrix&);
+inline blast_fn u32    argmin(const Matrix&);
+inline blast_fn real   max(const Matrix&);
+inline blast_fn u32    argmax(const Matrix&);
 
 // Conversion functions
-blast_fn real  wrap2pi(real);
-blast_fn real  wrap_to_180(real);
-blast_fn real  deg2rad(real);
-blast_fn real  rad2deg(real);
-blast_fn Array deg2rad(const Array&);
-blast_fn Array rad2deg(const Array&);
+inline blast_fn real  wrap2pi(real);
+inline blast_fn real  wrap_to_180(real);
+inline blast_fn real  deg2rad(real);
+inline blast_fn real  rad2deg(real);
+inline blast_fn Array deg2rad(const Array&);
+inline blast_fn Array rad2deg(const Array&);
 
 // fill container with zeros (does not resize)
-blast_fn Vec3&   zero(Vec3&);
-blast_fn Mat3&   zero(Mat3&);
-blast_fn Array&  zero(Array&);
-blast_fn Matrix& zero(Matrix&);
+inline blast_fn Array&  zero(Array&);
+inline blast_fn Matrix& zero(Matrix&);
 
 // fill container with given value (does not resize)
-blast_fn Vec3&   constant(Vec3&,    real val);
-blast_fn Mat3&   constant(Mat3&,    real val);
-blast_fn Array&  constant(Array&,   real val);
-blast_fn Matrix& constant(Matrix&,  real val);
+inline blast_fn Mat3&   constant(Mat3&,    real val);
+inline blast_fn Array&  constant(Array&,   real val);
+inline blast_fn Matrix& constant(Matrix&,  real val);
 
 // min/max functions
-blast_fn real min(const Array&);
-blast_fn real min(const Matrix&);
-blast_fn u32  argmin(const Array&);
-blast_fn u32  argmin(const Matrix&);
-blast_fn real max(const Array&);
-blast_fn real max(const Matrix&);
-blast_fn u32  argmax(const Array&);
-blast_fn u32  argmax(const Matrix&);
 
 // Check if all values of two containers are (within eps)
-blast_fn bool is_close(const Vec3&,   const Vec3&,   real eps = 1e-05);
-blast_fn bool is_close(const Array&,  const Array&,  real eps = 1e-05);
-blast_fn bool is_close(const Matrix&, const Matrix&, real eps = 1e-05);
-blast_fn bool is_close(const Mat3&,   const Mat3&,   real eps = 1e-05);
+inline blast_fn bool is_close(const Vec3&,   const Vec3&,   real eps = 1e-05);
+inline blast_fn bool is_close(const Array&,  const Array&,  real eps = 1e-05);
+inline blast_fn bool is_close(const Matrix&, const Matrix&, real eps = 1e-05);
+inline blast_fn bool is_close(const Mat3&,   const Mat3&,   real eps = 1e-05);
 
 // Check if all values of the container are small (within eps)
-blast_fn bool is_small(const Array&,  real eps = 1e-05);
-blast_fn bool is_small(const Matrix&, real eps = 1e-05);
-blast_fn bool is_small(const Vec3&,   real eps = 1e-05);
-blast_fn bool is_small(const Mat3&,   real eps = 1e-05);
+inline blast_fn bool is_small(const Array&,  real eps = 1e-05);
+inline blast_fn bool is_small(const Matrix&, real eps = 1e-05);
+inline blast_fn bool is_small(const Vec3&,   real eps = 1e-05);
+inline blast_fn bool is_small(const Mat3&,   real eps = 1e-05);
 
 // Random
-blast_fn real    get_random();
-blast_fn Array&  fill_random(Array&,     real amplitude);
-blast_fn Matrix& fill_random(Matrix&,    real amplitude);
-blast_fn Array   random_array(u32 size,  real amplitude);
+inline blast_fn real    get_random();
+inline blast_fn Array&  fill_random(Array&,     real amplitude);
+inline blast_fn Matrix& fill_random(Matrix&,    real amplitude);
+inline blast_fn Array   random_array(u32 size,  real amplitude);
 
 // Clamp
-blast_fn real    clamp(real val, real mini, real maxi);
-blast_fn Array   clamp(const Array& a, real mini, real maxi);
-blast_fn Array   clamp(const Array& a, const Array& lb, const Array& ub);
-blast_fn real&   clamp_inplace(real& val, real mini, real maxi);
-blast_fn Array&  clamp_inplace(Array& a,  real mini, real maxi);
-blast_fn Array&  clamp_inplace(Array& a, const Array& lb, const Array& ub);
+inline blast_fn real    clamp(real val, real mini, real maxi);
+inline blast_fn Array   clamp(const Array& a, real mini, real maxi);
+inline blast_fn Array   clamp(const Array& a, const Array& lb, const Array& ub);
+inline blast_fn real&   clamp_inplace(real& val, real mini, real maxi);
+inline blast_fn Array&  clamp_inplace(Array& a,  real mini, real maxi);
+inline blast_fn Array&  clamp_inplace(Array& a, const Array& lb, const Array& ub);
 
 // Array operations
-blast_fn real    sum(const Array&);
-blast_fn real    mean(const Array&);
-blast_fn real    norm(const Array&);
-blast_fn real    norm_sqr(const Array&);
-blast_fn real    norm_inf(const Array&);
-blast_fn real    norm_1(const Array&);
-blast_fn Array   abs(const Array&);
-blast_fn Array&  abs_inplace(Array&);
-blast_fn Array   sqr(const Array&); // Square each element
-blast_fn Array&  sqr_inplace(Array&); // Square each element (modify Array)
+inline blast_fn real    sum(const Array&);
+inline blast_fn real    mean(const Array&);
+inline blast_fn real    norm(const Array&);
+inline blast_fn real    norm_sqr(const Array&);
+inline blast_fn real    norm_inf(const Array&);
+inline blast_fn real    norm_1(const Array&);
+inline blast_fn Array   abs(const Array&);
+inline blast_fn Array&  abs_inplace(Array&);
+inline blast_fn Array   sqr(const Array&); // Square each element
+inline blast_fn Array&  sqr_inplace(Array&); // Square each element (modify Array)
 
 // Misc
-blast_fn real sign(real v);
-blast_fn void sincos(const Array& angles, Array& sines, Array& cosines);
-blast_fn Matrix pinv(const Matrix& m);
+inline blast_fn real sign(real v);
+inline blast_fn void sincos(const Array& angles, Array& sines, Array& cosines);
+inline blast_fn Matrix pinv(const Matrix& m);
 
 // https://stackoverflow.com/a/49943540
 inline host_fn double simd_hadd(__m256d v) {

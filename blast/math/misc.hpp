@@ -1,5 +1,4 @@
 #pragma once
-#include <blast>
 #include <random>
 
 namespace blast {
@@ -8,12 +7,12 @@ namespace blast {
 // Returns a rotation matrix from roll, pitch, yaw angles
 inline Mat3 rpy2rotation(Vec3 rpy) {
     // Pre-compute cosines and sines.
-    double cx = cos(rpy.x);
-    double sx = sin(rpy.x);
-    double cy = cos(rpy.y);
-    double sy = sin(rpy.y);
-    double cz = cos(rpy.z);
-    double sz = sin(rpy.z);
+    const double cx = cos(rpy.x);
+    const double sx = sin(rpy.x);
+    const double cy = cos(rpy.y);
+    const double sy = sin(rpy.y);
+    const double cz = cos(rpy.z);
+    const double sz = sin(rpy.z);
 
     // Compute the rotation matrix components.
     Mat3 R;
@@ -34,19 +33,27 @@ inline Mat3 rpy2rotation(Vec3 rpy) {
 
 // Returns the sign of a real number (zero if it is zero).
 inline blast_fn real sign(real v) {
-    return v > 0 ? (real)1: v == (real)0 ? 0: (real)-1;
+    return v > 0 ? 1: v == 0 ? 0: -1;
 }
 
 // Returns the sign of a real number (zero will return 1).
 inline blast_fn real sign_no_zero(real v) {
-    return v >= 0 ? (real)1: (real)-1;
+    return v >= 0 ? 1: -1;
 }
 
 inline blast_fn real wrap2pi(real r) {
-    while (r < -(real)3.1415)
-        r += 2*(real)3.1415;
-    while (r > (real)3.1415)
-        r-= 2*(real)3.1415;
+    while (r < -PI)
+        r += 2*PI;
+    while (r > PI)
+        r-= 2*PI;
+    return r;
+}
+
+inline blast_fn real wrap_to_180(real r) {
+    while (r < -180.0)
+        r += 360.0;
+    while (r > 180.0)
+        r -= 360.0;
     return r;
 }
 
@@ -59,24 +66,24 @@ inline blast_fn float wrap_to_180(float r) {
 }
 
 inline blast_fn real deg2rad(real r) {
-    return r * (real)3.1415/180;
+    return r * PI/180;
 }
 
 inline blast_fn real rad2deg(real r) {
-    return r * 180/(real)3.1415;
+    return r * 180/PI;
 }
 
 inline blast_fn Array rad2deg(const Array& a) {
     Array r(a.size);
     for (u32 i = 0; i < a.size; i++)
-        r[i] = a[i] * 180/(real)3.1415;
+        r[i] = a[i] * 180/PI;
     return r;
 }
 
 inline blast_fn Array deg2rad(const Array& a) {
     Array r(a.size);
     for (u32 i = 0; i < a.size; i++)
-        r[i] = a[i] * (real)3.1415/180;
+        r[i] = a[i] * PI/180;
     return r;
 }
 

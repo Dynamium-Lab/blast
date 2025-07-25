@@ -13,7 +13,6 @@ target_include_directories(blast INTERFACE
     Optimization
     Trajectory
     World
-
 )
 
 target_compile_features(blast INTERFACE cxx_std_17)
