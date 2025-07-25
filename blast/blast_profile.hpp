@@ -31,18 +31,18 @@ static u64 read_os_timer(void) {
 }
 
 #else
-static u64 get_os_freq(void) {
+static u64 get_os_freq() {
     return 1000000;
 }
-static u64 read_os_timer(void) {
+static u64 read_os_timer() {
     timeval time;
-    gettimeofday(&time, 0);
-    u64 result = get_os_freq()*(u64)time.tv_sec + (u64)time.tv_usec;
+    gettimeofday(&time, nullptr);
+    const u64 result = get_os_freq()*(u64)time.tv_sec + (u64)time.tv_usec;
     return result;
 }
 #endif
 
-inline u64 read_cpu_timer(void) {
+inline u64 read_cpu_timer() {
     return __rdtsc();
 }
 
@@ -156,22 +156,22 @@ static Profiler g_profiler;
 #define blast_time_block(Name) blast_time_bandwidth(Name, 0)
 #define blast_time_function blast_time_block(__func__)
 
-static u64 estimate_block_freq(void) {
-    u64 ms_to_wait = 100;
-    u64 os_freq = get_os_freq();
+static u64 estimate_block_freq() {
+    constexpr u64 ms_to_wait = 100;
+    const u64 os_freq = get_os_freq();
 
-    u64 block_start = READ_BLOCK_TIMER();
-    u64 os_start = read_os_timer();
+    const u64 block_start = READ_BLOCK_TIMER();
+    const u64 os_start = read_os_timer();
     u64 os_end = 0;
     u64 os_elapsed = 0;
-    u64 os_wait_time = os_freq * ms_to_wait / 1000;
+    const u64 os_wait_time = os_freq * ms_to_wait / 1000;
     while(os_elapsed < os_wait_time) {
         os_end = read_os_timer();
         os_elapsed = os_end - os_start;
     }
 
-    u64 block_end = READ_BLOCK_TIMER();
-    u64 block_elapsed = block_end - block_start;
+    const u64 block_end = READ_BLOCK_TIMER();
+    const u64 block_elapsed = block_end - block_start;
 
     u64 block_freq = 0;
     if(os_elapsed)
@@ -180,15 +180,15 @@ static u64 estimate_block_freq(void) {
     return block_freq;
 }
 
-static void begin_profile(void) {
+static void begin_profile() {
     g_profiler.start_TSC = READ_BLOCK_TIMER();
 }
 
 static void end_profile() {
     g_profiler.end_TSC = READ_BLOCK_TIMER();
-    u64 freq = estimate_block_freq();
+    const u64 freq = estimate_block_freq();
 
-    u64 total_elapsed = g_profiler.end_TSC - g_profiler.start_TSC;
+    const u64 total_elapsed = g_profiler.end_TSC - g_profiler.start_TSC;
 
     if(freq)
         cout << "Total time: " << 1000.0 * (double)total_elapsed / (double)freq << "ms (timer freq " << freq << ")" << endl;

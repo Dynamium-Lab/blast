@@ -38,12 +38,12 @@ struct Box {
 struct Capsule {
     Vec3 p1;
     Vec3 p2;
-    real r;
+    real r = 0;
 };
 
 struct Sphere {
     Vec3 c;
-    real r;
+    real r = 0;
 };
 
 
@@ -54,7 +54,7 @@ struct DynamicBox {
     real tf;
     std::vector<Box> trajectory;    // Should be of size n_pts
 
-    inline Box lookup(const real time) const;
+    inline blast_fn Box lookup(real time) const;
 };
 
 struct DynamicCapsule {
@@ -63,7 +63,7 @@ struct DynamicCapsule {
     real tf;
     std::vector<Capsule> trajectory; // Should be of size n_pts
 
-    inline Capsule lookup(const real time) const;
+    inline blast_fn Capsule lookup(real time) const;
 };
 
 struct DynamicSphere {
@@ -72,7 +72,7 @@ struct DynamicSphere {
     real tf;
     std::vector<Sphere> trajectory; // Should be of size n_pts
 
-    inline Sphere lookup(const real time) const;
+    inline blast_fn Sphere lookup(real time) const;
 };
 
 struct DynamicDoor {
@@ -85,43 +85,34 @@ struct DynamicDoor {
     real tf;
     Vec3 axis = {0, 0, 1};
 
-    inline Box lookup(const real t) const {
-        // progression from 0 to 1
-        real progression = t < t0 ? 0 : (t > tf ? 1 : (t-t0) / (tf-t0));
-        Box result;
-        result.e = e;
-        real current_angle = start_angle*(1-progression) + end_angle*progression;
-        result.R = rpy2rotation(current_angle*axis);
-        result.c = hinge + result.R*static_c_from_hinge;
-        return result;
-    }
+    inline blast_fn Box lookup(real t) const;
 };
 
+inline blast_fn Box DynamicDoor::lookup(const real t) const {
+    // progression from 0 to 1
+    real progression = t < t0 ? 0 : (t > tf ? 1 : (t-t0) / (tf-t0));
+    Box result;
+    result.e = e;
+    real current_angle = start_angle*(1-progression) + end_angle*progression;
+    result.R = rpy2rotation(current_angle*axis);
+    result.c = hinge + result.R*static_c_from_hinge;
+    return result;
+}
 
 
+inline blast_fn void add_box(Vec3 center_point, Vec3 half_width, Mat3 rotation_matrix, World* world);
+inline blast_fn void add_sphere(Vec3 center_point, real radius, World* world);
+inline blast_fn void add_capsule(Vec3 point1, Vec3 point2, real radius, World* world);
+inline blast_fn Array test_collision(std::vector<Capsule> robot_capsule_list, World* world, u32 n_lowest_distances);
 
-inline void add_box(Vec3 center_point, Vec3 half_width, Mat3 rotation_matrix, World* world);
-inline void add_sphere(Vec3 center_point, real radius, World* world);
-inline void add_capsule(Vec3 point1, Vec3 point2, real radius, World* world);
-inline Array test_collision(std::vector<Capsule> robot_capsule_list, World* world, u32 n_lowest_distances);
+inline blast_fn real distance(Capsule capsule,  Sphere sphere);
+inline blast_fn real distance(Capsule capsule1, Capsule capsule2);
+inline blast_fn real distance(Capsule capsule,  Box box);
 
-inline real distance(Capsule capsule,  Sphere sphere);
-inline real distance(Capsule capsule1, Capsule capsule2);
-inline real distance(Capsule capsule,  Box box);
-
-// ======================================
-//            Optimization functions
-// ======================================
-
-
-// real collision_pso(const Matrix &robot_cartesian_positions, const World* world, int n_particles,   int n_iterations);
-// real collision_gwo(const Matrix &robot_cartesian_positions, const World* world, int n_wolves,      int n_iterations);
-// real collision_ga(const Matrix &robot_cartesian_positions,  const World* world, int n_individuals, int n_iterations);
-
-inline Vec3 get_point(const Array &x, const Matrix &robot_cartesian_positions);
-inline real distance(const Box &box, const Vec3 &point);
-inline real distance(const Capsule &capsule, const Vec3 &point);
-inline real distance(const Sphere &sphere, const  Vec3 &point);
+inline blast_fn Vec3 get_point(const Array &x, const Matrix &capsule_list);
+inline blast_fn real distance(const Box &box, const Vec3 &point);
+inline blast_fn real distance(const Capsule &capsule, const Vec3 &point);
+inline blast_fn real distance(const Sphere &sphere, const  Vec3 &point);
 
 
 } // namespace blast
