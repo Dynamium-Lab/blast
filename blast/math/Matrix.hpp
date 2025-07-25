@@ -1,3 +1,4 @@
+#pragma once
 #include <blast>
 
 namespace blast {

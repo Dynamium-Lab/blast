@@ -88,17 +88,6 @@ struct DynamicDoor {
     inline blast_fn Box lookup(real t) const;
 };
 
-inline blast_fn Box DynamicDoor::lookup(const real t) const {
-    // progression from 0 to 1
-    real progression = t < t0 ? 0 : (t > tf ? 1 : (t-t0) / (tf-t0));
-    Box result;
-    result.e = e;
-    real current_angle = start_angle*(1-progression) + end_angle*progression;
-    result.R = rpy2rotation(current_angle*axis);
-    result.c = hinge + result.R*static_c_from_hinge;
-    return result;
-}
-
 
 inline blast_fn void add_box(Vec3 center_point, Vec3 half_width, Mat3 rotation_matrix, World* world);
 inline blast_fn void add_sphere(Vec3 center_point, real radius, World* world);
@@ -109,11 +98,22 @@ inline blast_fn real distance(Capsule capsule,  Sphere sphere);
 inline blast_fn real distance(Capsule capsule1, Capsule capsule2);
 inline blast_fn real distance(Capsule capsule,  Box box);
 
-inline blast_fn Vec3 get_point(const Array &x, const Matrix &capsule_list);
-inline blast_fn real distance(const Box &box, const Vec3 &point);
-inline blast_fn real distance(const Capsule &capsule, const Vec3 &point);
-inline blast_fn real distance(const Sphere &sphere, const  Vec3 &point);
+inline blast_fn Vec3 get_point(const Array& x, const Matrix& capsule_list);
+inline blast_fn real distance(const  Box& box, const Vec3& point);
+inline blast_fn real distance(const  Capsule& capsule, const Vec3& point);
+inline blast_fn real distance(const  Sphere& sphere, const  Vec3& point);
 
+
+inline blast_fn Box DynamicDoor::lookup(const real t) const {
+    // progression from 0 to 1
+    real progression = t < t0 ? 0 : (t > tf ? 1 : (t-t0) / (tf-t0));
+    Box result;
+    result.e = e;
+    real current_angle = start_angle*(1-progression) + end_angle*progression;
+    result.R = rpy2rotation(current_angle*axis);
+    result.c = hinge + result.R*static_c_from_hinge;
+    return result;
+}
 
 } // namespace blast
 
