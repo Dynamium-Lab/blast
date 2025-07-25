@@ -66,12 +66,14 @@ struct Vec3 {
     real _pad = 0;
     Vec3() = default;
     blast_fn Vec3(real x, real y, real z);
+
     blast_fn real& operator[](int i);
+    blast_fn real operator[](int i) const;
     blast_fn bool operator==(const Vec3&) const;
 };
 blast_fn Vec3  cross(Vec3, Vec3);
 blast_fn Vec3& zero(Vec3&);
-blast_fn Vec3& constant(Vec3&, real value);
+blast_fn Vec3& constant(Vec3&, real val);
 blast_fn real  dot(Vec3, Vec3);
 blast_fn real  norm(Vec3);
 blast_fn Vec3  operator-(Vec3);

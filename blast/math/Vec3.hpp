@@ -1,9 +1,16 @@
+#pragma once
+
 #include <blast>
 
 namespace blast {
 
 //------ Vec3 ---------------------
 inline blast_fn real& Vec3::operator[](int i) {
+    Assert(i < 3);
+    return *(&x + i); //note: Don't try this at home
+}
+
+inline blast_fn real Vec3::operator[](int i) const {
     Assert(i < 3);
     return *(&x + i); //note: Don't try this at home
 }
