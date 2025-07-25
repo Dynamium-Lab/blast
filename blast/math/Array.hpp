@@ -35,7 +35,7 @@ inline blast_fn Array::Array(const Array& a) : size(a.size) {
     }
 }
 
-inline blast_fn Array::Array(Array&& a) : data(a.data), size(a.size), is_alias(a.is_alias) {
+inline blast_fn Array::Array(Array&& a) noexcept : data(a.data), size(a.size), is_alias(a.is_alias) {
     a.data = nullptr;
     a.size = 0;
     a.is_alias = true;
@@ -84,7 +84,7 @@ inline blast_fn Array& Array::operator=(const Array& a) {
     return *this;
 }
 
-inline blast_fn Array& Array::operator=(Array&& a) {
+inline blast_fn Array& Array::operator=(Array&& a) noexcept {
     if (this != &a) {
         if (data && !is_alias)
             Free(data);

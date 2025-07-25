@@ -10,8 +10,7 @@
 #endif
 
 namespace blast {
-
-const u32 ALIGN = 64;
+    constexpr u32 ALIGN = 64;
 
 // Types declared in this file
 struct Vec3;
@@ -26,14 +25,14 @@ inline Mat3 rpy2rotation(Vec3 rpy);
 
 // uses doubles by default unless BLAST_USE_DOUBLES is set to 0
 #ifndef BLAST_USE_DOUBLES
-#define BLAST_USE_DOUBLES 1
+    #define BLAST_USE_DOUBLES 1
 #endif
 #if BLAST_USE_DOUBLES
-using real  = double;
+    using real  = double;
 #define BLAST_SIZEOF_REAL 8
 #else
-using real  = float;
-#define BLAST_SIZEOF_REAL 4
+    using real  = float;
+    #define BLAST_SIZEOF_REAL 4
 #endif
 static_assert(sizeof(real) == BLAST_SIZEOF_REAL);
 
@@ -41,17 +40,18 @@ static_assert(sizeof(real) == BLAST_SIZEOF_REAL);
 // Constants
 #ifdef __CUDA_ARCH__
 #if BLAST_USE_DOUBLES
-const real NAN_REAL = CUDART_NAN;
-const real INF_REAL = CUDART_INF;
+    const real NAN_REAL = CUDART_NAN;
+    const real INF_REAL = CUDART_INF;
 #else
-const real NAN_REAL = CUDART_NAN_F;
-const real INF_REAL = CUDART_INF_F;
+    const real NAN_REAL = CUDART_NAN_F;
+    const real INF_REAL = CUDART_INF_F;
 #endif
 #else
-const real NAN_REAL = std::numeric_limits<real>::quiet_NaN();
-const real INF_REAL = std::numeric_limits<real>::infinity();
+    constexpr real NAN_REAL = std::numeric_limits<real>::quiet_NaN();
+    constexpr real INF_REAL = std::numeric_limits<real>::infinity();
 #endif
-const real PI = (real)3.1415;
+
+constexpr real PI = (real)3.1415;
 
 
 // Type aliases
@@ -125,7 +125,7 @@ struct Array {
     Array() = default;
 
     // construct and allocate memory for 'n' elements
-    blast_fn Array(u32 n);
+    blast_fn explicit Array(u32 new_size);
 
     // construct and fill with value
     blast_fn Array(u32 n, real value);
@@ -134,11 +134,11 @@ struct Array {
     blast_fn Array(const Array&);
 
     // move constructor
-    blast_fn Array(Array&&);
+    blast_fn Array(Array&&) noexcept;
 
     // initializer constructor
     //  - note: not available on CUDA
-    blast_fn Array(const std::initializer_list<real>&);
+    host_fn Array(const std::initializer_list<real>&);
 
     // create an Array from pre-existing data
     //  - note: becomes an alias
@@ -147,7 +147,7 @@ struct Array {
     // create an Array from a const std::vector<real
     //  - note: copies data
     //  - note: not available on CUDA
-    blast_fn Array(const std::vector<real>&);
+    host_fn explicit Array(const std::vector<real>&);
 
     // free memory if not an alias
     blast_fn ~Array();
@@ -156,7 +156,7 @@ struct Array {
     blast_fn Array& operator=(const Array&);
 
     // move assignment
-    blast_fn Array& operator=(Array&&);
+    blast_fn Array& operator=(Array&&) noexcept;
 
     // copy data from a list
     //  - note: must be the same size
@@ -179,7 +179,7 @@ struct Array {
     // divide with another vector (in place)
     blast_fn Array& operator/=(real n);
 
-    // check if all values of another array are very close the this one (1e-06)
+    // check if all values of another array are very close to this one (1e-06)
     blast_fn bool operator==(Array&);
 
     // map the array to the data of the given std::vector<real>
@@ -236,15 +236,15 @@ struct Matrix {
     blast_fn Matrix(const Matrix&);
 
     // move constructor
-    blast_fn Matrix(Matrix&&);
+    blast_fn Matrix(Matrix&&) noexcept;
 
     // create a Matrix from pre-existing data
     //  - note: becomes an alias
     blast_fn Matrix(real*, u32 r, u32 c);
 
-    // create an matrix of a single columns from an array
+    // create a matrix of a single columns from an array
     //  - note: creates a copy
-    blast_fn Matrix(const Array&);
+    blast_fn explicit Matrix(const Array&);
 
     // free memory if not an alias
     blast_fn ~Matrix();
@@ -257,7 +257,7 @@ struct Matrix {
     blast_fn Matrix& operator=(const Matrix&);
 
     // move assignment
-    blast_fn Matrix& operator=(Matrix&&);
+    blast_fn Matrix& operator=(Matrix&&) noexcept;
 
     blast_fn Matrix operator-();
 
@@ -298,7 +298,7 @@ struct Matrix {
 blast_fn Matrix operator+(const Matrix& m1, const Matrix& m2);
 blast_fn Matrix operator-(const Matrix& m1, const Matrix& m2);
 blast_fn Matrix operator*(const Matrix& lhs, const Matrix& rhs);
-blast_fn Array operator*(const Matrix& m, const Array& v);
+blast_fn Array  operator*(const Matrix& m, const Array& v);
 blast_fn Matrix operator*(real& r, const Matrix& m);
 blast_fn Matrix operator/(const Matrix& m, real& r);
 blast_fn Matrix pw_mult(const Matrix& m1, const Matrix& m2);

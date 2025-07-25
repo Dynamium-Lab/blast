@@ -22,7 +22,7 @@ inline blast_fn Matrix::Matrix(const Matrix& m) : size(m.size), cols(m.cols), ro
     }
 }
 
-inline blast_fn Matrix::Matrix(Matrix&& m) : data(m.data), size(m.size), cols(m.cols), rows(m.rows), is_alias(m.is_alias) {
+inline blast_fn Matrix::Matrix(Matrix&& m) noexcept : data(m.data), size(m.size), cols(m.cols), rows(m.rows), is_alias(m.is_alias) {
     m.data = nullptr;
     m.size = 0;
     m.rows = 0;
@@ -97,7 +97,7 @@ inline blast_fn Matrix& Matrix::operator=(const Matrix& m) {
     return *this;
 }
 
-inline blast_fn Matrix& Matrix::operator=(Matrix&& m) {
+inline blast_fn Matrix& Matrix::operator=(Matrix&& m) noexcept {
     if (this != &m) {
         if (data && !is_alias)
             Free(data);

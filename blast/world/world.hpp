@@ -27,14 +27,14 @@ struct TwoPts {
 struct Circle {
     Vec3 p;
     Vec3 n;
-    real r;
+    real r=0;
 };
 
 struct Triangle {
     Vec3 p1;
     Vec3 p2;
     Vec3 p3;
-    real distance;
+    real distance=0;
 };
 
 const real COLLISION_EPSILON = (real)1e-9;
@@ -145,7 +145,7 @@ real distance(surface surface, Vec3 point) {
 
         real dist_min = INF_REAL;
         int idx;
-        for (u32 i = 0; i < 4; i++) {
+        for (int i = 0; i < 4; i++) {
             auto dist_tmp = distance(segment[i], point);
             dist_min = dist_tmp < dist_min ? dist_tmp : dist_min;
             idx = dist_tmp < dist_min ? i : idx;
