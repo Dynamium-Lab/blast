@@ -3,27 +3,29 @@
 
 
 #if defined(__CUDA_ARCH__) && (defined(BLAST_DEBUG) || defined(_DEBUG))
-#define Assert(expr) \
-    if (!(expr)){\
+#define Assert(expr)                                                                               \
+  if (!(expr)) {                                                                                   \
     printf("Assertion failed in function: %s. File: %s(%d).\n", __FUNCTION__, __FILE__, __LINE__); \
-    __trap(); \
-}
+    __trap();                                                                                      \
+  }
 #elif (defined(BLAST_DEBUG) || defined(_DEBUG))
-#define Assert(expr) \
-    if (!(expr)){\
-        fprintf(stderr, "Assertion failed in function: %s. File: %s(%d).\n", __FUNCTION__, __FILE__, __LINE__); \
-        abort(); \
-}
+#define Assert(expr)                                                                                        \
+  if (!(expr)) {                                                                                            \
+    fprintf(stderr, "Assertion failed in function: %s. File: %s(%d).\n", __FUNCTION__, __FILE__, __LINE__); \
+    abort();                                                                                                \
+  }
 #else
-#define Assert(expr) do{} while(0)
+#define Assert(expr) \
+  do {               \
+  } while (0)
 #endif
 
-template <typename ToCheck, size_t buffer_size, size_t real_size = sizeof(ToCheck)>
+template<typename ToCheck, size_t buffer_size, size_t real_size = sizeof(ToCheck)>
 void assert_buffer_size() {
-    static_assert(buffer_size >= real_size, "Buffer is not large enough!");
+  static_assert(buffer_size >= real_size, "Buffer is not large enough!");
 }
 
-template <typename type1, typename type2, size_t size1 = sizeof(type1), size_t size2 = sizeof(type2)>
+template<typename type1, typename type2, size_t size1 = sizeof(type1), size_t size2 = sizeof(type2)>
 void assert_size() {
-    static_assert(size1 == size2, "Types to not have the same size!");
+  static_assert(size1 == size2, "Types to not have the same size!");
 }

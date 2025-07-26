@@ -56,7 +56,7 @@ inline blast_fn Array::Array(real* d, u32 n) {
     is_alias = true;
 }
 
-inline blast_fn Array::Array(const svector& v) {
+inline blast_fn Array::Array(const std::vector<real>& v) {
     size = (u32)v.size();
     if (size) {
         data = (real*)Malloc(ALIGN, size * sizeof(real));
@@ -105,14 +105,14 @@ inline blast_fn Array& Array::operator=(const std::initializer_list<real>& other
     return *this;
 }
 
-inline blast_fn Array Array::operator-() {
+inline blast_fn Array Array::operator-() const {
     Array result(size);
     for (u32 i = 0; i < size; i++)
         result[i] = -data[i];
     return std::move(result);
 }
 
-inline blast_fn bool Array::operator==(Array& a) {
+inline blast_fn bool Array::operator==(const Array& a) const {
     Assert(size == a.size);
     return is_close(*this, a);
 }
@@ -139,7 +139,7 @@ inline blast_fn real Array::operator[](u32 i) const {
     return data[i];
 }
 
-inline blast_fn Array& Array::alias(svector& v) {
+inline blast_fn Array& Array::alias(std::vector<real>& v) {
     if (data && !is_alias)
         Free(data);
     data = v.data();
@@ -180,7 +180,7 @@ inline blast_fn Array& Array::alias(const real* p, u32 n) {
 inline blast_fn void Array::resize(u32 new_size) {
     Assert(!is_alias);
     if (new_size > size) {
-        real* tmp = (real*)Malloc(ALIGN, new_size * sizeof(real));
+        auto tmp = (real*)Malloc(ALIGN, new_size * sizeof(real));
         memset(tmp, 0, new_size * sizeof(real));
         memcpy(tmp, data, size * sizeof(real));
         Free(data);
@@ -356,13 +356,11 @@ inline blast_fn real dot(const Array& a, const Array& b) {
 #elif BLAST_USE_DOUBLES
 
     // SIMD what you can
-    __m256d ra;
-    __m256d rb;
     __m256d accum = {0, 0, 0, 0};
     int vecLoopSize = (int)(a.size / 4) * 4;
     for (; i < vecLoopSize; i += 4) {
-        ra = _mm256_loadu_pd(&a.data[i]);
-        rb = _mm256_loadu_pd(&b.data[i]);
+        __m256d ra = _mm256_loadu_pd(&a.data[i]);
+        __m256d rb = _mm256_loadu_pd(&b.data[i]);
         accum = _mm256_fmadd_pd(ra, rb, accum);
     }
     r = simd_hadd(accum);
@@ -395,11 +393,10 @@ inline blast_fn void sincos(const Array& angles, Array& sines, Array& cosines) {
         ::sincos(angles[i], &sines[i], &cosines[i]);
 
 #else
-    vcl::Vec4d a, c, s;
-    int vecLoopSize = (angles.size / 4) * 4; // todo: remove type cast
-    for (; i < vecLoopSize; i += 4) {
+    vcl::Vec4d a, c;
+    for (int vecLoopSize = (angles.size / 4) * 4; i < vecLoopSize; i += 4) {
         a.load(angles.data + i);
-        s = vcl::sincos(&c, a);
+        vcl::Vec4d s = vcl::sincos(&c, a);
         s.store(sines.data + i);
         c.store(cosines.data + i);
     }
@@ -411,7 +408,7 @@ inline blast_fn void sincos(const Array& angles, Array& sines, Array& cosines) {
         ::sincosf(angles[i], &sines[i], &cosines[i]);
 #else
     vcl::Vec8f a, c, s;
-    int vecLoopSize = (angles.size / 8) * 8; // todo: remove type cast
+    int vecLoopSize = (angles.size / 8) * 8;
     for (; i < vecLoopSize; i += 8) {
         a.load(angles.data + i);
         s = vcl::sincos(&c, a);

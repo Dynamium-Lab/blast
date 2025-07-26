@@ -270,9 +270,55 @@ inline blast_fn bool is_small(const Matrix& m, real eps){
     return true;
 }
 
+inline real min(const Matrix& m) {
+    real result = m(0,0);
+    for (int i = 0; i < m.size; i++)
+        result = result < m.data[i] ? result : m.data[i];
+    return result;
+}
+
+inline real max(const Matrix& m) {
+    real result = m(0,0);
+    for (int i = 0; i < m.size; i++)
+        result = result > m.data[i] ? result : m.data[i];
+    return result;
+}
+
+inline std::tuple<u32, u32> argmin(const Matrix& m) {
+    u32 r = 0;
+    u32 c = 0;
+    real minim = m(0,0);
+    for (u32 col = 0; col < m.cols; col++) {
+        for (u32 row = 0; row < m.rows; row++) {
+            if (minim > m(row, col)) {
+                minim = m(row, col);
+                r = row;
+                c = col;
+            }
+        }
+    }
+    return std::make_tuple(r,c);
+}
+
+inline std::tuple<u32, u32> argmax(const Matrix& m) {
+    u32 r = 0;
+    u32 c = 0;
+    real maxim = m(0,0);
+    for (u32 col = 0; col < m.cols; col++) {
+        for (u32 row = 0; row < m.rows; row++) {
+            if (maxim < m(row, col)) {
+                maxim = m(row, col);
+                r = row;
+                c = col;
+            }
+        }
+    }
+    return std::make_tuple(r,c);
+}
+
 inline blast_fn Matrix& zero(Matrix& m) {
-    for (u32 i = 0; i < m.size; i++)
-        m.data[i] = (real)0.0;
+    for (int i = 0; i < m.size; i++)
+        m.data[i] = 0.0;
     return m;
 }
 

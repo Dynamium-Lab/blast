@@ -16,111 +16,110 @@ struct DynamicCapsule;
 struct DynamicDoor;
 
 
-
-
 // todo: Add cylinder
 struct World {
-    std::vector<Box>            boxes;
-    std::vector<Sphere>         spheres;
-    std::vector<Capsule>        capsules;
-    std::vector<DynamicBox>     dynamic_boxes;
-    std::vector<DynamicSphere>  dynamic_spheres;
-    std::vector<DynamicCapsule> dynamic_capsules;
-    std::vector<DynamicDoor>    dynamic_doors;
+  std::vector<Box>            boxes;
+  std::vector<Sphere>         spheres;
+  std::vector<Capsule>        capsules;
+  std::vector<DynamicBox>     dynamic_boxes;
+  std::vector<DynamicSphere>  dynamic_spheres;
+  std::vector<DynamicCapsule> dynamic_capsules;
+  std::vector<DynamicDoor>    dynamic_doors;
+  u32                         size = 0;
 };
 
 struct Box {
-    Vec3 c; // Box center point
-    Vec3 e; // Positive halfwidth extents of Box along each axis
-    Mat3 R; // Local x-, y-, and z-axes (Rotation matrix)
+  Vec3 c; // Box center point
+  Vec3 e; // Positive halfwidth extents of Box along each axis
+  Mat3 R; // Local x-, y-, and z-axes (Rotation matrix)
 };
 
 struct Capsule {
-    Vec3 p1;
-    Vec3 p2;
-    real r = 0;
+  Vec3 p1;
+  Vec3 p2;
+  real r = 0;
 };
 
 struct Sphere {
-    Vec3 c;
-    real r = 0;
+  Vec3 c;
+  real r = 0;
 };
 
-
-// todo: make fast!!
 struct DynamicBox {
-    u32 n_pts;
-    real t0;
-    real tf;
-    std::vector<Box> trajectory;    // Should be of size n_pts
+  u32              n_pts;
+  real             t0 = 0;
+  real             tf = 0;
+  std::vector<Box> trajectory; // Should be of size n_pts
 
-    inline blast_fn Box lookup(real time) const;
+  inline blast_fn Box lookup(real time) const;
 };
 
 struct DynamicCapsule {
-    u32 n_pts;
-    real t0;
-    real tf;
-    std::vector<Capsule> trajectory; // Should be of size n_pts
+  u32                  n_pts;
+  real                 t0 = 0;
+  real                 tf = 0;
+  std::vector<Capsule> trajectory; // Should be of size n_pts
 
-    inline blast_fn Capsule lookup(real time) const;
+  inline blast_fn Capsule lookup(real time) const;
 };
 
 struct DynamicSphere {
-    u32 n_pts;
-    real t0;
-    real tf;
-    std::vector<Sphere> trajectory; // Should be of size n_pts
+  u32                 n_pts;
+  real                t0 = 0;
+  real                tf = 0;
+  std::vector<Sphere> trajectory; // Should be of size n_pts
 
-    inline blast_fn Sphere lookup(real time) const;
+  inline blast_fn Sphere lookup(real time) const;
 };
 
 struct DynamicDoor {
-    Vec3 e;
-    Vec3 hinge;
-    Vec3 static_c_from_hinge;
-    real start_angle;
-    real end_angle;
-    real t0;
-    real tf;
-    Vec3 axis = {0, 0, 1};
+  Vec3 e;
+  Vec3 hinge;
+  Vec3 static_c_from_hinge;
+  real start_angle = 0;
+  real end_angle   = 0;
+  real t0          = 0;
+  real tf          = 0;
+  Vec3 axis        = {0, 0, 1};
 
-    inline blast_fn Box lookup(real t) const;
+  inline blast_fn Box lookup(real t) const;
 };
 
+inline host_fn void add_box(const Box& box, World* world);
+inline host_fn void add_sphere(const Sphere& sphere, World* world);
+inline host_fn void add_capsule(const Capsule& capsules, World* world);
+inline host_fn void add_box(Vec3 center_point, Vec3 half_width, Mat3 rotation_matrix, World* world);
+inline host_fn void add_sphere(Vec3 center_point, real radius, World* world);
+inline host_fn void add_capsule(Vec3 point1, Vec3 point2, real radius, World* world);
 
-inline blast_fn void add_box(Vec3 center_point, Vec3 half_width, Mat3 rotation_matrix, World* world);
-inline blast_fn void add_sphere(Vec3 center_point, real radius, World* world);
-inline blast_fn void add_capsule(Vec3 point1, Vec3 point2, real radius, World* world);
-inline blast_fn Array test_collision(std::vector<Capsule> robot_capsule_list, World* world, u32 n_lowest_distances);
+inline host_fn void add_dynamic_box(const DynamicBox& box, World* world);
+inline host_fn void add_dynamic_sphere(const DynamicSphere& sphere, World* world);
+inline host_fn void add_dynamic_capsule(const DynamicCapsule& capsules, World* world);
+inline host_fn void add_dynamic_box(const std::vector<Box>& boxes, u32 n_points, real start_time, real end_time, World* world);
+inline host_fn void add_dynamic_capsule(const std::vector<Capsule>& capsules, u32 n_points, real start_time, real end_time, World* world);
+inline host_fn void add_dynamic_sphere(const std::vector<Sphere>& spheres, u32 n_points, real start_time, real end_time, World* world);
 
-inline blast_fn real distance(Capsule capsule,  Sphere sphere);
-inline blast_fn real distance(Capsule capsule1, Capsule capsule2);
-inline blast_fn real distance(Capsule capsule,  Box box);
+inline blast_fn Array test_collisions(const ObjMatrix<Capsule>& robot_capsules, const World* world, u32 n_lowest_distances, real start_time, real end_time);
+
+inline blast_fn real distance(const Capsule& capsule, const Box& box);
+inline blast_fn real distance(const Capsule& capsule, const Sphere& sphere);
+inline blast_fn real distance(const Capsule& capsule1, const Capsule& capsule2);
+inline blast_fn real distance(const Capsule& capsule, const Vec3& point);
+inline blast_fn real distance(const Box& box, const Vec3& point);
+inline blast_fn real distance(const Sphere& sphere, const Vec3& point);
 
 inline blast_fn Vec3 get_point(const Array& x, const Matrix& capsule_list);
-inline blast_fn real distance(const  Box& box, const Vec3& point);
-inline blast_fn real distance(const  Capsule& capsule, const Vec3& point);
-inline blast_fn real distance(const  Sphere& sphere, const  Vec3& point);
 
-
-inline blast_fn Box DynamicDoor::lookup(const real t) const {
-    // progression from 0 to 1
-    real progression = t < t0 ? 0 : (t > tf ? 1 : (t-t0) / (tf-t0));
-    Box result;
-    result.e = e;
-    real current_angle = start_angle*(1-progression) + end_angle*progression;
-    result.R = rpy2rotation(current_angle*axis);
-    result.c = hinge + result.R*static_c_from_hinge;
-    return result;
-}
 
 } // namespace blast
 
 
+#include "world/distance.hpp"
 #include "world/world.hpp"
-#include "world/primitive.hpp"
+
+#include "world/dynamicbox.hpp"
+#include "world/dynamiccapsule.hpp"
+#include "world/dynamicdoor.hpp"
+#include "world/dynamicsphere.hpp"
+
 #include "world/CoDO.hpp"
-
-
-

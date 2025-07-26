@@ -5,7 +5,6 @@ add_library(blast INTERFACE
         world/CoDO.hpp)
 
 target_include_directories(blast INTERFACE
-    ../include
     ./
     extern
     extern/vcl

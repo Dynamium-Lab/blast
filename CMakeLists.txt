@@ -9,6 +9,7 @@ project(
 
 set(CMAKE_INCLUDE_CURRENT_DIR   ON)
 
+include_directories(blast)
 add_subdirectory(blast)
 
 

@@ -2,8 +2,11 @@
   <dictionary name="project">
     <words>
       <w>distmin</w>
+      <w>existant</w>
+      <w>immintrin</w>
       <w>nonnegative</w>
       <w>sincos</w>
+      <w>xmmintrin</w>
     </words>
   </dictionary>
 </component>

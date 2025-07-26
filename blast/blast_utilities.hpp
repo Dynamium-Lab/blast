@@ -52,21 +52,21 @@ inline blast_fn void print(const Matrix& m) {
     }
 }
 
-inline blast_fn void print(double* data, unsigned size) {
+inline blast_fn void print(const double* data, unsigned size) {
     printf("[");
     for (u32 i = 0; i < size-1; i++)
         printf("% 0.4f, ", data[i]);
     printf("% 0.4f]\n", data[size-1]);
 }
 
-inline blast_fn void print(float* data, unsigned size) {
+inline blast_fn void print(const float* data, unsigned size) {
     printf("[");
     for (u32 i = 0; i < size-1; i++)
         printf("% 0.4f, ", data[i]);
     printf("% 0.4f]\n", data[size-1]);
 }
 
-inline blast_fn void print(double* data, unsigned rows, unsigned cols) {
+inline blast_fn void print(const double* data, unsigned rows, unsigned cols) {
     for (u32 i = 0; i < rows; i++) {
         printf("[");
         for (u32 j = 0; j < cols-1; j++)
@@ -75,7 +75,7 @@ inline blast_fn void print(double* data, unsigned rows, unsigned cols) {
     }
 }
 
-inline blast_fn void print(float* data, unsigned rows, unsigned cols) {
+inline blast_fn void print(const float* data, unsigned rows, unsigned cols) {
     for (u32 i = 0; i < rows; i++) {
         printf("[");
         for (u32 j = 0; j < cols-1; j++)
