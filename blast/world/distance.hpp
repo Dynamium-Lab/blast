@@ -1,6 +1,6 @@
 #pragma once
-#include <cmath>
 
+#include <cmath>
 #include <blast>
 
 namespace blast {
@@ -43,13 +43,15 @@ constexpr real COLLISION_EPSILON = 1e-9;
 
 
 // Internal functions not directly exposed to the API
-inline blast_fn real   distance(Segment segment, Vec3 point);
 inline blast_fn bool   point_in_triangle(Vec3 triangle_v1, Vec3 triangle_v2, Vec3 triangle_origin, Vec3 point);
 inline blast_fn bool   point_in_surface(Vec3 surf_v1, Vec3 surf_v2, Vec3 surf_origin, Vec3 point);
+
 inline blast_fn Vec3   closest_point(Segment segment, Vec3 point);
 inline blast_fn Vec3   closest_point_origin(Segment segment);
 inline blast_fn Vec3   closest_point_plane(Vec3 q, Plane p);
 inline blast_fn TwoPts closest_points(Segment segment1, Segment segment2);
+
+inline blast_fn real   distance(Segment segment, Vec3 point);
 inline blast_fn real   distance(surface surface, Vec3 point);
 inline blast_fn real   distance(Segment segment1, Segment segment2);
 

@@ -56,7 +56,7 @@ TEST_CASE("benchmark phase 1 gradient acceleration  (P,V,A,Tau)", "[Acceleration
 
 
     // -- Define Constraints ---
-    Constraints<GenericManipulator> constraints;
+    Constraints<Manipulator> constraints;
     constraints.show_info           = false;
 
     constraints.position            = true;
@@ -71,7 +71,7 @@ TEST_CASE("benchmark phase 1 gradient acceleration  (P,V,A,Tau)", "[Acceleration
     constraints.n_collision_skip = 2;
 
     // --- Define Objective ---
-    Objective<GenericManipulator> objective;
+    Objective<Manipulator> objective;
     objective.K_time = 1;
 
     u32 bench_counter = 0;
@@ -102,7 +102,7 @@ TEST_CASE("benchmark phase 1 gradient acceleration  (P,V,A,Tau)", "[Acceleration
             std::streambuf* orig_buf = cout.rdbuf();
 
             // Base Line Optimization
-            Optimization<GenericManipulator> opt(link6, tasks[t]);
+            Optimization<Manipulator> opt(link6, tasks[t]);
 
             opt.set_bspline(bspline);
             opt.set_guess(guess);
@@ -124,7 +124,7 @@ TEST_CASE("benchmark phase 1 gradient acceleration  (P,V,A,Tau)", "[Acceleration
             cout.rdbuf(orig_buf);
 
             // Acceleration 1 Optimization
-            Optimization<GenericManipulator> opt_acc(link6, tasks[t]);
+            Optimization<Manipulator> opt_acc(link6, tasks[t]);
             opt_acc.set_bspline(bspline);
             opt_acc.set_guess(guess);
             opt_acc.set_constraints(constraints);

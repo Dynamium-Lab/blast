@@ -325,3 +325,6 @@ blast_fn inline real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1
 
 
 }
+
+
+#include "manipulator/manipulator.hpp"

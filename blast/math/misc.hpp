@@ -59,6 +59,24 @@ inline Mat3 rpy2rotation(Vec3 rpy) {
     return R;
 }
 
+inline Vec3 rotation2rpy(Mat3 rotation) {
+  u32 condition = std::abs(rotation(0, 2)) != 1 ? 1 : rotation(0, 2) == 1 ? 2 : 3; // allow for gimble lock
+  real rx = condition == 1 ? atan2(-rotation(1, 2), rotation(2, 2))
+            : 0.0;
+
+
+  real ry = condition == 1 ? asin(rotation(0, 2))
+            : condition == 2 ? PI/2
+            : -PI/2;
+
+
+  real rz = condition == 1 ? atan2(-rotation(0, 1), rotation(0, 0))
+            : condition == 2 ? atan2(rotation(1, 0), rotation(1, 1))
+            : atan2(-rotation(1, 0), -rotation(1, 1));
+
+  return {rx, ry, rz};
+}
+
 // Returns the sign of a real number (zero if it is zero).
 inline blast_fn real sign(real v) {
     return v > 0 ? 1: v == 0 ? 0: -1;

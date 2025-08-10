@@ -4,7 +4,7 @@
 using namespace blast;
 
 // todo: Change camera capsule
-inline GenericManipulator get_generic_Link6() {
+inline Manipulator get_generic_Link6() {
     // Manipulator
     u32 joints = 6;
     // limits
@@ -157,13 +157,13 @@ inline GenericManipulator get_generic_Link6() {
     collisions.capsule_list.push_back(model_caps); // todo: change camera capsule
 
     // create manipulator link6
-    GenericManipulator link6(joints, &limits, &kinematics, &dynamics, &collisions);
+    Manipulator link6(joints, &limits, &kinematics, &dynamics, &collisions);
 
     return link6;
 }
 
 // note: p_base and Q_base are set in respect to lab's layout (in Link6 frame)
-GenericManipulator get_generic_gen3() { // todo: fix capsules, not working
+Manipulator get_generic_gen3() { // todo: fix capsules, not working
     // Manipulator
     u32 joints = 7;
 
@@ -249,7 +249,7 @@ GenericManipulator get_generic_gen3() { // todo: fix capsules, not working
     }; // centers of mass
 
     // create manipulator gen3
-    GenericManipulator generic_manip(joints, &limits, &kinematics, &dynamics);
+    Manipulator generic_manip(joints, &limits, &kinematics, &dynamics);
 
     // Collision model
     ManipulatorCapsules collisions;
@@ -297,7 +297,7 @@ GenericManipulator get_generic_gen3() { // todo: fix capsules, not working
 }
 
 // Warning : Will not do self-collisions
-GenericManipulator get_generic_fanuc_crx25ia() {
+Manipulator get_generic_fanuc_crx25ia() {
     u32 joints = 6;
 
     ManipulatorLimits limits;
@@ -355,7 +355,7 @@ GenericManipulator get_generic_fanuc_crx25ia() {
         {0, 0, 0}
     };
 
-    GenericManipulator generic_manip(joints, &limits, &kinematics, &dynamics);
+    Manipulator generic_manip(joints, &limits, &kinematics, &dynamics);
 
     ManipulatorCapsules collisions;
     Sphere sphere;
@@ -949,7 +949,7 @@ HierarchicalTask get_demo2_task() {
     robot_guess.push_back(guess);
 
     // Constraints
-    Constraints<GenericManipulator> constraints;
+    Constraints<Manipulator> constraints;
     constraints.position = true;
     constraints.velocity = true;
     constraints.acceleration = true;
@@ -960,15 +960,15 @@ HierarchicalTask get_demo2_task() {
     constraints.n_collision_constraints = 100;
     constraints.n_collision_skip = 2;
 
-    std::vector<Constraints<GenericManipulator>> robot_constraints;
+    std::vector<Constraints<Manipulator>> robot_constraints;
     robot_constraints.push_back(constraints);
     robot_constraints.push_back(constraints);
 
     // Objective
-    Objective<GenericManipulator> objective;
+    Objective<Manipulator> objective;
     objective.K_time = 1;
 
-    std::vector<Objective<GenericManipulator>> robot_objective;
+    std::vector<Objective<Manipulator>> robot_objective;
     robot_objective.push_back(objective);
     robot_objective.push_back(objective);
 
@@ -978,22 +978,22 @@ HierarchicalTask get_demo2_task() {
     return hierarchy_optim;
 }
 
-Optimization<GenericManipulator> get_generic_link6_opt() {
+Optimization<Manipulator> get_generic_link6_opt() {
     // Manip
-    GenericManipulator manip = get_generic_Link6();
+    Manipulator manip = get_generic_Link6();
 
     // Task
     auto task = get_link6_task();
 
     // Create optimization
-    Optimization<GenericManipulator> opt(manip, task);
+    Optimization<Manipulator> opt(manip, task);
 
     // world
     World world = get_lab_world();
     opt.set_world(world);
 
     // Constraints
-    Constraints<GenericManipulator> constraints;
+    Constraints<Manipulator> constraints;
     constraints.position = true;
     constraints.velocity = true;
     constraints.acceleration = true;
@@ -1004,7 +1004,7 @@ Optimization<GenericManipulator> get_generic_link6_opt() {
     opt.set_constraints(constraints);
 
     // Objective
-    Objective<GenericManipulator> objective;
+    Objective<Manipulator> objective;
     objective.K_time = 1;
     opt.set_objective(objective);
 
@@ -1060,22 +1060,22 @@ Optimization<Link6> get_hardcoded_link6_opt() {
     return opt;
 }
 
-Optimization<GenericManipulator> get_generic_gen3_opt() {
+Optimization<Manipulator> get_generic_gen3_opt() {
     // Manip
-    GenericManipulator manip = get_generic_gen3();
+    Manipulator manip = get_generic_gen3();
 
     // Task
     auto task = get_gen3_task();
 
     // Create optimization
-    Optimization<GenericManipulator> opt(manip, task);
+    Optimization<Manipulator> opt(manip, task);
 
     // world
     World world = get_lab_world();
     opt.set_world(world);
 
     // Constraints
-    Constraints<GenericManipulator> constraints;
+    Constraints<Manipulator> constraints;
     constraints.position = true;
     constraints.velocity = true;
     constraints.acceleration = true;
@@ -1086,7 +1086,7 @@ Optimization<GenericManipulator> get_generic_gen3_opt() {
     opt.set_constraints(constraints);
 
     // Objective
-    Objective<GenericManipulator> objective;
+    Objective<Manipulator> objective;
     objective.K_time = 1;
     opt.set_objective(objective);
 
