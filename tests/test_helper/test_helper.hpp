@@ -1013,7 +1013,7 @@ Optimization<Manipulator> get_generic_link6_opt() {
     opt.set_bspline(bspline);
 
     // Guess
-    opt.guess.type = GuessType::random;
+    opt.guess.type = Guess::random;
     opt.guess.n_shot = 100;
 
     return opt;
@@ -1054,7 +1054,7 @@ Optimization<Link6> get_hardcoded_link6_opt() {
     opt.set_bspline(bspline);
 
     // Guess
-    opt.guess.type = GuessType::random;
+    opt.guess.type = Guess::random;
     opt.guess.n_shot = 100;
 
     return opt;
@@ -1095,7 +1095,7 @@ Optimization<Manipulator> get_generic_gen3_opt() {
     opt.set_bspline(bspline);
 
     // Guess
-    opt.guess.type = GuessType::random;
+    opt.guess.type = Guess::random;
     opt.guess.n_shot = 100;
 
     return opt;
@@ -1138,7 +1138,7 @@ Optimization<Gen3> get_gen3_gen3_opt() {
     opt.set_bspline(bspline);
 
     // Guess
-    opt.guess.type = GuessType::random;
+    opt.guess.type = Guess::random;
     opt.guess.n_shot = 100;
 
     return opt;

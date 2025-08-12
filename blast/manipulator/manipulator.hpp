@@ -2,270 +2,210 @@
 
 #include <blast>
 #include <optional>
+#include <utility>
+#include "nlopt.h"
 
 namespace blast {
 
-// Defined Types
-struct CollisionModelCapsule;
-struct ManipulatorLimits;
-struct ManipulatorKinematics;
-struct ManipulatorDynamics;
-struct ManipulatorCapsules;
-struct EndEffector;
-struct Manipulator;
+struct IK_opt {
+  Manipulator manip;
+  Array       desired_pose;
 
-
-
-/**
- * @struct CollisionModelCapsule
- * @brief Simple capsule primitive for collision checking.
- *
- * @var p1           First endpoint of the capsule (Vec3).
- * @var joint_frame  Index of the joint frame to which this capsule is attached.
- * @var p2           Second endpoint of the capsule (Vec3).
- * @var r            Radius of the capsule.
- */
-struct CollisionModelCapsule {
-  Vec3 p1;
-  u32  joint_frame;
-  Vec3 p2;
-  real r;
+  IK_opt(Manipulator new_manip, Array new_pose) :
+      manip(std::move(new_manip)),
+      desired_pose(std::move(new_pose)) {}
 };
 
-/**
- * @struct ManipulatorLimits
- * @brief Actuator limits for a manipulator's joints and TCP.
- *
- * @var pmax    Maximum joint positions.
- * @var pmin    Minimum joint positions.
- * @var vmax    Maximum joint velocities.
- * @var vmin    Minimum joint velocities.
- * @var amax    Maximum joint accelerations.
- * @var amin    Minimum joint accelerations.
- * @var tau_max Maximum joint torques.
- * @var tau_min Minimum joint torques.
- * @var tcp_max Maximum tool‐center‐point speed.
- */
-struct ManipulatorLimits {
-  Array pmax;    // max joint position
-  Array pmin;    // min joint position
-  Array vmax;    // max joint velocity
-  Array vmin;    // min joint velocity
-  Array amax;    // max joint acceleration
-  Array amin;    // min joint acceleration
-  Array tau_max; // max joint torque
-  Array tau_min; // min joint torque
+inline Matrix jacobian(const Manipulator& manip) {
+  std::vector<Vec3> r_tool(manip.joints);
+  r_tool[manip.joints - 1] = manip.dv[manip.joints - 1];
+  for (int i = (int) manip.joints - 2; i >= 0; i--) {
+    r_tool[i] = manip.dv[i] + manip._rotations[i + 1] * r_tool[i + 1];
+  }
 
-  real tcp_max;  // max tcp speed
-};
+  for (int i = 0; i < manip.joints; i++) {
+    r_tool[i] = manip._rotations_mult[i] * r_tool[i];
+  }
 
-/**
- * @struct ManipulatorKinematics
- * @brief Geometric configuration of manipulator joints and base.
- *
- * @var dv       Vectors from each joint to the next (in joint frames).
- * @var ev       Unit axis directions for each joint.
- * @var Q_static Static rotation matrices from joint to next (Mat3).
- * @var p_j0     Position of the first joint relative to the base.
- * @var p_base   Position of the manipulator base in the world frame.
- * @var Q_base   Orientation of the manipulator base in the world frame.
- */
-struct ManipulatorKinematics {
-  std::vector<Vec3> dv;                                   // vector to next joint
-  std::vector<Vec3> ev;                                   // direction vectors of joint
-  std::vector<Mat3> Q_static;                             // static rotation to next joint
-  Vec3              p_j0   = {0.0, 0.0, 0.0};             // position of the first joint relative to base
-  Vec3              p_base = {0.0, 0.0, 0.0};             // base position in workspace
-  Mat3              Q_base = {1, 0, 0, 0, 1, 0, 0, 0, 1}; // base orientation in workspace
-};
+  Matrix J_tool(6, manip.joints);
+  for (int i = 0; i < manip.joints; i++) {
+    const Vec3 e       = manip._rotations_mult[i] * manip.ev[i]; // replaced e directly in function to skip copy
+    const Vec3 cr_tool = cross(e, r_tool[i]);
+    // J_tool(0, i) = e.x;
+    // J_tool(1, i) = e.y;
+    // J_tool(2, i) = e.z;
+    // J_tool(3, i) = cr_tool.x;
+    // J_tool(4, i) = cr_tool.y;
+    // J_tool(5, i) = cr_tool.z;
+    J_tool(3, i) = e.x;
+    J_tool(4, i) = e.y;
+    J_tool(5, i) = e.z;
+    J_tool(0, i) = cr_tool.x;
+    J_tool(1, i) = cr_tool.y;
+    J_tool(2, i) = cr_tool.z;
+  }
 
-/**
- * @struct ManipulatorDynamics
- * @brief Dynamic properties of each manipulator link.
- *
- * @var m    Mass of each link.
- * @var I    Inertia tensor of each link (Mat3).
- * @var av   Center of mass offset for each link (Vec3).
- */
-struct ManipulatorDynamics {
-  std::vector<real> m;  // link mass
-  std::vector<Mat3> I;  // inertial tensors
-  std::vector<Vec3> av; // center of mass
-};
+  return J_tool;
+}
 
-/**
- * @struct ManipulatorCapsules
- * @brief Collision geometry grouping for manipulator.
- *
- * @var base_sphere      Collision sphere around the base.
- * @var capsule_list     List of link capsules for collision.
- * @var collision_matrix Matrix indicating collisions between capsules.
- * @var collision_base   Array indicating collisions with base sphere.
- */
-struct ManipulatorCapsules {
-  Sphere                             base_sphere;
-  std::vector<CollisionModelCapsule> capsule_list;
-  ObjMatrix<u8>                      collision_matrix = {}; // which capsules collide
-  Array                              collision_base;        // collisions with base sphere
-};
+inline Matrix jacobian_IK(const Manipulator& manip) {
+  std::vector<Vec3> r_tool(manip.joints);
+  r_tool[manip.joints - 1] = manip.dv[manip.joints - 1];
+  for (int i = (int) manip.joints - 2; i >= 0; i--) {
+    r_tool[i] = manip.dv[i] + manip._rotations[i + 1] * r_tool[i + 1];
+  }
 
-/**
- * @struct EndEffector
- * @brief Payload and collision properties of an end effector.
- *
- * @var dv_ee         Offset vector from TCP to payload.
- * @var Q_ee          Rotation from TCP to payload.
- * @var m_ee          Payload mass.
- * @var I_ee          Payload inertia tensor.
- * @var av_ee         Payload center of mass offset.
- * @var capsule_list  Collision capsules for the end effector.
- * @var collision_matrix Collision matrix for payload capsules.
- */
-struct EndEffector {
-  Vec3 dv_ee = {0.0, 0.0, 0.0};
-  Mat3 Q_ee  = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  real m_ee  = 0.0;
-  Mat3 I_ee;
-  Vec3 av_ee = {0.0, 0.0, 0.0};
+  for (int i = 0; i < manip.joints; i++) {
+    r_tool[i] = manip._rotations_mult[i] * r_tool[i];
+  }
 
-  // Collision for end effector
-  std::vector<CollisionModelCapsule> capsule_list;
-  ObjMatrix<u8>                      collision_matrix = {};
-};
+  Matrix J_tool(12, manip.joints);
+  Mat3   E = {0, 1, 0, -1, 0, 0, 0, 0, 0};
+  for (int i = 0; i < manip.joints; i++) {
+    Vec3 e       = manip._rotations_mult[i] * manip.ev[i];
+    Vec3 cr_tool = cross(e, r_tool[i]);
+    // position
+    // J_tool(0, i) = cr_tool.x;
+    // J_tool(1, i) = cr_tool.y;
+    // J_tool(2, i) = cr_tool.z;
+    J_tool(9, i)  = cr_tool.x;
+    J_tool(10, i) = cr_tool.y;
+    J_tool(11, i) = cr_tool.z;
+    // rotation
+    Mat3 rotation{1, 0, 0, 0, 1, 0, 0, 0, 1};
+    for (int j = 0; j < i; j++)
+      rotation *= manip._rotations[j];
 
-/**
- * @class Manipulator
- * @brief High‐level interface combining limits, kinematics, dynamics,
- *        and collision geometry for a manipulator.
- *
- * @note Use the constructor to fully specify at least limits and kinematics.
- */
-struct Manipulator {
-  u32 joints = 0;
+    rotation *= E;
 
-  // Manipulator limits
-  Array pmax;
-  Array pmin;
-  Array vmax;
-  Array vmin;
-  Array amax;
-  Array amin;
-  Array tau_max;
-  Array tau_min;
+    for (int j = i; j < manip.joints; j++)
+      rotation *= manip._rotations[j];
+    rotation *= manip._rotations[manip.joints]; // todo: make more robust
 
-  real tcp_max = 0.0; // max TCP speed
+    J_tool(0, i) = rotation[0];
+    J_tool(1, i) = rotation[1];
+    J_tool(2, i) = rotation[2];
+    J_tool(3, i) = rotation[3];
+    J_tool(4, i) = rotation[4];
+    J_tool(5, i) = rotation[5];
+    J_tool(6, i) = rotation[6];
+    J_tool(7, i) = rotation[7];
+    J_tool(8, i) = rotation[8];
+  }
+  return std::move(J_tool);
+}
 
-  // World‐frame base pose
-  Vec3 p_base = {0, 0, 0};
-  Mat3 Q_base = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+inline void forward_kinematics(Manipulator& manip, const Array& joint_pos) {
+  manip.compute_rotation_matrices(joint_pos); // todo: check performance
 
-  // End effector state
-  bool end_effector = false;
-  Vec3 dv_ee        = {0, 0, 0};
-  Mat3 Q_ee         = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  real m_ee         = 0.0;
-  Mat3 I_ee         = eye();
-  Vec3 av_ee        = {0, 0, 0};
+  manip._rotations_mult[0] = manip.Q_base * manip._rotations[0];
+  for (u32 j = 1; j < manip._rotations_mult.size(); j++) {
+    manip._rotations_mult[j] = manip._rotations_mult[j - 1] * manip._rotations[j];
+  }
 
-  // Joint kinematics
-  Vec3              p_j0 = {0, 0, 0};
-  std::vector<Vec3> dv;       // to next joint
-  std::vector<Vec3> ev;       // axis dirs
-  std::vector<Mat3> Q_static; // static rotations
+  manip._p_j[0] = manip.p_base + manip.Q_base * manip.p_j0;
+  for (u32 j = 1; j < manip._p_j.size(); j++) {
+    manip._p_j[j] = manip._p_j[j - 1] + manip._rotations_mult[j - 1] * manip.dv[j - 1];
+  }
+}
 
-  // Link dynamics
-  std::vector<real> m;
-  std::vector<Mat3> I;
-  std::vector<Vec3> av;
-  std::vector<Vec3> sv; // COM from next joint
+inline void dynamics(Manipulator& manip, Array& vel, Array& acc) {
+  Assert(vel.size == acc.size);
+  Assert(vel.size == manip.joints);
+  const auto joints = manip.joints;
+  if (manip._efforts.size != joints)
+    manip._efforts.resize(joints);
 
-  // Internal caches and collision
-  Array                              _efforts;
-  std::vector<Mat3>                  _Q;
-  std::vector<Mat3>                  _Q_mult;
-  std::vector<Vec3>                  _p_j;
-  std::vector<CollisionModelCapsule> _collision_model;
-  Sphere                             _base_sphere;
-  std::vector<Capsule>               _capsule_list;
-  ObjMatrix<u8>                      _collision_matrix;
-  Array                              _collision_base;
-  u32                                _n_caps                = 0;
-  u32                                _n_internal_collisions = 0;
+  std::vector<Mat3> Qt(joints);
+  for (u32 j = 0; j < joints; j++) {
+    Qt[j] = transpose(manip._rotations[j]);
+  }
 
-  Manipulator() = delete;
+  // note: This is the Newton algorithm in 'Element de robotique' course notes.
+  //       Careful because some variables are named differently and uses a slightly different conventions.
+  //       For example, the ith coordinate frame turns with the ith joint, where in the course notes, the
+  //       joint turns with respect to the coordinate frame.
+  //-- kinematics
+  std::vector<Vec3> w(joints);
+  w[0] = vel[0] * manip.ev[0];
+  for (u32 j = 1; j < joints; j++)
+    w[j] = Qt[j] * w[j - 1] + vel[j] * manip.ev[j];
 
-  /**
-   * @brief Construct a GenericManipulator with required data.
-   * @param joint_count  Number of joints (excluding fixed).
-   * @param limits       Mandatory ManipulatorLimits.
-   * @param kinematics   Mandatory ManipulatorKinematics.
-   * @param dynamics     Optional pointer to ManipulatorDynamics.
-   * @param capsules     Optional pointer to ManipulatorCapsules.
-   */
-  host_fn Manipulator(u32 joint_count, const ManipulatorLimits& limits, const ManipulatorKinematics& kinematics, const ManipulatorDynamics* dynamics = nullptr, const ManipulatorCapsules* capsules = nullptr);
+  std::vector<Vec3> wd(joints);
+  std::vector<Vec3> cdd(joints);
+  Vec3              cdd0 = {0, 0, 9.81f};
+  wd[0]                  = acc[0] * manip.ev[0];
+  cdd[0]                 = Qt[0] * cdd0 + cross(wd[0], manip.av[0]) + cross(w[0], cross(w[0], manip.av[0]));
+  for (u32 j = 1; j < joints; j++) {
+    wd[j]  = Qt[j] * wd[j - 1] + acc[j] * manip.ev[j] + vel[j] * cross(Qt[j] * w[j - 1], manip.ev[j]);
+    cdd[j] = Qt[j] * cdd[j - 1] + cross(wd[j], manip.av[j]) + cross(w[j], cross(w[j], manip.av[j])) - Qt[j] * cross(wd[j - 1], manip.sv[j - 1]) - Qt[j] * cross(w[j - 1], cross(w[j - 1], manip.sv[j - 1]));
+  }
 
-  /**
-   * @brief Apply provided limits to this manipulator.
-   * @param limits  Reference to ManipulatorLimits.
-   */
-  host_fn void set_limits(const ManipulatorLimits& limits);
+  //-- dynamics
+  std::vector<Vec3> f(joints);
+  std::vector<Vec3> n(joints);
+  f[joints - 1] = manip.m[joints - 1] * cdd[joints - 1];
+  n[joints - 1] = manip.I[joints - 1] * wd[joints - 1] + cross(w[joints - 1], manip.I[joints - 1] * w[joints - 1]) + cross(manip.av[joints - 1], f[joints - 1]);
 
-  /**
-   * @brief Apply provided kinematics to this manipulator.
-   * @param kinematics  Reference to ManipulatorKinematics.
-   */
-  host_fn void set_kinematics(const ManipulatorKinematics& kinematics);
+  for (int j = (int) joints - 2; j >= 0; j--) {
+    f[j] = manip.m[j] * cdd[j] + manip._rotations[j + 1] * f[j + 1];
+    n[j] = manip.I[j] * wd[j] + cross(w[j], manip.I[j] * w[j]) + manip._rotations[j + 1] * n[j + 1] + cross(manip.av[j], f[j]) - cross(manip.sv[j], (manip._rotations[j + 1] * f[j + 1]));
+  }
 
-  /**
-   * @brief Apply provided dynamics to this manipulator.
-   * @param dynamics  Reference to ManipulatorDynamics.
-   */
-  host_fn void set_dynamics(const ManipulatorDynamics& dynamics);
+  //-- extract torques (last element of each moment vector)
+  for (u32 j = 0; j < joints; j++)
+    manip._efforts[j] = n[j].z; // todo: is it safe to do here ?
+}
 
-  /**
-   * @brief Apply provided collision capsules to this manipulator.
-   * @param capsules  Reference to ManipulatorCapsules.
-   */
-  host_fn void set_capsules(const ManipulatorCapsules& capsules);
+inline double get_error(unsigned int n, const double* x, double* grad, void* data) {
+  Array delta_pose(12);
+  Array current_joint_position;
+  current_joint_position.alias(x, n);
 
-  /**
-   * @brief Attach an end effector to this manipulator.
-   * @param ee  EndEffector structure with payload and geometry.
-   */
-  host_fn void add_end_effector(const EndEffector& ee);
+  auto info         = (IK_opt*) data;
+  auto manip        = info->manip;
+  auto desired_pose = info->desired_pose;
 
-  /**
-   * @brief Add a payload to the last link, adjusting mass and inertia.
-   * @param m_payload    Payload mass.
-   * @param cg_payload   Payload center of mass offset.
-   * @param I_payload    Payload inertia tensor.
-   */
-  host_fn void set_payload(real m_payload, Vec3 cg_payload, Mat3 I_payload);
+  forward_kinematics(manip, current_joint_position);
+  auto current_pose = manip.get_tool_pose();
 
-  /**
-   * @brief Compute joint rotation matrices for current joint positions (store internally).
-   * @param joint_position  Array of joint angles.
-   */
-  host_fn void compute_rotation_matrices(const Array& joint_position);
+  auto current_R = rpy2rotation({current_pose[3], current_pose[4], current_pose[5]});
+  auto desired_R = rpy2rotation({desired_pose[3], desired_pose[4], desired_pose[5]});
 
-  /**
-   * @brief Update collision capsules in world frame (store internally).
-   */
-  host_fn void compute_capsules();
+  for (u32 i = 0; i < 3; i++)
+    delta_pose[i + 9] = current_pose[i] - desired_pose[i];
 
-  /**
-   * @brief Compute distances for all internal collisions.
-   * @return Array of distances between colliding primitives.
-   */
-  host_fn Array get_internal_collisions() const;
+  for (u32 i = 0; i < 9; i++) {
+    delta_pose[i] = current_R[i] - desired_R[i];
+  }
 
-  /**
-   * @brief Get the current tool pose as [x,y,z,roll,pitch,yaw].
-   * @return Array of six values: position and RPY orientation.
-   */
-  host_fn Array get_tool_pose() const;
-};
+  return dot(delta_pose, delta_pose);
+}
 
+inline Array inverse_kinematics_nlopt(Manipulator manip, Array desired_pose, Array initial_joint_position) {
+  IK_opt info(std::move(manip), std::move(desired_pose));
+
+  auto o      = nlopt_create(nlopt_algorithm::NLOPT_LN_COBYLA, initial_joint_position.size);
+  auto result = nlopt_set_min_objective(o, get_error, &info);
+  Assert(result == NLOPT_SUCCESS);
+  result = nlopt_set_ftol_abs(o, 0.0001);
+  Assert(result == NLOPT_SUCCESS);
+  // result = nlopt_set_xtol_abs(o, 0.0001);
+  Assert(result == NLOPT_SUCCESS);
+  result = nlopt_set_maxtime(o, 50);
+  Assert(result == NLOPT_SUCCESS);
+  result = nlopt_set_maxeval(o, 100000);
+  Assert(result == NLOPT_SUCCESS);
+
+  // launch optimization
+  // note: modifies our copy of initial_joint_position
+  double f;
+  nlopt_optimize(o, initial_joint_position.data, &f);
+
+  nlopt_destroy(o);
+
+  return initial_joint_position;
+}
 
 inline host_fn Manipulator::Manipulator(u32 joint_count, const ManipulatorLimits& limits, const ManipulatorKinematics& kinematics, const ManipulatorDynamics* dynamics, const ManipulatorCapsules* capsules) {
   joints = joint_count;
@@ -310,7 +250,7 @@ inline host_fn void Manipulator::set_limits(const ManipulatorLimits& limits) {
     Assert(limits.tau_min.size == joints);
     tau_min = limits.tau_min;
   }
-  if (limits.tcp_max) {
+  if (limits.tcp_max != 0.0) {
     tcp_max = limits.tcp_max;
   }
 }
@@ -324,8 +264,8 @@ inline host_fn void Manipulator::set_kinematics(const ManipulatorKinematics& kin
   p_base   = kinematics.p_base;
   Q_base   = kinematics.Q_base;
   p_j0     = kinematics.p_j0;
-  _Q.resize(joints);
-  _Q_mult.resize(joints);
+  _rotations.resize(joints);
+  _rotations_mult.resize(joints);
   _p_j.resize(joints + 1);
 }
 
@@ -348,15 +288,15 @@ inline host_fn void Manipulator::set_capsules(const ManipulatorCapsules& capsule
     Assert(cap.joint_frame < _p_j.size());
     _collision_model.push_back(cap);
   }
-  _n_caps = _collision_model.size();
+  _n_caps = (int) _collision_model.size();
   _capsule_list.resize(_n_caps);
   if (capsules.collision_base.size != 0 && capsules.collision_matrix.size != 0) { // todo: fix this... (we need a fail safe)
     _collision_base.resize(_n_caps);
     _collision_base = capsules.collision_base;
     _collision_matrix.resize(_n_caps, _n_caps);
     _collision_matrix = capsules.collision_matrix;
-    for (u32 i = 0; i < _n_caps; ++i) {
-      for (u32 j = i + 1; j < _n_caps; ++j) {
+    for (int i = 0; i < _n_caps; ++i) {
+      for (int j = i + 1; j < _n_caps; ++j) {
         _n_internal_collisions += (_collision_matrix(j, i) != 0);
       }
       _n_internal_collisions += (_collision_base[i] != 0);
@@ -372,28 +312,28 @@ inline host_fn void Manipulator::compute_rotation_matrices(const Array& joint_po
   Array s(joints), c(joints);
   sincos(joint_position, s, c);
   for (u32 j = 0; j < joints; ++j) {
-    Mat3 temp = {c[j], s[j], 0, -s[j], c[j], 0, 0, 0, 1};
-    _Q[j]     = Q_static[j] * temp;
+    Mat3 temp     = {c[j], s[j], 0, -s[j], c[j], 0, 0, 0, 1};
+    _rotations[j] = Q_static[j] * temp;
   }
-  for (u32 j = joints; j < _Q.size(); ++j) {
-    _Q[j] = Q_static[j];
+  for (u32 j = joints; j < _rotations.size(); ++j) {
+    _rotations[j] = Q_static[j];
   }
 }
 
 inline host_fn void Manipulator::compute_capsules() {
   for (u32 i = 0; i < _collision_model.size(); ++i) {
     _capsule_list[i] = {
-            {_p_j[_collision_model[i].joint_frame] + _Q_mult[_collision_model[i].joint_frame] * _collision_model[i].p1},
-            {_p_j[_collision_model[i].joint_frame] + _Q_mult[_collision_model[i].joint_frame] * _collision_model[i].p2},
+            {_p_j[_collision_model[i].joint_frame] + _rotations_mult[_collision_model[i].joint_frame] * _collision_model[i].p1},
+            {_p_j[_collision_model[i].joint_frame] + _rotations_mult[_collision_model[i].joint_frame] * _collision_model[i].p2},
             _collision_model[i].r};
   }
 }
 
 inline host_fn Array Manipulator::get_internal_collisions() const {
   Array distances(_n_internal_collisions);
-  u32   idx = 0;
-  for (u32 i = 0; i < _collision_matrix.cols; ++i) {
-    for (u32 j = i + 1; j < _collision_matrix.rows; ++j) {
+  int   idx = 0;
+  for (int i = 0; i < _collision_matrix.cols; ++i) {
+    for (int j = i + 1; j < _collision_matrix.rows; ++j) {
       if (_collision_matrix(j, i) != 0)
         distances[idx++] = distance(_capsule_list[i], _capsule_list[j]);
     }
@@ -406,7 +346,7 @@ inline host_fn Array Manipulator::get_internal_collisions() const {
 }
 
 inline host_fn Array Manipulator::get_tool_pose() const {
-  Mat3 tmp             = _Q_mult.back();
+  Mat3 tmp             = _rotations_mult.back();
   Vec3 current_rpy     = rotation2rpy(tmp);
   Vec3 current_cartpos = _p_j.back();
   return {current_cartpos.x, current_cartpos.y, current_cartpos.z,
@@ -452,6 +392,185 @@ inline host_fn void Manipulator::set_payload(real m_payload, Vec3 cg_payload, Ma
   m.back()  = m_new;
   av.back() = av_new;
   sv.back() = {-dv.back() + av.back()};
+}
+
+blast_fn inline real clamped_root(real slope, real h0, real h1) {
+  // note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
+  real r;
+  if (h0 < 0) {
+    if (h1 > 0) {
+      r = -h0 / slope;
+      if (r > 1)
+        r = 0.5;
+    } else
+      r = 1;
+  } else
+    r = 0;
+  return r;
+}
+
+blast_fn inline void compute_intersection(const real sValue[2], const i32 classify[2], real b, real f00, real f10, i32* edge, real end[][2]) {
+  // note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
+  constexpr real zero = 0;
+  constexpr real half = (real) 0.5;
+  constexpr real one  = 1;
+  if (classify[0] < 0) {
+    edge[0]   = 0;
+    end[0][0] = zero;
+    end[0][1] = f00 / b;
+    if (end[0][1] < zero || end[0][1] > one)
+      end[0][1] = half;
+    if (classify[1] == 0) {
+      edge[1]   = 3;
+      end[1][0] = sValue[1];
+      end[1][1] = one;
+    } else {
+      edge[1]   = 1;
+      end[1][0] = one;
+      end[1][1] = f10 / b;
+      if (end[1][1] < zero || end[1][1] > one)
+        end[1][1] = half;
+    }
+  } else if (classify[0] == 0) {
+    edge[0]   = 2;
+    end[0][0] = sValue[0];
+    end[0][1] = zero;
+    if (classify[1] < 0) {
+      edge[1]   = 0;
+      end[1][0] = zero;
+      end[1][1] = f00 / b;
+      if (end[1][1] < zero || end[1][1] > one)
+        end[1][1] = half;
+    } else if (classify[1] == 0) {
+      edge[1]   = 3;
+      end[1][0] = sValue[1];
+      end[1][1] = one;
+    } else {
+      edge[1]   = 1;
+      end[1][0] = one;
+      end[1][1] = f10 / b;
+      if (end[1][1] < zero || end[1][1] > one)
+        end[1][1] = half;
+    }
+  } else {
+    edge[0]   = 1;
+    end[0][0] = one;
+    end[0][1] = f10 / b;
+    if (end[0][1] < zero || end[0][1] > one)
+      end[0][1] = half;
+    if (classify[1] == 0) {
+      edge[1]   = 3;
+      end[1][0] = sValue[1];
+      end[1][1] = one;
+    } else {
+      edge[1]   = 0;
+      end[1][0] = zero;
+      end[1][1] = f00 / b;
+      if (end[1][1] < zero || end[1][1] > one)
+        end[1][1] = half;
+    }
+  }
+}
+
+blast_fn inline void compute_minimum_parameters(const i32 edge[2], const real end[][2], real b, real c, real e, real g00, real g10, real g01, real g11, real* parameter) {
+  // note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
+  constexpr real zero  = 0;
+  constexpr real one   = 1;
+  real const     delta = end[1][1] - end[0][1];
+  if (real h0 = delta * (-b * end[0][0] + c * end[0][1] - e); h0 >= zero) {
+    if (edge[0] == 0) {
+      parameter[0] = zero;
+      parameter[1] = clamped_root(c, g00, g01);
+    } else if (edge[0] == 1) {
+      parameter[0] = one;
+      parameter[1] = clamped_root(c, g10, g11);
+    } else {
+      parameter[0] = end[0][0];
+      parameter[1] = end[0][1];
+    }
+  } else {
+    if (real h1 = delta * (-b * end[1][0] + c * end[1][1] - e); h1 <= zero) {
+      if (edge[1] == 0) {
+        parameter[0] = zero;
+        parameter[1] = clamped_root(c, g00, g01);
+      } else if (edge[1] == 1) {
+        parameter[0] = one;
+        parameter[1] = clamped_root(c, g10, g11);
+      } else {
+        parameter[0] = end[1][0];
+        parameter[1] = end[1][1];
+      }
+    } else {
+      real z       = clamp(h0 / (h0 - h1), 0, 1);
+      real omz     = one - z;
+      parameter[0] = omz * end[0][0] + z * end[1][0];
+      parameter[1] = omz * end[0][1] + z * end[1][1];
+    }
+  }
+}
+
+blast_fn inline real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
+  // note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
+  auto const P1mP0        = P1 - P0;
+  auto const Q1mQ0        = Q1 - Q0;
+  auto const P0mQ0        = P0 - Q0;
+  real       a            = dot(P1mP0, P1mP0);
+  real       b            = dot(P1mP0, Q1mQ0);
+  real       c            = dot(Q1mQ0, Q1mQ0);
+  real       d            = dot(P1mP0, P0mQ0);
+  real       e            = dot(Q1mQ0, P0mQ0);
+  real       f00          = d;
+  real       f10          = f00 + a;
+  real       f01          = f00 - b;
+  real       f11          = f10 - b;
+  real       g00          = -e;
+  real       g10          = g00 - b;
+  real       g01          = g00 + c;
+  real       g11          = g10 + c;
+  real       parameter[2] = {0, 0};
+  if (a > 0 && c > 0) {
+    real sValue[2] = {
+            clamped_root(a, f00, f10),
+            clamped_root(a, f01, f11)};
+    i32 classify[2] = {0, 0};
+    for (size_t i = 0; i < 2; ++i) {
+      if (sValue[i] <= 0)
+        classify[i] = -1;
+      else if (sValue[i] >= 1)
+        classify[i] = 1;
+      else
+        classify[i] = 0;
+    }
+    if (classify[0] == -1 && classify[1] == -1) {
+      parameter[0] = 0;
+      parameter[1] = clamped_root(c, g00, g01);
+    } else if (classify[0] == +1 && classify[1] == +1) {
+      parameter[0] = 1;
+      parameter[1] = clamped_root(c, g10, g11);
+    } else {
+      i32  edge[2] = {0, 0};
+      real end[2][2];
+      compute_intersection(sValue, classify, b, f00, f10, edge, end);
+      compute_minimum_parameters(edge, end, b, c, e, g00, g10, g01, g11, parameter);
+    }
+  } else {
+    if (a > 0) {
+      parameter[0] = clamped_root(a, f00, f10);
+      parameter[1] = 0;
+    } else if (c > 0) {
+      parameter[0] = 0;
+      parameter[1] = clamped_root(c, g00, g01);
+    } else {
+      parameter[0] = 0;
+      parameter[1] = 0;
+    }
+  }
+  Vec3 closest0 = P0 + parameter[0] * P1mP0;
+  Vec3 closest1 = Q0 + parameter[1] * Q1mQ0;
+  Vec3 diff     = closest0 - closest1;
+
+  // auto result = sqrt(dot(diff, diff));
+  return dot(diff, diff);
 }
 
 

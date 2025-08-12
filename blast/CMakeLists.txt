@@ -1,8 +1,7 @@
 add_subdirectory(extern/nlopt)
 
 
-add_library(blast INTERFACE
-        world/CoDO.hpp)
+add_library(blast INTERFACE)
 
 target_include_directories(blast INTERFACE
     ./

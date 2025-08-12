@@ -37,7 +37,7 @@ struct ObjMatrix {
 template<typename T>
 inline ObjMatrix<T>::ObjMatrix(int rows, int cols) :
     cols(cols), rows(rows), size(rows * cols) {
-  Assert(r >= 0 && c >= 0);
+  Assert(rows >= 0 && cols >= 0);
   data.resize(cols * rows);
 }
 
@@ -118,8 +118,8 @@ inline const T& ObjMatrix<T>::operator()(int r, int c) const {
 /// @param rows Number of rows.
 /// @param cols Number of columns.
 template<typename T>
-inline void ObjMatrix<T>::resize(int rows, int cols) {
-  Assert(r >= 0 && c >= 0);
+void ObjMatrix<T>::resize(int rows, int cols) {
+  Assert(rows >= 0 && cols >= 0);
   if (size == 0) {
     this->rows = rows;
     this->cols = cols;

@@ -9,7 +9,7 @@ project(
 
 set(CMAKE_INCLUDE_CURRENT_DIR   ON)
 
-include_directories(blast)
+#include_directories(blast)
 add_subdirectory(blast)
 
 
@@ -19,7 +19,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
     # build examples
-    # add_subdirectory(examples)
+    add_subdirectory(examples)
 
 
     # add tests

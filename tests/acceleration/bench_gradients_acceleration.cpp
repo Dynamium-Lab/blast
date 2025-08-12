@@ -147,7 +147,7 @@ TEST_CASE("benchmark phase 1 gradient acceleration  (P,V,A,Tau)", "[Acceleration
         }
 
         std::cout << std::endl;
-        std::cout << "Benchmark Results for n_ctrl = " << bspline.nctrl << ", n_points = " << bspline.points << " & p = " << bspline.p << std::endl;
+        std::cout << "Benchmark Results for n_ctrl = " << bspline.n_ctrl << ", n_points = " << bspline.n_points << " & p = " << bspline.p << std::endl;
         for (u32 i = 0; i < traj_time.size(); i++) {
             auto acceleration = (comp_time[i] - comp_time_acc[i]) / comp_time[i] * 100;
             auto quality = 100 - (traj_time[i] - traj_time_acc[i]) / traj_time[i] * 100;

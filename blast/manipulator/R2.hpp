@@ -2,6 +2,22 @@
 
 namespace blast {
 
+struct R2 {
+  const int     joints = 2;
+
+  Vec3    p_base;
+  Vec3    dv[2]; // vector to next joint
+  Vec3    ev[2]; // direction vectors of joint
+  real    m[2];  // link masses
+  Mat3    I[2];  // Inertial tensors
+  Vec3    av[2]; // centers of mass
+  Vec3    sv[2]; // centers of mass from next joint
+
+  R2();
+  Matrix    dynamics(const Trajectory& traj);
+  void      dynamics(const Trajectory& traj, Matrix& result);
+};
+
 R2::R2() {
     p_base = {0, 0, 0};
     // link mass

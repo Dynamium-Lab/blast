@@ -1,194 +1,148 @@
 #pragma once
 
 #include <blast>
-#include <functional>
 #include <cstring>
-
-#include "optimization/optimization.hpp"
+#include <functional>
 
 namespace blast {
 
-template <typename T_manip>
+struct Constraints;
 struct Optimization;
+struct Objective;
+struct ConstraintSelection;
+struct Guess;
 
-template <typename T_manip>
-struct Optimization {
-    T_manip*    manip;
-    Matrix*     task    = nullptr;
-    Bspline*    bspline = nullptr;
-    World*      world   = nullptr;
-    u32         n_collision_constraints = 5;
-    u32         n_collision_skip = 2;
+using ConstraintFunctionVector = std::vector<void (*)(double* result, Optimization* opt)>;
+using ConstraintFunction       = void (*)(double*, Optimization*);
+
+
+using ObjectiveFunction = double (*)(Optimization* opt);
+
+struct Objective {
+  real K_time = 0.0;
+  // real K_energy = 0; // not supported atm
+  // real K_jerk = 0; // not supported atm
+  // real K_obstacle_avoidance = 0; // not supported atm
+
+  // Setup function to return the NLopt-compatible objective function
+  std::vector<real>                    k_extra_objectives;
+  std::vector<real (*)(Optimization*)> extra_objectives;
+
+  inline void add_custom_objective(ObjectiveFunction function, real k);
 };
 
-double obj_time(unsigned n, const double* x, double* grad, void*);
+struct Guess {
+  enum GuessType : u32 {
+    custom,
+    random,
+    from_list,
+    rrt_connect
+  };
+  GuessType type      = random;
+  real      parameter = 0;
+  u32       n_shot    = 100;
+  Array     x0;
+  Matrix    candidates;
 
-template <typename T_manip>
-real penalty_obj_time(Array x, Optimization<T_manip> optim) {
-    const auto points = optim.bspline->points;
+  Guess() = default;
 
-    Array cstr(optim.manip->ncon(points));
-    auto f = obj_time(x.size, x.data, nullptr, nullptr);
-    cstr_manip(optim.manip->ncon(points), cstr.data, x.size, x.data, nullptr, &optim); // todo: Fix for Optimization<T_manip> ??
+  // Constructor for Guess::custom, initializing x0
+  explicit Guess(Array x_0) :
+      type(Guess::custom), x0(std::move(x_0)) {}
 
-    for (int i = 0; i < (int)cstr.size; i++)
-        f += cstr[i] > 0 ? ((i+1) * cstr[i]) : 0; // todo: explore alternatives
+  // Constructor for Guess::from_list, initializing candidates
+  explicit Guess(Matrix m) :
+      type(Guess::from_list), candidates(std::move(m)) {}
 
-    return f;
-}
+  // Constructor for Guess::random, initializing n_shot
+  explicit Guess(u32 shots) :
+      type(Guess::random), n_shot(shots) {}
 
-template <typename T_manip>
-void internal_cstr_manip_single(double* result, unsigned n, const double* x, Optimization<T_manip>* opt) {
-    Array xv;
-    xv.alias(x, n);
-    opt->bspline->compute_trajectory(xv, *opt->task);
-    opt->manip->internal_constraints(opt->bspline->traj, result);
-}
+  // Constructor for Guess::rrt_connect, initializing parameter
+  explicit Guess(real param) :
+      type(Guess::rrt_connect), parameter(param) {}
+};
 
-// Simple manipulator defined constraints function.
-//  The given manipulator's constraints function is called and no additionnal constraints are added.
-//
-//  m      = number of constraints
-//  result = constraints are inserted here
-//  n      = number of elements in optimization vector
-//  x      = optimization vector
-//  grad   = if not NULL, gradient is inserted here
-//  data   = is cast to Optimization struct
-//
-// Returns nothing
-template <typename T_manip>
-void cstr_manip(unsigned m, double *result, unsigned xlen, const double* x, double* grad, void* f_data) {
-    Optimization<T_manip>* opt = (Optimization<T_manip>*)f_data;
+struct ConstraintSelection {
+  bool position     = false;
+  bool velocity     = false;
+  bool acceleration = false;
+  bool torque       = false;
+  // bool jerk; // not supported atm
 
-    internal_cstr_manip_single(result, xlen, x, opt);
+  bool tcp_speed           = false;
+  bool self_collisions     = false;
+  bool external_collisions = false;
 
-    if (grad) {
-        const real eps = 1e-5;
-        Array x_plus(xlen);
-        Array r_plus(m);
-        // todo: parallel?
-        for (u32 j = 0; j < xlen; j++) {
-            memcpy(x_plus.data, x, xlen * sizeof(real));
-            x_plus[j] += eps;
-            internal_cstr_manip_single(r_plus.data, xlen, x_plus.data, opt);
-            for (u32 i = 0; i < m; i++)
-                grad[i*xlen + j] = (r_plus[i]-result[i])/eps;
-        }
-    }
-}
+  u32 n_collision_constraints = 5;
+  u32 n_collision_skip        = 2;
+  u32 n_constraints           = 0;
 
-// Constraints function that applies internal constraints from T_manip and collision constraints with the world
-template <typename T_manip>
-void cstr_world(unsigned m, double *result, unsigned xlen, const double* x, double* grad, void* f_data) {
-    Optimization<T_manip>* opt = (Optimization<T_manip>*)f_data;
-    auto manip = opt->manip;
-    const int points = opt->bspline->points;
-    const auto ncon = manip->ncon(points);
+  // Added more info for testing
+  bool                show_info = false;
+  std::vector<Matrix> grad_list;
+  std::vector<Array>  constr_list;
+  std::vector<Array>  x_list;
 
-    internal_cstr_manip_single(result, xlen, x, opt);
+  ConstraintFunctionVector extra_constraints   = {};
+  std::vector<u32>         n_extra_constraints = {};
+  void                     add_constraint(ConstraintFunction, int n_con);
+};
 
-    std::vector<Capsule> capsules = manip->robot_capsules(opt->bspline->traj.pos, opt->n_collision_skip);
-    double* r = &result[ncon];
-    auto collisions = test_collision(capsules, opt->world, opt->n_collision_constraints);
-    for (u32 i = 0; i < opt->n_collision_constraints; i ++) {
-        *r = -collisions[i];
-        r++;
-    }
+struct Optimization {
+  Manipulator         manip;
+  Bspline             bspline;
+  Guess               guess;
+  ConstraintSelection constraints;
+  Objective           objective;
+  Matrix              task;
+  World               world;
+  real                trajectory_start_time = 0.0;
 
-    if (grad) {
-        const real eps = 1e-5;
-        Array x_plus(xlen);
-        Array r_plus(m);
-        for (u32 j = 0; j < xlen; j++) {
-            memcpy(x_plus.data, x, xlen * sizeof(real));
-            x_plus[j] += eps;
-            internal_cstr_manip_single(r_plus.data, xlen, x_plus.data, opt);
-            capsules = manip->robot_capsules(opt->bspline->traj.pos, opt->n_collision_skip);
+  void* custom_data;
 
-            collisions = test_collision(capsules, opt->world, opt->n_collision_constraints);
-            for (u32 i = 0; i < opt->n_collision_constraints; i ++) {
-                r_plus[ncon + i] = -collisions[i];
-            }
-            for (u32 i = 0; i < m; i++)
-                grad[i*xlen + j] = (r_plus[i]-result[i])/eps;
-        }
-    }
-}
+  Optimization() = delete;
 
-//--- Initial guess generators -------------------------------------------------------------------------
+  Optimization(Manipulator new_manip, Matrix new_task);
 
-// Random initial guess
-Array guess_random(Bspline& bspline, Matrix& task);
+  Optimization(Manipulator new_manip, Matrix new_task, Bspline new_bspline) :
+      manip(std::move(new_manip)),
+      bspline(std::move(new_bspline)),
+      task(std::move(new_task)),
+      custom_data(nullptr) {
+    guess.type   = Guess::random;
+    guess.n_shot = 100;
 
-// Best of 'nshotgun' random guesses. Best means the lowest max constraints violation.
-template <typename T_manip>
-Array guess_shot_max(Optimization<T_manip>& opt, int nshotgun) {
-    auto manip = opt.manip;
-    auto bspline = opt.bspline;
-    auto task = opt.task;
-    auto world = opt.world;
+    constraints.position     = true;
+    constraints.velocity     = true;
+    constraints.acceleration = true;
+    constraints.tcp_speed    = true;
 
-    Array best_x(bspline->xlen(task));
-    real best_val = INF_REAL;
-    for (int i = 0; i < nshotgun; i++) {
-        auto x = guess_random(*bspline, *task);
-        bspline->compute_trajectory(x, *task);
-        Array c1(manip->ncon(bspline->traj.t.size));
-        manip->internal_constraints(bspline->traj, c1.data);
+    objective.K_time = 1.0;
+  }
 
-        auto capsules = manip->robot_capsules(bspline->traj.pos, opt.n_collision_skip);
+  void set_manip(Manipulator new_manip);
+  void set_bspline(Bspline new_bspline);
+  void set_guess(Guess new_guess);
+  void set_constraints(ConstraintSelection new_constraints);
+  void set_objective(Objective new_objective);
+  void set_task(Matrix new_task);
+  void set_world(World new_world);
+};
 
-        Array c2(opt.n_collision_constraints);
-        std::vector<real> collisions = test_collision(capsules, world, opt.n_collision_constraints);
-        for (int i = 0; i < opt.n_collision_constraints; i ++) {
-            c2[i] = -collisions[i];
-        }
-        auto r = std::max(max(c1), max(c2));
-        if (r < best_val) {
-            best_x = x;
-            best_val = r;
-        }
-    }
-    return best_x;
-}
+inline void   compute_constraints(double* result, const Array& x, Optimization* opt);
+inline void   nlopt_constraints(unsigned m, double* result, unsigned x_len, const double* x, double* grad, void* f_data);
+inline double compute_objective(Array& current_x, Optimization* opt);
+inline bool   validate_task(Optimization* opt);
 
-// Best of 'nshotgun' random guesses. Best means the lowest average constraints violation.
-template <typename T_manip>
-Array guess_shot_mean(Optimization<T_manip>& opt, int nshotgun) {
-    auto manip = opt.manip;
-    auto bspline = opt.bspline;
-    auto task = opt.task;
-    auto world = opt.world;
+// inline real   bound_constraint(const real& value, const real& value_min, const real& value_max);
+// inline Matrix get_J_tool(const Optimization* opt);
+// inline bool   validate_task(Optimization* opt);
 
-    Array best_x(bspline->xlen(*task));
-    real best_val = INF_REAL;
-    for (int idx_nshot = 0; idx_nshot < nshotgun; idx_nshot++) {
-        auto x = guess_random(*bspline, *task);
-        bspline->compute_trajectory(x, *task);
-        Array c1(manip->ncon(bspline->traj.t.size)); // todo: double check it is the right size
-        manip->internal_constraints(bspline->traj, c1.data);
 
-        std::vector<Capsule> capsules = manip->robot_capsules(bspline->traj.pos, opt.n_collision_skip);
+} // namespace blast
 
-        Array c2(opt.n_collision_constraints);
-        auto collisions = test_collision(capsules, world, opt.n_collision_constraints);
-        for (u32 i = 0; i < opt.n_collision_constraints; i ++) {
-            c2[i] = -collisions[i];
-        }
-        real r = 0;
-        for (u32 i = 0; i < c1.size; i++)
-            r += std::max(c1[i], 0.0);
-        for (u32 i = 0; i < c2.size; i++)
-            r += std::max(c2[i], 0.0);
-        r *= x.data[x.size - 1]; // todo: Add the right format to penalize for longer trajectories (avoid local minimums)
-        Assert( ! isnan(r));
-        if (r < best_val) {
-            best_x = x;
-            best_val = r;
-        }
-    }
-    return best_x;
-}
-
-}
-
+#include "optimization/constraints.hpp"
+#include "optimization/initial_guess.hpp"
+#include "optimization/objective.hpp"
+#include "optimization/optimization.hpp"

@@ -8,43 +8,58 @@ struct Trajectory;
 struct Bspline;
 
 struct Trajectory {
-    Matrix pos; // njoints x npoints
-    Matrix vel; // njoints x npoints
-    Matrix acc; // njoints x npoints
-    Array t;    // npoints
+  Matrix pos; // n_joints x n_points
+  Matrix vel; // n_joints x n_points
+  Matrix acc; // n_joints x n_points
+  Array  t;   // n_points
 
-    Trajectory(u32 npoints, u32 njoints) :
-        pos(njoints, npoints),
-        vel(njoints, npoints),
-        acc(njoints, npoints),
-        t(npoints) {}
+  Trajectory(u32 n_points, u32 n_joints) :
+      pos(n_joints, n_points),
+      vel(n_joints, n_points),
+      acc(n_joints, n_points),
+      t(n_points) {}
 
-    Trajectory() = default;
+  Trajectory() = default;
 };
-Trajectory compute_5order_trajectory(real T, Matrix &task);
+Trajectory compute_5order_trajectory(real T, Matrix& task);
 
 struct Bspline {
-    Trajectory traj;
-    Matrix control; // nctrl x njoints
-    Matrix basis_p; // nctrl x npoints
-    Matrix basis_v; // nctrl x npoints
-    Matrix basis_a; // nctrl x npoints
-    u32 joints;
-    u32 points;
-    u32 nctrl;
-    u32 p;
+  Trajectory traj;
+  Matrix     control; // n_ctrl x n_joints
+  Matrix     basis_p; // n_ctrl x n_points
+  Matrix     basis_v; // n_ctrl x n_points
+  Matrix     basis_a; // n_ctrl x n_points
+  u32        n_joints;
+  u32        n_points;
+  u32        n_ctrl;
+  u32        p;
 
-    Bspline(u32 ncontrol, u32 npoints, u32 p, u32 njoints);
-    Bspline() = delete;
+  Bspline() = delete;
 
-    // Compute a trajectory from the given optimization vector
-    //  - note: fastest when 'ncontrol' is a multiple of 4 (SIMD)
-    void compute_trajectory(const Array &x, const Matrix &task);
-    u32 xlen(const Matrix &task);
+  Bspline(u32 n_control, u32 n_points, u32 p, u32 n_joints);
 
-    void compute_basis();
-    void compute_basis_open();
-    void compute_control(const Array &x, const Matrix &task, real *dst);
+  explicit Bspline(u32 n_joints) :
+      Bspline(12, 100, 5, n_joints) {}
+
+  Bspline(const Bspline& other) = default;
+
+  Bspline(Bspline&& other) = default;
+
+  Bspline& operator=(const Bspline& other) = default;
+
+  Bspline& operator=(Bspline&& other) = default;
+
+  // Compute a trajectory from the given optimization vector
+  //  - note: fastest when 'n_control' is a multiple of 4 (SIMD)
+  void compute_trajectory(const Array& x, const Matrix& task);
+  u32  x_len(const Matrix& task) const;
+
+  void compute_basis();
+  void compute_basis_open();
+  void compute_control(const Array& x, const Matrix& task, real* dst) const;
 };
 
-}
+} // namespace blast
+
+#include "trajectory/bspline.hpp"
+#include "trajectory/polynomial_5order.hpp"
