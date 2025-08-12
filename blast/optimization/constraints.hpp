@@ -6,7 +6,6 @@
 namespace blast {
 
 
-
 inline void ConstraintSelection::add_constraint(ConstraintFunction constraint, int n_con) {
   extra_constraints.push_back(constraint);
   n_extra_constraints.push_back(n_con);
@@ -151,8 +150,8 @@ inline void nlopt_constraints(unsigned m, double* result, unsigned x_len, const 
 
   // gradients calculation
   if (grad) {
-    Array      x_plus(x_len);
-    Array      r_plus(m);
+    Array x_plus(x_len);
+    Array r_plus(m);
     for (u32 j = 0; j < x_len; j++) {
       constexpr real eps = 1e-5;
       memcpy(x_plus.data, x, x_len * sizeof(real));
@@ -186,6 +185,7 @@ inline void nlopt_constraints(unsigned m, double* result, unsigned x_len, const 
 inline bool validate_task(Optimization* opt) {
   // int n_constraints = opt->constraints.n_constraints;
 
+  // todo: why copy??
   auto manip = opt->manip;
 
   Matrix pos(opt->manip.joints, 2);

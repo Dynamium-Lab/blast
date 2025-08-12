@@ -1,7 +1,7 @@
 #include <blast>
 #include <iostream>
 
-#include "Link6.hpp"
+#include "manipulator/Link6.hpp"
 
 using blast::Array;
 using blast::Matrix;
@@ -75,6 +75,7 @@ int main() {
           {0, 0, 1},
           {0, 0, 1}}; // direction vectors of joint
   kinematics.p_base = {0.0, 0.0, 0.0530f};
+  // todo: add Q_static because it fails later in the program.
 
   // dynamic properties
   ManipulatorDynamics dynamics;

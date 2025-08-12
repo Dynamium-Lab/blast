@@ -78,8 +78,8 @@ struct ManipulatorKinematics {
   std::vector<Vec3> dv;                                   // vector to next joint
   std::vector<Vec3> ev;                                   // direction vectors of joint
   std::vector<Mat3> Q_static;                             // static rotation to next joint
-  Vec3              p_j0   = {0.0, 0.0, 0.0};             // position of the first joint relative to base
   Vec3              p_base = {0.0, 0.0, 0.0};             // base position in workspace
+  Vec3              p_j0   = {0.0, 0.0, 0.0};             // position of the first joint relative to base
   Mat3              Q_base = {1, 0, 0, 0, 1, 0, 0, 0, 1}; // base orientation in workspace
 };
 
