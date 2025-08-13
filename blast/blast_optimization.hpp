@@ -6,7 +6,6 @@
 
 namespace blast {
 
-struct Constraints;
 struct Optimization;
 struct Objective;
 struct ConstraintSelection;

@@ -1,10 +1,11 @@
 #pragma once
 #include "blast"
 
-using namespace blast;
+namespace blast {
+
 
 // todo: Change camera capsule
-inline Manipulator get_generic_Link6() {
+inline host_fn Manipulator get_generic_Link6() {
     // Manipulator
     u32 joints = 6;
     // limits
@@ -157,13 +158,13 @@ inline Manipulator get_generic_Link6() {
     collisions.capsule_list.push_back(model_caps); // todo: change camera capsule
 
     // create manipulator link6
-    Manipulator link6(joints, &limits, &kinematics, &dynamics, &collisions);
+    Manipulator link6(joints, limits, kinematics, &dynamics, &collisions);
 
     return link6;
 }
 
 // note: p_base and Q_base are set in respect to lab's layout (in Link6 frame)
-Manipulator get_generic_gen3() { // todo: fix capsules, not working
+inline host_fn Manipulator get_generic_gen3() { // todo: fix capsules, not working
     // Manipulator
     u32 joints = 7;
 
@@ -249,7 +250,7 @@ Manipulator get_generic_gen3() { // todo: fix capsules, not working
     }; // centers of mass
 
     // create manipulator gen3
-    Manipulator generic_manip(joints, &limits, &kinematics, &dynamics);
+    Manipulator generic_manip(joints, limits, kinematics, &dynamics);
 
     // Collision model
     ManipulatorCapsules collisions;
@@ -296,8 +297,8 @@ Manipulator get_generic_gen3() { // todo: fix capsules, not working
     return generic_manip;
 }
 
-// Warning : Will not do self-collisions
-Manipulator get_generic_fanuc_crx25ia() {
+// Warning: Will not do self-collisions
+inline host_fn Manipulator get_generic_fanuc_crx25ia() {
     u32 joints = 6;
 
     ManipulatorLimits limits;
@@ -355,10 +356,9 @@ Manipulator get_generic_fanuc_crx25ia() {
         {0, 0, 0}
     };
 
-    Manipulator generic_manip(joints, &limits, &kinematics, &dynamics);
+    Manipulator generic_manip(joints, limits, kinematics, &dynamics);
 
     ManipulatorCapsules collisions;
-    Sphere sphere;
 
     CollisionModelCapsule capsule;
     capsule.joint_frame = 0;
@@ -403,7 +403,7 @@ Manipulator get_generic_fanuc_crx25ia() {
     capsule.r = 0.0562761;
     collisions.capsule_list.push_back(capsule);
 
-    blast::ObjMatrix<blast::u8> collision_matrix(collisions.capsule_list.size(), collisions.capsule_list.size());
+    ObjMatrix<u8> collision_matrix(collisions.capsule_list.size(), collisions.capsule_list.size());
     collision_matrix(2, 0) = 1;
     collision_matrix(3, 0) = 1;
     collision_matrix(4, 0) = 1;
@@ -413,7 +413,7 @@ Manipulator get_generic_fanuc_crx25ia() {
     collision_matrix(5, 1) = 1;
     collisions.collision_matrix = collision_matrix;
 
-    blast::Array collision_base(collisions.capsule_list.size());
+    Array collision_base(collisions.capsule_list.size());
     collision_base = {0, 0, 1, 1, 1};
     collisions.collision_base = collision_base;
 
@@ -430,38 +430,38 @@ Manipulator get_generic_fanuc_crx25ia() {
 }
 
 
-World get_lab_world() {
+inline host_fn World get_lab_world() {
     World world;
     // Lab environment
-    // add_static_box({0.6415, 0.0237, -0.53815}, {2.0, 2.0, 0.381}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //table
-    add_static_box({0.7, 0, -0.55}, {1.0, 0.75, 0.4}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1}, &world); //table
-    add_static_box({-0.5654, -0.8145, 0.3248}, {0.381, 0.635, 0.381}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // computer and screens next to link6
-    add_static_box({0.4506, -1.3479, 0.3248}, {0.635, 0.381, 0.381}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // computer and screens next to gen3lite
-    add_static_box({0.0, 0.0, -0.4091}, {0.1459, 0.2018, 0.4091}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // link6 base
-    add_static_box({0.6665, 1.1286, 0.0}, {0.508, 0.3175, 1.0457}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // UR5
-    add_static_box({0, -0.75, 1.0}, {0.10, 0.15, 2.0}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // cables
+    // add_box({0.6415, 0.0237, -0.53815}, {2.0, 2.0, 0.381}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //table
+    add_box({0.7, 0, -0.55}, {1.0, 0.75, 0.4}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1}, &world); //table
+    add_box({-0.5654, -0.8145, 0.3248}, {0.381, 0.635, 0.381}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // computer and screens next to link6
+    add_box({0.4506, -1.3479, 0.3248}, {0.635, 0.381, 0.381}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // computer and screens next to gen3lite
+    add_box({0.0, 0.0, -0.4091}, {0.1459, 0.2018, 0.4091}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // link6 base
+    add_box({0.6665, 1.1286, 0.0}, {0.508, 0.3175, 1.0457}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // UR5
+    add_box({0, -0.75, 1.0}, {0.10, 0.15, 2.0}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // cables
 
     // DEMO 1 bin 1
-    add_static_box({0.4114, -0.3784, -0.04465}, {0.2125, 0.155, 0.0125}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //bottom
-    add_static_box({0.2114, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //front
-    add_static_box({0.6114, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //back
-    add_static_box({0.4114, -0.2359, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //left
-    add_static_box({0.4114, -0.5209, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //right
+    add_box({0.4114, -0.3784, -0.04465}, {0.2125, 0.155, 0.0125}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //bottom
+    add_box({0.2114, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //front
+    add_box({0.6114, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //back
+    add_box({0.4114, -0.2359, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //left
+    add_box({0.4114, -0.5209, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //right
 
     // DEMO 1 bin 2
-    add_static_box({0.8716, -0.3784, -0.04465}, {0.2125, 0.155, 0.0125}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //bottom
-    add_static_box({0.6716, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //front
-    add_static_box({1.0716, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //back
-    add_static_box({0.8716, -0.2359, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //left
-    add_static_box({0.8716, -0.5209, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //right
+    add_box({0.8716, -0.3784, -0.04465}, {0.2125, 0.155, 0.0125}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //bottom
+    add_box({0.6716, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //front
+    add_box({1.0716, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //back
+    add_box({0.8716, -0.2359, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //left
+    add_box({0.8716, -0.5209, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); //right
 
     // DEMO 1 obstacle
-    add_static_box({0.67, -0.1475, -0.0562}, {0.35, 0.025, 0.4}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // vertical plate (no coll)
+    add_box({0.67, -0.1475, -0.0562}, {0.35, 0.025, 0.4}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1), &world); // vertical plate (no coll)
 
     return world;
 }
 
-Matrix get_link6_task() {
+inline host_fn Matrix get_link6_task() {
     Array pi = { -1.787, -0.370, -1.391, -1.766, 0.120, -0.569, 1.944 };
     Array pf = { -0.574, 0.421, 2.293, -2.161, 0.482, -0.740, -0.176 };
     Array vi(6);
@@ -482,7 +482,7 @@ Matrix get_link6_task() {
     return task;
 }
 
-Matrix get_gen3_task() {
+inline host_fn Matrix get_gen3_task() {
     Array pi = wrap2pi(deg2rad({215.6, 282.3, 337.6, 325.2, 159.0, 21.7, 323.0}));
     Array pf = wrap2pi(deg2rad({114.3, 319.8, 29.1, 266.1, 243.0, 25.3, 164.3}));
     Array vi(7);
@@ -503,7 +503,7 @@ Matrix get_gen3_task() {
     return task;
 }
 
-std::vector<Matrix> get_Link6_demo1_tasks() {
+inline host_fn std::vector<Matrix> get_Link6_demo1_tasks() {
     // Read tasks Demo 1
     // Array pos_zero = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     Array pos_home = deg2rad({0.00177001953125,
@@ -799,186 +799,186 @@ std::vector<Matrix> get_Link6_demo1_tasks() {
     return tasks;
 }
 
-HierarchicalTask get_demo2_task() {
-    // Initialization
-    MultiRobotTask task;
+// HierarchicalTask get_demo2_task() {
+//     // Initialization
+//     MultiRobotTask task;
+//
+//     // --- Define manipulators ---
+//     task.robots.reserve(2);
+//     task.add_robot(get_generic_Link6());
+//     task.add_robot(get_generic_gen3());
+//
+//     // --- Define world ---
+//     World world;
+//     add_box({0.67, -0.1475, -0.0562}, {0.35, 0.025, 0.4}, {1, 0, 0, 0, 1, 0, 0, 0, 1}, &world); // vertical plate
+//     // add_box({0.7, 0.0, -0.8}, {1.0, 0.75, 0.4}, {1, 0, 0, 0, 1, 0, 0, 0, 1}, &world); //table
+//     // task.world = get_lab_world();
+//     task.world = world;
+//
+//
+//     // --- Define tasks ---
+//     // Gripper toggles
+//     Matrix gripper_toggle(13, 2);
+//
+//     // Link6 positions
+//     Array pos_0_link6(6);
+//
+//     Array pos_w1_10cm = deg2rad({-40.4, -26.9, 83.6, 1.5, 20.0, -42.2});
+//     Array pos_w1 = deg2rad({-40.2, -34.9, 96.4, 1.4, 41.7, -41.5});
+//     Array pos_wb1 = deg2rad({51.9, -13.6, 107.9, 3.6, 33.1, 51.2});
+//
+//     Array pos_b2_10cm_link6 = deg2rad({-24.8, -9.1, 110.2, 1.254, 30.4, -27.2});
+//     Array pos_b2_link6 = deg2rad({-23.8, -23.1, 121.4, -0.2, 52.6, -24.0});
+//     Array pos_bb2_link6 = deg2rad({27.4, -54.9, 28.3, 1.8, -4.8, 29.7});
+//
+//     Array pos_w3_10cm = deg2rad({-33.9, -35.6, 70.9, -0.7, 16.9, -31.8});
+//     Array pos_w3 = deg2rad({-34.8, -42.5, 81.6, 0.0, 33.3, -35.1});
+//     Array pos_wb3 = deg2rad({53.9, -6.2, 121.9, 5.3, 34.8, 45.6});
+//
+//     Array pos_w4_10cm = deg2rad({-20.0, -19.3, 95.9, -3.0, 23.5, -17.6});
+//     Array pos_w4 = deg2rad({-20.5, -30.9, 105.2, 1.3, 43.3, -22.1});
+//     Array pos_wb4 = deg2rad({53.9, -6.2, 121.9, 5.3, 34.8, 45.6});
+//
+//     // Gen3 positions
+//     Array pos_0_gen3(7);
+//
+//     Array pos_b2_10cm_gen3 = wrap2pi(deg2rad({36.1,  79.9,  114.8, 339.7, 41.9, 321.6, 116.2}));
+//     Array pos_b2_gen3 = wrap2pi(deg2rad(     {37.6,  89.1,  114.6, 335.7, 42.7, 332.0, 119.4}));
+//     Array pos_bb2_gen3 = wrap2pi(deg2rad(    {315.3, 33.9,  162.4, 264.0, 84.6, 306.9, 334.0}));
+//
+//     Array pos_b5_10cm = wrap2pi(deg2rad({72.4, 98.5,  98.5, 318.8, 42.0, 315.7, 135.7}));
+//     Array pos_b5 = wrap2pi(deg2rad(     {73.3, 88.8,  98.4, 318.0, 43.4, 321.6, 142.4}));
+//     Array pos_bb5 = wrap2pi(deg2rad(    {315.3, 33.9,  162.4, 264.0, 84.6, 306.9, 334.0}));
+//
+//     Array pos_b6_10cm = wrap2pi(deg2rad({69.2,  59.7,  122.7, 274.6, 55.1, 352.1, 87.7}));
+//     Array pos_b6 = wrap2pi(deg2rad(     {62.2,  64.9,  142.5, 270.5, 53.1, 347.5,  88.7}));
+//     Array pos_bb6 = wrap2pi(deg2rad(    {315.3, 33.9,  162.4, 264.0, 84.6, 306.9, 334.0}));
+//
+//     Array v0(6);
+//     Array vf(6);
+//     Array a0(6);
+//     Array af(6);
+//
+//     // Task 1 Link6
+//     task.add_angular_task(0, pos_0_link6, pos_w1_10cm, v0, vf, a0, af);
+//     task.add_angular_task(0, pos_w1_10cm, pos_w1, v0, vf, a0, af);
+//     gripper_toggle(1, 0) = 1;
+//     task.add_angular_task(0, pos_w1, pos_w1_10cm, v0, vf, a0, af);
+//     task.add_angular_task(0, pos_w1_10cm, pos_wb1, v0, vf, a0, af);
+//     gripper_toggle(3, 0) = 1;
+//
+//     // Task 2 Link6
+//     // task.add_angular_task(0, pos_wb1, pos_b2_10cm_link6, v0, vf, a0, af);
+//     // task.add_angular_task(0, pos_b2_10cm_link6, pos_b2_link6, v0, vf, a0, af);
+//     // gripper_toggle(5, 0) = 1;
+//     // task.add_angular_task(0, pos_b2_link6, pos_b2_10cm_link6, v0, vf, a0, af);
+//     // task.add_angular_task(0, pos_b2_10cm_link6, pos_bb2_link6, v0, vf, a0, af);
+//     // gripper_toggle(7, 0) = 1;
+//
+//     // Task 3 Link6
+//     // task.add_angular_task(0, pos_bb2, pos_w3_10cm, v0, vf, a0, af);
+//     task.add_angular_task(0, pos_wb1, pos_w3_10cm, v0, vf, a0, af);
+//     task.add_angular_task(0, pos_w3_10cm, pos_w3, v0, vf, a0, af);
+//     gripper_toggle(5, 0) = 1;
+//     task.add_angular_task(0, pos_w3, pos_w3_10cm, v0, vf, a0, af);
+//     task.add_angular_task(0, pos_w3_10cm, pos_wb3, v0, vf, a0, af); // did not work after 20 restarts
+//     gripper_toggle(7, 0) = 1;
+//
+//     // Task 4 Link6
+//     task.add_angular_task(0, pos_wb3, pos_w4_10cm, v0, vf, a0, af);
+//     task.add_angular_task(0, pos_w4_10cm, pos_w4, v0, vf, a0, af); // task is not valid (did not work after 5 restarts)
+//     gripper_toggle(9, 0) = 1;
+//     task.add_angular_task(0, pos_w4, pos_w4_10cm, v0, vf, a0, af);
+//     task.add_angular_task(0, pos_w4_10cm, pos_wb4, v0, vf, a0, af);
+//     gripper_toggle(11, 0) = 1;
+//
+//     // // Back to home
+//     task.add_angular_task(0, pos_wb4, pos_0_link6, v0, vf, a0, af);
+//     // task.add_angular_task(0, pos_w1_10cm, get_Link6_home(), v0, vf, a0, af);
+//
+//
+//     // Gen3 tasks
+//     v0.resize(7);
+//     vf.resize(7);
+//     a0.resize(7);
+//     af.resize(7);
+//
+//     // Task 1 Gen3
+//     task.add_angular_task(1, pos_0_gen3, pos_b2_10cm_gen3, v0, vf, a0, af);
+//     task.add_angular_task(1, pos_b2_10cm_gen3, pos_b2_gen3, v0, vf, a0, af); // task does not work (pos_b2 is not right)
+//     gripper_toggle(1, 1) = 1;
+//     task.add_angular_task(1, pos_b2_gen3, pos_b2_10cm_gen3, v0, vf, a0, af);
+//     task.add_angular_task(1, pos_b2_10cm_gen3, pos_bb2_gen3, v0, vf, a0, af);
+//     gripper_toggle(3, 1) = 1;
+//
+//     // Task 2 Gen3
+//     task.add_angular_task(1, pos_bb2_gen3, pos_b5_10cm, v0, vf, a0, af);
+//     task.add_angular_task(1, pos_b5_10cm, pos_b5, v0, vf, a0, af); // task does not work (pos_b5 is not right)
+//     gripper_toggle(5, 1) = 1;
+//     task.add_angular_task(1, pos_b5, pos_b5_10cm, v0, vf, a0, af);
+//     task.add_angular_task(1, pos_b5_10cm, pos_bb5, v0, vf, a0, af);
+//     gripper_toggle(7, 1) = 1;
+//
+//     // Task 3 Gen3
+//     task.add_angular_task(1, pos_bb5, pos_b6_10cm, v0, vf, a0, af);
+//     task.add_angular_task(1, pos_b6_10cm, pos_b6, v0, vf, a0, af); // task does not work (pos_b6 is not right)
+//     gripper_toggle(9, 1) = 1;
+//     task.add_angular_task(1, pos_b6, pos_b6_10cm, v0, vf, a0, af);
+//     task.add_angular_task(1, pos_b6_10cm, pos_bb6, v0, vf, a0, af);
+//     gripper_toggle(11, 1) = 1;
+//
+//     // Back to home
+//     task.add_angular_task(1, pos_bb6, pos_0_gen3, v0, vf, a0, af);
+//     // task.add_angular_task(1, pos_b2_10cm, get_gen3_home(), v0, vf, a0, af);
+//
+//     task.gripper_toggle = gripper_toggle;
+//
+//     // B-spline
+//     Bspline bspline_link6(10, 50, 5, 6);
+//     Bspline bspline_gen3(8, 200, 5, 7);
+//     std::vector<Bspline> robot_bspline;
+//     robot_bspline.reserve(2);
+//     robot_bspline.push_back(bspline_link6);
+//     robot_bspline.push_back(bspline_gen3);
+//
+//     // Guess
+//     Guess guess; // using default guess
+//     guess.n_shot = 300;
+//     std::vector<Guess> robot_guess;
+//     robot_guess.push_back(guess);
+//     robot_guess.push_back(guess);
+//
+//     // Constraints
+//     Constraints<Manipulator> constraints;
+//     constraints.position = true;
+//     constraints.velocity = true;
+//     constraints.acceleration = true;
+//     constraints.torque = true;
+//     constraints.tcp_speed = true;
+//     constraints.self_collisions = true;
+//     constraints.external_collisions = true;
+//     constraints.n_collision_constraints = 100;
+//     constraints.n_collision_skip = 2;
+//
+//     std::vector<Constraints<Manipulator>> robot_constraints;
+//     robot_constraints.push_back(constraints);
+//     robot_constraints.push_back(constraints);
+//
+//     // Objective
+//     Objective<Manipulator> objective;
+//     objective.K_time = 1;
+//
+//     std::vector<Objective<Manipulator>> robot_objective;
+//     robot_objective.push_back(objective);
+//     robot_objective.push_back(objective);
+//
+//     // --- Setup Optimization ---
+//     Array hierarchy = {0, 1};
+//     auto hierarchy_optim = create_hierarchical_object(task, hierarchy, robot_constraints, robot_objective, robot_guess, robot_bspline);
+//     return hierarchy_optim;
+// }
 
-    // --- Define manipulators ---
-    task.robots.reserve(2);
-    task.add_robot(get_generic_Link6());
-    task.add_robot(get_generic_gen3());
-
-    // --- Define world ---
-    World world;
-    add_static_box({0.67, -0.1475, -0.0562}, {0.35, 0.025, 0.4}, {1, 0, 0, 0, 1, 0, 0, 0, 1}, &world); // vertical plate
-    // add_static_box({0.7, 0.0, -0.8}, {1.0, 0.75, 0.4}, {1, 0, 0, 0, 1, 0, 0, 0, 1}, &world); //table
-    // task.world = get_lab_world();
-    task.world = world;
-
-
-    // --- Define tasks ---
-    // Gripper toggles
-    Matrix gripper_toggle(13, 2);
-
-    // Link6 positions
-    Array pos_0_link6(6);
-
-    Array pos_w1_10cm = deg2rad({-40.4, -26.9, 83.6, 1.5, 20.0, -42.2});
-    Array pos_w1 = deg2rad({-40.2, -34.9, 96.4, 1.4, 41.7, -41.5});
-    Array pos_wb1 = deg2rad({51.9, -13.6, 107.9, 3.6, 33.1, 51.2});
-
-    Array pos_b2_10cm_link6 = deg2rad({-24.8, -9.1, 110.2, 1.254, 30.4, -27.2});
-    Array pos_b2_link6 = deg2rad({-23.8, -23.1, 121.4, -0.2, 52.6, -24.0});
-    Array pos_bb2_link6 = deg2rad({27.4, -54.9, 28.3, 1.8, -4.8, 29.7});
-
-    Array pos_w3_10cm = deg2rad({-33.9, -35.6, 70.9, -0.7, 16.9, -31.8});
-    Array pos_w3 = deg2rad({-34.8, -42.5, 81.6, 0.0, 33.3, -35.1});
-    Array pos_wb3 = deg2rad({53.9, -6.2, 121.9, 5.3, 34.8, 45.6});
-
-    Array pos_w4_10cm = deg2rad({-20.0, -19.3, 95.9, -3.0, 23.5, -17.6});
-    Array pos_w4 = deg2rad({-20.5, -30.9, 105.2, 1.3, 43.3, -22.1});
-    Array pos_wb4 = deg2rad({53.9, -6.2, 121.9, 5.3, 34.8, 45.6});
-
-    // Gen3 positions
-    Array pos_0_gen3(7);
-
-    Array pos_b2_10cm_gen3 = wrap2pi(deg2rad({36.1,  79.9,  114.8, 339.7, 41.9, 321.6, 116.2}));
-    Array pos_b2_gen3 = wrap2pi(deg2rad(     {37.6,  89.1,  114.6, 335.7, 42.7, 332.0, 119.4}));
-    Array pos_bb2_gen3 = wrap2pi(deg2rad(    {315.3, 33.9,  162.4, 264.0, 84.6, 306.9, 334.0}));
-
-    Array pos_b5_10cm = wrap2pi(deg2rad({72.4, 98.5,  98.5, 318.8, 42.0, 315.7, 135.7}));
-    Array pos_b5 = wrap2pi(deg2rad(     {73.3, 88.8,  98.4, 318.0, 43.4, 321.6, 142.4}));
-    Array pos_bb5 = wrap2pi(deg2rad(    {315.3, 33.9,  162.4, 264.0, 84.6, 306.9, 334.0}));
-
-    Array pos_b6_10cm = wrap2pi(deg2rad({69.2,  59.7,  122.7, 274.6, 55.1, 352.1, 87.7}));
-    Array pos_b6 = wrap2pi(deg2rad(     {62.2,  64.9,  142.5, 270.5, 53.1, 347.5,  88.7}));
-    Array pos_bb6 = wrap2pi(deg2rad(    {315.3, 33.9,  162.4, 264.0, 84.6, 306.9, 334.0}));
-
-    Array v0(6);
-    Array vf(6);
-    Array a0(6);
-    Array af(6);
-
-    // Task 1 Link6
-    task.add_angular_task(0, pos_0_link6, pos_w1_10cm, v0, vf, a0, af);
-    task.add_angular_task(0, pos_w1_10cm, pos_w1, v0, vf, a0, af);
-    gripper_toggle(1, 0) = 1;
-    task.add_angular_task(0, pos_w1, pos_w1_10cm, v0, vf, a0, af);
-    task.add_angular_task(0, pos_w1_10cm, pos_wb1, v0, vf, a0, af);
-    gripper_toggle(3, 0) = 1;
-
-    // Task 2 Link6
-    // task.add_angular_task(0, pos_wb1, pos_b2_10cm_link6, v0, vf, a0, af);
-    // task.add_angular_task(0, pos_b2_10cm_link6, pos_b2_link6, v0, vf, a0, af);
-    // gripper_toggle(5, 0) = 1;
-    // task.add_angular_task(0, pos_b2_link6, pos_b2_10cm_link6, v0, vf, a0, af);
-    // task.add_angular_task(0, pos_b2_10cm_link6, pos_bb2_link6, v0, vf, a0, af);
-    // gripper_toggle(7, 0) = 1;
-
-    // Task 3 Link6
-    // task.add_angular_task(0, pos_bb2, pos_w3_10cm, v0, vf, a0, af);
-    task.add_angular_task(0, pos_wb1, pos_w3_10cm, v0, vf, a0, af);
-    task.add_angular_task(0, pos_w3_10cm, pos_w3, v0, vf, a0, af);
-    gripper_toggle(5, 0) = 1;
-    task.add_angular_task(0, pos_w3, pos_w3_10cm, v0, vf, a0, af);
-    task.add_angular_task(0, pos_w3_10cm, pos_wb3, v0, vf, a0, af); // did not work after 20 restarts
-    gripper_toggle(7, 0) = 1;
-
-    // Task 4 Link6
-    task.add_angular_task(0, pos_wb3, pos_w4_10cm, v0, vf, a0, af);
-    task.add_angular_task(0, pos_w4_10cm, pos_w4, v0, vf, a0, af); // task is not valid (did not work after 5 restarts)
-    gripper_toggle(9, 0) = 1;
-    task.add_angular_task(0, pos_w4, pos_w4_10cm, v0, vf, a0, af);
-    task.add_angular_task(0, pos_w4_10cm, pos_wb4, v0, vf, a0, af);
-    gripper_toggle(11, 0) = 1;
-
-    // // Back to home
-    task.add_angular_task(0, pos_wb4, pos_0_link6, v0, vf, a0, af);
-    // task.add_angular_task(0, pos_w1_10cm, get_Link6_home(), v0, vf, a0, af);
-
-
-    // Gen3 tasks
-    v0.resize(7);
-    vf.resize(7);
-    a0.resize(7);
-    af.resize(7);
-
-    // Task 1 Gen3
-    task.add_angular_task(1, pos_0_gen3, pos_b2_10cm_gen3, v0, vf, a0, af);
-    task.add_angular_task(1, pos_b2_10cm_gen3, pos_b2_gen3, v0, vf, a0, af); // task does not work (pos_b2 is not right)
-    gripper_toggle(1, 1) = 1;
-    task.add_angular_task(1, pos_b2_gen3, pos_b2_10cm_gen3, v0, vf, a0, af);
-    task.add_angular_task(1, pos_b2_10cm_gen3, pos_bb2_gen3, v0, vf, a0, af);
-    gripper_toggle(3, 1) = 1;
-
-    // Task 2 Gen3
-    task.add_angular_task(1, pos_bb2_gen3, pos_b5_10cm, v0, vf, a0, af);
-    task.add_angular_task(1, pos_b5_10cm, pos_b5, v0, vf, a0, af); // task does not work (pos_b5 is not right)
-    gripper_toggle(5, 1) = 1;
-    task.add_angular_task(1, pos_b5, pos_b5_10cm, v0, vf, a0, af);
-    task.add_angular_task(1, pos_b5_10cm, pos_bb5, v0, vf, a0, af);
-    gripper_toggle(7, 1) = 1;
-
-    // Task 3 Gen3
-    task.add_angular_task(1, pos_bb5, pos_b6_10cm, v0, vf, a0, af);
-    task.add_angular_task(1, pos_b6_10cm, pos_b6, v0, vf, a0, af); // task does not work (pos_b6 is not right)
-    gripper_toggle(9, 1) = 1;
-    task.add_angular_task(1, pos_b6, pos_b6_10cm, v0, vf, a0, af);
-    task.add_angular_task(1, pos_b6_10cm, pos_bb6, v0, vf, a0, af);
-    gripper_toggle(11, 1) = 1;
-
-    // Back to home
-    task.add_angular_task(1, pos_bb6, pos_0_gen3, v0, vf, a0, af);
-    // task.add_angular_task(1, pos_b2_10cm, get_gen3_home(), v0, vf, a0, af);
-
-    task.gripper_toggle = gripper_toggle;
-
-    // B-spline
-    Bspline bspline_link6(10, 50, 5, 6);
-    Bspline bspline_gen3(8, 200, 5, 7);
-    std::vector<Bspline> robot_bspline;
-    robot_bspline.reserve(2);
-    robot_bspline.push_back(bspline_link6);
-    robot_bspline.push_back(bspline_gen3);
-
-    // Guess
-    Guess guess; // using default guess
-    guess.n_shot = 300;
-    std::vector<Guess> robot_guess;
-    robot_guess.push_back(guess);
-    robot_guess.push_back(guess);
-
-    // Constraints
-    Constraints<Manipulator> constraints;
-    constraints.position = true;
-    constraints.velocity = true;
-    constraints.acceleration = true;
-    constraints.torque = true;
-    constraints.tcp_speed = true;
-    constraints.self_collisions = true;
-    constraints.external_collisions = true;
-    constraints.n_collision_constraints = 100;
-    constraints.n_collision_skip = 2;
-
-    std::vector<Constraints<Manipulator>> robot_constraints;
-    robot_constraints.push_back(constraints);
-    robot_constraints.push_back(constraints);
-
-    // Objective
-    Objective<Manipulator> objective;
-    objective.K_time = 1;
-
-    std::vector<Objective<Manipulator>> robot_objective;
-    robot_objective.push_back(objective);
-    robot_objective.push_back(objective);
-
-    // --- Setup Optimization ---
-    Array hierarchy = {0, 1};
-    auto hierarchy_optim = create_hierarchical_object(task, hierarchy, robot_constraints, robot_objective, robot_guess, robot_bspline);
-    return hierarchy_optim;
-}
-
-Optimization<Manipulator> get_generic_link6_opt() {
+inline host_fn Optimization get_generic_link6_opt() {
     // Manip
     Manipulator manip = get_generic_Link6();
 
@@ -986,14 +986,14 @@ Optimization<Manipulator> get_generic_link6_opt() {
     auto task = get_link6_task();
 
     // Create optimization
-    Optimization<Manipulator> opt(manip, task);
+    Optimization opt(manip, task);
 
     // world
     World world = get_lab_world();
     opt.set_world(world);
 
     // Constraints
-    Constraints<Manipulator> constraints;
+    ConstraintSelection constraints;
     constraints.position = true;
     constraints.velocity = true;
     constraints.acceleration = true;
@@ -1004,7 +1004,7 @@ Optimization<Manipulator> get_generic_link6_opt() {
     opt.set_constraints(constraints);
 
     // Objective
-    Objective<Manipulator> objective;
+    Objective objective;
     objective.K_time = 1;
     opt.set_objective(objective);
 
@@ -1019,48 +1019,48 @@ Optimization<Manipulator> get_generic_link6_opt() {
     return opt;
 }
 
-Optimization<Link6> get_hardcoded_link6_opt() {
-    // Manip
-    Link6 manip;
+// Optimization<Link6> get_hardcoded_link6_opt() {
+//     // Manip
+//     Link6 manip;
+//
+//     // Task
+//     auto task = get_link6_task();
+//
+//     // Create optimization
+//     Optimization<Link6> opt(manip, task);
+//
+//     // world
+//     World world = get_lab_world();
+//     opt.set_world(world);
+//
+//     // Constraints
+//     Constraints<Link6> constraints;
+//     constraints.position = true;
+//     constraints.velocity = true;
+//     constraints.acceleration = true;
+//     constraints.torque = true;
+//     constraints.tcp_speed = true;
+//     constraints.self_collisions = true;
+//     constraints.external_collisions = true;
+//     opt.set_constraints(constraints);
+//
+//     // Objective
+//     Objective<Link6> objective;
+//     objective.K_time = 1;
+//     opt.set_objective(objective);
+//
+//     // B-spline
+//     Bspline bspline(manip.joints);
+//     opt.set_bspline(bspline);
+//
+//     // Guess
+//     opt.guess.type = Guess::random;
+//     opt.guess.n_shot = 100;
+//
+//     return opt;
+// }
 
-    // Task
-    auto task = get_link6_task();
-
-    // Create optimization
-    Optimization<Link6> opt(manip, task);
-
-    // world
-    World world = get_lab_world();
-    opt.set_world(world);
-
-    // Constraints
-    Constraints<Link6> constraints;
-    constraints.position = true;
-    constraints.velocity = true;
-    constraints.acceleration = true;
-    constraints.torque = true;
-    constraints.tcp_speed = true;
-    constraints.self_collisions = true;
-    constraints.external_collisions = true;
-    opt.set_constraints(constraints);
-
-    // Objective
-    Objective<Link6> objective;
-    objective.K_time = 1;
-    opt.set_objective(objective);
-
-    // B-spline
-    Bspline bspline(manip.joints);
-    opt.set_bspline(bspline);
-
-    // Guess
-    opt.guess.type = Guess::random;
-    opt.guess.n_shot = 100;
-
-    return opt;
-}
-
-Optimization<Manipulator> get_generic_gen3_opt() {
+inline host_fn Optimization get_generic_gen3_opt() {
     // Manip
     Manipulator manip = get_generic_gen3();
 
@@ -1068,14 +1068,14 @@ Optimization<Manipulator> get_generic_gen3_opt() {
     auto task = get_gen3_task();
 
     // Create optimization
-    Optimization<Manipulator> opt(manip, task);
+    Optimization opt(manip, task);
 
     // world
     World world = get_lab_world();
     opt.set_world(world);
 
     // Constraints
-    Constraints<Manipulator> constraints;
+    ConstraintSelection constraints;
     constraints.position = true;
     constraints.velocity = true;
     constraints.acceleration = true;
@@ -1086,7 +1086,7 @@ Optimization<Manipulator> get_generic_gen3_opt() {
     opt.set_constraints(constraints);
 
     // Objective
-    Objective<Manipulator> objective;
+    Objective objective;
     objective.K_time = 1;
     opt.set_objective(objective);
 
@@ -1101,59 +1101,62 @@ Optimization<Manipulator> get_generic_gen3_opt() {
     return opt;
 }
 
-Optimization<Gen3> get_gen3_gen3_opt() {
-    // Manip
-    Gen3 manip;
-    manip.p_base  = {1.4, 0, 0.1564f};
-    manip.Q_base = {-1, 0, 0, 0, -1, 0, 0, 0, 1};
+// Optimization<Gen3> get_gen3_gen3_opt() {
+//     // Manip
+//     Gen3 manip;
+//     manip.p_base  = {1.4, 0, 0.1564f};
+//     manip.Q_base = {-1, 0, 0, 0, -1, 0, 0, 0, 1};
+//
+//     // Task
+//     auto task = get_gen3_task();
+//
+//     // Create optimization
+//     Optimization<Gen3> opt(manip, task);
+//
+//     // world
+//     World world = get_lab_world();
+//     opt.set_world(world);
+//
+//     // Constraints
+//     Constraints<Gen3> constraints;
+//     constraints.position = true;
+//     constraints.velocity = true;
+//     constraints.acceleration = true;
+//     constraints.torque = true;
+//     constraints.tcp_speed = true;
+//     constraints.self_collisions = true;
+//     constraints.external_collisions = true;
+//     opt.set_constraints(constraints);
+//
+//     // Objective
+//     Objective<Gen3> objective;
+//     objective.K_time = 1;
+//     opt.set_objective(objective);
+//
+//     // B-spline
+//     Bspline bspline(manip.joints);
+//     opt.set_bspline(bspline);
+//
+//     // Guess
+//     opt.guess.type = Guess::random;
+//     opt.guess.n_shot = 100;
+//
+//     return opt;
+// }
 
-    // Task
-    auto task = get_gen3_task();
-
-    // Create optimization
-    Optimization<Gen3> opt(manip, task);
-
-    // world
-    World world = get_lab_world();
-    opt.set_world(world);
-
-    // Constraints
-    Constraints<Gen3> constraints;
-    constraints.position = true;
-    constraints.velocity = true;
-    constraints.acceleration = true;
-    constraints.torque = true;
-    constraints.tcp_speed = true;
-    constraints.self_collisions = true;
-    constraints.external_collisions = true;
-    opt.set_constraints(constraints);
-
-    // Objective
-    Objective<Gen3> objective;
-    objective.K_time = 1;
-    opt.set_objective(objective);
-
-    // B-spline
-    Bspline bspline(manip.joints);
-    opt.set_bspline(bspline);
-
-    // Guess
-    opt.guess.type = Guess::random;
-    opt.guess.n_shot = 100;
-
-    return opt;
-}
-
-Array get_Link6_home() {
+inline host_fn Array get_Link6_home() {
     return {0, -0.349, 1.92, 0, 0.698, 0};
 }
 
 // Case D1 from paper "Singularity Analysis of Kinova’s Link 6 Robot Arm via Grassmann Line Geometry"
 // (https://espace2.etsmtl.ca/id/eprint/28453/1/Bonev-I-2024-28453.pdf)
-Array get_Link6_singularity() {
+inline host_fn Array get_Link6_singularity() {
     return deg2rad({0, 17.19, 22.25, 62.10, 160, 0});
 }
 
-Array get_gen3_home() {
-    return wrap2pi(deg2rad({0, 15, 180, -130, 0, 55, 90})); // todo: -130 or +210??
+inline host_fn Array get_gen3_home() {
+    return wrap2pi(deg2rad(Array({0, 15, 180, -130, 0, 55, 90})));
+}
+
+
 }

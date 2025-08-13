@@ -21,17 +21,8 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     # build examples
     add_subdirectory(examples)
 
-
     # add tests
     enable_testing()
     add_subdirectory(tests)
-
-    # # Generate documentation
-    # find_package(Doxygen)
-    # if(Doxygen_FOUND)
-    # add_subdirectory(docs)
-    # else()
-    # message(STATUS "Doxygen not found, not building docs")
-    # endif()
 endif()
 

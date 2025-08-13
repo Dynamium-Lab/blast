@@ -74,8 +74,17 @@ int main() {
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1}}; // direction vectors of joint
-  kinematics.p_base = {0.0, 0.0, 0.0530f};
-  // todo: add Q_static because it fails later in the program.
+  kinematics.p_j0   = {0.0, 0.0, 0.0530f};
+  kinematics.p_base = {0.0, 0.0, 0.0};
+  kinematics.Q_base = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  kinematics.Q_static.resize(7);
+  kinematics.Q_static[0] = {1, 0, 0, 0, -1, 0, 0, 0, -1};
+  kinematics.Q_static[1] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
+  kinematics.Q_static[2] = {1, 0, 0, 0, -1, 0, 0, 0, -1};
+  kinematics.Q_static[3] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
+  kinematics.Q_static[4] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
+  kinematics.Q_static[5] = {0, 0, 1, 0, 1, 0, -1, 0, 0};
+  kinematics.Q_static[6] = {1, 0, 0, 0, -1, 0, 0, 0, -1};
 
   // dynamic properties
   ManipulatorDynamics dynamics;
@@ -238,10 +247,11 @@ int main() {
   opt.set_objective(objective);
   opt.set_constraints(constraints);
 
-  auto result_gen = optimize(&opt);
+  auto result = optimize(&opt);
 
-  cout << "Compute time: " << result_gen.compute_time << endl;
-  cout << "Traj time: " << result_gen.x[result_gen.x.size - 1] << endl;
+  cout << "Compute time: " << result.compute_time << endl;
+  cout << "Trajectory time: " << result.x[result.x.size - 1] << endl;
+  cout << "Trajectory success: " << result.success << endl;
 
   return 0;
 }

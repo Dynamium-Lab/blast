@@ -13,13 +13,6 @@ function(automate_add_benchmarks target_name source_file)
   add_executable(${target_name} ${source_file})
   target_compile_features(${target_name} PUBLIC cxx_std_17)
   target_link_libraries(${target_name} PRIVATE Catch2::Catch2 blast)
-
-  # Set runtime output directories for each configuration
-  set_target_properties(${target_name} PROPERTIES
-      RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_CURRENT_BINARY_DIR}/Debug"
-      RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_BINARY_DIR}/Release"
-      RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_CURRENT_BINARY_DIR}/RelWithDebInfo"
-  )
 endfunction()
 
 # Define a function to automate adding tests
@@ -28,13 +21,6 @@ function(automate_add_tests target_name source_file)
   target_compile_features(${target_name} PUBLIC cxx_std_17)
   target_link_libraries(${target_name} PRIVATE Catch2::Catch2 blast)
   add_test(NAME ${target_name}_test COMMAND ${target_name})
-
-  # Set runtime output directories for each configuration
-  #  set_target_properties(${target_name} PROPERTIES
-  #    RUNTIME_OUTPUT_DIRECTORY_DEBUG       "${CMAKE_CURRENT_BINARY_DIR}/Debug"
-  #    RUNTIME_OUTPUT_DIRECTORY_RELEASE     "${CMAKE_CURRENT_BINARY_DIR}/Release"
-  #    RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_CURRENT_BINARY_DIR}/RelWithDebInfo"
-  #  )
 endfunction()
 
 # note: Add new benchmark files as follows :
@@ -53,6 +39,7 @@ set(BENCHMARKS
 # NAME_OF_TEST TEST_TARGET_LOCATION
 # List of tests with their source files
 set(TESTS
+    test_link6 test_manipulator/test_Link6.cpp
     # Acceleration
     # test_gradients_acceleration acceleration/test_gradients_acceleration.cpp
     # test_constraints_acceleration acceleration/test_constraints_acceleration.cpp
@@ -76,9 +63,9 @@ set(TESTS
     # Math
     # test_math_matrix math/test_matrix.cpp
     # World
-    # test_primitives world/test_primitives.cpp
+     test_primitives world/test_primitives.cpp
     # Trajectory
-    # test_bspline trajectory/test_bsplines.cpp
+     test_bspline trajectory/test_bsplines.cpp
 )
 
 # Loop through and add benchmarks

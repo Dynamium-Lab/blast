@@ -92,9 +92,9 @@ struct ManipulatorKinematics {
  * @var av   Center of mass offset for each link (Vec3).
  */
 struct ManipulatorDynamics {
-  std::vector<real> m;  // link mass
-  std::vector<Mat3> I;  // inertial tensors
-  std::vector<Vec3> av; // center of mass
+  std::vector<real> m; // link mass
+  std::vector<Mat3> I; // inertial tensors
+  std::vector<Vec3> av;
 };
 
 /**

@@ -95,6 +95,14 @@ inline blast_fn real wrap2pi(real r) {
     return r;
 }
 
+// return a copy of a with all members wrapped to $\pi
+inline blast_fn Array wrap2pi(Array a) {
+  for (u32 i = 0; i < a.size; i++) {
+    a[i] = wrap2pi(a[i]);
+  }
+  return a;
+}
+
 inline blast_fn real wrap_to_180(real r) {
     while (r < -180.0)
         r += 360.0;

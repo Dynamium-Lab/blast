@@ -1,15 +1,8 @@
-# Define a function to automate adding benchamrks
+# Define a function to automate adding benchmarks
 function(automate_add_examples target_name source_file)
     add_executable(${target_name} ${source_file})
     target_compile_features(${target_name} PUBLIC cxx_std_17)
     target_link_libraries(${target_name} PRIVATE blast nlopt)
-
-    # Set runtime output directories for each configuration
-    set_target_properties(${target_name} PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_CURRENT_BINARY_DIR}/Debug"
-            RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_BINARY_DIR}/Release"
-            RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_CURRENT_BINARY_DIR}/RelWithDebInfo"
-    )
 endfunction()
 
 set(EXAMPLES

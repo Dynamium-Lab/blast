@@ -3,8 +3,6 @@
 ### Project specific ignores
 .vscode/
 .vs/
-build/
-MDA_tests/
 
 
 
