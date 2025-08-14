@@ -7,7 +7,7 @@
 
 namespace blast {
 
-struct IK_opt {
+struct host_fn IK_opt {
   Manipulator manip;
   Array       desired_pose;
 
@@ -16,7 +16,7 @@ struct IK_opt {
       desired_pose(std::move(new_pose)) {}
 };
 
-inline Matrix jacobian(const Manipulator& manip) {
+inline host_fn Matrix jacobian(const Manipulator& manip) {
   std::vector<Vec3> r_tool(manip.joints);
   r_tool[manip.joints - 1] = manip.dv[manip.joints - 1];
   for (int i = (int) manip.joints - 2; i >= 0; i--) {
@@ -48,7 +48,7 @@ inline Matrix jacobian(const Manipulator& manip) {
   return J_tool;
 }
 
-inline void forward_kinematics(Manipulator& manip, const Array& joint_pos) {
+inline host_fn void forward_kinematics(Manipulator& manip, const Array& joint_pos) {
   manip.compute_rotation_matrices(joint_pos);
 
   manip._rotations_mult[0] = manip.Q_base * manip._rotations[0];
@@ -62,7 +62,7 @@ inline void forward_kinematics(Manipulator& manip, const Array& joint_pos) {
   }
 }
 
-inline void dynamics(Manipulator& manip, Array& vel, Array& acc) {
+inline host_fn void dynamics(Manipulator& manip, Array& vel, Array& acc) {
   Assert(vel.size == acc.size);
   Assert(vel.size == manip.joints);
   const auto joints = manip.joints;
@@ -110,9 +110,8 @@ inline void dynamics(Manipulator& manip, Array& vel, Array& acc) {
     manip._efforts[j] = n[j].z;
 }
 
-
 // todo: move to IK folder?
-inline double get_error(unsigned int n, const double* x, double* grad, void* data) {
+inline host_fn double get_error(unsigned int n, const double* x, double* grad, void* data) {
   Array delta_pose(12);
   Array current_joint_position;
   current_joint_position.alias(x, n);
@@ -136,8 +135,7 @@ inline double get_error(unsigned int n, const double* x, double* grad, void* dat
 
   return dot(delta_pose, delta_pose);
 }
-
-inline Array inverse_kinematics_nlopt(Manipulator manip, Array desired_pose, Array initial_joint_position) {
+inline host_fn Array inverse_kinematics_nlopt(Manipulator manip, Array desired_pose, Array initial_joint_position) {
   IK_opt info(std::move(manip), std::move(desired_pose));
 
   auto o      = nlopt_create(nlopt_algorithm::NLOPT_LN_COBYLA, initial_joint_position.size);
@@ -171,7 +169,6 @@ inline host_fn Manipulator::Manipulator(u32 joint_count, const ManipulatorLimits
   if (capsules)
     set_capsules(*capsules);
 }
-
 
 // todo: add a bunch of warnings if not correct.
 inline host_fn void Manipulator::set_limits(const ManipulatorLimits& limits) {
@@ -351,7 +348,7 @@ inline host_fn void Manipulator::set_payload(real m_payload, Vec3 cg_payload, Ma
   sv.back() = {-dv.back() + av.back()};
 }
 
-blast_fn inline real clamped_root(real slope, real h0, real h1) {
+inline host_fn real clamped_root(real slope, real h0, real h1) {
   // note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
   real r;
   if (h0 < 0) {
@@ -366,7 +363,7 @@ blast_fn inline real clamped_root(real slope, real h0, real h1) {
   return r;
 }
 
-blast_fn inline void compute_intersection(const real sValue[2], const i32 classify[2], real b, real f00, real f10, i32* edge, real end[][2]) {
+inline host_fn void compute_intersection(const real sValue[2], const i32 classify[2], real b, real f00, real f10, i32* edge, real end[][2]) {
   // note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
   constexpr real zero = 0;
   constexpr real half = (real) 0.5;
@@ -429,7 +426,7 @@ blast_fn inline void compute_intersection(const real sValue[2], const i32 classi
   }
 }
 
-blast_fn inline void compute_minimum_parameters(const i32 edge[2], const real end[][2], real b, real c, real e, real g00, real g10, real g01, real g11, real* parameter) {
+inline host_fn void compute_minimum_parameters(const i32 edge[2], const real end[][2], real b, real c, real e, real g00, real g10, real g01, real g11, real* parameter) {
   // note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
   constexpr real zero  = 0;
   constexpr real one   = 1;
@@ -466,7 +463,7 @@ blast_fn inline void compute_minimum_parameters(const i32 edge[2], const real en
   }
 }
 
-blast_fn inline real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
+inline host_fn real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
   // note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
   auto const P1mP0        = P1 - P0;
   auto const Q1mQ0        = Q1 - Q0;
