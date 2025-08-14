@@ -47,19 +47,23 @@ struct Guess {
 
   // Constructor for Guess::custom, initializing x0
   explicit Guess(Array x_0) :
-      type(Guess::custom), x0(std::move(x_0)) {}
+      type(Guess::custom),
+      x0(std::move(x_0)) {}
 
   // Constructor for Guess::from_list, initializing candidates
   explicit Guess(Matrix m) :
-      type(Guess::from_list), candidates(std::move(m)) {}
+      type(Guess::from_list),
+      candidates(std::move(m)) {}
 
   // Constructor for Guess::random, initializing n_shot
   explicit Guess(u32 shots) :
-      type(Guess::random), n_shot(shots) {}
+      type(Guess::random),
+      n_shot(shots) {}
 
   // Constructor for Guess::rrt_connect, initializing parameter
   explicit Guess(real param) :
-      type(Guess::rrt_connect), parameter(param) {}
+      type(Guess::rrt_connect),
+      parameter(param) {}
 };
 
 struct ConstraintSelection {
@@ -102,23 +106,9 @@ struct Optimization {
 
   Optimization() = delete;
 
-  Optimization(Manipulator new_manip, Matrix new_task);
+  Optimization(const Manipulator& new_manip, const Matrix& new_task);
 
-  Optimization(Manipulator new_manip, Matrix new_task, Bspline new_bspline) :
-      manip(std::move(new_manip)),
-      bspline(std::move(new_bspline)),
-      task(std::move(new_task)),
-      custom_data(nullptr) {
-    guess.type   = Guess::random;
-    guess.n_shot = 100;
-
-    constraints.position     = true;
-    constraints.velocity     = true;
-    constraints.acceleration = true;
-    constraints.tcp_speed    = true;
-
-    objective.K_time = 1.0;
-  }
+  Optimization(const Manipulator& new_manip, const Matrix& new_task, const Bspline& new_bspline);
 
   void set_manip(Manipulator new_manip);
   void set_bspline(Bspline new_bspline);

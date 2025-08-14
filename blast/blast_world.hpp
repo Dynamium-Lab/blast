@@ -15,8 +15,6 @@ struct DynamicSphere;
 struct DynamicCapsule;
 struct DynamicDoor;
 
-
-// todo: Add cylinder
 struct World {
   std::vector<Box>            boxes;
   std::vector<Sphere>         spheres;

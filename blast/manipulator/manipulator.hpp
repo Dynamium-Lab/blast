@@ -48,55 +48,8 @@ inline Matrix jacobian(const Manipulator& manip) {
   return J_tool;
 }
 
-inline Matrix jacobian_IK(const Manipulator& manip) {
-  std::vector<Vec3> r_tool(manip.joints);
-  r_tool[manip.joints - 1] = manip.dv[manip.joints - 1];
-  for (int i = (int) manip.joints - 2; i >= 0; i--) {
-    r_tool[i] = manip.dv[i] + manip._rotations[i + 1] * r_tool[i + 1];
-  }
-
-  for (int i = 0; i < manip.joints; i++) {
-    r_tool[i] = manip._rotations_mult[i] * r_tool[i];
-  }
-
-  Matrix J_tool(12, manip.joints);
-  Mat3   E = {0, 1, 0, -1, 0, 0, 0, 0, 0};
-  for (int i = 0; i < manip.joints; i++) {
-    Vec3 e       = manip._rotations_mult[i] * manip.ev[i];
-    Vec3 cr_tool = cross(e, r_tool[i]);
-    // position
-    // J_tool(0, i) = cr_tool.x;
-    // J_tool(1, i) = cr_tool.y;
-    // J_tool(2, i) = cr_tool.z;
-    J_tool(9, i)  = cr_tool.x;
-    J_tool(10, i) = cr_tool.y;
-    J_tool(11, i) = cr_tool.z;
-    // rotation
-    Mat3 rotation{1, 0, 0, 0, 1, 0, 0, 0, 1};
-    for (int j = 0; j < i; j++)
-      rotation *= manip._rotations[j];
-
-    rotation *= E;
-
-    for (int j = i; j < manip.joints; j++)
-      rotation *= manip._rotations[j];
-    rotation *= manip._rotations[manip.joints]; // todo: make more robust
-
-    J_tool(0, i) = rotation[0];
-    J_tool(1, i) = rotation[1];
-    J_tool(2, i) = rotation[2];
-    J_tool(3, i) = rotation[3];
-    J_tool(4, i) = rotation[4];
-    J_tool(5, i) = rotation[5];
-    J_tool(6, i) = rotation[6];
-    J_tool(7, i) = rotation[7];
-    J_tool(8, i) = rotation[8];
-  }
-  return std::move(J_tool);
-}
-
 inline void forward_kinematics(Manipulator& manip, const Array& joint_pos) {
-  manip.compute_rotation_matrices(joint_pos); // todo: check performance
+  manip.compute_rotation_matrices(joint_pos);
 
   manip._rotations_mult[0] = manip.Q_base * manip._rotations[0];
   for (u32 j = 1; j < manip._rotations_mult.size(); j++) {
@@ -154,9 +107,11 @@ inline void dynamics(Manipulator& manip, Array& vel, Array& acc) {
 
   //-- extract torques (last element of each moment vector)
   for (u32 j = 0; j < joints; j++)
-    manip._efforts[j] = n[j].z; // todo: is it safe to do here ?
+    manip._efforts[j] = n[j].z;
 }
 
+
+// todo: move to IK folder?
 inline double get_error(unsigned int n, const double* x, double* grad, void* data) {
   Array delta_pose(12);
   Array current_joint_position;
@@ -217,6 +172,8 @@ inline host_fn Manipulator::Manipulator(u32 joint_count, const ManipulatorLimits
     set_capsules(*capsules);
 }
 
+
+// todo: add a bunch of warnings if not correct.
 inline host_fn void Manipulator::set_limits(const ManipulatorLimits& limits) {
   if (limits.pmax.size != 0) {
     Assert(limits.pmax.size == joints);

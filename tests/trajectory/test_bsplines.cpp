@@ -134,34 +134,33 @@ TEST_CASE("Basis function test", "[bspline]") {
 }
 
 
-// todo: remove?
-// TEST_CASE("Bspline velocity and acceleration test", "[bspline]") {
-//     int n_ctrl = 12;
-//     int p = 5;
-//     int n_joints = 1;
-//     int n_pts = 300;
+TEST_CASE("Bspline velocity and acceleration test", "[bspline]") {
+    int n_ctrl = 12;
+    int p = 5;
+    int n_joints = 1;
+    int n_pts = 300;
 
-//     Bspline spline_test(n_ctrl, n_pts, p, n_joints);
+    Bspline spline_test(n_ctrl, n_pts, p, n_joints);
 
-//     Matrix task(n_joints, 6);
-//     fill_random(task, PI);
+    Matrix task(n_joints, 6);
+    fill_random(task, PI);
 
-//     Array x_test(spline_test.xlen(task));
-//     fill_random(x_test, 2*PI);
-//     x_test[x_test.size - 1] = std::abs(x_test.back()); // time must be positive
+    Array x_test(spline_test.x_len(task));
+    fill_random(x_test, 2*PI);
+    x_test.back() = std::abs(x_test.back()); // time must be positive
 
-//     spline_test.compute_trajectory(x_test, task);
-//     Matrix vel_approx(n_joints, n_pts);
-//     Matrix acc_approx(n_joints, n_pts);
-//     real dt = x_test.back() / (n_pts-1);
-//     for (int i = 1; i < n_pts; i++) {
-//         for (int j = 0; j < n_joints; j++) {
-//             vel_approx(j, i) = (spline_test.traj.pos(j, i) - spline_test.traj.pos(j, i-1)) / dt;
-//             acc_approx(j, i) = (spline_test.traj.vel(j, i) - spline_test.traj.vel(j, i-1)) / dt;
-//         }
-//     }
-//     print(vel_approx);
-//     print(spline_test.traj.vel);
-//     CHECK(is_close(vel_approx, spline_test.traj.vel, 1e-1));
-//     CHECK(is_close(acc_approx, spline_test.traj.acc, 1e-1));
-// }
+    spline_test.compute_trajectory(x_test, task);
+    Matrix vel_approx(n_joints, n_pts);
+    Matrix acc_approx(n_joints, n_pts);
+    real dt = x_test.back() / (n_pts-1);
+    for (int i = 1; i < n_pts; i++) {
+        for (int j = 0; j < n_joints; j++) {
+            vel_approx(j, i) = (spline_test.traj.pos(j, i) - spline_test.traj.pos(j, i-1)) / dt;
+            acc_approx(j, i) = (spline_test.traj.vel(j, i) - spline_test.traj.vel(j, i-1)) / dt;
+        }
+    }
+    print(vel_approx);
+    print(spline_test.traj.vel);
+    CHECK(is_close(vel_approx, spline_test.traj.vel, 1e-1));
+    CHECK(is_close(acc_approx, spline_test.traj.acc, 1e-1));
+}

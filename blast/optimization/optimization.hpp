@@ -18,6 +18,7 @@ struct Result {
   Array        x0;
   nlopt_result nlopt_exit_criteria = NLOPT_SUCCESS;
   int          num_eval            = 0;
+  int          num_restart         = 0;
   Trajectory   trajectory;
 
   Result() = delete;
@@ -27,12 +28,28 @@ struct Result {
       opt(std::move(optim)) {}
 };
 
-inline Optimization::Optimization(Manipulator new_manip, Matrix new_task):
-     manip(std::move(new_manip)),
-     bspline(12, 256, 5, new_manip.joints),
-     task(std::move(new_task)),
-     custom_data(nullptr) {
+inline Optimization::Optimization(const Manipulator& new_manip, const Matrix& new_task) :
+    manip(new_manip),
+    bspline(12, 256, 5, new_manip.joints),
+    task(new_task),
+    custom_data(nullptr) {
   // Default values
+  guess.type   = Guess::random;
+  guess.n_shot = 100;
+
+  constraints.position     = true;
+  constraints.velocity     = true;
+  constraints.acceleration = true;
+  constraints.tcp_speed    = true;
+
+  objective.K_time = 1.0;
+}
+
+inline Optimization::Optimization(const Manipulator& new_manip, const Matrix& new_task, const Bspline& new_bspline) :
+    manip(new_manip),
+    bspline(new_bspline),
+    task(new_task),
+    custom_data(nullptr) {
   guess.type   = Guess::random;
   guess.n_shot = 100;
 
@@ -232,7 +249,8 @@ inline void initialize_optimization(Optimization* opt) {
 }
 
 inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
-  Result result_list(*opt);
+  auto T1            = get_tick_us();
+  Result result(*opt);
 
   // Initialization
   // configure_internal_data(opt); // todo: Ensure we can remove
@@ -242,7 +260,7 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   // Initial validation
   if (!validate_task(opt)) { // todo: support validate_task when there are no capsules...
     print(opt->task);
-    return result_list;
+    return result;
   }
 
   const auto n = opt->bspline.x_len(opt->task);
@@ -252,38 +270,38 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
 
 
   nlopt_opt    o = nlopt_create(NLOPT_LD_SLSQP, n);
-  nlopt_result result;
-  result = nlopt_add_inequality_mconstraint(o, opt->constraints.n_constraints, nlopt_constraints, opt, con_tol.data);
-  Assert(result == NLOPT_SUCCESS);
-  result = nlopt_set_min_objective(o, objective_function, opt);
-  Assert(result == NLOPT_SUCCESS);
-  result = nlopt_set_lower_bound(o, (int) n - 1, 0.01);
-  Assert(result == NLOPT_SUCCESS);
-  result = nlopt_set_upper_bound(o, (int) n - 1, 60.0);
-  Assert(result == NLOPT_SUCCESS);
-  result = nlopt_set_ftol_abs(o, 0.0001);
-  Assert(result == NLOPT_SUCCESS);
-  result = nlopt_set_xtol_abs(o, x_tol.data);
-  Assert(result == NLOPT_SUCCESS);
-  result = nlopt_set_maxtime(o, 5000);
-  Assert(result == NLOPT_SUCCESS);
-  result = nlopt_set_maxeval(o, 100000);
-  Assert(result == NLOPT_SUCCESS);
+  nlopt_result nlopt_res;
+  nlopt_res = nlopt_add_inequality_mconstraint(o, opt->constraints.n_constraints, nlopt_constraints, opt, con_tol.data);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_min_objective(o, objective_function, opt);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_lower_bound(o, (int) n - 1, 0.01);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_upper_bound(o, (int) n - 1, 60.0);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_ftol_abs(o, 0.0001);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_xtol_abs(o, x_tol.data);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_maxtime(o, 5000);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_maxeval(o, 100000);
+  Assert(nlopt_res == NLOPT_SUCCESS);
 
   bool is_valid_more = false;
   bool is_valid      = false;
 
   auto start_guess   = opt->guess;
-  int  restart_count = 0;                                 // declared here intentionally
-  auto T1            = get_tick_us();
-  for (u32 max_restart = 5; restart_count <= max_restart; restart_count++) { // todo: add nlopt stop criteria to list, add max_time for full loop
+  int  restart_count = 0; // declared here intentionally
+  int  max_restart   = 5;
+  for (; restart_count <= max_restart; restart_count++) { // todo: add nlopt stop criteria to list, add max_time for full loop
     auto x         = init_guess(opt);
-    result_list.x0 = x;
+    result.x0 = x;
 
     // launch optimization
     double f;
-    result_list.nlopt_exit_criteria = nlopt_optimize(o, x.data, &f);
-    result_list.num_eval            = nlopt_get_numevals(o);
+    result.nlopt_exit_criteria = nlopt_optimize(o, x.data, &f);
+    result.num_eval            = nlopt_get_numevals(o);
 
     // check validity
     Bspline bspline_val(opt->bspline.n_ctrl, opt->bspline.n_points, opt->bspline.p, opt->manip.joints);
@@ -314,10 +332,10 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
     compute_constraints(constraints_more_points.data, x, &opt_val_more);
     is_valid_more = max(constraints_more_points) < 0.01;
 
-    result_list.x = x;
+    result.x = x;
 
     if (is_valid && is_valid_more) {
-      result_list.trajectory = bspline_val_more.traj;
+      result.trajectory = bspline_val_more.traj;
       break;
     } else if (opt->guess.type != Guess::random && restart_count == 0) {
       opt->guess.type = Guess::random;
@@ -329,14 +347,15 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   auto time = (real) (get_tick_us() - T1) / 1000.0;
 
   // Output results
-  result_list.success       = is_valid && is_valid_more;
-  result_list.success_false = is_valid && !is_valid_more;
-  result_list.compute_time  = time;
-  result_list.opt           = *opt;
+  result.success       = is_valid && is_valid_more;
+  result.success_false = is_valid && !is_valid_more;
+  result.compute_time  = time;
+  result.opt           = *opt;
+  result.num_restart   = restart_count;
 
   nlopt_destroy(o);
 
-  return result_list;
+  return result;
 }
 
 

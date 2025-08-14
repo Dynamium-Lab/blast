@@ -31,8 +31,9 @@ set(BENCHMARKS
     #  bench_gradients_acceleration acceleration/bench_gradients_acceleration.cpp
     # bench_generic benchmarks/bench_generic.cpp
     # bench_test_manip benchmarks/bench_test_manip.cpp
-    # bench_constraints benchmarks/bench_constraints.cpp
-    # bench_functions benchmarks/bench_functions.cpp
+    bench_manipulator benchmarks/bench_manipulator.cpp
+    bench_constraints benchmarks/bench_constraints.cpp
+    bench_functions benchmarks/bench_functions.cpp
 )
 
 # note: Add new tests files as follows :
@@ -45,10 +46,10 @@ set(TESTS
     # test_constraints_acceleration acceleration/test_constraints_acceleration.cpp
 
     # Container
-    # test_container_objmatrix container/test_objmatrix.cpp
+    test_container_objmatrix container/test_objmatrix.cpp
     # test_container_objdblarray container/test_objdblarray.cpp
     # Manipulator
-    # test_manipulator_functions manipulators/test_functions.cpp
+    test_manipulator_functions manipulators/test_functions.cpp
     # test_generic_gen3 manipulators/test_generic_gen3.cpp
     # test_generic_link6 manipulators/test_generic_link6.cpp
     # test_generic_crx25 manipulators/test_generic_crx25.cpp
@@ -63,9 +64,9 @@ set(TESTS
     # Math
     # test_math_matrix math/test_matrix.cpp
     # World
-     test_primitives world/test_primitives.cpp
+    test_primitives world/test_primitives.cpp
     # Trajectory
-     test_bspline trajectory/test_bsplines.cpp
+    test_bspline trajectory/test_bsplines.cpp
 )
 
 # Loop through and add benchmarks

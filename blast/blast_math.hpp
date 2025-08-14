@@ -95,16 +95,16 @@ struct Mat3 {
   inline blast_fn Vec3 col_copy(int c) const;
 };
 
-inline blast_fn Mat3 operator*(const Mat3 &m, Mat3 rhs);
+inline blast_fn Mat3 operator*(Mat3 m, Mat3 rhs);
 inline blast_fn Mat3 operator*(real x, const Mat3 &m);
-inline blast_fn Vec3 operator*(const Mat3 &m, Vec3 v);
-inline blast_fn Mat3 &operator*=(Mat3 &lhs, const Mat3 &rhs);
-inline blast_fn Mat3 operator+(const Mat3 &lhs, const Mat3 &rhs);
-inline blast_fn Mat3 &operator+=(Mat3 &lhs, const Mat3 &rhs);
-inline blast_fn Mat3 operator-(const Mat3 &m, const Mat3 &m2);
+inline blast_fn Vec3 operator*(Mat3 m, Vec3 v);
+inline blast_fn Mat3 &operator*=(Mat3 &lhs, Mat3 rhs);
+inline blast_fn Mat3 operator+(Mat3 lhs, Mat3 rhs);
+inline blast_fn Mat3 &operator+=(Mat3 &lhs, Mat3 rhs);
+inline blast_fn Mat3 operator-(Mat3 m1, Mat3 m2);
 inline blast_fn Mat3 &zero(Mat3 &);
 inline blast_fn Mat3 &transpose_inplace(Mat3 &m);
-inline blast_fn Mat3 transpose(const Mat3 &m);
+inline blast_fn Mat3 transpose(Mat3 m);
 inline blast_fn Mat3 eye();
 inline blast_fn Mat3 &constant(Mat3 &, real val);
 inline blast_fn bool is_close(const Mat3 &, const Mat3 &, real eps = 1e-05);

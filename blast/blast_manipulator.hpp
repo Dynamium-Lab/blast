@@ -13,9 +13,9 @@ struct CollisionModelCapsule;
 struct EndEffector;
 
 // todo: which of these need to be exposed to the user?
-inline Matrix jacobian(const Manipulator& manip);
-inline Matrix jacobian_IK(const Manipulator& manip);
 inline void   forward_kinematics(Manipulator& manip, const Array& joint_pos);
+
+inline Matrix jacobian(const Manipulator& manip);
 inline void   dynamics(Manipulator& manip, Array& vel, Array& acc);
 double        get_error(unsigned int n, const double* x, double* grad, void* data);
 inline Array  inverse_kinematics_nlopt(Manipulator manip, Array desired_pose, Array initial_joint_position);
@@ -273,3 +273,6 @@ struct Manipulator {
 } // namespace blast
 
 #include "manipulator/manipulator.hpp"
+// #include "manipulator/Gen3.hpp"
+// #include "manipulator/Link6.hpp"
+// #include "manipulator/R2.hpp"

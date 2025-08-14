@@ -1101,7 +1101,7 @@ inline host_fn Optimization get_generic_gen3_opt() {
     return opt;
 }
 
-// Optimization<Gen3> get_gen3_gen3_opt() {
+// Optimization get_gen3_gen3_opt() {
 //     // Manip
 //     Gen3 manip;
 //     manip.p_base  = {1.4, 0, 0.1564f};
@@ -1111,14 +1111,14 @@ inline host_fn Optimization get_generic_gen3_opt() {
 //     auto task = get_gen3_task();
 //
 //     // Create optimization
-//     Optimization<Gen3> opt(manip, task);
+//     Optimization opt(manip, task);
 //
 //     // world
 //     World world = get_lab_world();
 //     opt.set_world(world);
 //
 //     // Constraints
-//     Constraints<Gen3> constraints;
+//     ConstraintSelection constraints;
 //     constraints.position = true;
 //     constraints.velocity = true;
 //     constraints.acceleration = true;
@@ -1129,7 +1129,7 @@ inline host_fn Optimization get_generic_gen3_opt() {
 //     opt.set_constraints(constraints);
 //
 //     // Objective
-//     Objective<Gen3> objective;
+//     Objective objective;
 //     objective.K_time = 1;
 //     opt.set_objective(objective);
 //

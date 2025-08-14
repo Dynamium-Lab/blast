@@ -18,11 +18,11 @@ inline host_fn Box DynamicBox::lookup(real time) const {
     const real inc_rest = increment - (real)increment_low;
 
     const Vec3 c_low = trajectory[increment_low].c;
-    const Mat3 R_low = trajectory[increment_low].R;
+    const Mat3& R_low = trajectory[increment_low].R;
     const Vec3 e_low = trajectory[increment_low].e;
 
     const Vec3 c_up = trajectory[increment_up].c;
-    const Mat3 R_up = trajectory[increment_up].R;
+    const Mat3& R_up = trajectory[increment_up].R;
     const Vec3 e_up = trajectory[increment_up].e;
 
     Box box;

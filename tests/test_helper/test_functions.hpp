@@ -2,8 +2,7 @@
 #include <blast>
 #include <random>
 
-using namespace blast;
-
+namespace blast {
 
 
 template<typename T>
@@ -208,7 +207,7 @@ inline host_fn bool is_close(const Manipulator& manip1, const Manipulator& manip
   if (!is_close(manip1.Q_static, manip2.Q_static))
     return false; // static rotation matrix
 
-  // dynamic propoerties
+  // dynamic properties
   if (!is_close(manip1.m, manip2.m, eps))
     return false; // link mass
   if (!is_close(manip1.I, manip2.I, eps))
@@ -404,3 +403,4 @@ inline host_fn u32 random_int(u32 min, u32 max) {
 
   return dist(gen);
 }
+} // namespace blast
