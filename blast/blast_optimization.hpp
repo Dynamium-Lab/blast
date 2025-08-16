@@ -18,7 +18,7 @@ using ConstraintFunction       = void (*)(double*, Optimization*);
 using ObjectiveFunction = double (*)(Optimization* opt);
 
 struct Objective {
-  real K_time = 0.0;
+  real K_time = 1.0;
   // real K_energy = 0; // not supported atm
   // real K_jerk = 0; // not supported atm
   // real K_obstacle_avoidance = 0; // not supported atm
@@ -66,13 +66,18 @@ struct Guess {
       parameter(param) {}
 };
 
-struct ConstraintSelection {
-  bool position     = false;
-  bool velocity     = false;
-  bool acceleration = false;
-  bool torque       = false;
-  // bool jerk; // not supported atm
+enum ConstraintType : unsigned {
+  position     = 1 << 0,
+  velocity     = 1 << 1,
+  acceleration = 1 << 2,
+};
 
+struct ConstraintSelection {
+  bool position            = false;
+  bool velocity            = false;
+  bool acceleration        = false;
+  bool torque              = false;
+  bool jerk                = false; // not supported atm
   bool tcp_speed           = false;
   bool self_collisions     = false;
   bool external_collisions = false;
@@ -101,6 +106,8 @@ struct Optimization {
   Matrix              task;
   World               world;
   real                trajectory_start_time = 0.0;
+  real                success_tolerance     = 0.0; // % of constraint violation after optimization that is still considered a success
+  int                 max_restart           = 1;
 
   void* custom_data;
 

@@ -1,7 +1,8 @@
 set(BUILD_SHARED_LIBS OFF)
 add_subdirectory(extern/nlopt)
 
-add_library(blast INTERFACE)
+add_library(blast INTERFACE
+    blast)
 
 target_include_directories(blast INTERFACE
     ./
@@ -15,7 +16,7 @@ target_include_directories(blast INTERFACE
 )
 
 target_compile_features(blast INTERFACE cxx_std_17)
-target_link_libraries(blast INTERFACE nlopt)
+target_link_libraries(blast INTERFACE nlopt TracyClient)
 
 
 if(MSVC)

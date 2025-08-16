@@ -6,14 +6,13 @@
 namespace blast {
 
 
-inline void ConstraintSelection::add_constraint(ConstraintFunction constraint, int n_con) {
+inline blast_fn void ConstraintSelection::add_constraint(ConstraintFunction constraint, int n_con) {
   extra_constraints.push_back(constraint);
   n_extra_constraints.push_back(n_con);
 }
 
-
-// todo: take out the inf and NAN as a possibility
-inline real bound_constraint(const real& value, const real& value_min, const real& value_max) {
+inline blast_fn real bound_constraint(const real& value, const real& value_min, const real& value_max) {
+  // todo: take out the inf and NAN as a possibility
   real g1 = value_max == INF_REAL ? -1.0 : value_max == 0.0 ? value
                                                             : sign(value_max) * (value / value_max - 1);
   real g2 = value_min == -INF_REAL ? -1.0 : value_min == 0.0 ? -value
@@ -22,7 +21,7 @@ inline real bound_constraint(const real& value, const real& value_min, const rea
                  : g2;
 }
 
-inline Matrix get_J_tool(const Optimization* opt) {
+inline blast_fn Matrix get_J_tool(const Optimization* opt) {
   std::vector<Vec3> r_tool(opt->manip.joints);
   r_tool[opt->manip.joints - 1] = opt->manip.dv[opt->manip.joints - 1];
   for (int i = (int) opt->manip.joints - 2; i >= 0; i--) {
@@ -45,11 +44,20 @@ inline Matrix get_J_tool(const Optimization* opt) {
   return J_tool;
 }
 
-inline void compute_constraints(double* result, const Array& x, Optimization* opt) {
+inline blast_fn void compute_constraints(double* result, const Array& x, Optimization* opt) {
+#if BLAST_TRACE_LEVEL >= 2
+  ZoneScoped;
+#endif
+
   double* moving_result = result;
 
   // todo: compute inside loop so that every worker can compute independently??
-  opt->bspline.compute_trajectory(x, opt->task);
+  {
+#if BLAST_TRACE_LEVEL >= 3
+    ZoneScopedN("ComputeTrajectory");
+#endif
+    opt->bspline.compute_trajectory(x, opt->task);
+  }
 
   // todo: no copy every iteration
   ObjMatrix<Capsule> capsules(opt->manip._n_caps, (u32) opt->bspline.n_points / opt->constraints.n_collision_skip);
@@ -57,6 +65,9 @@ inline void compute_constraints(double* result, const Array& x, Optimization* op
   // todo: compute n_con_per_point() so that every worker knows where to put their result
 
   for (int i = 0; i < opt->bspline.n_points; i++) {
+#if BLAST_TRACE_LEVEL >= 3
+    ZoneScopedN("ConstraintSinglePoint");
+#endif
 
     // todo: reset frame???
     // rotations_computed -> bool
@@ -67,18 +78,31 @@ inline void compute_constraints(double* result, const Array& x, Optimization* op
     auto p = opt->bspline.traj.pos.col(i);
     Assert(p.is_alias);
 
-    forward_kinematics(opt->manip, p);                                                    // fills _Q, _Q_mult, and _p_j
+    {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("Kinematics");
+#endif
+      forward_kinematics(opt->manip, p); // fills _Q, _Q_mult, and _p_j
+    }
 
-    opt->manip.compute_capsules();                                                        // fills _capsule_list
-    if (opt->constraints.external_collisions) {
-      if (i % opt->constraints.n_collision_skip == 0 && i != opt->bspline.n_points - 1) { // todo: this cleaner
-        for (int j = 0; j < opt->manip._n_caps; j++) {
-          capsules(j, i / (int) opt->constraints.n_collision_skip) = opt->manip._capsule_list[j];
+    {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("Capsules");
+#endif
+      opt->manip.compute_capsules();                                                        // fills _capsule_list
+      if (opt->constraints.external_collisions) {
+        if (i % opt->constraints.n_collision_skip == 0 && i != opt->bspline.n_points - 1) { // todo: this cleaner
+          for (int j = 0; j < opt->manip._n_caps; j++) {
+            capsules(j, i / (int) opt->constraints.n_collision_skip) = opt->manip._capsule_list[j];
+          }
         }
       }
     }
 
     if (opt->constraints.position) {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("Position");
+#endif
       for (int j = 0; j < opt->manip.joints; j++) {
         moving_result[0] = bound_constraint(1.01 * opt->bspline.traj.pos(j, i), opt->manip.pmin[j], opt->manip.pmax[j]);
         moving_result++;
@@ -86,6 +110,9 @@ inline void compute_constraints(double* result, const Array& x, Optimization* op
     }
 
     if (opt->constraints.velocity) {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("Velocity");
+#endif
       for (int j = 0; j < opt->manip.joints; j++) {
         moving_result[0] = bound_constraint(1.01 * opt->bspline.traj.vel(j, i), opt->manip.vmin[j], opt->manip.vmax[j]);
         moving_result++;
@@ -93,6 +120,9 @@ inline void compute_constraints(double* result, const Array& x, Optimization* op
     }
 
     if (opt->constraints.acceleration) {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("Acceleration");
+#endif
       for (int j = 0; j < opt->manip.joints; j++) {
         moving_result[0] = bound_constraint(1.01 * opt->bspline.traj.acc(j, i), opt->manip.amin[j], opt->manip.amax[j]);
         moving_result++;
@@ -100,6 +130,9 @@ inline void compute_constraints(double* result, const Array& x, Optimization* op
     }
 
     if (opt->constraints.torque) {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("Dynamics");
+#endif
       auto vel = opt->bspline.traj.vel.col(i);
       auto acc = opt->bspline.traj.acc.col(i);
       dynamics(opt->manip, vel, acc); // fills _efforts
@@ -111,6 +144,9 @@ inline void compute_constraints(double* result, const Array& x, Optimization* op
     }
 
     if (opt->constraints.tcp_speed) {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("TCPSpeed");
+#endif
       auto J_tool      = get_J_tool(opt);
       real tcp_speed   = norm(J_tool * opt->bspline.traj.vel.col(i));
       moving_result[0] = bound_constraint(1.01 * tcp_speed, 0.0, opt->manip.tcp_max);
@@ -118,6 +154,9 @@ inline void compute_constraints(double* result, const Array& x, Optimization* op
     }
 
     if (opt->constraints.self_collisions) {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("SelfCollisions");
+#endif
       auto tmp_coll = opt->manip.get_internal_collisions();
       for (u32 j = 0; j < tmp_coll.size; j++)
         moving_result[j] = -tmp_coll[j] + 0.01; //*std::abs(tmp_coll[j]);
@@ -128,6 +167,9 @@ inline void compute_constraints(double* result, const Array& x, Optimization* op
   // {
   //     blast_time_block("External Collision Constraints");
   if (opt->constraints.external_collisions) {
+#if BLAST_TRACE_LEVEL >= 3
+    ZoneScopedN("ExternalCollisions");
+#endif
     auto collisions = test_collisions(capsules, &(opt->world), opt->constraints.n_collision_constraints, opt->trajectory_start_time, opt->trajectory_start_time + x.back());
     for (u32 j = 0; j < opt->constraints.n_collision_constraints; j++) {
       moving_result[j] = -collisions[j] + 0.01; //*std::abs(collisions[j]);
@@ -136,14 +178,22 @@ inline void compute_constraints(double* result, const Array& x, Optimization* op
   }
   // }
 
-  for (u32 i = 0; i < opt->constraints.extra_constraints.size(); i++) { // todo: split in extra_constraint per point or once
-    auto extra_constraint = opt->constraints.extra_constraints[i];
-    extra_constraint(moving_result, opt);
-    moving_result += opt->constraints.n_extra_constraints[i];
+  {
+#if BLAST_TRACE_LEVEL >= 3
+    ZoneScopedN("CustomConstraints");
+#endif
+    for (u32 i = 0; i < opt->constraints.extra_constraints.size(); i++) { // todo: split in extra_constraint per point or once
+      auto extra_constraint = opt->constraints.extra_constraints[i];
+      extra_constraint(moving_result, opt);
+      moving_result += opt->constraints.n_extra_constraints[i];
+    }
   }
 }
 
-inline void nlopt_constraints(unsigned m, double* result, unsigned x_len, const double* x, double* grad, void* f_data) {
+inline blast_fn void nlopt_constraints(unsigned m, double* result, unsigned x_len, const double* x, double* grad, void* f_data) {
+#if BLAST_TRACE_LEVEL >= 1
+  ZoneScoped;
+#endif
   auto* opt = (Optimization*) f_data;
 
   Array xv;
@@ -188,7 +238,10 @@ inline void nlopt_constraints(unsigned m, double* result, unsigned x_len, const 
   }
 }
 
-inline bool validate_task(Optimization* opt) {
+inline blast_fn bool validate_task(Optimization* opt) {
+#if BLAST_TRACE_LEVEL >= 1
+  ZoneScoped;
+#endif
   auto& manip       = opt->manip;
   auto& constraints = opt->constraints;
   auto& task        = opt->task;

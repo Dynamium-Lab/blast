@@ -24,6 +24,24 @@ struct World {
   std::vector<DynamicCapsule> dynamic_capsules;
   std::vector<DynamicDoor>    dynamic_doors;
   u32                         size = 0;
+
+  host_fn void add_box(const Box& box);
+  host_fn void add_box(Vec3 center_point, Vec3 half_width, Mat3 rotation_matrix);
+
+  host_fn void add_sphere(const Sphere& sphere);
+  host_fn void add_sphere(Vec3 center_point, real radius);
+
+  host_fn void add_capsule(const Capsule& capsule);
+  host_fn void add_capsule(Vec3 point1, Vec3 point2, real radius);
+
+  host_fn void add_dynamic_box(const DynamicBox& box);
+  host_fn void add_dynamic_box(const std::vector<Box>& new_boxes, u32 n_points, real start_time, real end_time);
+
+  host_fn void add_dynamic_sphere(const DynamicSphere& sphere);
+  host_fn void add_dynamic_sphere(const std::vector<Sphere>& new_spheres, u32 n_points, real start_time, real end_time);
+
+  host_fn void add_dynamic_capsule(const DynamicCapsule& capsule);
+  host_fn void add_dynamic_capsule(const std::vector<Capsule>& new_capsules, u32 n_points, real start_time, real end_time);
 };
 
 struct Box {
@@ -82,20 +100,6 @@ struct DynamicDoor {
 
   inline blast_fn Box lookup(real t) const;
 };
-
-inline host_fn void add_box(const Box& box, World* world);
-inline host_fn void add_sphere(const Sphere& sphere, World* world);
-inline host_fn void add_capsule(const Capsule& capsules, World* world);
-inline host_fn void add_box(Vec3 center_point, Vec3 half_width, Mat3 rotation_matrix, World* world);
-inline host_fn void add_sphere(Vec3 center_point, real radius, World* world);
-inline host_fn void add_capsule(Vec3 point1, Vec3 point2, real radius, World* world);
-
-inline host_fn void add_dynamic_box(const DynamicBox& box, World* world);
-inline host_fn void add_dynamic_sphere(const DynamicSphere& sphere, World* world);
-inline host_fn void add_dynamic_capsule(const DynamicCapsule& capsules, World* world);
-inline host_fn void add_dynamic_box(const std::vector<Box>& boxes, u32 n_points, real start_time, real end_time, World* world);
-inline host_fn void add_dynamic_capsule(const std::vector<Capsule>& capsules, u32 n_points, real start_time, real end_time, World* world);
-inline host_fn void add_dynamic_sphere(const std::vector<Sphere>& spheres, u32 n_points, real start_time, real end_time, World* world);
 
 inline blast_fn Array test_collisions(const ObjMatrix<Capsule>& robot_capsules, const World* world, u32 n_lowest_distances, real start_time, real end_time);
 

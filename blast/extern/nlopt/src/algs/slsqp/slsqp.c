@@ -44,7 +44,7 @@
 /********************************* BLAS1 routines *************************/
 
 /*     COPIES A VECTOR, X, TO A VECTOR, Y, with the given increments */
-static void dcopy___(int *n_, const double *dx, int incx, 
+static void dcopy___(const int *n_, const double *dx, int incx,
 		     double *dy, int incy)
 {
      int i, n = *n_;

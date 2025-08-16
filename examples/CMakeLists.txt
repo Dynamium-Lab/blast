@@ -6,7 +6,7 @@ function(automate_add_examples target_name source_file)
 endfunction()
 
 set(EXAMPLES
-        example_manip example_manipulator.cpp
+        example_manipulator example_manipulator.cpp
         #        example_demo1 demo1_link6.cpp
         #        example_demo2 demo2.cpp
         #        example_demo2_link6 demo2_link6.cpp

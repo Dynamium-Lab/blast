@@ -5,6 +5,9 @@
 namespace blast {
 
 inline double compute_objective(Array& current_x, Optimization* opt) {
+#if BLAST_TRACE_LEVEL >= 2
+  ZoneScoped;
+#endif
   double result = 0;
   if (opt->objective.K_time > 0) {
     result += current_x.back();
@@ -16,8 +19,9 @@ inline double compute_objective(Array& current_x, Optimization* opt) {
 }
 
 inline double objective_function(unsigned int n, const double* x, double* grad, void* data) {
-  // {
-  //     blast_time_block("objective_function");
+#if BLAST_TRACE_LEVEL >= 1
+  ZoneScoped;
+#endif
 
   Optimization* opt = (Optimization*) data;
 
@@ -37,7 +41,6 @@ inline double objective_function(unsigned int n, const double* x, double* grad, 
     }
   }
   return result;
-  // }
 }
 
 inline void Objective::add_custom_objective(ObjectiveFunction function, real k) {

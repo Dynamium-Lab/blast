@@ -108,7 +108,7 @@ inline void configure_internal_data(Optimization* opt) {
   // }
 }
 
-inline void ncon(Optimization* opt) {
+inline void n_con(Optimization* opt) {
   const auto n_points            = opt->bspline.n_points;
   const auto n_joints            = opt->manip.joints;
   const auto n_constraints_basic = n_points * n_joints;
@@ -142,73 +142,9 @@ inline void ncon(Optimization* opt) {
     // }
   }
 
-  for (auto& n_con: opt->constraints.n_extra_constraints)
-    opt->constraints.n_constraints += n_con;
+  for (auto& n: opt->constraints.n_extra_constraints)
+    opt->constraints.n_constraints += n;
 }
-
-/*template <typename T_manip>
-inline Optimization setup_optimization(const OptimConfig* conf) {
-    Assert(conf);
-
-    Optimization result;
-
-    // Must be given
-    Assert(conf->manip);
-    Assert(conf->task);
-    result.task = conf->task;
-    result.custom_data = conf->custom_data;
-
-    auto manip = conf->manip;
-
-    // Initialize bspline according to number of points
-    result.bspline = new Bspline(conf->n_ctrl, conf->n_points, conf->p, manip.joints);
-
-    // Configure manipulator according to number of points
-    result.manip = manip;
-    configure_internal_data(&result);
-
-    // Default guess if none is given
-    if (conf->guess) {
-        result.guess = conf->guess;
-    }
-    else {
-        result.guess = new Guess((u32)100); // Guess::random,
-    }
-
-    // Empty world if none is given
-    if (conf->world) {
-        result.world = conf->world;
-    }
-    else {
-        result.world = new World();
-    }
-
-    // Time objective if none is given
-    if (conf->objective) {
-        result.objective = conf->objective;
-    }
-    else {
-        result.objective = new Objective();
-        result.objective.K_time = 1.0;
-    }
-
-    // pva + torque constraints if none is given
-    if (conf->constraints) {
-        result.constraints = conf->constraints;
-    }
-    else {
-        result.constraints = new Constraints();
-        result.constraints.position = true;
-        result.constraints.velocity = true;
-        result.constraints.acceleration = true;
-        result.constraints.torque = true;
-    }
-
-    // Set number of constraints (extra constraints are taken into account as they are added)
-    ncon(result);
-
-    return result;
-}*/
 
 inline void initialize_optimization(Optimization* opt) {
   // Constraints
@@ -249,13 +185,13 @@ inline void initialize_optimization(Optimization* opt) {
 }
 
 inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
-  auto T1            = get_tick_us();
-  Result result(*opt);
+  auto   T1 = get_tick_us();
+  Result result(*opt); // todo: this is expensive
 
   // Initialization
   // configure_internal_data(opt); // todo: Ensure we can remove
   initialize_optimization(opt);
-  ncon(opt);
+  n_con(opt);
 
   // Initial validation
   if (!validate_task(opt)) { // todo: support validate_task when there are no capsules...
@@ -288,61 +224,78 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   nlopt_res = nlopt_set_maxeval(o, 100000);
   Assert(nlopt_res == NLOPT_SUCCESS);
 
+
+  auto start_guess   = opt->guess; // save for restoration after restarts if necessary
+  int  restart_count = 0;
   bool is_valid_more = false;
   bool is_valid      = false;
+  for (; restart_count <= opt->max_restart; restart_count++) { // todo: add nlopt stop criteria to list, add max_time for full loop
+#if BLAST_TRACE_LEVEL >= 1
+    ZoneScopedN("Optimization");
+#endif
 
-  auto start_guess   = opt->guess;
-  int  restart_count = 0; // declared here intentionally
-  int  max_restart   = 5;
-  for (; restart_count <= max_restart; restart_count++) { // todo: add nlopt stop criteria to list, add max_time for full loop
-    auto x         = init_guess(opt);
-    result.x0 = x;
+    // initial guess
+    Array x;
+    {
+#if BLAST_TRACE_LEVEL >= 1
+      ZoneScopedN("Initial guess");
+#endif
+      x         = init_guess(opt);
+      result.x0 = x;
+    }
 
     // launch optimization
-    double f;
-    result.nlopt_exit_criteria = nlopt_optimize(o, x.data, &f);
-    result.num_eval            = nlopt_get_numevals(o);
-
-    // check validity
-    Bspline bspline_val(opt->bspline.n_ctrl, opt->bspline.n_points, opt->bspline.p, opt->manip.joints);
-    bspline_val.compute_trajectory(x, opt->task);
-    auto opt_val(*opt);
-    opt_val.set_bspline(bspline_val);
-    ncon(&opt_val);
-    Array constraints_points(opt_val.constraints.n_constraints);
-    compute_constraints(constraints_points.data, x, &opt_val);
-    auto max_c = max(constraints_points);
-    is_valid   = max_c < 0.01;
-
-    ncon(opt);
-    Array constraints_points_2(opt->constraints.n_constraints);
-    compute_constraints(constraints_points_2.data, x, opt);
-
-
-    u64 steps_ms    = static_cast<u64>(std::ceil(x.back() * 1e3 / output_steps_ms));
-    x.back()        = static_cast<blast::real>(std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
-    int points_more = static_cast<int>(steps_ms + 1);
-
-    Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.p, opt->manip.joints);
-    bspline_val_more.compute_trajectory(x, opt->task);
-    auto opt_val_more(*opt);
-    opt_val_more.set_bspline(bspline_val_more);
-    ncon(&opt_val_more);
-    Array constraints_more_points(opt_val_more.constraints.n_constraints);
-    compute_constraints(constraints_more_points.data, x, &opt_val_more);
-    is_valid_more = max(constraints_more_points) < 0.01;
-
-    result.x = x;
-
-    if (is_valid && is_valid_more) {
-      result.trajectory = bspline_val_more.traj;
-      break;
-    } else if (opt->guess.type != Guess::random && restart_count == 0) {
-      opt->guess.type = Guess::random;
+    {
+#if BLAST_TRACE_LEVEL >= 1
+      ZoneScopedN("NLopt optimization");
+#endif
+      double f;
+      result.nlopt_exit_criteria = nlopt_optimize(o, x.data, &f);
+      result.num_eval            = nlopt_get_numevals(o);
     }
+
+    // validate solution
+    {
+#if BLAST_TRACE_LEVEL >= 1
+      ZoneScopedN("Solution validation");
+#endif
+      Array constraints_points(opt->constraints.n_constraints);
+      compute_constraints(constraints_points.data, x, opt);
+      is_valid = max(constraints_points) < opt->success_tolerance;
+    }
+
+    {
+#if BLAST_TRACE_LEVEL >= 1
+      ZoneScopedN("Solution validation (more points)");
+#endif
+      u64 steps_ms    = (u64) (std::ceil(x.back() * 1e3 / output_steps_ms));
+      x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
+      int points_more = (int) (steps_ms + 1);
+
+      Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.p, opt->manip.joints); // todo: this is expensive
+      bspline_val_more.compute_trajectory(x, opt->task);
+      auto opt_val_more(*opt);
+      opt_val_more.set_bspline(bspline_val_more);
+      n_con(&opt_val_more);
+      Array constraints_more_points(opt_val_more.constraints.n_constraints);
+      compute_constraints(constraints_more_points.data, x, &opt_val_more);
+      is_valid_more = max(constraints_more_points) < opt->success_tolerance;
+
+      result.x = x;
+
+      if (is_valid && is_valid_more) {
+        result.trajectory = bspline_val_more.traj;
+        // break;
+      } else if (opt->guess.type != Guess::random && restart_count == 0) {
+        opt->guess.type = Guess::random;
+      }
+    }
+#if BLAST_TRACE_LEVEL >= 1
+    FrameMark;
+#endif
   }
 
-  opt->guess = start_guess;
+  opt->guess = start_guess; // reset to original
 
   auto time = (real) (get_tick_us() - T1) / 1000.0;
 

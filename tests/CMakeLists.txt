@@ -12,14 +12,15 @@ include(ParseAndAddCatchTests)
 function(automate_add_benchmarks target_name source_file)
   add_executable(${target_name} ${source_file})
   target_compile_features(${target_name} PUBLIC cxx_std_17)
-  target_link_libraries(${target_name} PRIVATE Catch2::Catch2 blast)
+  target_link_libraries(${target_name} PUBLIC Catch2::Catch2 blast TracyClient)
+  target_compile_definitions(${target_name} PUBLIC TRACY_ENABLE TRACY_NO_EXIT)
 endfunction()
 
 # Define a function to automate adding tests
 function(automate_add_tests target_name source_file)
   add_executable(${target_name} ${source_file})
   target_compile_features(${target_name} PUBLIC cxx_std_17)
-  target_link_libraries(${target_name} PRIVATE Catch2::Catch2 blast)
+  target_link_libraries(${target_name} PRIVATE Catch2::Catch2 blast TracyClient)
   add_test(NAME ${target_name}_test COMMAND ${target_name})
 endfunction()
 
@@ -32,8 +33,8 @@ set(BENCHMARKS
     # bench_generic benchmarks/bench_generic.cpp
     # bench_test_manip benchmarks/bench_test_manip.cpp
     bench_manipulator benchmarks/bench_manipulator.cpp
-#    bench_constraints benchmarks/bench_constraints.cpp
-#    bench_functions benchmarks/bench_functions.cpp
+    #    bench_constraints benchmarks/bench_constraints.cpp
+    #    bench_functions benchmarks/bench_functions.cpp
 )
 
 # note: Add new tests files as follows :
@@ -49,7 +50,7 @@ set(TESTS
     #    test_container_objmatrix container/test_objmatrix.cpp
     # test_container_objdblarray container/test_objdblarray.cpp
     # Manipulator
-#    test_manipulator_functions manipulators/test_functions.cpp
+    #    test_manipulator_functions manipulators/test_functions.cpp
     # test_generic_gen3 manipulators/test_generic_gen3.cpp
     # test_generic_link6 manipulators/test_generic_link6.cpp
     # test_generic_crx25 manipulators/test_generic_crx25.cpp
@@ -64,9 +65,9 @@ set(TESTS
     # Math
     # test_math_matrix math/test_matrix.cpp
     # World
-#    test_primitives world/test_primitives.cpp
+    #    test_primitives world/test_primitives.cpp
     # Trajectory
-#    test_bspline trajectory/test_bsplines.cpp
+    #    test_bspline trajectory/test_bsplines.cpp
 )
 
 # Loop through and add benchmarks
