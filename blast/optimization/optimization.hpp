@@ -1,11 +1,17 @@
 #pragma once
 
+
 #include <blast>
 #include <utility>
+#ifdef BLAST_USE_NATIVE_SQP
+#include "optimization/sqp.hpp"
+#else
 #include "nlopt.h"
+#endif
 #include "optimization/constraints.hpp"
 #include "optimization/initial_guess.hpp"
 #include "optimization/objective.hpp"
+
 
 namespace blast {
 
@@ -18,7 +24,7 @@ struct Result {
   Array        x0;
   nlopt_result nlopt_exit_criteria = NLOPT_SUCCESS;
   int          num_eval            = 0;
-  int          num_restart         = 0;
+  int          num_tries           = 0;
   Trajectory   trajectory;
 
   Result() = delete;
@@ -204,7 +210,22 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   Array con_tol(opt->constraints.n_constraints, 0.001);
   Array x_tol(n, 0.000001);
 
+#ifdef BLAST_USE_NATIVE_SQP
+  nlopt_stopping stop;
 
+  Array          ub(n, INF_REAL);
+  Array          lb(n, -INF_REAL);
+  ub.back() = 60.0;
+  lb.back() = 0.01;
+
+  nlopt_constraint fc;
+  fc.m      = opt->constraints.n_constraints;
+  fc.f      = nullptr;
+  fc.mf     = nlopt_constraints;
+  fc.pre    = nullptr;
+  fc.f_data = opt;
+  fc.tol    = con_tol.data;
+#else
   nlopt_opt    o = nlopt_create(NLOPT_LD_SLSQP, n);
   nlopt_result nlopt_res;
   nlopt_res = nlopt_add_inequality_mconstraint(o, opt->constraints.n_constraints, nlopt_constraints, opt, con_tol.data);
@@ -223,13 +244,14 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_maxeval(o, 100000);
   Assert(nlopt_res == NLOPT_SUCCESS);
+#endif
 
 
   auto start_guess   = opt->guess; // save for restoration after restarts if necessary
-  int  restart_count = 0;
+  int  try_count     = 0;
   bool is_valid_more = false;
   bool is_valid      = false;
-  for (; restart_count <= opt->max_restart; restart_count++) { // todo: add nlopt stop criteria to list, add max_time for full loop
+  for (; try_count < opt->max_tries; try_count++) { // todo: add nlopt stop criteria to list, add max_time for full loop
 #if BLAST_TRACE_LEVEL >= 1
     ZoneScopedN("Optimization");
 #endif
@@ -249,9 +271,27 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
 #if BLAST_TRACE_LEVEL >= 1
       ZoneScopedN("NLopt optimization");
 #endif
+
       double f;
+#ifdef BLAST_USE_NATIVE_SQP
+      result.nlopt_exit_criteria = sqp(
+              opt->bspline.x_len(opt->task),
+              objective_function,
+              &opt,
+              1,
+              &fc,
+              0,
+              nullptr,
+              lb.data,
+              ub.data,
+              x.data,
+              &f,
+              &stop);
+
+#else
       result.nlopt_exit_criteria = nlopt_optimize(o, x.data, &f);
       result.num_eval            = nlopt_get_numevals(o);
+#endif
     }
 
     // validate solution
@@ -286,7 +326,7 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
       if (is_valid && is_valid_more) {
         result.trajectory = bspline_val_more.traj;
         // break;
-      } else if (opt->guess.type != Guess::random && restart_count == 0) {
+      } else if (opt->guess.type != Guess::random && try_count == 0) {
         opt->guess.type = Guess::random;
       }
     }
@@ -304,9 +344,11 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   result.success_false = is_valid && !is_valid_more;
   result.compute_time  = time;
   result.opt           = *opt;
-  result.num_restart   = restart_count;
+  result.num_tries     = try_count;
 
+#ifndef BLAST_USE_NATIVE_SQP
   nlopt_destroy(o);
+#endif
 
   return result;
 }

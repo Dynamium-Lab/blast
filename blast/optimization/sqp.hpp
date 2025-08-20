@@ -3,7 +3,7 @@
    Fortran released under a free (BSD) license by ACM to the SciPy project and used there.
    C translation via f2c + hand-cleanup and incorporation into NLopt by S. G. Johnson (2009).
 
-   copied and adapted to Blast by Andre Gallant (2025)
+   - Copied and adapted to Blast by Andre Gallant (2025)
 */
 #ifndef BLAST_SQP_HPP
 #define BLAST_SQP_HPP
@@ -39,9 +39,11 @@ struct nlopt_stopping {
   double        xtol_rel;
   const double* xtol_abs;
   const double* x_weights;
-  int *         nevals_p, maxeval;
-  double        maxtime, start;
-  int*          force_stop;
+  int           nevals_p = 0;
+  int           maxeval  = 0;
+  double        maxtime;
+  double        start;
+  bool          force_stop;
   char**        stop_msg; /* pointer to msg string to update */
 };
 
@@ -69,7 +71,6 @@ nlopt_result sqp(unsigned n, nlopt_func f, void* f_data,
                  nlopt_stopping* stop);
 
 /* Table of constant values */
-
 
 
 /*      ALGORITHM 733, COLLECTED ALGORITHMS FROM ACM. */
@@ -1891,10 +1892,6 @@ inline unsigned nlopt_max_constraint_dim(unsigned p, const nlopt_constraint* c) 
   return max_dim;
 }
 
-inline int nlopt_stop_forced(const nlopt_stopping* stop) {
-  return stop->force_stop && *(stop->force_stop);
-}
-
 inline void nlopt_eval_constraint(double* result, double* grad, const nlopt_constraint* c, unsigned n, const double* x) {
   if (c->f)
     result[0] = c->f(n, x, grad, c->f_data);
@@ -1998,17 +1995,15 @@ inline int nlopt_stop_xs(const nlopt_stopping* s, const double* xs, const double
   return 1;
 }
 
-inline int nlopt_stop_evals(const nlopt_stopping* s) {
-  return (s->maxeval > 0 && *(s->nevals_p) >= s->maxeval);
+inline int nlopt_stop_evals(const nlopt_stopping* stop) {
+  return (stop->maxeval > 0 && (stop->nevals_p) >= stop->maxeval);
 }
 
-#define THREADLOCAL __thread
-inline double nlopt_seconds(void)
-{
-  static THREADLOCAL int start_inited = 0;    /* whether start time has been initialized */
+inline double nlopt_seconds(void) {
+  static int start_inited = 0; /* whether start time has been initialized */
 #if defined(HAVE_GETTIMEOFDAY)
   static THREADLOCAL struct timeval start;
-  struct timeval tv;
+  struct timeval                    tv;
   if (!start_inited) {
     start_inited = 1;
     gettimeofday(&start, NULL);
@@ -2016,10 +2011,10 @@ inline double nlopt_seconds(void)
   gettimeofday(&tv, NULL);
   return (tv.tv_sec - start.tv_sec) + 1.e-6 * (tv.tv_usec - start.tv_usec);
 #elif defined(HAVE_TIME)
-  return (double)time(NULL);
+  return (double) time(NULL);
 #elif defined(_WIN32) || defined(__WIN32__)
-  static THREADLOCAL ULONGLONG start;
-  FILETIME ft;
+  static ULONGLONG start;
+  FILETIME         ft;
   if (!start_inited) {
     start_inited = 1;
     GetSystemTimeAsFileTime(&ft);
@@ -2033,19 +2028,14 @@ inline double nlopt_seconds(void)
   static THREADLOCAL clock_t start;
   if (!start_inited) {
     start_inited = 1;
-    start = clock();
+    start        = clock();
   }
   return (clock() - start) * 1.0 / CLOCKS_PER_SEC;
 #endif
 }
 
-
-inline int nlopt_stop_time_(double start, double maxtime) {
-  return (maxtime > 0 && nlopt_seconds() - start >= maxtime);
-}
-
-inline int nlopt_stop_time(const nlopt_stopping* s) {
-  return nlopt_stop_time_(s->start, s->maxtime);
+inline int nlopt_stop_time(const nlopt_stopping* stop) {
+  return(stop->maxtime > 0 && nlopt_seconds() - stop->start >= stop->maxtime);
 }
 
 inline int nlopt_stop_evalstime(const nlopt_stopping* stop) {
@@ -2688,8 +2678,7 @@ inline nlopt_result sqp(
   slsqpb_state state = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, NULL};
   unsigned     mtot  = nlopt_count_constraints(m, fc);
   unsigned     ptot  = nlopt_count_constraints(p, h);
-  double *     work, *cgrad, *c, *grad, *w,
-          fcur, *xcur, fprev, *xprev, *cgradtmp;
+  double *     work, *cgrad, *c, *grad, *w, fcur, *xcur, fprev, *xprev, *cgradtmp;
   int          mpi = (int) (mtot + ptot), pi = (int) ptot, ni = (int) n, mpi1 = mpi > 0 ? mpi : 1;
   int          len_w, len_jw, *jw;
   int          mode = 0, prev_mode = 0;
@@ -2758,8 +2747,8 @@ inline nlopt_result sqp(
         feasible_cur      = 1;
         infeasibility_cur = 0;
         fcur              = f(n, xcur, newgrad, f_data);
-        ++*(stop->nevals_p);
-        if (nlopt_stop_forced(stop)) {
+        stop->nevals_p++;
+        if (stop->force_stop) {
           fcur = HUGE_VAL;
           ret  = NLOPT_FORCED_STOP;
           goto done;
@@ -2770,7 +2759,7 @@ inline nlopt_result sqp(
           for (i = 0; i < p; ++i) {
             unsigned j, k;
             nlopt_eval_constraint(c + ii, newcgrad, h + i, n, xcur);
-            if (nlopt_stop_forced(stop)) {
+            if (stop->force_stop) {
               ret = NLOPT_FORCED_STOP;
               goto done;
             }
@@ -2788,7 +2777,7 @@ inline nlopt_result sqp(
           for (i = 0; i < m; ++i) {
             unsigned j, k;
             nlopt_eval_constraint(c + ii, newcgrad, fc + i, n, xcur);
-            if (nlopt_stop_forced(stop)) {
+            if (stop->force_stop) {
               ret = NLOPT_FORCED_STOP;
               goto done;
             }

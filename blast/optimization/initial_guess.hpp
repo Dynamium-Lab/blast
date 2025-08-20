@@ -1,7 +1,6 @@
 #pragma once
 
 #include <blast>
-#include "nlopt.h"
 
 namespace blast {
 

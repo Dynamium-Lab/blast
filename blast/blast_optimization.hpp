@@ -107,7 +107,7 @@ struct Optimization {
   World               world;
   real                trajectory_start_time = 0.0;
   real                success_tolerance     = 0.0; // % of constraint violation after optimization that is still considered a success
-  int                 max_restart           = 1;
+  int                 max_tries             = 1;   // Maximum number of tries in the optimization loop.
 
   void* custom_data;
 

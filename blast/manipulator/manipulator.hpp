@@ -3,7 +3,7 @@
 #include <blast>
 #include <optional>
 #include <utility>
-#include "nlopt.h"
+// #include "nlopt.h"
 
 namespace blast {
 
@@ -135,30 +135,30 @@ inline host_fn double get_error(unsigned int n, const double* x, double* grad, v
 
   return dot(delta_pose, delta_pose);
 }
-inline host_fn Array inverse_kinematics_nlopt(Manipulator manip, Array desired_pose, Array initial_joint_position) {
-  IK_opt info(std::move(manip), std::move(desired_pose));
-
-  auto o      = nlopt_create(nlopt_algorithm::NLOPT_LN_COBYLA, initial_joint_position.size);
-  auto result = nlopt_set_min_objective(o, get_error, &info);
-  Assert(result == NLOPT_SUCCESS);
-  result = nlopt_set_ftol_abs(o, 0.0001);
-  Assert(result == NLOPT_SUCCESS);
-  // result = nlopt_set_xtol_abs(o, 0.0001);
-  Assert(result == NLOPT_SUCCESS);
-  result = nlopt_set_maxtime(o, 50);
-  Assert(result == NLOPT_SUCCESS);
-  result = nlopt_set_maxeval(o, 100000);
-  Assert(result == NLOPT_SUCCESS);
-
-  // launch optimization
-  // note: modifies our copy of initial_joint_position
-  double f;
-  nlopt_optimize(o, initial_joint_position.data, &f);
-
-  nlopt_destroy(o);
-
-  return initial_joint_position;
-}
+// inline host_fn Array inverse_kinematics_nlopt(Manipulator manip, Array desired_pose, Array initial_joint_position) {
+//   IK_opt info(std::move(manip), std::move(desired_pose));
+//
+//   auto o      = nlopt_create(nlopt_algorithm::NLOPT_LN_COBYLA, initial_joint_position.size);
+//   auto result = nlopt_set_min_objective(o, get_error, &info);
+//   Assert(result == NLOPT_SUCCESS);
+//   result = nlopt_set_ftol_abs(o, 0.0001);
+//   Assert(result == NLOPT_SUCCESS);
+//   // result = nlopt_set_xtol_abs(o, 0.0001);
+//   Assert(result == NLOPT_SUCCESS);
+//   result = nlopt_set_maxtime(o, 50);
+//   Assert(result == NLOPT_SUCCESS);
+//   result = nlopt_set_maxeval(o, 100000);
+//   Assert(result == NLOPT_SUCCESS);
+//
+//   // launch optimization
+//   // note: modifies our copy of initial_joint_position
+//   double f;
+//   nlopt_optimize(o, initial_joint_position.data, &f);
+//
+//   nlopt_destroy(o);
+//
+//   return initial_joint_position;
+// }
 
 inline host_fn Manipulator::Manipulator(u32 joint_count, const ManipulatorLimits& limits, const ManipulatorKinematics& kinematics, const ManipulatorDynamics* dynamics, const ManipulatorCapsules* capsules) {
   joints = joint_count;
