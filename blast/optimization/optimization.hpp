@@ -18,7 +18,7 @@ namespace blast {
 struct Result {
   bool         success       = false;
   bool         success_false = false;
-  real         compute_time;
+  real         compute_time=0;
   Optimization opt;
   Array        x;
   Array        x0;
@@ -212,9 +212,22 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
 
 #ifdef BLAST_USE_NATIVE_SQP
   nlopt_stopping stop;
+  stop.n          = n;
+  stop.minf_max   = -HUGE_VAL;
+  stop.ftol_rel   = 0;
+  stop.ftol_abs   = 0.0001;
+  stop.xtol_rel   = 0;
+  stop.xtol_abs   = x_tol.data;
+  stop.x_weights  = nullptr;
+  stop.nevals_p   = 0;
+  stop.maxeval    = 100000;
+  stop.maxtime    = 5000;
+  stop.start      = nlopt_seconds();
+  stop.force_stop = false;
+  stop.stop_msg   = nullptr;
 
-  Array          ub(n, INF_REAL);
-  Array          lb(n, -INF_REAL);
+  Array ub(n, INF_REAL);
+  Array lb(n, -INF_REAL);
   ub.back() = 60.0;
   lb.back() = 0.01;
 
@@ -272,8 +285,9 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
       ZoneScopedN("NLopt optimization");
 #endif
 
-      double f;
+      double f = 99;
 #ifdef BLAST_USE_NATIVE_SQP
+      stop.nevals_p              = 0;
       result.nlopt_exit_criteria = sqp(
               opt->bspline.x_len(opt->task),
               objective_function,
@@ -287,6 +301,7 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
               x.data,
               &f,
               &stop);
+      result.num_eval = stop.nevals_p;
 
 #else
       result.nlopt_exit_criteria = nlopt_optimize(o, x.data, &f);

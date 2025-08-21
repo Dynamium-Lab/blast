@@ -63,16 +63,6 @@ enum nlopt_result {
   NLOPT_NUM_RESULTS /* not a result, just the number of possible successes */
 };
 
-nlopt_result sqp(unsigned n, nlopt_func f, void* f_data,
-                 unsigned m, nlopt_constraint* fc,
-                 unsigned p, nlopt_constraint* h,
-                 const double* lb, const double* ub,
-                 double* x, double* minf,
-                 nlopt_stopping* stop);
-
-/* Table of constant values */
-
-
 /*      ALGORITHM 733, COLLECTED ALGORITHMS FROM ACM. */
 /*      TRANSACTIONS ON MATHEMATICAL SOFTWARE, */
 /*      VOL. 20, NO. 3, SEPTEMBER, 1994, PP. 262-281. */
@@ -2035,7 +2025,7 @@ inline double nlopt_seconds(void) {
 }
 
 inline int nlopt_stop_time(const nlopt_stopping* stop) {
-  return(stop->maxtime > 0 && nlopt_seconds() - stop->start >= stop->maxtime);
+  return (stop->maxtime > 0 && nlopt_seconds() - stop->start >= stop->maxtime);
 }
 
 inline int nlopt_stop_evalstime(const nlopt_stopping* stop) {
@@ -2439,10 +2429,22 @@ static void slsqp(int* m, int* meq, int* la, int* n,
                   double* c__, double* g, double* a, double* acc,
                   int* iter, int* mode, double* w, int* l_w__, int* jw, int* l_jw__, slsqpb_state* state) {
   /* System generated locals */
-  int a_dim1, a_offset, i__1, i__2;
+  int a_dim1   = 0;
+  int a_offset = 0;
+  int i__1     = 0;
+  int i__2;
 
   /* Local variables */
-  int n1, il, im, ir, is, iu, iv, iw, ix, mineq;
+  int n1 = 0;
+  int il = 0;
+  int im = 0;
+  int ir = 0;
+  int is = 0;
+  int iu = 0;
+  int iv = 0;
+  int iw = 0;
+  int ix = 0;
+  int mineq=0;
 
   /*   SLSQP       S EQUENTIAL  L EAST  SQ UARES  P ROGRAMMING */
   /*            TO SOLVE GENERAL NONLINEAR OPTIMIZATION PROBLEMS */
@@ -2660,7 +2662,7 @@ static void slsqp(int* m, int* meq, int* la, int* n,
   slsqpb_(m, meq, la, n, &x[1], &xl[1], &xu[1], f, &c__[1], &g[1], &a[a_offset], acc, iter, mode, &w[ir], &w[il], &w[ix], &w[im], &w[is], &w[iu], &w[iv], &w[iw], &jw[1], state);
   state->x0 = &w[ix];
   return;
-} /* slsqp_ */
+} /* slsqp */
 
 static void length_work(int* LEN_W, int* LEN_JW, int M, int MEQ, int N) {
   int N1 = N + 1, MINEQ = M - MEQ + N1 + N1;
@@ -2669,29 +2671,53 @@ static void length_work(int* LEN_W, int* LEN_JW, int M, int MEQ, int N) {
 }
 
 inline nlopt_result sqp(
-        unsigned n, nlopt_func f, void* f_data,
-        unsigned m, nlopt_constraint* fc,
-        unsigned p, nlopt_constraint* h,
-        const double* lb, const double* ub,
-        double* x, double* minf,
-        nlopt_stopping* stop) {
-  slsqpb_state state = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, NULL};
-  unsigned     mtot  = nlopt_count_constraints(m, fc);
-  unsigned     ptot  = nlopt_count_constraints(p, h);
-  double *     work, *cgrad, *c, *grad, *w, fcur, *xcur, fprev, *xprev, *cgradtmp;
-  int          mpi = (int) (mtot + ptot), pi = (int) ptot, ni = (int) n, mpi1 = mpi > 0 ? mpi : 1;
-  int          len_w, len_jw, *jw;
-  int          mode = 0, prev_mode = 0;
-  double       acc  = 0; /* we do our own convergence tests below */
-  int          iter = 0; /* tell sqsqp to ignore this check, since we check evaluation counts ourselves */
-  unsigned     i, ii;
-  nlopt_result ret = NLOPT_SUCCESS;
-  int          feasible, feasible_cur;
-  double       infeasibility = HUGE_VAL, infeasibility_cur = HUGE_VAL;
-  unsigned     max_cdim;
-  int          want_grad = 1;
+        unsigned          x_len,
+        nlopt_func        objective_function,
+        void*             f_data,
+        unsigned          m,
+        nlopt_constraint* fc,
+        unsigned          p,
+        nlopt_constraint* h,
+        const double*     lb,
+        const double*     ub,
+        double*           x,
+        double*           minf,
+        nlopt_stopping*   stop) {
+  slsqpb_state state             = {};
+  unsigned     mtot              = nlopt_count_constraints(m, fc);
+  unsigned     ptot              = nlopt_count_constraints(p, h);
+  double*      work              = {};
+  double*      cgrad             = {};
+  double*      c                 = {};
+  double*      grad              = {};
+  double*      w                 = {};
+  double       fcur              = 0;
+  double*      xcur              = {};
+  double       fprev             = {};
+  double*      xprev             = {};
+  double*      cgradtmp          = {};
+  int          mpi               = (int) (mtot + ptot);
+  int          pi                = (int) ptot;
+  int          ni                = (int) x_len;
+  int          mpi1              = mpi > 0 ? mpi : 1;
+  int          len_w             = 0;
+  int          len_jw            = 0;
+  int*         jw                = {};
+  int          mode              = 0;
+  int          prev_mode         = 0;
+  double       acc               = 0; /* we do our own convergence tests below */
+  int          iter              = 0; /* tell sqsqp to ignore this check, since we check evaluation counts ourselves */
+  unsigned     i                 = 0;
+  unsigned     ii                = 0;
+  nlopt_result ret               = NLOPT_SUCCESS;
+  int          feasible          = 0;
+  int          feasible_cur      = 0;
+  double       infeasibility     = HUGE_VAL;
+  double       infeasibility_cur = HUGE_VAL;
+  unsigned     max_cdim          = 0;
+  int          want_grad         = 1;
 
-  if (ptot > n) {
+  if (ptot > x_len) {
     nlopt_stop_msg(stop, "slsqp: more equality constraints than variables");
     return NLOPT_INVALID_ARGS;
   }
@@ -2701,20 +2727,20 @@ inline nlopt_result sqp(
   length_work(&len_w, &len_jw, mpi, pi, ni);
 
 #define U(n) ((unsigned) (n))
-  work = (double*) malloc(sizeof(double) * (U(mpi1) * (n + 1) + U(mpi) + n + 1 + n + n + max_cdim * n + U(len_w)) + sizeof(int) * U(len_jw));
+  work = (double*) malloc(sizeof(double) * (U(mpi1) * (x_len + 1) + U(mpi) + x_len + 1 + x_len + x_len + max_cdim * x_len + U(len_w)) + sizeof(int) * U(len_jw));
   if (!work)
     return NLOPT_OUT_OF_MEMORY;
   cgrad    = work;
-  c        = cgrad + U(mpi1) * (n + 1);
+  c        = cgrad + U(mpi1) * (x_len + 1);
   grad     = c + mpi;
-  xcur     = grad + n + 1;
-  xprev    = xcur + n;
-  cgradtmp = xprev + n;
-  w        = cgradtmp + max_cdim * n;
+  xcur     = grad + x_len + 1;
+  xprev    = xcur + x_len;
+  cgradtmp = xprev + x_len;
+  w        = cgradtmp + max_cdim * x_len;
   jw       = (int*) (w + len_w);
 
-  memcpy(xcur, x, sizeof(double) * n);
-  memcpy(xprev, x, sizeof(double) * n);
+  memcpy(xcur, x, sizeof(double) * x_len);
+  memcpy(xprev, x, sizeof(double) * x_len);
   fprev = fcur = *minf = HUGE_VAL;
   feasible = feasible_cur = 0;
 
@@ -2746,7 +2772,7 @@ inline nlopt_result sqp(
         }
         feasible_cur      = 1;
         infeasibility_cur = 0;
-        fcur              = f(n, xcur, newgrad, f_data);
+        fcur              = objective_function(x_len, xcur, newgrad, f_data);
         stop->nevals_p++;
         if (stop->force_stop) {
           fcur = HUGE_VAL;
@@ -2758,7 +2784,7 @@ inline nlopt_result sqp(
           ii        = 0;
           for (i = 0; i < p; ++i) {
             unsigned j, k;
-            nlopt_eval_constraint(c + ii, newcgrad, h + i, n, xcur);
+            nlopt_eval_constraint(c + ii, newcgrad, h + i, x_len, xcur);
             if (stop->force_stop) {
               ret = NLOPT_FORCED_STOP;
               goto done;
@@ -2769,14 +2795,14 @@ inline nlopt_result sqp(
               feasible_cur =
                       feasible_cur && fabs(c[ii]) <= h[i].tol[k];
               if (newcgrad) {
-                for (j = 0; j < n; ++j)
-                  cgrad[j * U(mpi1) + ii] = cgradtmp[k * n + j];
+                for (j = 0; j < x_len; ++j)
+                  cgrad[j * U(mpi1) + ii] = cgradtmp[k * x_len + j];
               }
             }
           }
           for (i = 0; i < m; ++i) {
             unsigned j, k;
-            nlopt_eval_constraint(c + ii, newcgrad, fc + i, n, xcur);
+            nlopt_eval_constraint(c + ii, newcgrad, fc + i, x_len, xcur);
             if (stop->force_stop) {
               ret = NLOPT_FORCED_STOP;
               goto done;
@@ -2787,8 +2813,8 @@ inline nlopt_result sqp(
               feasible_cur =
                       feasible_cur && c[ii] <= fc[i].tol[k];
               if (newcgrad) {
-                for (j = 0; j < n; ++j)
-                  cgrad[j * U(mpi1) + ii] = -cgradtmp[k * n + j];
+                for (j = 0; j < x_len; ++j)
+                  cgrad[j * U(mpi1) + ii] = -cgradtmp[k * x_len + j];
               }
               c[ii] = -c[ii]; /* slsqp sign convention */
             }
@@ -2842,7 +2868,7 @@ inline nlopt_result sqp(
       *minf         = fcur;
       feasible      = feasible_cur;
       infeasibility = infeasibility_cur;
-      memcpy(x, xcur, sizeof(double) * n);
+      memcpy(x, xcur, sizeof(double) * x_len);
     }
 
     /* note: mode == -1 corresponds to the completion of a line search,
@@ -2855,7 +2881,7 @@ inline nlopt_result sqp(
           ret = NLOPT_XTOL_REACHED;
       }
       fprev = fcur;
-      memcpy(xprev, xcur, sizeof(double) * n);
+      memcpy(xprev, xcur, sizeof(double) * x_len);
     }
 
     /* do some additional termination tests */
@@ -2865,16 +2891,23 @@ inline nlopt_result sqp(
       ret = NLOPT_MAXTIME_REACHED;
     else if (feasible && *minf < stop->minf_max)
       ret = NLOPT_STOPVAL_REACHED;
+
+    // print current iteration x
+    for (i = 0; i < 8; ++i) {
+      printf("%f ", x[i]);
+    }
+    printf("\n");
+
   } while (ret == NLOPT_SUCCESS);
 
 done:
   if (isinf(*minf)) {  /* didn't find any feasible points, just return last point evaluated */
     if (isinf(fcur)) { /* invalid cur. point, use previous pt. */
       *minf = fprev;
-      memcpy(x, xprev, sizeof(double) * n);
+      memcpy(x, xprev, sizeof(double) * x_len);
     } else {
       *minf = fcur;
-      memcpy(x, xcur, sizeof(double) * n);
+      memcpy(x, xcur, sizeof(double) * x_len);
     }
   }
 

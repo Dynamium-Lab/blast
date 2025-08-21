@@ -1,6 +1,6 @@
 
 #define BLAST_TRACE_LEVEL 0
-// #define BLAST_USE_NATIVE_SQP
+#define BLAST_USE_NATIVE_SQP
 
 #include <blast>
 #include <iostream>
@@ -14,8 +14,9 @@ int main() {
 
   opt.world = get_lab_world();
 
-  opt.guess.type   = Guess::random;
-  opt.guess.n_shot = 100;
+  opt.guess.type = Guess::custom;
+  opt.guess.x0   = Array(opt.bspline.x_len(opt.task), 1.0);
+  // opt.guess.n_shot = 100;
 
   opt.constraints.position            = true;
   opt.constraints.velocity            = true;
@@ -23,17 +24,21 @@ int main() {
   opt.constraints.torque              = true;
   opt.constraints.tcp_speed           = true;
   opt.constraints.self_collisions     = true;
-  opt.constraints.external_collisions = true;
+  opt.constraints.external_collisions = false;
 
-  opt.max_tries = 1;
+  opt.max_tries         = 1;
   opt.success_tolerance = 0.01;
+  Result result(opt);
 
-  auto result = optimize(&opt);
+  result = optimize(&opt);
 
   cout << "Compute time:        " << result.compute_time << endl;
+  cout << "Function evaluations:" << result.num_eval << endl;
   cout << "Trajectory time:     " << result.x[result.x.size - 1] << endl;
-  cout << "Trajectory success:  " << result.success << endl;
+  cout << "Success:             " << result.success << endl;
+  cout << "False success:       " << result.success_false << endl;
   cout << "Number of tries:     " << result.num_tries << endl;
+  cout << "Stopping criteria:   " << result.nlopt_exit_criteria << endl;
 
   return 0;
 }

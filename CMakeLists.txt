@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 include(FetchContent)
+set(BUILD_SHARED_LIBS OFF)
 
 project(
     Blast

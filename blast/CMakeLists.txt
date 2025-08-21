@@ -1,4 +1,3 @@
-set(BUILD_SHARED_LIBS OFF)
 add_subdirectory(extern/nlopt)
 
 add_library(blast INTERFACE

@@ -6,6 +6,8 @@
 #include <iostream>
 #include <vector>
 
+constexpr int32_t MAX_JOINTS = 8;
+
 namespace blast {
 
 using u8 = uint8_t;

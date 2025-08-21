@@ -11,6 +11,8 @@
 
 #include "slsqp.h"
 
+#include <stdio.h>
+
 /*      ALGORITHM 733, COLLECTED ALGORITHMS FROM ACM. */
 /*      TRANSACTIONS ON MATHEMATICAL SOFTWARE, */
 /*      VOL. 20, NO. 3, SEPTEMBER, 1994, PP. 262-281. */
@@ -2624,6 +2626,13 @@ nlopt_result nlopt_slsqp(unsigned n, nlopt_func f, void *f_data,
 	  if (nlopt_stop_evals(stop)) ret = NLOPT_MAXEVAL_REACHED;
 	  else if (nlopt_stop_time(stop)) ret = NLOPT_MAXTIME_REACHED;
 	  else if (feasible && *minf < stop->minf_max) ret = NLOPT_MINF_MAX_REACHED;
+
+       // print current iteration x
+       for (i = 0; i < 8; ++i) {
+         printf("%f ", x[i]);
+       }
+       printf("\n");
+
      } while (ret == NLOPT_SUCCESS);
 
 done:
