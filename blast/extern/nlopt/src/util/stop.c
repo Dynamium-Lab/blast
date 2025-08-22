@@ -264,3 +264,77 @@ int nlopt_isnan(double x)
     return (x != x);            /* might fail with aggressive optimization */
 #endif
 }
+
+void print_nlopt_stopping(const nlopt_stopping* s, const char* name) {
+    if (!s) {
+        printf("Error: nlopt_stopping pointer is NULL.\n");
+        return;
+    }
+
+    printf("========================================\n");
+    printf("      DEBUG PRINT: %s\n", name);
+    printf("========================================\n\n");
+
+    printf("--- General & Tolerances ---\n");
+    printf("n: %u\n", s->n);
+    printf("minf_max: %g\n", s->minf_max);
+    printf("ftol_rel: %g\n", s->ftol_rel);
+    printf("ftol_abs: %g\n", s->ftol_abs);
+    printf("xtol_rel: %g\n", s->xtol_rel);
+    printf("\n");
+
+    printf("--- Absolute Tolerances & Weights (size: %u) ---\n", s->n);
+    if (s->xtol_abs) {
+        printf("xtol_abs: [ ");
+        for (unsigned i = 0; i < s->n; ++i) {
+            printf("%g%s", s->xtol_abs[i], (i < s->n - 1) ? ", " : "");
+        }
+        printf(" ]\n");
+    } else {
+        printf("xtol_abs: (NULL)\n");
+    }
+
+    if (s->x_weights) {
+        printf("x_weights: [ ");
+        for (unsigned i = 0; i < s->n; ++i) {
+            printf("%g%s", s->x_weights[i], (i < s->n - 1) ? ", " : "");
+        }
+        printf(" ]\n");
+    } else {
+        printf("x_weights: (NULL)\n");
+    }
+    printf("\n");
+
+
+    printf("--- Evaluation & Time Limits ---\n");
+    if (s->nevals_p) {
+        printf("nevals_p (value): %d\n", *(s->nevals_p));
+    } else {
+        printf("nevals_p: (NULL)\n");
+    }
+    printf("maxeval: %d\n", s->maxeval);
+    printf("maxtime: %g seconds\n", s->maxtime);
+    printf("start time: %g\n", s->start);
+    printf("\n");
+
+    printf("--- Stopping Conditions ---\n");
+    if (s->force_stop) {
+        printf("force_stop (value): %d\n", *(s->force_stop));
+    } else {
+        printf("force_stop: (NULL)\n");
+    }
+
+    if (s->stop_msg) {
+        if (*(s->stop_msg)) {
+             printf("stop_msg (value): \"%s\"\n", *(s->stop_msg));
+        } else {
+             printf("stop_msg points to a NULL string.\n");
+        }
+    } else {
+        printf("stop_msg: (NULL)\n");
+    }
+
+    printf("\n========================================\n");
+    printf("          END OF DEBUG PRINT\n");
+    printf("========================================\n\n");
+}

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <blast>
+#include "blast_world.hpp"
 
 namespace blast {
 // Defined Types
@@ -11,14 +12,15 @@ struct ManipulatorDynamics;
 struct ManipulatorCapsules;
 struct CollisionModelCapsule;
 struct EndEffector;
+struct ManipulatorTempData;
 
 // todo: which of these need to be exposed to the user?
-inline void   forward_kinematics(Manipulator& manip, const Array& joint_pos);
+inline host_fn void forward_kinematics(const Manipulator& manip, ManipulatorTempData& temp, const Array& joint_pos);
 
-inline Matrix jacobian(const Manipulator& manip);
-inline void   dynamics(Manipulator& manip, Array& vel, Array& acc);
-double        get_error(unsigned int n, const double* x, double* grad, void* data);
-inline Array  inverse_kinematics_nlopt(Manipulator manip, Array desired_pose, Array initial_joint_position);
+inline host_fn Matrix jacobian(const Manipulator& manip, const ManipulatorTempData& temp);
+inline host_fn void   dynamics(const Manipulator& manip, ManipulatorTempData& temp, Array& vel, Array& acc);
+// double                get_error(unsigned int n, const double* x, double* grad, void* data);
+// inline Array          inverse_kinematics_nlopt(Manipulator manip, Array desired_pose, Array initial_joint_position);
 
 /**
  * @struct CollisionModelCapsule
@@ -75,12 +77,12 @@ struct ManipulatorLimits {
  * @var Q_base   Orientation of the manipulator base in the world frame.
  */
 struct ManipulatorKinematics {
-  std::vector<Vec3> dv;                                   // vector to next joint
-  std::vector<Vec3> ev;                                   // direction vectors of joint
-  std::vector<Mat3> Q_static;                             // static rotation to next joint
-  Vec3              p_base = {0.0, 0.0, 0.0};             // base position in workspace
-  Vec3              p_j0   = {0.0, 0.0, 0.0};             // position of the first joint relative to base
-  Mat3              Q_base = {1, 0, 0, 0, 1, 0, 0, 0, 1}; // base orientation in workspace
+  std::array<Vec3, MAX_JOINTS>     dv;                                   // vector to next joint
+  std::array<Vec3, MAX_JOINTS>     ev;                                   // direction vectors of joint
+  std::array<Mat3, MAX_JOINTS + 1> Q_static;                             // static rotation to next joint
+  Vec3                             p_base = {0.0, 0.0, 0.0};             // base position in workspace
+  Vec3                             p_j0   = {0.0, 0.0, 0.0};             // position of the first joint relative to base
+  Mat3                             Q_base = {1, 0, 0, 0, 1, 0, 0, 0, 1}; // base orientation in workspace
 };
 
 /**
@@ -92,9 +94,9 @@ struct ManipulatorKinematics {
  * @var av   Center of mass offset for each link (Vec3).
  */
 struct ManipulatorDynamics {
-  std::vector<real> m; // link mass
-  std::vector<Mat3> I; // inertial tensors
-  std::vector<Vec3> av;
+  std::array<real, MAX_JOINTS> m{}; // link mass
+  std::array<Mat3, MAX_JOINTS> I{}; // inertial tensors
+  std::array<Vec3, MAX_JOINTS> av{};
 };
 
 /**
@@ -137,6 +139,15 @@ struct EndEffector {
   ObjMatrix<u8>                      collision_matrix = {};
 };
 
+
+struct ManipulatorTempData {
+  std::array<real, MAX_JOINTS>      efforts{};
+  std::array<Mat3, MAX_JOINTS>      rotations{};
+  std::array<Mat3, MAX_JOINTS>      rotations_mult{};
+  std::array<Vec3, MAX_JOINTS + 1>  p_j{};
+  std::array<Capsule, CAPSULE_SIZE> capsule_list{};
+};
+
 /**
  * @class Manipulator
  * @brief High‐level interface combining limits, kinematics, dynamics,
@@ -145,7 +156,7 @@ struct EndEffector {
  * @note Use the constructor to fully specify at least limits and kinematics.
  */
 struct Manipulator {
-  u32 joints = 0;
+  u32 n_joints = 0;
 
   // Manipulator limits
   Array pmax;
@@ -172,29 +183,24 @@ struct Manipulator {
   Vec3 av_ee        = {0, 0, 0};
 
   // Joint kinematics
-  Vec3              p_j0 = {0, 0, 0};
-  std::vector<Vec3> dv;       // to next joint
-  std::vector<Vec3> ev;       // axis dirs
-  std::vector<Mat3> Q_static; // static rotations
+  Vec3                             p_j0 = {0, 0, 0};
+  std::array<Vec3, MAX_JOINTS>     dv{};       // to next joint
+  std::array<Vec3, MAX_JOINTS>     ev{};       // axis dirs
+  std::array<Mat3, MAX_JOINTS + 1> Q_static{}; // static rotations
 
   // Link dynamics
-  std::vector<real> m;
-  std::vector<Mat3> I;
-  std::vector<Vec3> av;
-  std::vector<Vec3> sv; // COM from next joint
+  std::array<real, MAX_JOINTS> m{};
+  std::array<Mat3, MAX_JOINTS> I{};
+  std::array<Vec3, MAX_JOINTS> av{};
+  std::array<Vec3, MAX_JOINTS> sv{}; // COM from next joint
 
   // Internal caches and collision
-  Array                              _efforts;
-  std::vector<Mat3>                  _rotations;
-  std::vector<Mat3>                  _rotations_mult;
-  std::vector<Vec3>                  _p_j;
-  std::vector<CollisionModelCapsule> _collision_model;
-  Sphere                             _base_sphere;
-  std::vector<Capsule>               _capsule_list;
-  ObjMatrix<u8>                      _collision_matrix;
-  Array                              _collision_base;
-  int                                _n_caps                = 0;
-  int                                _n_internal_collisions = 0;
+  int                                             _n_caps                = 0;
+  int                                             _n_internal_collisions = 0;
+  std::array<CollisionModelCapsule, CAPSULE_SIZE> _collision_model{};
+  ObjMatrix<u8>                                   _collision_matrix{};
+  Array                                           _collision_base{};
+  Sphere                                          _base_sphere{};
 
   Manipulator() = delete;
 
@@ -247,21 +253,15 @@ struct Manipulator {
   host_fn void set_payload(real m_payload, Vec3 cg_payload, Mat3 I_payload);
 
   /**
-   * @brief Compute joint rotation matrices for current joint positions (store internally).
-   * @param joint_position  Array of joint angles.
-   */
-  host_fn void compute_rotation_matrices(const Array& joint_position);
-
-  /**
    * @brief Update collision capsules in world frame (store internally).
    */
-  host_fn void compute_capsules();
+  // host_fn void compute_capsules();
 
   /**
    * @brief Compute distances for all internal collisions.
    * @return Array of distances between colliding primitives.
    */
-  host_fn Array get_internal_collisions() const;
+  // host_fn Array get_internal_collisions() const;
 
   /**
    * @brief Get the current tool pose as [x,y,z,roll,pitch,yaw].

@@ -3,7 +3,7 @@
 ### Project specific ignores
 .vscode/
 .vs/
-
+build/
 
 
 ### Standard C++ ignores

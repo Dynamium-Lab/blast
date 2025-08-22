@@ -24,8 +24,8 @@ struct Objective {
   // real K_obstacle_avoidance = 0; // not supported atm
 
   // Setup function to return the NLopt-compatible objective function
-  std::vector<real>                    k_extra_objectives;
-  std::vector<real (*)(Optimization*)> extra_objectives;
+  std::vector<real>                    k_extra_objectives{};
+  std::vector<real (*)(Optimization*)> extra_objectives{};
 
   inline void add_custom_objective(ObjectiveFunction function, real k);
 };

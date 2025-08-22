@@ -170,7 +170,7 @@ inline host_fn bool is_close(const CollisionModelCapsule& capsule1, const Collis
 
 // todo: operator==
 inline host_fn bool is_close(const Manipulator& manip1, const Manipulator& manip2, real eps = 1e-5) {
-  if (manip1.joints != manip2.joints)
+  if (manip1.n_joints != manip2.n_joints)
     return false;
 
   // manipulator limits

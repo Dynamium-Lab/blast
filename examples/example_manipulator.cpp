@@ -15,7 +15,7 @@ int main() {
   opt.world = get_lab_world();
 
   opt.guess.type = Guess::custom;
-  opt.guess.x0   = Array(opt.bspline.x_len(opt.task), 1.0);
+  opt.guess.x0   = Array(opt.bspline.x_len(opt.task), 2.0);
   // opt.guess.n_shot = 100;
 
   opt.constraints.position            = true;
@@ -28,9 +28,8 @@ int main() {
 
   opt.max_tries         = 1;
   opt.success_tolerance = 0.01;
-  Result result(opt);
 
-  result = optimize(&opt);
+  auto result = optimize(&opt);
 
   cout << "Compute time:        " << result.compute_time << endl;
   cout << "Function evaluations:" << result.num_eval << endl;

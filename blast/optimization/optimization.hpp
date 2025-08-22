@@ -16,27 +16,27 @@
 namespace blast {
 
 struct Result {
-  bool         success       = false;
-  bool         success_false = false;
-  real         compute_time=0;
-  Optimization opt;
-  Array        x;
-  Array        x0;
-  nlopt_result nlopt_exit_criteria = NLOPT_SUCCESS;
-  int          num_eval            = 0;
-  int          num_tries           = 0;
-  Trajectory   trajectory;
+  bool          success       = false;
+  bool          success_false = false;
+  real          compute_time  = 0;
+  Optimization* opt;
+  Array         x;
+  Array         x0;
+  nlopt_result  nlopt_exit_criteria = NLOPT_SUCCESS;
+  int           num_eval            = 0;
+  int           num_tries           = 0;
+  Trajectory    trajectory;
 
   Result() = delete;
 
-  explicit Result(Optimization optim) :
-      compute_time(0.0),
-      opt(std::move(optim)) {}
+  explicit Result(Optimization* optim) {
+    opt = optim;
+  }
 };
 
 inline Optimization::Optimization(const Manipulator& new_manip, const Matrix& new_task) :
     manip(new_manip),
-    bspline(12, 256, 5, new_manip.joints),
+    bspline(12, 256, 5, new_manip.n_joints),
     task(new_task),
     custom_data(nullptr) {
   // Default values
@@ -95,28 +95,9 @@ inline void Optimization::set_world(World new_world) {
   world = std::move(new_world);
 }
 
-inline void configure_internal_data(Optimization* opt) {
-  opt->manip._efforts.resize(opt->manip.joints);
-  opt->manip._rotations.resize(opt->manip.joints);
-  opt->manip._rotations_mult.resize(opt->manip.joints);
-  opt->manip._p_j.resize(opt->manip.joints + 1);
-  if (opt->manip._n_caps != 0)
-    opt->manip._capsule_list.resize(opt->manip._n_caps);
-  // if constexpr (std::is_same_v<T_manip, GenericManipulator>) {
-  //     opt->manip._n_caps = opt->manip._collision_model.size();
-  //     opt->manip._n_internal_collisions = 0;
-  //     for (int i = 0; i < opt->manip._collision_matrix.cols; i++) {
-  //         for (int j = i+1; j < opt->manip._n_caps; j++) {
-  //             opt->manip._n_internal_collisions += opt->manip._collision_matrix(j, i) == 0 ? 0 : 1;
-  //         }
-  //         opt->manip._n_internal_collisions += opt->manip._collision_base[i] == 0 ? 0 : 1;
-  //     }
-  // }
-}
-
 inline void n_con(Optimization* opt) {
   const auto n_points            = opt->bspline.n_points;
-  const auto n_joints            = opt->manip.joints;
+  const auto n_joints            = opt->manip.n_joints;
   const auto n_constraints_basic = n_points * n_joints;
   opt->constraints.n_constraints = 0;
   if (opt->constraints.position)
@@ -160,7 +141,7 @@ inline void initialize_optimization(Optimization* opt) {
 
   // Task
   auto task = opt->task;
-  for (int i = 0; i < opt->manip.joints; i++) {
+  for (int i = 0; i < opt->manip.n_joints; i++) {
     while (std::abs(task(i, 0) - task(i, 3)) > PI) { // PI since the highest angle between two points on a circle is halfway through, so PI
       // Try updating start value
       real tmp_value = task(i, 0);
@@ -192,7 +173,7 @@ inline void initialize_optimization(Optimization* opt) {
 
 inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   auto   T1 = get_tick_us();
-  Result result(*opt); // todo: this is expensive
+  Result result(opt); // todo: this is expensive
 
   // Initialization
   // configure_internal_data(opt); // todo: Ensure we can remove
@@ -285,13 +266,13 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
       ZoneScopedN("NLopt optimization");
 #endif
 
-      double f = 99;
+      double f = HUGE_VAL;
 #ifdef BLAST_USE_NATIVE_SQP
       stop.nevals_p              = 0;
       result.nlopt_exit_criteria = sqp(
               opt->bspline.x_len(opt->task),
               objective_function,
-              &opt,
+              opt,
               1,
               &fc,
               0,
@@ -327,7 +308,7 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
       x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
       int points_more = (int) (steps_ms + 1);
 
-      Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.p, opt->manip.joints); // todo: this is expensive
+      Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.p, opt->manip.n_joints); // todo: this is expensive
       bspline_val_more.compute_trajectory(x, opt->task);
       auto opt_val_more(*opt);
       opt_val_more.set_bspline(bspline_val_more);
@@ -358,7 +339,7 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   result.success       = is_valid && is_valid_more;
   result.success_false = is_valid && !is_valid_more;
   result.compute_time  = time;
-  result.opt           = *opt;
+  result.opt           = opt;
   result.num_tries     = try_count;
 
 #ifndef BLAST_USE_NATIVE_SQP

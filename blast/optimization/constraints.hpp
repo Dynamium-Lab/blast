@@ -21,21 +21,21 @@ inline blast_fn real bound_constraint(const real& value, const real& value_min, 
                  : g2;
 }
 
-inline blast_fn Matrix get_J_tool(const Optimization* opt) {
-  std::vector<Vec3> r_tool(opt->manip.joints);
-  r_tool[opt->manip.joints - 1] = opt->manip.dv[opt->manip.joints - 1];
-  for (int i = (int) opt->manip.joints - 2; i >= 0; i--) {
-    r_tool[i] = opt->manip.dv[i] + opt->manip._rotations[i + 1] * r_tool[i + 1];
+inline blast_fn Matrix get_J_tool(const Optimization* opt, ManipulatorTempData& temp) {
+  std::vector<Vec3> r_tool(opt->manip.n_joints);
+  r_tool[opt->manip.n_joints - 1] = opt->manip.dv[opt->manip.n_joints - 1];
+  for (int i = (int) opt->manip.n_joints - 2; i >= 0; i--) {
+    r_tool[i] = opt->manip.dv[i] + temp.rotations[i + 1] * r_tool[i + 1];
   }
 
-  for (int i = 0; i < opt->manip.joints; i++) {
-    r_tool[i] = opt->manip._rotations_mult[i] * r_tool[i];
+  for (int i = 0; i < opt->manip.n_joints; i++) {
+    r_tool[i] = temp.rotations_mult[i] * r_tool[i];
   }
 
-  Matrix J_tool(3, opt->manip.joints);
-  for (int i = 0; i < opt->manip.joints; i++) {
+  Matrix J_tool(3, opt->manip.n_joints);
+  for (int i = 0; i < opt->manip.n_joints; i++) {
     // e = opt->manip._Q_mult[i] * opt->manip.ev[i]; // replaced e directly in function to skip copy
-    Vec3 cr_tool = cross(opt->manip._rotations_mult[i] * opt->manip.ev[i], r_tool[i]);
+    Vec3 cr_tool = cross(temp.rotations_mult[i] * opt->manip.ev[i], r_tool[i]);
     J_tool(0, i) = cr_tool.x;
     J_tool(1, i) = cr_tool.y;
     J_tool(2, i) = cr_tool.z;
@@ -73,27 +73,32 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
     // rotations_computed -> bool
     // forward_kinematics_computed -> bool
 
+    ManipulatorTempData manip_data;
+
 
     // This is calculated every loop
-    auto p = opt->bspline.traj.pos.col(i);
-    Assert(p.is_alias);
+    auto pos = opt->bspline.traj.pos.col(i);
+    Assert(pos.is_alias);
 
     {
 #if BLAST_TRACE_LEVEL >= 3
       ZoneScopedN("Kinematics");
 #endif
-      forward_kinematics(opt->manip, p); // fills _Q, _Q_mult, and _p_j
+      forward_kinematics(opt->manip, manip_data, pos); // fills _Q, _Q_mult, and _p_j
     }
 
     {
 #if BLAST_TRACE_LEVEL >= 3
       ZoneScopedN("Capsules");
 #endif
-      opt->manip.compute_capsules();                                                        // fills _capsule_list
-      if (opt->constraints.external_collisions) {
-        if (i % opt->constraints.n_collision_skip == 0 && i != opt->bspline.n_points - 1) { // todo: this cleaner
-          for (int j = 0; j < opt->manip._n_caps; j++) {
-            capsules(j, i / (int) opt->constraints.n_collision_skip) = opt->manip._capsule_list[j];
+      // todo: this cleaner
+      if (opt->constraints.external_collisions || opt->constraints.self_collisions) {
+        compute_capsules(opt->manip, manip_data);
+        if (opt->constraints.external_collisions) {
+          if (i % opt->constraints.n_collision_skip == 0 && i != opt->bspline.n_points - 1) {
+            for (int j = 0; j < opt->manip._n_caps; j++) {
+              capsules(j, i / (int) opt->constraints.n_collision_skip) = manip_data.capsule_list[j];
+            }
           }
         }
       }
@@ -103,7 +108,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
 #if BLAST_TRACE_LEVEL >= 3
       ZoneScopedN("Position");
 #endif
-      for (int j = 0; j < opt->manip.joints; j++) {
+      for (int j = 0; j < opt->manip.n_joints; j++) {
         moving_result[0] = bound_constraint(1.01 * opt->bspline.traj.pos(j, i), opt->manip.pmin[j], opt->manip.pmax[j]);
         moving_result++;
       }
@@ -113,7 +118,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
 #if BLAST_TRACE_LEVEL >= 3
       ZoneScopedN("Velocity");
 #endif
-      for (int j = 0; j < opt->manip.joints; j++) {
+      for (int j = 0; j < opt->manip.n_joints; j++) {
         moving_result[0] = bound_constraint(1.01 * opt->bspline.traj.vel(j, i), opt->manip.vmin[j], opt->manip.vmax[j]);
         moving_result++;
       }
@@ -123,7 +128,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
 #if BLAST_TRACE_LEVEL >= 3
       ZoneScopedN("Acceleration");
 #endif
-      for (int j = 0; j < opt->manip.joints; j++) {
+      for (int j = 0; j < opt->manip.n_joints; j++) {
         moving_result[0] = bound_constraint(1.01 * opt->bspline.traj.acc(j, i), opt->manip.amin[j], opt->manip.amax[j]);
         moving_result++;
       }
@@ -135,10 +140,10 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
 #endif
       auto vel = opt->bspline.traj.vel.col(i);
       auto acc = opt->bspline.traj.acc.col(i);
-      dynamics(opt->manip, vel, acc); // fills _efforts
+      dynamics(opt->manip, manip_data, vel, acc); // fills _efforts
 
-      for (int j = 0; j < opt->manip.joints; j++) {
-        moving_result[0] = bound_constraint(1.01 * opt->manip._efforts[j], opt->manip.tau_min[j], opt->manip.tau_max[j]);
+      for (int j = 0; j < opt->manip.n_joints; j++) {
+        moving_result[0] = bound_constraint(1.01 * manip_data.efforts[j], opt->manip.tau_min[j], opt->manip.tau_max[j]);
         moving_result++;
       }
     }
@@ -147,7 +152,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
 #if BLAST_TRACE_LEVEL >= 3
       ZoneScopedN("TCPSpeed");
 #endif
-      auto J_tool      = get_J_tool(opt);
+      auto J_tool      = get_J_tool(opt, manip_data);
       real tcp_speed   = norm(J_tool * opt->bspline.traj.vel.col(i));
       moving_result[0] = bound_constraint(1.01 * tcp_speed, 0.0, opt->manip.tcp_max);
       moving_result++;
@@ -157,7 +162,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
 #if BLAST_TRACE_LEVEL >= 3
       ZoneScopedN("SelfCollisions");
 #endif
-      auto tmp_coll = opt->manip.get_internal_collisions();
+      auto tmp_coll = get_internal_collisions(opt->manip, manip_data);
       for (u32 j = 0; j < tmp_coll.size; j++)
         moving_result[j] = -tmp_coll[j] + 0.01; //*std::abs(tmp_coll[j]);
       moving_result += tmp_coll.size;
@@ -246,9 +251,11 @@ inline blast_fn bool validate_task(Optimization* opt) {
   auto& constraints = opt->constraints;
   auto& task        = opt->task;
 
-  Matrix pos(manip.joints, 2);
-  Matrix vel(manip.joints, 2);
-  Matrix acc(manip.joints, 2);
+  ManipulatorTempData manip_data;
+
+  Matrix pos(manip.n_joints, 2);
+  Matrix vel(manip.n_joints, 2);
+  Matrix acc(manip.n_joints, 2);
   for (int i = 0; i < task.rows; i++) {
     pos(i, 0) = task(i, 0);
     pos(i, 1) = task(i, 3);
@@ -265,23 +272,23 @@ inline blast_fn bool validate_task(Optimization* opt) {
     auto p = pos.col(i);
     Assert(p.is_alias);
 
-    forward_kinematics(manip, p); // fills _Q, _Q_mult, and _p_j
+    forward_kinematics(manip, manip_data, p); // fills _Q, _Q_mult, and _p_j
     if (constraints.external_collisions || constraints.self_collisions) {
-      manip.compute_capsules();   // fills _capsule_list
+      compute_capsules(manip, manip_data);
       if (constraints.external_collisions) {
         if (i == 0) {
           for (u32 j = 0; j < manip._n_caps; j++) {
-            capsules_begin(j, 0) = manip._capsule_list[j];
+            capsules_begin(j, 0) = manip_data.capsule_list[j];
           }
         }
         if (i == 1) {
           for (u32 j = 0; j < manip._n_caps; j++) {
-            capsules_end(j, 0) = manip._capsule_list[j];
+            capsules_end(j, 0) = manip_data.capsule_list[j];
           }
         }
       }
       if (constraints.self_collisions) {
-        if (min(manip.get_internal_collisions()) < 0) { // min because collisions constraints are -d < 0
+        if (auto tmp_coll = get_internal_collisions(manip, manip_data); min(tmp_coll) < 0) { // min because collisions constraints are -d < 0
           std::cout << "Self-collision at start/end position." << std::endl;
           return false;
         }
@@ -289,7 +296,7 @@ inline blast_fn bool validate_task(Optimization* opt) {
     }
 
     if (constraints.position) {
-      for (int j = 0; j < manip.joints; j++) {
+      for (int j = 0; j < manip.n_joints; j++) {
         result = bound_constraint(pos(j, i), manip.pmin[j], manip.pmax[j]);
         if (result > 0) {
           std::cout << "Position outside bounds." << std::endl;
@@ -299,7 +306,7 @@ inline blast_fn bool validate_task(Optimization* opt) {
     }
 
     if (constraints.velocity) {
-      for (int j = 0; j < manip.joints; j++) {
+      for (int j = 0; j < manip.n_joints; j++) {
         result = bound_constraint(vel(j, i), manip.vmin[j], manip.vmax[j]);
         if (result > 0) {
           std::cout << "Velocity outside bounds." << std::endl;
@@ -309,7 +316,7 @@ inline blast_fn bool validate_task(Optimization* opt) {
     }
 
     if (constraints.acceleration) {
-      for (int j = 0; j < manip.joints; j++) {
+      for (int j = 0; j < manip.n_joints; j++) {
         result = bound_constraint(acc(j, i), manip.amin[j], manip.amax[j]);
         if (result > 0) {
           std::cout << "Acceleration outside bounds." << std::endl;
@@ -321,10 +328,10 @@ inline blast_fn bool validate_task(Optimization* opt) {
     if (constraints.torque) {
       auto vel_tmp = vel.col(i);
       auto acc_tmp = acc.col(i);
-      dynamics(manip, vel_tmp, acc_tmp); // fills _efforts
+      dynamics(manip, manip_data, vel_tmp, acc_tmp); // fills _efforts
 
-      for (int j = 0; j < manip.joints; j++) {
-        result = bound_constraint(manip._efforts[j], manip.tau_min[j], manip.tau_max[j]);
+      for (int j = 0; j < manip.n_joints; j++) {
+        result = bound_constraint(manip_data.efforts[j], manip.tau_min[j], manip.tau_max[j]);
         if (result > 0) {
           std::cout << "Torque outside bounds." << std::endl;
           return false;
@@ -333,7 +340,7 @@ inline blast_fn bool validate_task(Optimization* opt) {
     }
 
     if (constraints.tcp_speed) {
-      auto J_tool    = get_J_tool(opt);
+      auto J_tool    = get_J_tool(opt, manip_data);
       real tcp_speed = norm(J_tool * vel.col(i));
       result         = bound_constraint(tcp_speed, -INF_REAL, manip.tcp_max);
       if (result > 0) {

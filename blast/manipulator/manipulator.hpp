@@ -16,20 +16,20 @@ struct host_fn IK_opt {
       desired_pose(std::move(new_pose)) {}
 };
 
-inline host_fn Matrix jacobian(const Manipulator& manip) {
-  std::vector<Vec3> r_tool(manip.joints);
-  r_tool[manip.joints - 1] = manip.dv[manip.joints - 1];
-  for (int i = (int) manip.joints - 2; i >= 0; i--) {
-    r_tool[i] = manip.dv[i] + manip._rotations[i + 1] * r_tool[i + 1];
+inline host_fn Matrix jacobian(const Manipulator& manip, const ManipulatorTempData& temp) {
+  std::vector<Vec3> r_tool(manip.n_joints);
+  r_tool[manip.n_joints - 1] = manip.dv[manip.n_joints - 1];
+  for (int i = (int) manip.n_joints - 2; i >= 0; i--) {
+    r_tool[i] = manip.dv[i] + temp.rotations[i + 1] * r_tool[i + 1];
   }
 
-  for (int i = 0; i < manip.joints; i++) {
-    r_tool[i] = manip._rotations_mult[i] * r_tool[i];
+  for (int i = 0; i < manip.n_joints; i++) {
+    r_tool[i] = temp.rotations_mult[i] * r_tool[i];
   }
 
-  Matrix J_tool(6, manip.joints);
-  for (int i = 0; i < manip.joints; i++) {
-    const Vec3 e       = manip._rotations_mult[i] * manip.ev[i]; // replaced e directly in function to skip copy
+  Matrix J_tool(6, manip.n_joints);
+  for (int i = 0; i < manip.n_joints; i++) {
+    const Vec3 e       = temp.rotations_mult[i] * manip.ev[i]; // replaced e directly in function to skip copy
     const Vec3 cr_tool = cross(e, r_tool[i]);
     // J_tool(0, i) = e.x;
     // J_tool(1, i) = e.y;
@@ -47,31 +47,73 @@ inline host_fn Matrix jacobian(const Manipulator& manip) {
 
   return J_tool;
 }
+//
+// inline host_fn void forward_kinematics(Manipulator& manip, const Array& joint_pos) {
+//   manip.compute_rotation_matrices(joint_pos);
+//
+//   manip._rotations_mult[0] = manip.Q_base * manip._rotations[0];
+//   for (u32 j = 1; j < manip._rotations_mult.size(); j++) {
+//     manip._rotations_mult[j] = manip._rotations_mult[j - 1] * manip._rotations[j];
+//   }
+//
+//   manip._p_j[0] = manip.p_base + manip.Q_base * manip.p_j0;
+//   for (u32 j = 1; j < manip._p_j.size(); j++) {
+//     manip._p_j[j] = manip._p_j[j - 1] + manip._rotations_mult[j - 1] * manip.dv[j - 1];
+//   }
+// }
 
-inline host_fn void forward_kinematics(Manipulator& manip, const Array& joint_pos) {
-  manip.compute_rotation_matrices(joint_pos);
+inline host_fn void forward_kinematics(const Manipulator& manip, ManipulatorTempData& temp, const Array& joint_pos) {
+  const auto n_joints = joint_pos.size;
 
-  manip._rotations_mult[0] = manip.Q_base * manip._rotations[0];
-  for (u32 j = 1; j < manip._rotations_mult.size(); j++) {
-    manip._rotations_mult[j] = manip._rotations_mult[j - 1] * manip._rotations[j];
+  real s[MAX_JOINTS];
+  real c[MAX_JOINTS];
+
+#if 0
+  vcl::Vec4d    a, cr;
+  constexpr int vecLoopSize = MAX_JOINTS; // todo: fix for non divisible by 4
+  for (int i = 0; i < vecLoopSize; i += 4) {
+    a.load(joint_pos.data + i);
+    vcl::Vec4d sr = vcl::sincos(&cr, a);
+    sr.store(s + i);
+    cr.store(c + i);
+  }
+#else
+  for (int i = 0; i < n_joints; ++i) {
+    s[i] = sin(joint_pos[i]);
+    c[i] = cos(joint_pos[i]);
+  }
+#endif
+
+  for (u32 j = 0; j < n_joints; ++j) {
+    Mat3 temp_Q       = {c[j], s[j], 0, -s[j], c[j], 0, 0, 0, 1};
+    temp.rotations[j] = manip.Q_static[j] * temp_Q;
   }
 
-  manip._p_j[0] = manip.p_base + manip.Q_base * manip.p_j0;
-  for (u32 j = 1; j < manip._p_j.size(); j++) {
-    manip._p_j[j] = manip._p_j[j - 1] + manip._rotations_mult[j - 1] * manip.dv[j - 1];
+  temp.rotations_mult[0] = manip.Q_base * temp.rotations[0];
+  temp.p_j[0]            = manip.p_base + manip.Q_base * manip.p_j0;
+  for (u32 j = 1; j < n_joints; j++) {
+    temp.rotations_mult[j] = temp.rotations_mult[j - 1] * temp.rotations[j]; // note: add this to *= temp._rotations_mult ?
+    temp.p_j[j]            = temp.p_j[j - 1] + temp.rotations_mult[j - 1] * manip.dv[j - 1];
   }
+  temp.p_j[n_joints] = temp.p_j[n_joints - 1] + temp.rotations_mult[n_joints - 1] * manip.dv[n_joints - 1];
+
+  // todo: Handle end-effector
 }
 
-inline host_fn void dynamics(Manipulator& manip, Array& vel, Array& acc) {
+inline host_fn void dynamics(const Manipulator& manip, ManipulatorTempData& temp, Array& vel, Array& acc) {
   Assert(vel.size == acc.size);
-  Assert(vel.size == manip.joints);
-  const auto joints = manip.joints;
-  if (manip._efforts.size != joints)
-    manip._efforts.resize(joints);
+  Assert(vel.size == manip.n_joints);
+  const auto joints = manip.n_joints;
 
-  std::vector<Mat3> Qt(joints);
+  Vec3 w[MAX_JOINTS];
+  Vec3 wd[MAX_JOINTS];
+  Vec3 cdd[MAX_JOINTS];
+  Mat3 Qt[MAX_JOINTS];
+  Vec3 f[MAX_JOINTS];
+  Vec3 n[MAX_JOINTS];
+
   for (u32 j = 0; j < joints; j++) {
-    Qt[j] = transpose(manip._rotations[j]);
+    Qt[j] = transpose(temp.rotations[j]);
   }
 
   // note: This is the Newton algorithm in 'Element de robotique' course notes.
@@ -79,62 +121,58 @@ inline host_fn void dynamics(Manipulator& manip, Array& vel, Array& acc) {
   //       For example, the ith coordinate frame turns with the ith joint, where in the course notes, the
   //       joint turns with respect to the coordinate frame.
   //-- kinematics
-  std::vector<Vec3> w(joints);
   w[0] = vel[0] * manip.ev[0];
   for (u32 j = 1; j < joints; j++)
     w[j] = Qt[j] * w[j - 1] + vel[j] * manip.ev[j];
 
-  std::vector<Vec3> wd(joints);
-  std::vector<Vec3> cdd(joints);
-  Vec3              cdd0 = {0, 0, 9.81f};
-  wd[0]                  = acc[0] * manip.ev[0];
-  cdd[0]                 = Qt[0] * cdd0 + cross(wd[0], manip.av[0]) + cross(w[0], cross(w[0], manip.av[0]));
+  Vec3 cdd0 = {0, 0, 9.81f};
+  wd[0]     = acc[0] * manip.ev[0];
+  cdd[0]    = Qt[0] * cdd0 + cross(wd[0], manip.av[0]) + cross(w[0], cross(w[0], manip.av[0]));
   for (u32 j = 1; j < joints; j++) {
     wd[j]  = Qt[j] * wd[j - 1] + acc[j] * manip.ev[j] + vel[j] * cross(Qt[j] * w[j - 1], manip.ev[j]);
     cdd[j] = Qt[j] * cdd[j - 1] + cross(wd[j], manip.av[j]) + cross(w[j], cross(w[j], manip.av[j])) - Qt[j] * cross(wd[j - 1], manip.sv[j - 1]) - Qt[j] * cross(w[j - 1], cross(w[j - 1], manip.sv[j - 1]));
   }
 
   //-- dynamics
-  std::vector<Vec3> f(joints);
-  std::vector<Vec3> n(joints);
   f[joints - 1] = manip.m[joints - 1] * cdd[joints - 1];
   n[joints - 1] = manip.I[joints - 1] * wd[joints - 1] + cross(w[joints - 1], manip.I[joints - 1] * w[joints - 1]) + cross(manip.av[joints - 1], f[joints - 1]);
 
   for (int j = (int) joints - 2; j >= 0; j--) {
-    f[j] = manip.m[j] * cdd[j] + manip._rotations[j + 1] * f[j + 1];
-    n[j] = manip.I[j] * wd[j] + cross(w[j], manip.I[j] * w[j]) + manip._rotations[j + 1] * n[j + 1] + cross(manip.av[j], f[j]) - cross(manip.sv[j], (manip._rotations[j + 1] * f[j + 1]));
+    f[j] = manip.m[j] * cdd[j] + temp.rotations[j + 1] * f[j + 1];
+    n[j] = manip.I[j] * wd[j] + cross(w[j], manip.I[j] * w[j]) + temp.rotations[j + 1] * n[j + 1] + cross(manip.av[j], f[j]) - cross(manip.sv[j], (temp.rotations[j + 1] * f[j + 1]));
   }
 
   //-- extract torques (last element of each moment vector)
   for (u32 j = 0; j < joints; j++)
-    manip._efforts[j] = n[j].z;
+    temp.efforts[j] = n[j].z;
 }
 
 // todo: move to IK folder?
-inline host_fn double get_error(unsigned int n, const double* x, double* grad, void* data) {
-  Array delta_pose(12);
-  Array current_joint_position;
-  current_joint_position.alias(x, n);
+// inline host_fn double get_error(unsigned int n, const double* x, double* grad, void* data) {
+//   Array delta_pose(12);
+//   Array current_joint_position;
+//   current_joint_position.alias(x, n);
+//
+//   auto info         = (IK_opt*) data;
+//   auto manip        = info->manip;
+//   auto desired_pose = info->desired_pose;
+//
+//   forward_kinematics(manip, current_joint_position);
+//   auto current_pose = manip.get_tool_pose();
+//
+//   auto current_R = rpy2rotation({current_pose[3], current_pose[4], current_pose[5]});
+//   auto desired_R = rpy2rotation({desired_pose[3], desired_pose[4], desired_pose[5]});
+//
+//   for (u32 i = 0; i < 3; i++)
+//     delta_pose[i + 9] = current_pose[i] - desired_pose[i];
+//
+//   for (u32 i = 0; i < 9; i++) {
+//     delta_pose[i] = current_R[i] - desired_R[i];
+//   }
+//
+//   return dot(delta_pose, delta_pose);
+// }
 
-  auto info         = (IK_opt*) data;
-  auto manip        = info->manip;
-  auto desired_pose = info->desired_pose;
-
-  forward_kinematics(manip, current_joint_position);
-  auto current_pose = manip.get_tool_pose();
-
-  auto current_R = rpy2rotation({current_pose[3], current_pose[4], current_pose[5]});
-  auto desired_R = rpy2rotation({desired_pose[3], desired_pose[4], desired_pose[5]});
-
-  for (u32 i = 0; i < 3; i++)
-    delta_pose[i + 9] = current_pose[i] - desired_pose[i];
-
-  for (u32 i = 0; i < 9; i++) {
-    delta_pose[i] = current_R[i] - desired_R[i];
-  }
-
-  return dot(delta_pose, delta_pose);
-}
 // inline host_fn Array inverse_kinematics_nlopt(Manipulator manip, Array desired_pose, Array initial_joint_position) {
 //   IK_opt info(std::move(manip), std::move(desired_pose));
 //
@@ -161,7 +199,7 @@ inline host_fn double get_error(unsigned int n, const double* x, double* grad, v
 // }
 
 inline host_fn Manipulator::Manipulator(u32 joint_count, const ManipulatorLimits& limits, const ManipulatorKinematics& kinematics, const ManipulatorDynamics* dynamics, const ManipulatorCapsules* capsules) {
-  joints = joint_count;
+  n_joints = joint_count;
   set_limits(limits);
   set_kinematics(kinematics);
   if (dynamics)
@@ -173,35 +211,35 @@ inline host_fn Manipulator::Manipulator(u32 joint_count, const ManipulatorLimits
 // todo: add a bunch of warnings if not correct.
 inline host_fn void Manipulator::set_limits(const ManipulatorLimits& limits) {
   if (limits.pmax.size != 0) {
-    Assert(limits.pmax.size == joints);
+    Assert(limits.pmax.size == n_joints);
     pmax = limits.pmax;
   }
   if (limits.pmin.size != 0) {
-    Assert(limits.pmin.size == joints);
+    Assert(limits.pmin.size == n_joints);
     pmin = limits.pmin;
   }
   if (limits.vmax.size != 0) {
-    Assert(limits.vmax.size == joints);
+    Assert(limits.vmax.size == n_joints);
     vmax = limits.vmax;
   }
   if (limits.vmin.size != 0) {
-    Assert(limits.vmin.size == joints);
+    Assert(limits.vmin.size == n_joints);
     vmin = limits.vmin;
   }
   if (limits.amax.size != 0) {
-    Assert(limits.amax.size == joints);
+    Assert(limits.amax.size == n_joints);
     amax = limits.amax;
   }
   if (limits.amin.size != 0) {
-    Assert(limits.amin.size == joints);
+    Assert(limits.amin.size == n_joints);
     amin = limits.amin;
   }
   if (limits.tau_max.size != 0) {
-    Assert(limits.tau_max.size == joints);
+    Assert(limits.tau_max.size == n_joints);
     tau_max = limits.tau_max;
   }
   if (limits.tau_min.size != 0) {
-    Assert(limits.tau_min.size == joints);
+    Assert(limits.tau_min.size == n_joints);
     tau_min = limits.tau_min;
   }
   if (limits.tcp_max != 0.0) {
@@ -210,40 +248,34 @@ inline host_fn void Manipulator::set_limits(const ManipulatorLimits& limits) {
 }
 
 inline host_fn void Manipulator::set_kinematics(const ManipulatorKinematics& kinematics) {
-  Assert(kinematics.dv.size() == joints);
-  Assert(kinematics.ev.size() == joints);
+  Assert(kinematics.dv.size() >= n_joints);
+  Assert(kinematics.ev.size() >= n_joints);
   dv       = kinematics.dv;
   ev       = kinematics.ev;
   Q_static = kinematics.Q_static;
   p_base   = kinematics.p_base;
   Q_base   = kinematics.Q_base;
   p_j0     = kinematics.p_j0;
-  _rotations.resize(joints);
-  _rotations_mult.resize(joints);
-  _p_j.resize(joints + 1);
 }
 
 inline host_fn void Manipulator::set_dynamics(const ManipulatorDynamics& dynamics) {
-  Assert(dynamics.m.size() == joints);
-  Assert(dynamics.I.size() == joints);
-  Assert(dynamics.av.size() == joints);
+  Assert(dynamics.m.size() >= n_joints);
+  Assert(dynamics.I.size() >= n_joints);
+  Assert(dynamics.av.size() >= n_joints);
   m  = dynamics.m;
   I  = dynamics.I;
   av = dynamics.av;
-  _efforts.resize(joints);
-  sv.resize(joints);
-  for (u32 j = 0; j < joints; j++) {
+  for (u32 j = 0; j < n_joints; j++) {
     sv[j] = {-dv[j] + av[j]};
   }
 }
 
 inline host_fn void Manipulator::set_capsules(const ManipulatorCapsules& capsules) {
   for (auto& cap: capsules.capsule_list) {
-    Assert(cap.joint_frame < _p_j.size());
-    _collision_model.push_back(cap);
+    Assert(cap.joint_frame < n_joints + 1);
+    _collision_model[_n_caps++] = cap;
   }
-  _n_caps = (int) _collision_model.size();
-  _capsule_list.resize(_n_caps);
+
   if (capsules.collision_base.size != 0 && capsules.collision_matrix.size != 0) { // todo: fix this... (we need a fail safe)
     _collision_base.resize(_n_caps);
     _collision_base = capsules.collision_base;
@@ -261,51 +293,40 @@ inline host_fn void Manipulator::set_capsules(const ManipulatorCapsules& capsule
   }
 }
 
-inline host_fn void Manipulator::compute_rotation_matrices(const Array& joint_position) {
-  Assert(joint_position.size == joints);
-  Array s(joints), c(joints);
-  sincos(joint_position, s, c);
-  for (u32 j = 0; j < joints; ++j) {
-    Mat3 temp     = {c[j], s[j], 0, -s[j], c[j], 0, 0, 0, 1};
-    _rotations[j] = Q_static[j] * temp;
-  }
-  for (u32 j = joints; j < _rotations.size(); ++j) {
-    _rotations[j] = Q_static[j];
+inline void compute_capsules(const Manipulator& manip, ManipulatorTempData& temp) {
+  for (u32 i = 0; i < manip._n_caps; ++i) {
+    temp.capsule_list[i] = {
+            {temp.p_j[manip._collision_model[i].joint_frame] + temp.rotations_mult[manip._collision_model[i].joint_frame] * manip._collision_model[i].p1},
+            {temp.p_j[manip._collision_model[i].joint_frame] + temp.rotations_mult[manip._collision_model[i].joint_frame] * manip._collision_model[i].p2},
+            manip._collision_model[i].r};
   }
 }
 
-inline host_fn void Manipulator::compute_capsules() {
-  for (u32 i = 0; i < _collision_model.size(); ++i) {
-    _capsule_list[i] = {
-            {_p_j[_collision_model[i].joint_frame] + _rotations_mult[_collision_model[i].joint_frame] * _collision_model[i].p1},
-            {_p_j[_collision_model[i].joint_frame] + _rotations_mult[_collision_model[i].joint_frame] * _collision_model[i].p2},
-            _collision_model[i].r};
-  }
-}
 
-inline host_fn Array Manipulator::get_internal_collisions() const {
-  Array distances(_n_internal_collisions);
+// todo: reformat for speed. ex: have a list of tuples that contain indices of collidable bodies
+inline Array get_internal_collisions(const Manipulator& manip, const ManipulatorTempData& temp) {
+  Array distances(manip._n_internal_collisions);
   int   idx = 0;
-  for (int i = 0; i < _collision_matrix.cols; ++i) {
-    for (int j = i + 1; j < _collision_matrix.rows; ++j) {
-      if (_collision_matrix(j, i) != 0)
-        distances[idx++] = distance(_capsule_list[i], _capsule_list[j]);
+  for (int i = 0; i < manip._collision_matrix.cols; ++i) {
+    for (int j = i + 1; j < manip._collision_matrix.rows; ++j) {
+      if (manip._collision_matrix(j, i) != 0)
+        distances[idx++] = distance(temp.capsule_list[i], temp.capsule_list[j]);
     }
   }
-  for (u32 i = 0; i < _collision_base.size; ++i) {
-    if (_collision_base[i] != 0)
-      distances[idx++] = distance(_capsule_list[i], _base_sphere);
+  for (u32 i = 0; i < manip._collision_base.size; ++i) {
+    if (manip._collision_base[i] != 0)
+      distances[idx++] = distance(temp.capsule_list[i], manip._base_sphere);
   }
   return distances;
 }
 
-inline host_fn Array Manipulator::get_tool_pose() const {
-  Mat3 tmp             = _rotations_mult.back();
-  Vec3 current_rpy     = rotation2rpy(tmp);
-  Vec3 current_cartpos = _p_j.back();
-  return {current_cartpos.x, current_cartpos.y, current_cartpos.z,
-          current_rpy.x, current_rpy.y, current_rpy.z};
-}
+// inline host_fn Array Manipulator::get_tool_pose() const {
+//   Mat3 tmp             = _rotations_mult.back();
+//   Vec3 current_rpy     = rotation2rpy(tmp);
+//   Vec3 current_cartpos = _p_j.back();
+//   return {current_cartpos.x, current_cartpos.y, current_cartpos.z,
+//           current_rpy.x, current_rpy.y, current_rpy.z};
+// }
 
 inline host_fn void Manipulator::add_end_effector(const EndEffector& ee) {
   dv_ee        = ee.dv_ee;

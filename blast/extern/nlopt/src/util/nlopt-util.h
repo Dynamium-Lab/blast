@@ -100,6 +100,8 @@ extern "C" {
     extern int nlopt_stop_evalstime(const nlopt_stopping * stop);
     extern int nlopt_stop_forced(const nlopt_stopping * stop);
 
+  void print_nlopt_stopping(const nlopt_stopping* s, const char* name);
+
 /* like vsprintf, but reallocs p to whatever size is needed */
     extern char *nlopt_vsprintf(char *p, const char *format, va_list ap);
     extern void nlopt_stop_msg(const nlopt_stopping * s, const char *format, ...)
