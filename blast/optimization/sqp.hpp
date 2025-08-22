@@ -2858,7 +2858,7 @@ inline nlopt_result sqp(
         if (!isinf(fcur)) {
           want_grad = 0;
           ii        = 0;
-          for (i = 0; i < p; ++i) {
+          for (i = 0; i < p; ++i) { // equality constraints
             unsigned j, k;
             nlopt_eval_constraint(c + ii, newcgrad, h + i, x_len, xcur);
             if (stop->force_stop) {
@@ -2876,7 +2876,7 @@ inline nlopt_result sqp(
               }
             }
           }
-          for (i = 0; i < m; ++i) {
+          for (i = 0; i < m; ++i) { // inequality constraints
             unsigned j, k;
             nlopt_eval_constraint(c + ii, newcgrad, fc + i, x_len, xcur);
             if (stop->force_stop) {
