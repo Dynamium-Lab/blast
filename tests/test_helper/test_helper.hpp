@@ -40,9 +40,9 @@ inline host_fn Manipulator get_generic_Link6() {
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1}}; // direction vectors of joint
-  kinematics.p_j0   = {0.0, 0.0, 0.0530f};
-  kinematics.p_base = {0.0, 0.0, 0.0};
-  kinematics.Q_base = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  kinematics.p_j0        = {0.0, 0.0, 0.0530f};
+  kinematics.p_base      = {0.0, 0.0, 0.0};
+  kinematics.Q_base      = {1, 0, 0, 0, 1, 0, 0, 0, 1};
   kinematics.Q_static[0] = {1, 0, 0, 0, -1, 0, 0, 0, -1};
   kinematics.Q_static[1] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
   kinematics.Q_static[2] = {1, 0, 0, 0, -1, 0, 0, 0, -1};
@@ -446,8 +446,20 @@ inline host_fn World get_lab_world() {
 }
 
 inline host_fn Matrix get_link6_task() {
-  Array pi = {-1.787, -0.370, -1.391, -1.766, 0.120, -0.569, 1.944};
-  Array pf = {-0.574, 0.421, 2.293, -2.161, 0.482, -0.740, -0.176};
+  // Array pi = {-1.787, -0.370, -1.391, -1.766, 0.120, -0.569, 1.944};
+  // Array pf = {-0.574, 0.421, 2.293, -2.161, 0.482, -0.740, -0.176};
+  Array pi = deg2rad({-40.445762634277344,
+                      -26.876392364501953,
+                      83.60868835449219,
+                      1.49383544921875,
+                      19.951095581054688,
+                      -42.22943115234375});
+  Array pf = deg2rad({51.851436614990234,
+                      -13.578636169433594,
+                      107.87167358398438,
+                      3.6194305419921875,
+                      33.133209228515625,
+                      51.21833801269531});
   Array vi(6);
   Array vf(6);
   Array ai(6);

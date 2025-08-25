@@ -10,7 +10,8 @@
 int main() {
   using namespace blast;
 
-  Optimization opt(get_generic_gen3(), get_gen3_task());
+  // Optimization opt(get_generic_gen3(), get_gen3_task());
+  Optimization opt(get_generic_Link6(), get_link6_task());
 
   opt.world = get_lab_world();
 
