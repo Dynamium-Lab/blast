@@ -1,5 +1,5 @@
 
-#define BLAST_TRACE_LEVEL 0
+#define BLAST_TRACE_LEVEL 3
 #define BLAST_USE_NATIVE_SQP
 
 #include <blast>
@@ -15,6 +15,9 @@ int main() {
 
   opt.world = get_lab_world();
 
+  Bspline bspline(16, 100, 5, 6);
+  opt.bspline = bspline;
+
   opt.guess.type = Guess::custom;
   opt.guess.x0   = Array(opt.bspline.x_len(opt.task), 2.0);
   // opt.guess.n_shot = 100;
@@ -23,12 +26,13 @@ int main() {
   opt.constraints.velocity            = true;
   opt.constraints.acceleration        = true;
   opt.constraints.torque              = true;
-  opt.constraints.tcp_speed           = true;
-  opt.constraints.self_collisions     = true;
+  opt.constraints.tcp_speed           = false;
+  opt.constraints.self_collisions     = false;
   opt.constraints.external_collisions = false;
 
   opt.max_tries         = 1;
   opt.success_tolerance = 0.01;
+  // Sleep(100);
 
   auto result = optimize(&opt);
 

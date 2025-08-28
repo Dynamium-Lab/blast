@@ -18,7 +18,7 @@ struct ManipulatorTempData;
 inline host_fn void forward_kinematics(const Manipulator& manip, ManipulatorTempData& temp, const Array& joint_pos);
 
 inline host_fn Matrix jacobian(const Manipulator& manip, const ManipulatorTempData& temp);
-inline host_fn void   dynamics(const Manipulator& manip, ManipulatorTempData& temp, Array& vel, Array& acc);
+inline host_fn void   dynamics(const Manipulator& manip, ManipulatorTempData& temp, const Array& vel, const Array& acc);
 // double                get_error(unsigned int n, const double* x, double* grad, void* data);
 // inline Array          inverse_kinematics_nlopt(Manipulator manip, Array desired_pose, Array initial_joint_position);
 
@@ -53,16 +53,16 @@ struct CollisionModelCapsule {
  * @var tcp_max Maximum tool‐center‐point speed.
  */
 struct ManipulatorLimits {
-  Array pmax;    // max joint position
-  Array pmin;    // min joint position
-  Array vmax;    // max joint velocity
-  Array vmin;    // min joint velocity
-  Array amax;    // max joint acceleration
-  Array amin;    // min joint acceleration
+  Array pmax; // max joint position
+  Array pmin; // min joint position
+  Array vmax; // max joint velocity
+  // Array vmin;    // min joint velocity
+  Array amax; // max joint acceleration
+  // Array amin;    // min joint acceleration
   Array tau_max; // max joint torque
-  Array tau_min; // min joint torque
+  // Array tau_min; // min joint torque
 
-  real tcp_max;  // max tcp speed
+  real tcp_max; // max tcp speed
 };
 
 /**
@@ -162,11 +162,11 @@ struct Manipulator {
   Array pmax;
   Array pmin;
   Array vmax;
-  Array vmin;
+  // Array vmin;
   Array amax;
-  Array amin;
+  // Array amin;
   Array tau_max;
-  Array tau_min;
+  // Array tau_min;
 
   real tcp_max = 0.0; // max TCP speed
 

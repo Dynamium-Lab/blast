@@ -131,6 +131,10 @@ inline void   nlopt_constraints(unsigned m, double* result, unsigned x_len, cons
 inline double compute_objective(Array& current_x, Optimization* opt);
 inline bool   validate_task(Optimization* opt);
 
+inline void nlopt_constraints_dev(unsigned m, double* result, unsigned xlen, const double* x, double* grad, void* f_data);
+inline void nlopt_constraints_dev_new(unsigned m, double* result, unsigned xlen, const double* x, double* grad, void* f_data);
+
+
 // inline real   bound_constraint(const real& value, const real& value_min, const real& value_max);
 // inline Matrix get_J_tool(const Optimization* opt);
 // inline bool   validate_task(Optimization* opt);

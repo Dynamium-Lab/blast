@@ -1,6 +1,8 @@
 #include <blast>
 #include "test_helper/test_helper.hpp"
 
+#define BLAST_TRACE_LEVEL 3
+
 #define CATCH_CONFIG_MAIN
 #define CATCH_CONFIG_ENABLE_BENCHMARKING
 #include "catch2/catch.hpp"
@@ -13,7 +15,8 @@ namespace blast {
 
 TEST_CASE("Manipulator benchmarks", "[manipulator]") {
 
-  BENCHMARK_ADVANCED("Dynamics on a Gen3")(Catch::Benchmark::Chronometer meter) {
+  ManipulatorTempData manip_data;
+  BENCHMARK_ADVANCED("Kinematics & Dynamics on a Gen3")(Catch::Benchmark::Chronometer meter) {
 
     const u32 n_points = 256;
     const u32 n_joints = 7;
@@ -49,13 +52,13 @@ TEST_CASE("Manipulator benchmarks", "[manipulator]") {
         auto qd  = bspline.traj.vel.col(i);
         auto qdd = bspline.traj.acc.col(i);
 
-        forward_kinematics(manip, q);
-        dynamics(manip, qd, qdd);
+        forward_kinematics(manip, manip_data, q);
+        dynamics(manip, manip_data, qd, qdd);
 #if BLAST_TRACE_LEVEL >= 3
         FrameMark;
 #endif
       }
-      return manip._efforts;
+      return manip_data.efforts;
     });
   };
 }

@@ -34,29 +34,32 @@ struct Bspline {
   u32        n_ctrl;
   u32        p;
 
-  Bspline() = delete;
+  std::vector<u32> lb; // nctrl
+  std::vector<u32> ub; // nctrl
 
-  Bspline(u32 n_control, u32 n_points, u32 p, u32 n_joints);
+  inline blast_fn Bspline() = delete;
 
-  explicit Bspline(u32 n_joints) :
+  inline blast_fn Bspline(u32 n_control, u32 n_points, u32 p, u32 n_joints);
+
+  inline blast_fn explicit Bspline(u32 n_joints) :
       Bspline(12, 100, 5, n_joints) {}
 
-  Bspline(const Bspline& other) = default;
+  inline blast_fn Bspline(const Bspline& other) = default;
 
-  Bspline(Bspline&& other) = default;
+  inline blast_fn Bspline(Bspline&& other) = default;
 
-  Bspline& operator=(const Bspline& other) = default;
+  inline blast_fn Bspline& operator=(const Bspline& other) = default;
 
-  Bspline& operator=(Bspline&& other) = default;
+  inline blast_fn Bspline& operator=(Bspline&& other) = default;
 
   // Compute a trajectory from the given optimization vector
   //  - note: fastest when 'n_control' is a multiple of 4 (SIMD)
-  void compute_trajectory(const Array& x, const Matrix& task);
-  u32  x_len(const Matrix& task) const;
+  inline blast_fn void compute_trajectory(const Array& x, const Matrix& task);
+  inline blast_fn u32  x_len(const Matrix& task) const;
 
-  void compute_basis();
-  void compute_basis_open();
-  void compute_control(const Array& x, const Matrix& task, real* dst) const;
+  inline blast_fn void compute_basis();
+  inline blast_fn void compute_basis_open();
+  inline blast_fn void compute_control(const Array& x, const Matrix& task, real* dst) const;
 };
 
 } // namespace blast

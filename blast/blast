@@ -7,7 +7,7 @@
 #include <vector>
 
 constexpr int32_t MAX_JOINTS = 8;
-constexpr int32_t CAPSULE_SIZE = 7;
+constexpr int32_t CAPSULE_SIZE = 8;
 
 namespace blast {
 

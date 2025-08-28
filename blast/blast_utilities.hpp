@@ -243,16 +243,16 @@ inline void print(const Manipulator& m, const std::string& name = "Manipulator")
   print(m.pmin);
   std::cout << "vmax: ";
   print(m.vmax);
-  std::cout << "vmin: ";
-  print(m.vmin);
+  // std::cout << "vmin: ";
+  // print(m.vmin);
   std::cout << "amax: ";
   print(m.amax);
-  std::cout << "amin: ";
-  print(m.amin);
+  // std::cout << "amin: ";
+  // print(m.amin);
   std::cout << "tau_max: ";
   print(m.tau_max);
-  std::cout << "tau_min: ";
-  print(m.tau_min);
+  // std::cout << "tau_min: ";
+  // print(m.tau_min);
 
   std::cout << "--- Base Pose ---\n";
   std::cout << "p_base: ";

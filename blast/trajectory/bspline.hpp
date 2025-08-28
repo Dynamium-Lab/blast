@@ -3,7 +3,7 @@
 
 namespace blast {
 
-inline Bspline::Bspline(u32 n_control, u32 n_points, u32 P, u32 n_joints) :
+inline blast_fn Bspline::Bspline(u32 n_control, u32 n_points, u32 P, u32 n_joints) :
     traj(n_points, n_joints),
     control(n_control, n_joints),
     basis_p(n_control, n_points),
@@ -12,11 +12,13 @@ inline Bspline::Bspline(u32 n_control, u32 n_points, u32 P, u32 n_joints) :
     n_joints(n_joints),
     n_points(n_points),
     n_ctrl(n_control),
-    p(P) {
+    p(P),
+    lb(n_control),
+    ub(n_control) {
   compute_basis();
 }
 
-inline u32 Bspline::x_len(const Matrix& task) const {
+inline blast_fn u32 Bspline::x_len(const Matrix& task) const {
   Assert(task.rows == n_joints);
   Assert(task.cols == 6);
 
@@ -30,7 +32,7 @@ inline u32 Bspline::x_len(const Matrix& task) const {
   return results;
 }
 
-inline void Bspline::compute_basis() {
+inline blast_fn void Bspline::compute_basis() {
   u32   m = n_ctrl + p;
   Array knots(m + 1);
   {
@@ -90,9 +92,25 @@ inline void Bspline::compute_basis() {
     basis_v_col += n_ctrl;
     basis_a_col += n_ctrl;
   }
+
+  // find lower bound & upper bound for each nctrl [lb, ub] todo: accelerate
+  for (u32 i = 0; i < n_ctrl; i++) {
+    // we do not test the first and last points
+    for (u32 point = 1; point < n_points - 1; point++) {
+      if (basis_p(i, point) != 0.0) {
+        lb[i] = point;
+        break;
+      }
+    }
+    for (u32 point = 1; point < n_points - 1; point++) {
+      if (basis_p(i, point) != 0.0) {
+        ub[i] = point;
+      }
+    }
+  }
 }
 
-inline void Bspline::compute_basis_open() {
+inline blast_fn void Bspline::compute_basis_open() {
   u32 m = n_ctrl + p;
 
   Array knots(m + 1);
@@ -157,7 +175,7 @@ inline void Bspline::compute_basis_open() {
   }
 }
 
-inline void Bspline::compute_control(const Array& x, const Matrix& task, real* dst) const {
+inline blast_fn void Bspline::compute_control(const Array& x, const Matrix& task, real* dst) const {
   using std::isnan;
   Assert(n_ctrl >= 6);
   const real T  = x[x.size - 1];
@@ -210,7 +228,7 @@ inline void Bspline::compute_control(const Array& x, const Matrix& task, real* d
  * Finally, it computes the position, velocity, and acceleration of each joint at each point along the trajectory
  * using the computed control points and the basis functions for position, velocity, and acceleration.
  */
-inline void Bspline::compute_trajectory(const Array& x, const Matrix& task) {
+inline blast_fn void Bspline::compute_trajectory(const Array& x, const Matrix& task) {
   Assert(x.size == x_len(task));
   Assert(task.rows == n_joints);
   Assert(task.cols == 6);

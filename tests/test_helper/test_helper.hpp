@@ -7,20 +7,20 @@ namespace blast {
 // todo: Change camera capsule
 inline host_fn Manipulator get_generic_Link6() {
   // Manipulator
-  u32 joints = 6;
+  constexpr u32 joints = 6;
   // limits
   ManipulatorLimits limits;
   limits.pmax = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL}; // rad
   limits.pmin = -limits.pmax;
 
-  limits.vmax = {3.4907f, 3.4907f, 3.4907f, 5.5851f, 5.5851f, 5.5851f}; // rad/s
-  limits.vmin = -limits.vmax;
+  limits.vmax = {3.4907f, 3.4907f, 3.4907f, 5.5851f, 5.5851f, 5.5851f};                               // rad/s
+                                                                                                      //   limits.vmin = -limits.vmax;
 
   limits.amax = {deg2rad(600), deg2rad(600), deg2rad(600), deg2rad(600), deg2rad(600), deg2rad(600)}; // rad/s^2
-  limits.amin = -limits.amax;
+                                                                                                      //   limits.amin = -limits.amax;
 
-  limits.tau_max = {210, 210, 210, 100, 100, 100}; // Nm
-  limits.tau_min = -limits.tau_max;
+  limits.tau_max = {210, 210, 210, 100, 100, 100};                                                    // Nm
+                                                                                                      //   limits.tau_min = -limits.tau_max;
 
   limits.tcp_max = 2.0;
 
@@ -169,16 +169,16 @@ inline host_fn Manipulator get_generic_gen3() { // todo: fix capsules, not worki
   // limits.pmin = {-INF_REAL, 0, -INF_REAL, 0, -INF_REAL, 0, -INF_REAL}; // rad
   limits.pmin = -limits.pmax;
 
-  limits.vmax = {1.745f, 1.745f, 1.745f, 1.745f, 2.443f, 2.443f, 2.443f}; // rad/s
-  limits.vmin = -limits.vmax;
+  limits.vmax = {1.745f, 1.745f, 1.745f, 1.745f, 2.443f, 2.443f, 2.443f};               // rad/s
+                                                                                        //   limits.vmin = -limits.vmax;
 
   limits.amax = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL}; // rad/s^2
-  limits.amin = -limits.amax;
+                                                                                        //   limits.amin = -limits.amax;
 
-  limits.tau_max = {52, 52, 52, 52, 17, 17, 17}; // Nm
-  limits.tau_min = -limits.tau_max;
+  limits.tau_max = {52, 52, 52, 52, 17, 17, 17};                                        // Nm
+                                                                                        //   limits.tau_min = -limits.tau_max;
 
-  limits.tcp_max = 0.5; // todo: validate with webapp (Bruno from Kinova said 1.0 could be adequate), webapp says 0.5
+  limits.tcp_max = 0.5;                                                                 // todo: validate with webapp (Bruno from Kinova said 1.0 could be adequate), webapp says 0.5
 
   // kinematic properties
   ManipulatorKinematics kinematics; // using default Q_base
@@ -291,12 +291,12 @@ inline host_fn Manipulator get_generic_fanuc_crx25ia() {
   u32 joints = 6;
 
   ManipulatorLimits limits;
-  limits.pmax    = {3.1241, 3.1241, 4.6949, 3.2987, 3.1241, 3.9095};
-  limits.pmin    = {-3.1241, -3.1241, -4.6949, -3.2987, -3.1241, -3.9095};
-  limits.vmax    = {2.0944, 2.0944, 3.1416, 3.1416, 3.1416, 3.1416};
-  limits.vmin    = {-2.0944, -2.0944, -3.1416, -3.1416, -3.1416, -3.1416};
+  limits.pmax = {3.1241, 3.1241, 4.6949, 3.2987, 3.1241, 3.9095};
+  limits.pmin = {-3.1241, -3.1241, -4.6949, -3.2987, -3.1241, -3.9095};
+  limits.vmax = {2.0944, 2.0944, 3.1416, 3.1416, 3.1416, 3.1416};
+  //   limits.vmin    = {-2.0944, -2.0944, -3.1416, -3.1416, -3.1416, -3.1416};
   limits.tau_max = {0, 0, 0, 0, 0, 0};
-  limits.tau_min = {-0, -0, -0, -0, -0, -0};
+  //   limits.tau_min = {-0, -0, -0, -0, -0, -0};
   limits.tcp_max = 0;
 
   ManipulatorKinematics kinematics;
@@ -432,12 +432,12 @@ inline host_fn World get_lab_world() {
   world.add_box({0.4114, -0.2359, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // left
   world.add_box({0.4114, -0.5209, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // right
 
-  // DEMO 1 bin 2
-  world.add_box({0.8716, -0.3784, -0.04465}, {0.2125, 0.155, 0.0125}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // bottom
-  world.add_box({0.6716, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1));  // front
-  world.add_box({1.0716, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1));  // back
-  world.add_box({0.8716, -0.2359, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // left
-  world.add_box({0.8716, -0.5209, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // right
+  // // DEMO 1 bin 2
+  // world.add_box({0.8716, -0.3784, -0.04465}, {0.2125, 0.155, 0.0125}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // bottom
+  // world.add_box({0.6716, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1));  // front
+  // world.add_box({1.0716, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1));  // back
+  // world.add_box({0.8716, -0.2359, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // left
+  // world.add_box({0.8716, -0.5209, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // right
 
   // DEMO 1 obstacle
   world.add_box({0.67, -0.1475, -0.0562}, {0.35, 0.025, 0.4}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // vertical plate (no coll)

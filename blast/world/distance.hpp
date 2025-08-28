@@ -10,7 +10,7 @@ struct Segment {
   Vec3 p2;
 };
 
-struct surface {
+struct Surface {
   Vec3 p;
   Vec3 d1;
   Vec3 d2;
@@ -39,8 +39,27 @@ struct Triangle {
   real distance = 0;
 };
 
-constexpr real COLLISION_EPSILON = 1e-9;
+struct OriginVertices {
+  Vec3 vert[8];
+};
 
+struct Directions {
+  Vec3 dir[3];
+};
+
+struct Faces {
+  Surface surface[12];
+};
+
+struct ActiveEdges {
+  Segment segments[24];
+};
+
+struct SegFace {
+  Segment segments[4];
+};
+
+constexpr real COLLISION_EPSILON = 1e-9;
 
 // Internal functions not directly exposed to the API
 inline blast_fn bool point_in_triangle(Vec3 triangle_v1, Vec3 triangle_v2, Vec3 triangle_origin, Vec3 point);
@@ -52,7 +71,7 @@ inline blast_fn Vec3   closest_point_plane(Vec3 q, Plane p);
 inline blast_fn TwoPts closest_points(Segment segment1, Segment segment2);
 
 inline blast_fn real distance(Segment segment, Vec3 point);
-inline blast_fn real distance(surface surface, Vec3 point);
+inline blast_fn real distance(Surface surface, Vec3 point);
 inline blast_fn real distance(Segment segment1, Segment segment2);
 
 
@@ -104,7 +123,7 @@ inline blast_fn Vec3 closest_point_plane(Vec3 q, Plane p) {
   ;
 }
 
-inline blast_fn real distance(surface surface, Vec3 point) {
+inline blast_fn real distance(Surface surface, Vec3 point) {
   const Vec3 n = cross(surface.d1, surface.d2);
   if (dot(n, n) < COLLISION_EPSILON)
     return -INF_REAL; // the plane is non-existant
@@ -256,32 +275,32 @@ inline blast_fn real distance(const Capsule& capsule, const Box& box) {
   // real z_max =   box.e.z;
 
   // Creating the eight original vertices
-  Vec3 origin_vertices[8];
-  origin_vertices[0] = {-box.e.x, -box.e.y, -box.e.z};
-  origin_vertices[1] = {-box.e.x, box.e.y, -box.e.z};
-  origin_vertices[2] = {box.e.x, -box.e.y, -box.e.z};
-  origin_vertices[3] = {box.e.x, box.e.y, -box.e.z};
-  origin_vertices[4] = {-box.e.x, -box.e.y, box.e.z};
-  origin_vertices[5] = {-box.e.x, box.e.y, box.e.z};
-  origin_vertices[6] = {box.e.x, -box.e.y, box.e.z};
-  origin_vertices[7] = {box.e.x, box.e.y, box.e.z};
+  OriginVertices origin_vertices;
+  origin_vertices.vert[0] = {-box.e.x, -box.e.y, -box.e.z};
+  origin_vertices.vert[1] = {-box.e.x, box.e.y, -box.e.z};
+  origin_vertices.vert[2] = {box.e.x, -box.e.y, -box.e.z};
+  origin_vertices.vert[3] = {box.e.x, box.e.y, -box.e.z};
+  origin_vertices.vert[4] = {-box.e.x, -box.e.y, box.e.z};
+  origin_vertices.vert[5] = {-box.e.x, box.e.y, box.e.z};
+  origin_vertices.vert[6] = {box.e.x, -box.e.y, box.e.z};
+  origin_vertices.vert[7] = {box.e.x, box.e.y, box.e.z};
 
   // Thus, we get the three main directions
-  Vec3 dir[3];
-  dir[0] = {2 * box.e.x, 0, 0};
-  dir[1] = {0, 2 * box.e.y, 0};
-  dir[2] = {0, 0, 2 * box.e.z};
+  Directions directions;
+  directions.dir[0] = {2 * box.e.x, 0, 0};
+  directions.dir[1] = {0, 2 * box.e.y, 0};
+  directions.dir[2] = {0, 0, 2 * box.e.z};
 
   // some faces depend only on the direction of vec in x
-  surface face[12];
+  Faces face;
   // the top four vertices will always be extended, meaning that the top and bottom faces (faces 0-1) will always be of the same format:
-  face[0].p  = origin_vertices[4] + vec;
-  face[0].d1 = dir[0];
-  face[0].d2 = dir[1];
+  face.surface[0].p  = origin_vertices.vert[4] + vec;
+  face.surface[0].d1 = directions.dir[0];
+  face.surface[0].d2 = directions.dir[1];
 
-  face[1].p  = origin_vertices[0];
-  face[1].d1 = dir[1];
-  face[1].d2 = dir[0];
+  face.surface[1].p  = origin_vertices.vert[0];
+  face.surface[1].d1 = directions.dir[1];
+  face.surface[1].d2 = directions.dir[0];
 
   // The other faces depend on the orientation of the vector either in x (faces 2-5),
   // in y (faces 6-9), or a combination of both (faces 10-11)
@@ -289,85 +308,190 @@ inline blast_fn real distance(const Capsule& capsule, const Box& box) {
   bool positive_y = vec.y >= 0;
   // bool positive_z = vec.z >= 0;
 
+  /*face.surface[2].p  = positive_x ? origin_vertices.vert[5] : origin_vertices.vert[6];
+  face.surface[2].d1 = positive_x ? -directions.dir[1] : directions.dir[1];
+  face.surface[2].d2 = vec;
+
+  face.surface[3].p  = positive_x ? origin_vertices.vert[1] : origin_vertices.vert[2];
+  face.surface[3].d1 = positive_x ? -directions.dir[1] : directions.dir[1];
+  face.surface[3].d2 = directions.dir[2];
+
+  face.surface[4].p  = positive_x ? origin_vertices.vert[2] + vec : origin_vertices.vert[1] + vec;
+  face.surface[4].d1 = positive_x ? directions.dir[1] : -directions.dir[1];
+  face.surface[4].d2 = directions.dir[2];
+
+  face.surface[5].p  = positive_x ? origin_vertices.vert[2] : origin_vertices.vert[1];
+  face.surface[5].d1 = positive_x ? directions.dir[1] : -directions.dir[1];
+  face.surface[5].d2 = vec;
+
+  face.surface[6].p  = positive_y ? origin_vertices.vert[4] : origin_vertices.vert[7];
+  face.surface[6].d1 = positive_y ? directions.dir[0] : -directions.dir[0];
+  face.surface[6].d2 = vec;
+
+  face.surface[7].p  = positive_y ? origin_vertices.vert[0] : origin_vertices.vert[3];
+  face.surface[7].d1 = positive_y ? directions.dir[0] : -directions.dir[0];
+  face.surface[7].d2 = directions.dir[2];
+
+  face.surface[8].p  = positive_y ? origin_vertices.vert[3] + vec : origin_vertices.vert[0] + vec;
+  face.surface[8].d1 = positive_y ? -directions.dir[0] : directions.dir[0];
+  face.surface[8].d2 = directions.dir[2];
+
+  face.surface[9].p  = positive_y ? origin_vertices.vert[3] : origin_vertices.vert[0];
+  face.surface[9].d1 = positive_y ? -directions.dir[0] : directions.dir[0];
+  face.surface[9].d2 = vec;
+
+  face.surface[10].p  = positive_x ? (positive_y ? origin_vertices.vert[1] : origin_vertices.vert[4]) : (positive_y ? origin_vertices.vert[7] : origin_vertices.vert[2]);
+  face.surface[10].d1 = positive_x ? (positive_y ? directions.dir[2] : -directions.dir[2]) : (positive_y ? -directions.dir[2] : directions.dir[2]);
+  face.surface[10].d2 = vec;
+
+  face.surface[11].p  = positive_x ? (positive_y ? origin_vertices.vert[6] : origin_vertices.vert[3]) : (positive_y ? origin_vertices.vert[0] : origin_vertices.vert[5]);
+  face.surface[11].d1 = positive_x ? (positive_y ? -directions.dir[2] : directions.dir[2]) : (positive_y ? directions.dir[2] : -directions.dir[2]);
+  face.surface[11].d2 = vec;
+  */
+
   // Faces 2-5 depend on the x coordinate
-  face[2].p  = positive_x ? origin_vertices[5] : origin_vertices[6];
-  face[2].d1 = positive_x ? -dir[1] : dir[1];
-  face[2].d2 = vec;
+  if (positive_x) {
+    face.surface[2].p  = origin_vertices.vert[5];
+    face.surface[2].d1 = -directions.dir[1];
+    face.surface[2].d2 = vec;
 
-  face[3].p  = positive_x ? origin_vertices[1] : origin_vertices[2];
-  face[3].d1 = positive_x ? -dir[1] : dir[1];
-  face[3].d2 = dir[2];
+    face.surface[3].p  = origin_vertices.vert[1];
+    face.surface[3].d1 = -directions.dir[1];
+    face.surface[3].d2 = directions.dir[2];
 
-  face[4].p  = positive_x ? origin_vertices[2] + vec : origin_vertices[1] + vec;
-  face[4].d1 = positive_x ? dir[1] : -dir[1];
-  face[4].d2 = dir[2];
+    face.surface[4].p  = origin_vertices.vert[2] + vec;
+    face.surface[4].d1 = directions.dir[1];
+    face.surface[4].d2 = directions.dir[2];
 
-  face[5].p  = positive_x ? origin_vertices[2] : origin_vertices[1];
-  face[5].d1 = positive_x ? dir[1] : -dir[1];
-  face[5].d2 = vec;
+    face.surface[5].p  = origin_vertices.vert[2];
+    face.surface[5].d1 = directions.dir[1];
+    face.surface[5].d2 = vec;
+  } else {
+    face.surface[2].p  = origin_vertices.vert[6];
+    face.surface[2].d1 = directions.dir[1];
+    face.surface[2].d2 = vec;
+
+    face.surface[3].p  = origin_vertices.vert[2];
+    face.surface[3].d1 = directions.dir[1];
+    face.surface[3].d2 = directions.dir[2];
+
+    face.surface[4].p  = origin_vertices.vert[1] + vec;
+    face.surface[4].d1 = -directions.dir[1];
+    face.surface[4].d2 = directions.dir[2];
+
+    face.surface[5].p  = origin_vertices.vert[1];
+    face.surface[5].d1 = -directions.dir[1];
+    face.surface[5].d2 = vec;
+  }
 
   // Faces 6-9 depend on the y coordinate
-  face[6].p  = positive_y ? origin_vertices[4] : origin_vertices[7];
-  face[6].d1 = positive_y ? dir[0] : -dir[0];
-  face[6].d2 = vec;
+  if (positive_y) {
+    face.surface[6].p  = origin_vertices.vert[4];
+    face.surface[6].d1 = directions.dir[0];
+    face.surface[6].d2 = vec;
 
-  face[7].p  = positive_y ? origin_vertices[0] : origin_vertices[3];
-  face[7].d1 = positive_y ? dir[0] : -dir[0];
-  face[7].d2 = dir[2];
+    face.surface[7].p  = origin_vertices.vert[0];
+    face.surface[7].d1 = directions.dir[0];
+    face.surface[7].d2 = directions.dir[2];
 
-  face[8].p  = positive_y ? origin_vertices[3] + vec : origin_vertices[0] + vec;
-  face[8].d1 = positive_y ? -dir[0] : dir[0];
-  face[8].d2 = dir[2];
+    face.surface[8].p  = origin_vertices.vert[3] + vec;
+    face.surface[8].d1 = -directions.dir[0];
+    face.surface[8].d2 = directions.dir[2];
 
-  face[9].p  = positive_y ? origin_vertices[3] : origin_vertices[0];
-  face[9].d1 = positive_y ? -dir[0] : dir[0];
-  face[9].d2 = vec;
+    face.surface[9].p  = origin_vertices.vert[3];
+    face.surface[9].d1 = -directions.dir[0];
+    face.surface[9].d2 = vec;
+  } else {
+    face.surface[6].p  = origin_vertices.vert[7];
+    face.surface[6].d1 = -directions.dir[0];
+    face.surface[6].d2 = vec;
+
+    face.surface[7].p  = origin_vertices.vert[3];
+    face.surface[7].d1 = -directions.dir[0];
+    face.surface[7].d2 = directions.dir[2];
+
+    face.surface[8].p  = origin_vertices.vert[0] + vec;
+    face.surface[8].d1 = directions.dir[0];
+    face.surface[8].d2 = directions.dir[2];
+
+    face.surface[9].p  = origin_vertices.vert[0];
+    face.surface[9].d1 = directions.dir[0];
+    face.surface[9].d2 = vec;
+  }
 
   // Faces 10-11 depend on the x and y coordinate
-  face[10].p  = positive_x ? (positive_y ? origin_vertices[1] : origin_vertices[4]) : (positive_y ? origin_vertices[7] : origin_vertices[2]);
-  face[10].d1 = positive_x ? (positive_y ? dir[2] : -dir[2]) : (positive_y ? -dir[2] : dir[2]);
-  face[10].d2 = vec;
+  if (positive_x && positive_y) {
+    face.surface[10].p  = origin_vertices.vert[1];
+    face.surface[10].d1 = directions.dir[2];
+    face.surface[10].d2 = vec;
 
-  face[11].p  = positive_x ? (positive_y ? origin_vertices[6] : origin_vertices[3]) : (positive_y ? origin_vertices[0] : origin_vertices[5]);
-  face[11].d1 = positive_x ? (positive_y ? -dir[2] : dir[2]) : (positive_y ? dir[2] : -dir[2]);
-  face[11].d2 = vec;
+    face.surface[11].p  = origin_vertices.vert[6];
+    face.surface[11].d1 = -directions.dir[2];
+    face.surface[11].d2 = vec;
+  } else if (positive_x && !positive_y) {
+    face.surface[10].p  = origin_vertices.vert[4];
+    face.surface[10].d1 = -directions.dir[2];
+    face.surface[10].d2 = vec;
 
-  Segment active_edges[24];
-  int     n_active_edges = 0;
-  real    normal_distance[12];
-  real    max_normal_dist = -INF_REAL;
+    face.surface[11].p  = origin_vertices.vert[3];
+    face.surface[11].d1 = directions.dir[2];
+    face.surface[11].d2 = vec;
+  } else if (!positive_x && positive_y) {
+    face.surface[10].p  = origin_vertices.vert[7];
+    face.surface[10].d1 = -directions.dir[2];
+    face.surface[10].d2 = vec;
+
+    face.surface[11].p  = origin_vertices.vert[0];
+    face.surface[11].d1 = directions.dir[2];
+    face.surface[11].d2 = vec;
+  } else {
+    face.surface[10].p  = origin_vertices.vert[2];
+    face.surface[10].d1 = directions.dir[2];
+    face.surface[10].d2 = vec;
+
+    face.surface[11].p  = origin_vertices.vert[5];
+    face.surface[11].d1 = -directions.dir[2];
+    face.surface[11].d2 = vec;
+  }
+
+  ActiveEdges active_edges;
+  int         n_active_edges = 0;
+  real        normal_distance[12];
+  real        max_normal_dist = -INF_REAL;
+
+  SegFace seg_face;
+
   for (int i = 0; i < 12; i++) {
-    Vec3 n_current     = cross(face[i].d1, face[i].d2);
+    Vec3 n_current     = cross(face.surface[i].d1, face.surface[i].d2);
     n_current          = 1 / norm(n_current) * n_current;
-    normal_distance[i] = dot(n_current, point - face[i].p);
+    normal_distance[i] = dot(n_current, point - face.surface[i].p);
     max_normal_dist    = normal_distance[i] > max_normal_dist ? normal_distance[i] : max_normal_dist;
 
     if (normal_distance[i] >= 0) {
-      if (point_in_surface(face[i].d1, face[i].d2, face[i].p, point))
+      if (point_in_surface(face.surface[i].d1, face.surface[i].d2, face.surface[i].p, point))
         return normal_distance[i] - capsule.r;
 
-      Segment seg_face[4];
-      seg_face[0].p1 = face[i].p;
-      seg_face[0].p2 = face[i].p + face[i].d1;
-      seg_face[1].p1 = face[i].p;
-      seg_face[1].p2 = face[i].p + face[i].d2;
-      seg_face[2].p1 = face[i].p + face[i].d1;
-      seg_face[2].p2 = face[i].p + face[i].d1 + face[i].d2;
-      seg_face[3].p1 = face[i].p + face[i].d2;
-      seg_face[3].p2 = face[i].p + face[i].d1 + face[i].d2;
+      seg_face.segments[0].p1 = face.surface[i].p;
+      seg_face.segments[0].p2 = face.surface[i].p + face.surface[i].d1;
+      seg_face.segments[1].p1 = face.surface[i].p;
+      seg_face.segments[1].p2 = face.surface[i].p + face.surface[i].d2;
+      seg_face.segments[2].p1 = face.surface[i].p + face.surface[i].d1;
+      seg_face.segments[2].p2 = face.surface[i].p + face.surface[i].d1 + face.surface[i].d2;
+      seg_face.segments[3].p1 = face.surface[i].p + face.surface[i].d2;
+      seg_face.segments[3].p2 = face.surface[i].p + face.surface[i].d1 + face.surface[i].d2;
 
       // active_faces[n_active_faces++] = face[i];
-      for (const auto& current_seg: seg_face) {
+      for (const auto& current_seg: seg_face.segments) {
         bool is_in_list = false;
         for (int k = 0; k < n_active_edges; k++) {
-          if (current_seg.p1 == active_edges[k].p1 && current_seg.p2 == active_edges[k].p2 ||
-              current_seg.p1 == active_edges[k].p2 && current_seg.p2 == active_edges[k].p1) {
+          if (current_seg.p1 == active_edges.segments[k].p1 && current_seg.p2 == active_edges.segments[k].p2 ||
+              current_seg.p1 == active_edges.segments[k].p2 && current_seg.p2 == active_edges.segments[k].p1) {
             is_in_list = true;
             break;
           }
         }
         if (!is_in_list)
-          active_edges[n_active_edges++] = current_seg;
+          active_edges.segments[n_active_edges++] = current_seg;
       }
     }
   }
@@ -379,7 +503,7 @@ inline blast_fn real distance(const Capsule& capsule, const Box& box) {
 
   real dist_min = INF_REAL;
   for (int i = 0; i < n_active_edges; i++) {
-    const real current_distance = distance(active_edges[i], point);
+    const real current_distance = distance(active_edges.segments[i], point);
     dist_min                    = current_distance < dist_min ? current_distance : dist_min;
   }
   return dist_min - capsule.r;

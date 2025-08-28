@@ -65,27 +65,29 @@ inline host_fn Matrix jacobian(const Manipulator& manip, const ManipulatorTempDa
 inline host_fn void forward_kinematics(const Manipulator& manip, ManipulatorTempData& temp, const Array& joint_pos) {
   const auto n_joints = joint_pos.size;
 
-  real s[MAX_JOINTS];
-  real c[MAX_JOINTS];
+  // real s[MAX_JOINTS];
+  // real c[MAX_JOINTS];
 
-#if 0
-  vcl::Vec4d    a, cr;
-  constexpr int vecLoopSize = MAX_JOINTS; // todo: fix for non divisible by 4
-  for (int i = 0; i < vecLoopSize; i += 4) {
-    a.load(joint_pos.data + i);
-    vcl::Vec4d sr = vcl::sincos(&cr, a);
-    sr.store(s + i);
-    cr.store(c + i);
-  }
-#else
-  for (int i = 0; i < n_joints; ++i) {
-    s[i] = sin(joint_pos[i]);
-    c[i] = cos(joint_pos[i]);
-  }
-#endif
+  // #if 0
+  // vcl::Vec4d    a, cr;
+  // constexpr int vecLoopSize = MAX_JOINTS; // todo: fix for non divisible by 4
+  // for (int i = 0; i < vecLoopSize; i += 4) {
+  //   a.load(joint_pos.data + i);
+  //   vcl::Vec4d sr = vcl::sincos(&cr, a);
+  //   sr.store(s + i);
+  //   cr.store(c + i);
+  // }
+  // #else
+  //   for (int i = 0; i < n_joints; ++i) {
+  //     s[i] = sin(joint_pos[i]);
+  //     c[i] = cos(joint_pos[i]);
+  //   }
+  // #endif
 
   for (u32 j = 0; j < n_joints; ++j) {
-    Mat3 temp_Q       = {c[j], s[j], 0, -s[j], c[j], 0, 0, 0, 1};
+    auto       s      = sin(joint_pos[j]);
+    auto       c      = cos(joint_pos[j]);
+    const Mat3 temp_Q = {c, s, 0, -s, c, 0, 0, 0, 1};
     temp.rotations[j] = manip.Q_static[j] * temp_Q;
   }
 
@@ -100,7 +102,7 @@ inline host_fn void forward_kinematics(const Manipulator& manip, ManipulatorTemp
   // todo: Handle end-effector
 }
 
-inline host_fn void dynamics(const Manipulator& manip, ManipulatorTempData& temp, Array& vel, Array& acc) {
+inline host_fn void dynamics(const Manipulator& manip, ManipulatorTempData& temp, const Array& vel, const Array& acc) {
   Assert(vel.size == acc.size);
   Assert(vel.size == manip.n_joints);
   const auto joints = manip.n_joints;
@@ -114,6 +116,7 @@ inline host_fn void dynamics(const Manipulator& manip, ManipulatorTempData& temp
 
   for (u32 j = 0; j < joints; j++) {
     Qt[j] = transpose(temp.rotations[j]);
+    // transpose(temp.rotations[j], Qt[j]);
   }
 
   // note: This is the Newton algorithm in 'Element de robotique' course notes.
@@ -222,26 +225,26 @@ inline host_fn void Manipulator::set_limits(const ManipulatorLimits& limits) {
     Assert(limits.vmax.size == n_joints);
     vmax = limits.vmax;
   }
-  if (limits.vmin.size != 0) {
-    Assert(limits.vmin.size == n_joints);
-    vmin = limits.vmin;
-  }
+  // if (limits.vmin.size != 0) {
+  //   Assert(limits.vmin.size == n_joints);
+  //   vmin = limits.vmin;
+  // }
   if (limits.amax.size != 0) {
     Assert(limits.amax.size == n_joints);
     amax = limits.amax;
   }
-  if (limits.amin.size != 0) {
-    Assert(limits.amin.size == n_joints);
-    amin = limits.amin;
-  }
+  // if (limits.amin.size != 0) {
+  //   Assert(limits.amin.size == n_joints);
+  //   amin = limits.amin;
+  // }
   if (limits.tau_max.size != 0) {
     Assert(limits.tau_max.size == n_joints);
     tau_max = limits.tau_max;
   }
-  if (limits.tau_min.size != 0) {
-    Assert(limits.tau_min.size == n_joints);
-    tau_min = limits.tau_min;
-  }
+  // if (limits.tau_min.size != 0) {
+  //   Assert(limits.tau_min.size == n_joints);
+  //   tau_min = limits.tau_min;
+  // }
   if (limits.tcp_max != 0.0) {
     tcp_max = limits.tcp_max;
   }
