@@ -51,6 +51,14 @@ inline blast_fn Matrix get_J_tool(const Optimization* opt, ManipulatorTempData& 
   return J_tool;
 }
 
+// note: basis use the idx as is, but grad need idx - 3 (since it does not know we skip first and last 3)
+inline blast_fn std::tuple<int, int> compute_basis_idx(const int joint, const int n_ctrl, const int first_affected_control_point, const int last_affected_control_point) {
+  auto basis_idx_start = joint * (n_ctrl - 6) + first_affected_control_point;
+  auto basis_idx_end   = joint * (n_ctrl - 6) + last_affected_control_point;
+
+  return std::make_tuple(basis_idx_start, basis_idx_end);
+}
+
 inline blast_fn void constraints_with_segments(const Array& x, Optimization& opt, Array& constraints, Matrix& grad) {
   // constraints (p,v,a,tor) for each joint, for each segment
   // segment
@@ -72,6 +80,15 @@ inline blast_fn void constraints_with_segments(const Array& x, Optimization& opt
   const int x_len                     = (int) x.size;
   const int n_constraints_per_segment = (n_joints * 4); //  todo: remove hard-coded 4
   Assert(constraints.size == n_segments * n_constraints_per_segment);
+
+  // limits
+  Array       pmax    = opt.manip.pmax;
+  Array       pmin    = opt.manip.pmin;
+  const Array vmax    = opt.manip.vmax;
+  const Array amax    = opt.manip.amax;
+  const Array tau_max = opt.manip.tau_max;
+
+  ManipulatorTempData manip_data;
 
   for (int segment = 0; segment < n_segments; segment++) {
     const int first_affected_control_point = std::max(3, segment);
@@ -128,35 +145,148 @@ inline blast_fn void constraints_with_segments(const Array& x, Optimization& opt
       Assert(grad_segment.is_alias);
 
       int con = 0;
+      // positions
       for (int joint = 0; joint < n_joints; joint++) {
-        // positions
         Array fill = grad_segment.col(con);
         Assert(fill.is_alias);
 
-        auto fill_idx_start = joint * (n_ctrl-6) + first_affected_control_point;
-        auto fill_idx_end = joint * (n_ctrl-6) + last_affected_control_point;
+        auto [basis_idx_start, basis_idx_end] = compute_basis_idx(joint, n_ctrl, first_affected_control_point, last_affected_control_point);
+        auto fill_idx_start                   = basis_idx_start - 3;
+
+        if (pmax[joint] == INF_REAL)  // note: replace INF_REAL with huge value
+          pmax[joint] = 1e300;
+        if (pmin[joint] == -INF_REAL) // note: replace -INF_REAL with huge negative value
+          pmin[joint] = -1e300;
+
+        real c          = (pmax[joint] + pmin[joint]) / 2;
+        real b          = (pmax[joint] - pmin[joint]) / 2;
+        real one_over_b = 1 / b;
+        real q_prime;
 
         // fill 3 to 6 basis functions depending on the segment (first and last 3 control points are not in x)
-        for (int i = fill_idx_start; i < fill_idx_end; i++) {
-          fill[i] = bp(i, max_pos_indices[joint]);
+        for (int i = basis_idx_start; i < basis_idx_end; i++) {
+          q_prime = max_pos[joint] - c;
+
+          fill[fill_idx_start++] = bp(i, max_pos_indices[joint]) * sign(q_prime) * one_over_b;
+        }
+
+        con++;
+      }
+
+      // todo: deal with T
+
+      // velocities
+      auto one_over_T = 1 / opt.bspline.traj.t.back();
+      for (int joint = 0; joint < n_joints; joint++) {
+        Array fill = grad_segment.col(con);
+        Assert(fill.is_alias);
+
+        auto [basis_idx_start, basis_idx_end] = compute_basis_idx(joint, n_ctrl, first_affected_control_point, last_affected_control_point);
+        auto fill_idx_start                   = basis_idx_start - 3;
+
+        real one_over_vmax = 1 / vmax[joint];
+
+        // fill 3 to 6 basis functions depending on the segment (first and last 3 control points are not in x)
+        for (int i = basis_idx_start; i < basis_idx_end; i++) {
+          fill[fill_idx_start++] = bv(i, max_vel_indices[joint]) * one_over_T * sign(max_vel[joint]) * one_over_vmax; // todo: verify that fill[i - 3] is right
         }
         con++;
       }
 
+      // todo: deal with T
+
+      // accelerations
+      auto one_over_T2 = one_over_T * one_over_T;
       for (int joint = 0; joint < n_joints; joint++) {
-        // velocities
+        Array fill = grad_segment.col(con);
+        Assert(fill.is_alias);
+
+        auto [basis_idx_start, basis_idx_end] = compute_basis_idx(joint, n_ctrl, first_affected_control_point, last_affected_control_point);
+        auto fill_idx_start                   = basis_idx_start - 3;
+
+        real one_over_amax = 1 / amax[joint];
+
+        // fill 3 to 6 basis functions depending on the segment (first and last 3 control points are not in x)
+        for (int i = basis_idx_start; i < basis_idx_end; i++) {
+          fill[fill_idx_start++] = ba(i, max_acc_indices[joint]) * one_over_T2 * sign(max_acc[joint]) * one_over_amax; // todo: verify that fill[i - 3] is right
+        }
         con++;
       }
 
+      // todo: deal with T
+
+      // torque
+      real eps = 1e-5;
+
+      // [dt0/dp0, dt1/dp0, ..., dt4/dp0, dt5/dp0]
+      // [dt0/dp1, dt1/dp1, ..., dt4/dp1, dt5/dp1]
+      // [dt0/dp2, dt1/dp2, ..., dt4/dp2, dt5/dp2]
+      // [dt0/dp3, dt1/dp3, ..., dt4/dp3, dt5/dp3]
+      Matrix grad_tau_p(n_joints, n_joints); // variation of torque[joint] in respect to delta p[joint]
+      Matrix grad_tau_v(n_joints, n_joints); // variation of torque[joint] in respect to delta v[joint]
+      Matrix grad_tau_a(n_joints, n_joints); // variation of torque[joint] in respect to delta a[joint]
+      Array  max_pos_plus = max_pos;
+      Array  max_vel_plus = max_vel;
+      Array  max_acc_plus = max_acc;
       for (int joint = 0; joint < n_joints; joint++) {
-        // accelerations
-        con++;
+        // variation in pos
+        max_pos_plus[joint] += eps;
+        forward_kinematics(opt.manip, manip_data, max_pos_plus);
+        dynamics(opt.manip, manip_data, max_vel_plus, max_acc_plus);
+        max_pos_plus[joint] -= eps;
+
+        for (int j = 0; j < n_joints; j++) {
+          auto max_tor_plus    = (std::abs(manip_data.efforts[j]) - tau_max[j]) / tau_max[j];
+          grad_tau_p(j, joint) = (max_tor_plus - max_tor[j]) / eps;
+        }
+
+        // restore to original positions (only once, since vel and acc do not affect fk)
+        forward_kinematics(opt.manip, manip_data, max_pos_plus);
+
+        // variation in vel
+        max_vel_plus[joint] += eps;
+        dynamics(opt.manip, manip_data, max_vel_plus, max_acc_plus);
+        max_vel_plus[joint] -= eps;
+
+        for (int j = 0; j < n_joints; j++) {
+          auto max_tor_plus    = (std::abs(manip_data.efforts[j]) - tau_max[j]) / tau_max[j];
+          grad_tau_v(j, joint) = (max_tor_plus - max_tor[j]) / eps;
+        }
+
+        // variation in acc
+        max_acc_plus[joint] += eps;
+        dynamics(opt.manip, manip_data, max_vel_plus, max_acc_plus);
+        max_acc_plus[joint] -= eps;
+
+        for (int j = 0; j < n_joints; j++) {
+          auto max_tor_plus    = (std::abs(manip_data.efforts[j]) - tau_max[j]) / tau_max[j];
+          grad_tau_a(j, joint) = (max_tor_plus - max_tor[j]) / eps;
+        }
       }
 
       for (int joint = 0; joint < n_joints; joint++) {
-        // torques
+        Array fill = grad_segment.col(con);
+        Assert(fill.is_alias);
+
+        auto [basis_idx_start, basis_idx_end] = compute_basis_idx(joint, n_ctrl, first_affected_control_point, last_affected_control_point);
+        auto fill_idx_start                   = basis_idx_start - 3;
+        auto fill_idx_skip                    = (n_ctrl - 6) - (basis_idx_end + 1 - basis_idx_start);
+
+        for (int j = 0; j < n_joints; j++) {
+          // fill 3 to 6 basis functions depending on the segment (first and last 3 control points are not in x)
+          for (int i = basis_idx_start; i < basis_idx_end; i++) {
+            fill[fill_idx_start++] = bp(i, max_tor_indices[joint]) * grad_tau_p(j, joint) +
+                                     bv(i, max_tor_indices[joint]) * one_over_T * grad_tau_v(j, joint) +
+                                     ba(i, max_tor_indices[joint]) * one_over_T2 * grad_tau_a(j, joint);
+          }
+          fill_idx_start += fill_idx_skip;
+        }
         con++;
       }
+
+      // todo: deal with T
+
+      // --------------------- below are notes only -------------------------
       // dp1/dx (rowidx - rowidx+n_active_control_points), col_idx ---> fetch new basis function column (basis_p)
       // dp2/dx (rowidx - rowidx+n_active_control_points), col_idx+1 ---> fetch new basis function column (basis_p)
 
