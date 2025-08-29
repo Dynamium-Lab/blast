@@ -17,6 +17,9 @@
 #include <cstring>
 #include <ctime>
 
+#include "objective.hpp"
+#include "optimization.hpp"
+
 using std::isinf;
 
 typedef double (*nlopt_func)(unsigned n, const double* x, double* gradient, void* func_data);
@@ -1133,7 +1136,8 @@ L270:
   *krank = k;
 } /* hfti_ */
 
-static void lsei_(double* c__, double* d__, double* e,
+// Solve Least Square with Equality and Inequality constraints
+inline void lsei_(double* c__, double* d__, double* e,
                   double* f, double* g, double* h__, int* lc, int* mc, int* le, int* me, int* lg, int* mg, int* n,
                   double* x, double* xnrm, double* w, int* jw, int* mode) {
   /* Initialized data */
@@ -1141,8 +1145,7 @@ static void lsei_(double* c__, double* d__, double* e,
   const double epmach = 2.22e-16;
 
   /* System generated locals */
-  int c_dim1, c_offset, e_dim1, e_offset, g_dim1, g_offset, i__1, i__2,
-          i__3;
+  int    c_dim1, c_offset, e_dim1, e_offset, g_dim1, g_offset, i__1, i__2, i__3;
   double d__1;
 
   /* Local variables */
@@ -1230,6 +1233,7 @@ static void lsei_(double* c__, double* d__, double* e,
     i__2 = i__ + 1;
     h12_(&c__2, &i__, &i__2, n, &c__[i__ + c_dim1], lc, &w[iw + i__], &g[g_offset], lg, &c__1, mg);
   }
+
   /*  SOLVE C*X=D AND MODIFY F */
   *mode = 6;
   i__2  = *mc;
@@ -1533,7 +1537,7 @@ static void lsq_(int* m, int* meq, int* n, int* nl,
 static void ldl_(int* n, double* a, double* z__,
                  double* sigma, double* w) {
   /* Initialized data */
-
+  ZoneScoped;
   const double one    = 1.;
   const double four   = 4.;
   const double epmach = 2.22e-16;
@@ -1664,201 +1668,6 @@ L280:
   return;
   /* END OF LDL */
 } /* ldl_ */
-
-#if 0
-/* we don't want to use this linmin function, for two reasons:
-   1) it was apparently written assuming an old version of Fortran where all variables
-      are saved by default, hence it was missing a "save" statement ... I would
-      need to go through and figure out which variables need to be declared "static"
-      (or, better yet, save them like I did in slsqp to make it re-entrant)
-   2) it doesn't exploit gradient information, which is stupid since we have this info
-   3) in the context of NLopt, it makes much more sence to use the local_opt algorithm
-      to do the line minimization recursively by whatever algorithm the user wants
-      (defaulting to a gradient-based method like LBFGS) */
-static double d_sign(double a, double s) { return s < 0 ? -a : a; }
-static double linmin_(int *mode, const double *ax, const double *bx, double *
-	f, double *tol)
-{
-    /* Initialized data */
-
-    const double c__ = .381966011;
-    const double eps = 1.5e-8;
-
-    /* System generated locals */
-    double ret_val, d__1;
-
-    /* Local variables */
-    double a, b, d__, e, m, p, q, r__, u, v, w, x, fu, fv, fw, fx, tol1,
-	    tol2;
-
-/*   LINMIN  LINESEARCH WITHOUT DERIVATIVES */
-/*   PURPOSE: */
-/*  TO FIND THE ARGUMENT LINMIN WHERE THE FUNCTION F TAKES ITS MINIMUM */
-/*  ON THE INTERVAL AX, BX. */
-/*  COMBINATION OF GOLDEN SECTION AND SUCCESSIVE QUADRATIC INTERPOLATION. */
-/*   INPUT ARGUMENTS: (* MEANS PARAMETERS ARE CHANGED DURING EXECUTION) */
-/* *MODE   SEE OUTPUT ARGUMENTS */
-/*  AX     LEFT ENDPOINT OF INITIAL INTERVAL */
-/*  BX     RIGHT ENDPOINT OF INITIAL INTERVAL */
-/*  F      FUNCTION VALUE AT LINMIN WHICH IS TO BE BROUGHT IN BY */
-/*         REVERSE COMMUNICATION CONTROLLED BY MODE */
-/*  TOL    DESIRED LENGTH OF INTERVAL OF UNCERTAINTY OF FINAL RESULT */
-/*   OUTPUT ARGUMENTS: */
-/*  LINMIN ABSCISSA APPROXIMATING THE POINT WHERE F ATTAINS A MINIMUM */
-/*  MODE   CONTROLS REVERSE COMMUNICATION */
-/*         MUST BE SET TO 0 INITIALLY, RETURNS WITH INTERMEDIATE */
-/*         VALUES 1 AND 2 WHICH MUST NOT BE CHANGED BY THE USER, */
-/*         ENDS WITH CONVERGENCE WITH VALUE 3. */
-/*   WORKING ARRAY: */
-/*  NONE */
-/*   METHOD: */
-/*  THIS FUNCTION SUBPROGRAM IS A SLIGHTLY MODIFIED VERSION OF THE */
-/*  ALGOL 60 PROCEDURE LOCALMIN GIVEN IN */
-/*  R.P. BRENT: ALGORITHMS FOR MINIMIZATION WITHOUT DERIVATIVES, */
-/*              PRENTICE-HALL (1973). */
-/*   IMPLEMENTED BY: */
-/*     KRAFT, D., DFVLR - INSTITUT FUER DYNAMIK DER FLUGSYSTEME */
-/*                D-8031  OBERPFAFFENHOFEN */
-/*   STATUS: 31. AUGUST  1984 */
-/*   SUBROUTINES REQUIRED: NONE */
-/*  EPS = SQUARE - ROOT OF MACHINE PRECISION */
-/*  C = GOLDEN SECTION RATIO = (3-SQRT(5))/2 */
-    switch (*mode) {
-	case 1:  goto L10;
-	case 2:  goto L55;
-    }
-/*  INITIALIZATION */
-    a = *ax;
-    b = *bx;
-    e = 0.0;
-    v = a + c__ * (b - a);
-    w = v;
-    x = w;
-    ret_val = x;
-    *mode = 1;
-    goto L100;
-/*  MAIN LOOP STARTS HERE */
-L10:
-    fx = *f;
-    fv = fx;
-    fw = fv;
-L20:
-    m = (a + b) * .5;
-    tol1 = eps * fabs(x) + *tol;
-    tol2 = tol1 + tol1;
-/*  TEST CONVERGENCE */
-    if ((d__1 = x - m, fabs(d__1)) <= tol2 - (b - a) * .5) {
-	goto L90;
-    }
-    r__ = 0.0;
-    q = r__;
-    p = q;
-    if (fabs(e) <= tol1) {
-	goto L30;
-    }
-/*  FIT PARABOLA */
-    r__ = (x - w) * (fx - fv);
-    q = (x - v) * (fx - fw);
-    p = (x - v) * q - (x - w) * r__;
-    q -= r__;
-    q += q;
-    if (q > 0.0) {
-	p = -p;
-    }
-    if (q < 0.0) {
-	q = -q;
-    }
-    r__ = e;
-    e = d__;
-/*  IS PARABOLA ACCEPTABLE */
-L30:
-    if (fabs(p) >= (d__1 = q * r__, fabs(d__1)) * .5 || p <= q * (a - x) || p >=
-	     q * (b - x)) {
-	goto L40;
-    }
-/*  PARABOLIC INTERPOLATION STEP */
-    d__ = p / q;
-/*  F MUST NOT BE EVALUATED TOO CLOSE TO A OR B */
-    if (u - a < tol2) {
-	d__1 = m - x;
-	d__ = d_sign(tol1, d__1);
-    }
-    if (b - u < tol2) {
-	d__1 = m - x;
-	d__ = d_sign(tol1, d__1);
-    }
-    goto L50;
-/*  GOLDEN SECTION STEP */
-L40:
-    if (x >= m) {
-	e = a - x;
-    }
-    if (x < m) {
-	e = b - x;
-    }
-    d__ = c__ * e;
-/*  F MUST NOT BE EVALUATED TOO CLOSE TO X */
-L50:
-    if (fabs(d__) < tol1) {
-	d__ = d_sign(tol1, d__);
-    }
-    u = x + d__;
-    ret_val = u;
-    *mode = 2;
-    goto L100;
-L55:
-    fu = *f;
-/*  UPDATE A, B, V, W, AND X */
-    if (fu > fx) {
-	goto L60;
-    }
-    if (u >= x) {
-	a = x;
-    }
-    if (u < x) {
-	b = x;
-    }
-    v = w;
-    fv = fw;
-    w = x;
-    fw = fx;
-    x = u;
-    fx = fu;
-    goto L85;
-L60:
-    if (u < x) {
-	a = u;
-    }
-    if (u >= x) {
-	b = u;
-    }
-    if (fu <= fw || w == x) {
-	goto L70;
-    }
-    if (fu <= fv || v == x || v == w) {
-	goto L80;
-    }
-    goto L85;
-L70:
-    v = w;
-    fv = fw;
-    w = u;
-    fw = fu;
-    goto L85;
-L80:
-    v = u;
-    fv = fu;
-L85:
-    goto L20;
-/*  END OF MAIN LOOP */
-L90:
-    ret_val = x;
-    *mode = 3;
-L100:
-    return ret_val;
-/*  END OF LINMIN */
-} /* linmin_ */
-#endif
 
 typedef struct {
   double  t, f0, h1, h2, h3, h4;
@@ -2114,6 +1923,7 @@ static void slsqpb_(int* m, int* meq, int* la, int* n, double* x, const double* 
                     double* x0, double* mu, double* s, double* u,
                     double* v, double* w, int* iw,
                     slsqpb_state* state) {
+  ZoneScoped;
   /* Initialized data */
 
   const double one    = 1.;
@@ -2504,6 +2314,7 @@ static void slsqp(int* m, int* meq, int* la, int* n,
                   double* x, const double* xl, const double* xu, double* f,
                   double* c__, double* g, double* a, double* acc,
                   int* iter, int* mode, double* w, int* l_w__, int* jw, int* l_jw__, slsqpb_state* state) {
+  ZoneScoped;
   /* System generated locals */
   int a_dim1   = 0;
   int a_offset = 0;
@@ -2984,6 +2795,221 @@ done:
     } else {
       *minf = fcur;
       memcpy(x, xcur, sizeof(double) * x_len);
+    }
+  }
+
+  free(work);
+  return ret;
+}
+
+
+inline nlopt_result sqp(blast::Array& x, blast::Optimization& opt, nlopt_stopping* stop) {
+  const auto   x_len             = x.size;
+  slsqpb_state state             = {};
+  unsigned     mtot              = opt.constraints.n_constraints;
+  unsigned     ptot              = 0;
+  double*      work              = {};
+  double*      cgrad             = {};
+  double*      c                 = {};
+  double*      grad              = {};
+  double*      w                 = {};
+  double       fcur              = 0;
+  double*      xcur              = {};
+  double       fprev             = {};
+  double*      xprev             = {};
+  double*      cgradtmp          = {};
+  int          mpi               = (int) (mtot + ptot);
+  int          pi                = (int) ptot;
+  int          ni                = (int) x_len;
+  int          mpi1              = mpi > 0 ? mpi : 1;
+  int          len_w             = 0;
+  int          len_jw            = 0;
+  int*         jw                = {};
+  int          mode              = 0;
+  int          prev_mode         = 0;
+  double       acc               = 0; /* we do our own convergence tests below */
+  int          iter              = 0; /* tell sqsqp to ignore this check, since we check evaluation counts ourselves */
+  unsigned     i                 = 0;
+  unsigned     ii                = 0;
+  nlopt_result ret               = NLOPT_SUCCESS;
+  int          feasible          = 0;
+  int          feasible_cur      = 0;
+  double       infeasibility     = HUGE_VAL;
+  double       infeasibility_cur = HUGE_VAL;
+  unsigned     max_cdim          = 0;
+  int          want_grad         = 1;
+
+  if (ptot > x_len) {
+    nlopt_stop_msg(stop, "slsqp: more equality constraints than variables");
+    return NLOPT_INVALID_ARGS;
+  }
+
+  max_cdim = mtot;
+  length_work(&len_w, &len_jw, mpi, pi, ni);
+
+#define U(n) ((unsigned) (n))
+  work = (double*) malloc(sizeof(double) * (U(mpi1) * (x_len + 1) + U(mpi) + x_len + 1 + x_len + x_len + max_cdim * x_len + U(len_w)) + sizeof(int) * U(len_jw));
+  if (!work)
+    return NLOPT_OUT_OF_MEMORY;
+  cgrad    = work;
+  c        = cgrad + U(mpi1) * (x_len + 1);
+  grad     = c + mpi;
+  xcur     = grad + x_len + 1;
+  xprev    = xcur + x_len;
+  cgradtmp = xprev + x_len;
+  w        = cgradtmp + max_cdim * x_len;
+  jw       = (int*) (w + len_w);
+
+  double  f;
+  double* minf = &f;
+
+  memcpy(xcur, x.data, sizeof(double) * x_len);
+  memcpy(xprev, x.data, sizeof(double) * x_len);
+  fprev = fcur = *minf = HUGE_VAL;
+  feasible = feasible_cur = 0;
+
+  goto eval_f_and_grad; /* eval before calling slsqp the first time */
+
+  do {
+    slsqp(&mpi, &pi, &mpi1, &ni,
+          xcur, opt.lb.data, opt.ub.data, &fcur,
+          c, grad, cgrad,
+          &acc, &iter, &mode,
+          w, &len_w, jw, &len_jw,
+          &state);
+
+    switch (mode) {
+      case -1:   /* objective & gradient evaluation */
+        if (prev_mode == -2 && !want_grad)
+          break; /* just evaluated this point */
+                 /* fall through */
+      case -2:
+      eval_f_and_grad:
+        want_grad = 1;
+        /* fall through */
+      case 1: { /* don't need grad unless we don't have it yet */
+        double* newgrad  = 0;
+        double* newcgrad = 0;
+        if (want_grad) {
+          newgrad  = grad;
+          newcgrad = cgradtmp;
+        }
+        feasible_cur      = 1;
+        infeasibility_cur = 0;
+        fcur              = blast::objective_function(x_len, xcur, newgrad, &opt);
+
+        stop->nevals_p++;
+        if (stop->force_stop) {
+          fcur = HUGE_VAL;
+          ret  = NLOPT_FORCED_STOP;
+          goto done;
+        }
+        if (!isinf(fcur)) {
+          want_grad = 0;
+          ii        = 0;
+          blast::nlopt_constraints(mtot, c, x_len, xcur, newcgrad, &opt);
+          if (stop->force_stop) {
+            ret = NLOPT_FORCED_STOP;
+            goto done;
+          }
+          for (int k = 0; k < mtot; ++k, ++ii) {
+            infeasibility_cur = MAX2(infeasibility_cur, c[ii]);
+            feasible_cur      = feasible_cur && c[ii] <= 0.01;
+            if (newcgrad) {
+              for (int j = 0; j < x_len; ++j)
+                cgrad[j * U(mpi1) + ii] = -cgradtmp[k * x_len + j];
+            }
+            c[k] = -c[k]; /* slsqp sign convention */
+          }
+        }
+        break;
+      }
+      case 0: /* required accuracy for solution obtained */
+        goto done;
+      case 8: /* positive directional derivative for linesearch */
+        /* relaxed convergence check for a feasible_cur point,
+           as in the SLSQP code (except xtol as well as ftol) */
+        ret = NLOPT_ROUNDOFF_LIMITED; /* usually why deriv>0 */
+        if (feasible_cur) {
+          double save_ftol_rel = stop->ftol_rel;
+          double save_xtol_rel = stop->xtol_rel;
+          double save_ftol_abs = stop->ftol_abs;
+          stop->ftol_rel *= 10;
+          stop->ftol_abs *= 10;
+          stop->xtol_rel *= 10;
+          if (nlopt_stop_ftol(stop, fcur, state.f0))
+            ret = NLOPT_FTOL_REACHED;
+          else if (nlopt_stop_x(stop, xcur, state.x0))
+            ret = NLOPT_XTOL_REACHED;
+          stop->ftol_rel = save_ftol_rel;
+          stop->ftol_abs = save_ftol_abs;
+          stop->xtol_rel = save_xtol_rel;
+        }
+        goto done;
+      case 5: /* singular matrix E in LSQ subproblem */
+      case 6: /* singular matrix C in LSQ subproblem */
+      case 7: /* rank-deficient equality constraint subproblem HFTI */
+        ret = NLOPT_ROUNDOFF_LIMITED;
+        goto done;
+      case 4: /* inequality constraints incompatible */
+      case 3: /* more than 3*n iterations in LSQ subproblem */
+      case 9: /* more than iter iterations in SQP */
+        nlopt_stop_msg(stop, "bug: more than iter SQP iterations");
+        ret = NLOPT_FAILURE;
+        goto done;
+      case 2:  /* number of equality constraints > n */
+      default: /* >= 10: working space w or jw too small */
+        nlopt_stop_msg(stop, "bug: workspace is too small");
+        ret = NLOPT_INVALID_ARGS;
+        goto done;
+    }
+    prev_mode = mode;
+
+    /* update best point so far */
+    if (!isinf(fcur) && ((fcur < *minf && (feasible_cur || !feasible)) || (!feasible && infeasibility_cur < infeasibility))) {
+      *minf         = fcur;
+      feasible      = feasible_cur;
+      infeasibility = infeasibility_cur;
+      memcpy(x.data, xcur, sizeof(double) * x_len);
+    }
+
+    /* note: mode == -1 corresponds to the completion of a line search,
+       and is the only time we should check convergence (as in original slsqp code) */
+    if (mode == -1) {
+      if (!isinf(fprev) && feasible_cur) {
+        if (nlopt_stop_ftol(stop, fcur, fprev))
+          ret = NLOPT_FTOL_REACHED;
+        else if (nlopt_stop_x(stop, xcur, xprev))
+          ret = NLOPT_XTOL_REACHED;
+      }
+      fprev = fcur;
+      memcpy(xprev, xcur, sizeof(double) * x_len);
+    }
+
+    /* do some additional termination tests */
+    if (nlopt_stop_evals(stop))
+      ret = NLOPT_MAXEVAL_REACHED;
+    else if (nlopt_stop_time(stop))
+      ret = NLOPT_MAXTIME_REACHED;
+    else if (feasible && *minf < stop->minf_max)
+      ret = NLOPT_STOPVAL_REACHED;
+
+    // // print current iteration x
+    // for (i = 0; i < 8; ++i) {
+    //   printf("%f ", x[i]);
+    // }
+    // printf("\n");
+
+  } while (ret == NLOPT_SUCCESS);
+
+done:
+  if (isinf(*minf)) {  /* didn't find any feasible points, just return last point evaluated */
+    if (isinf(fcur)) { /* invalid cur. point, use previous pt. */
+      *minf = fprev;
+      memcpy(x.data, xprev, sizeof(double) * x_len);
+    } else {
+      *minf = fcur;
+      memcpy(x.data, xcur, sizeof(double) * x_len);
     }
   }
 
