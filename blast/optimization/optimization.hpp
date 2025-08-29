@@ -67,6 +67,10 @@ inline Optimization::Optimization(const Manipulator& new_manip, const Matrix& ne
   objective.K_time = 1.0;
 }
 
+inline int Optimization::x_len() const {
+  return (int) bspline.x_len(task);
+}
+
 inline void Optimization::set_manip(Manipulator new_manip) {
   manip = std::move(new_manip);
 }
@@ -140,6 +144,11 @@ inline void initialize_optimization(Optimization* opt) {
   }
 
   // todo: swap INF for large value
+
+  opt->lb = Array(opt->x_len(), -HUGE_VAL);
+  opt->ub = Array(opt->x_len(), -HUGE_VAL);
+  opt->lb.back() = 0.1;
+  opt->ub.back() = 60.0;
 
   // Task
   auto task = opt->task;

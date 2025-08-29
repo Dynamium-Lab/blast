@@ -111,11 +111,16 @@ struct Optimization {
 
   void* custom_data;
 
+  Array lb;
+  Array ub;
+
   Optimization() = delete;
 
   Optimization(const Manipulator& new_manip, const Matrix& new_task);
 
   Optimization(const Manipulator& new_manip, const Matrix& new_task, const Bspline& new_bspline);
+
+  int x_len() const;
 
   void set_manip(Manipulator new_manip);
   void set_bspline(Bspline new_bspline);

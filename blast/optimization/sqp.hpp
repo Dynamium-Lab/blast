@@ -5,8 +5,7 @@
 
    - Copied and adapted to Blast by Andre Gallant (2025)
 */
-#ifndef BLAST_SQP_HPP
-#define BLAST_SQP_HPP
+#pragma once
 
 // #include <blast>
 
@@ -35,19 +34,19 @@ struct nlopt_constraint {
 };
 
 struct nlopt_stopping {
-  unsigned      n;
-  double        minf_max;
-  double        ftol_rel;
-  double        ftol_abs;
-  double        xtol_rel;
-  const double* xtol_abs;
-  const double* x_weights;
-  int           nevals_p = 0;
-  int           maxeval  = 0;
-  double        maxtime;
-  double        start;
-  bool          force_stop;
-  char**        stop_msg; /* pointer to msg string to update */
+  unsigned      n{};
+  double        minf_max{};
+  double        ftol_rel{};
+  double        ftol_abs{};
+  double        xtol_rel{};
+  const double* xtol_abs{};
+  const double* x_weights{};
+  int           nevals_p{};
+  int           maxeval{};
+  double        maxtime{};
+  double        start{};
+  bool          force_stop = false;
+  char**        stop_msg{}; /* pointer to msg string to update */
 };
 
 
@@ -3018,4 +3017,3 @@ done:
 }
 
 
-#endif // BLAST_SQP_HPP
