@@ -51,6 +51,146 @@ inline blast_fn Matrix get_J_tool(const Optimization* opt, ManipulatorTempData& 
   return J_tool;
 }
 
+inline blast_fn void constraints_with_segments(const Array& x, Optimization& opt, Array& constraints, Matrix& grad) {
+  // constraints (p,v,a,tor) for each joint, for each segment
+  // segment
+  //    p joint 1
+  //    p joint 2??
+
+  // basis: n_ctrl x n_points
+  Assert(constraints.is_alias);
+  if (grad.size) {
+    Assert(grad.is_alias);
+    Assert(grad.rows == x.size);
+    Assert(grad.cols == constraints.size);
+  }
+  opt.bspline.compute_trajectory(x, opt.task);
+  const int n_segments                = (int) opt.bspline.n_ctrl - (int) opt.bspline.p;
+  const int n_points_per_segment      = (int) opt.bspline.n_points / n_segments; // todo: check if fine?
+  const int n_joints                  = (int) opt.manip.n_joints;
+  const int n_ctrl                    = (int) opt.bspline.n_ctrl;
+  const int x_len                     = (int) x.size;
+  const int n_constraints_per_segment = (n_joints * 4); //  todo: remove hard-coded 4
+  Assert(constraints.size == n_segments * n_constraints_per_segment);
+
+  for (int segment = 0; segment < n_segments; segment++) {
+    const int first_affected_control_point = std::max(3, segment);
+    const int last_affected_control_point  = std::min((n_ctrl - 1) - 3, segment + (int) opt.bspline.p);
+
+    Matrix bp(&opt.bspline.basis_p(0, segment * n_points_per_segment), n_ctrl, n_points_per_segment);
+    Matrix bv(&opt.bspline.basis_v(0, segment * n_points_per_segment), n_ctrl, n_points_per_segment);
+    Matrix ba(&opt.bspline.basis_a(0, segment * n_points_per_segment), n_ctrl, n_points_per_segment);
+
+    std::vector<u8> max_pos_indices(n_joints);
+    std::vector<u8> max_vel_indices(n_joints);
+    std::vector<u8> max_acc_indices(n_joints);
+    std::vector<u8> max_tor_indices(n_joints);
+    Array           max_pos(n_joints);
+    Array           max_vel(n_joints);
+    Array           max_acc(n_joints);
+    Array           max_tor(n_joints);
+    for (int point = segment * n_points_per_segment; point < (segment + 1) * n_points_per_segment; point++) {
+      auto p = opt.bspline.traj.pos.col(point);
+      auto v = opt.bspline.traj.vel.col(point);
+      auto a = opt.bspline.traj.acc.col(point);
+      // compute forward kinematics
+      // compute dynamics
+      for (int j = 0; j < n_joints; j++) {
+
+        // if worst pos(j)
+        // update max_pos && max_pos_indices
+        // same for vel, acc, tor
+      }
+    }
+
+    // at this point we have max_pos, max_vel, max_acc, max_torque for this segment
+    // [p1, p2, p3, p4, v1, v2, v3, v4, a1, a2, a3, a4, t1, t2, t3, t4]
+
+
+    // fill in the constraints for the current segment
+
+
+    if (grad.size) {
+      // [dp1/dx1, dp2/dx1, ..., dv1/dx1, dv2/dx1, ..., da1/dx1, da2/dx1, ..., dt1/dx1, dt2/dx1]
+      // [dp1/dx2, dp2/dx2, ..., dv1/dx2, dv2/dx2, ..., da1/dx2, da2/dx2, ..., dt1/dx2, dt2/dx2]
+      // [dp1/dx3, dp2/dx3, ..., dv1/dx3, dv2/dx3, ..., da1/dx3, da2/dx3, ..., dt1/dx3, dt2/dx3]
+      // [dp1/dx4, dp2/dx4, ..., dv1/dx4, dv2/dx4, ..., da1/dx4, da2/dx4, ..., dt1/dx4, dt2/dx4]
+      // [dp1/dx5, dp2/dx5, ..., dv1/dx5, dv2/dx5, ..., da1/dx5, da2/dx5, ..., dt1/dx5, dt2/dx5]
+      // [dp1/dx6, dp2/dx6, ..., dv1/dx6, dv2/dx6, ..., da1/dx6, da2/dx6, ..., dt1/dx6, dt2/dx6]
+      // [.....................]
+      // [.....................]
+      // [.....................]
+      // [.....................]
+      // [dp1/T=0, dp2/T=0, ..., dv1/T  , dv1/T  , ..., da1/T  , da2/T  , ..., dt1/T  , dt2/T  ]
+      // *** per segment ***
+
+      Matrix grad_segment(&grad(0, segment * n_constraints_per_segment), x_len, n_constraints_per_segment);
+      Assert(grad_segment.is_alias);
+
+      int con = 0;
+      for (int joint = 0; joint < n_joints; joint++) {
+        // positions
+        Array fill = grad_segment.col(con);
+        Assert(fill.is_alias);
+
+        auto fill_idx_start = joint * (n_ctrl-6) + first_affected_control_point;
+        auto fill_idx_end = joint * (n_ctrl-6) + last_affected_control_point;
+
+        // fill 3 to 6 basis functions depending on the segment (first and last 3 control points are not in x)
+        for (int i = fill_idx_start; i < fill_idx_end; i++) {
+          fill[i] = bp(i, max_pos_indices[joint]);
+        }
+        con++;
+      }
+
+      for (int joint = 0; joint < n_joints; joint++) {
+        // velocities
+        con++;
+      }
+
+      for (int joint = 0; joint < n_joints; joint++) {
+        // accelerations
+        con++;
+      }
+
+      for (int joint = 0; joint < n_joints; joint++) {
+        // torques
+        con++;
+      }
+      // dp1/dx (rowidx - rowidx+n_active_control_points), col_idx ---> fetch new basis function column (basis_p)
+      // dp2/dx (rowidx - rowidx+n_active_control_points), col_idx+1 ---> fetch new basis function column (basis_p)
+
+      // dv1/dx (rowidx - rowidx+n_active_control_points), col_idx+1 ---> fetch new basis function column (basis_v)
+
+      // dt1/dx ??? 6xn_joints control points max
+
+
+      // dp1/dc = basis_p.col(max_pos_indices[0])
+      if (segment == 0) {
+        Array where_to_fill(&grad(0, 0), 3);
+        Assert(where_to_fill.is_alias);
+        // where_to_fill[0] = something;
+        // fill 3
+      } else if (segment == 1) {
+        Array where_to_fill(&grad(0, segment * n_constraints_per_segment), 4);
+        // fill 4
+      } else if (segment == 2) {
+        Array where_to_fill(&grad(0, segment * n_constraints_per_segment), 5);
+        // fill 5
+      } else if (segment >= 3 && segment < n_segments - 3) {
+        // fill 6
+      } else if (segment == n_segments - 3) {
+        // fill 5
+      } else if (segment == n_segments - 2) {
+        // fill 4
+      } else if (segment == n_segments - 1) {
+        // fill 3
+      } else
+        Assert(false);
+    }
+  }
+}
+
 inline blast_fn void compute_constraints(double* result, const Array& x, Optimization* opt) {
 #if BLAST_TRACE_LEVEL >= 2
   ZoneScoped;
