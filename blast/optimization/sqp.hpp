@@ -2065,7 +2065,7 @@ inline int nlopt_stop_evals(const nlopt_stopping* stop) {
   return (stop->maxeval > 0 && (stop->nevals_p) >= stop->maxeval);
 }
 
-inline double nlopt_seconds(void) {
+inline double nlopt_seconds() {
   static int start_inited = 0; /* whether start time has been initialized */
 #if defined(HAVE_GETTIMEOFDAY)
   static THREADLOCAL struct timeval start;
@@ -2091,7 +2091,7 @@ inline double nlopt_seconds(void) {
 #else
   /* use clock() as a fallback... this is somewhat annoying
      because clock() may wrap around with a fairly short period */
-  static THREADLOCAL clock_t start;
+  static clock_t start;
   if (!start_inited) {
     start_inited = 1;
     start        = clock();
