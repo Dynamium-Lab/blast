@@ -28,7 +28,7 @@ inline blast_fn real abs_constraint(const real& value, const real& value_max) {
   return (std::abs(value) - value_max) / value_max;
 }
 
-inline blast_fn Matrix get_J_tool(const Optimization* opt, ManipulatorTempData& temp) {
+inline blast_fn Matrix get_J_tool(const Optimization* opt, const ManipulatorTempData& temp) {
   std::vector<Vec3> r_tool(opt->manip.n_joints);
   r_tool[opt->manip.n_joints - 1] = opt->manip.dv[opt->manip.n_joints - 1];
   for (int i = (int) opt->manip.n_joints - 2; i >= 0; i--) {
@@ -337,7 +337,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
   }
 
   // todo: no copy every iteration
-  ObjMatrix<Capsule> capsules(opt->manip._n_caps, (u32) opt->bspline.n_points / opt->constraints.n_collision_skip);
+  ObjMatrix<Capsule> capsules(opt->manip._n_caps, (int)opt->bspline.n_points / (int)opt->constraints.n_collision_skip);
 
   // todo: compute n_con_per_point() so that every worker knows where to put their result
 
@@ -552,12 +552,12 @@ inline blast_fn bool validate_task(Optimization* opt) {
       compute_capsules(manip, manip_data);
       if (constraints.external_collisions) {
         if (i == 0) {
-          for (u32 j = 0; j < manip._n_caps; j++) {
+          for (int j = 0; j < manip._n_caps; j++) {
             capsules_begin(j, 0) = manip_data.capsule_list[j];
           }
         }
         if (i == 1) {
-          for (u32 j = 0; j < manip._n_caps; j++) {
+          for (int j = 0; j < manip._n_caps; j++) {
             capsules_end(j, 0) = manip_data.capsule_list[j];
           }
         }
@@ -663,7 +663,7 @@ inline blast_fn std::tuple<real, real> abs_constraint_dev(const real& q, const r
 }
 
 template<bool is_grad>
-inline blast_fn std::tuple<real, real> bound_constraint_dev(const real& q, const real& q_min, const real& q_max) {
+blast_fn std::tuple<real, real> bound_constraint_dev(const real& q, const real& q_min, const real& q_max) {
   // todo: remove INF_REAL from constraints at initialization
   if (q_max == INF_REAL || q_min == -INF_REAL)
     return std::make_tuple(-1.0, 0.0);
@@ -683,7 +683,7 @@ inline blast_fn std::tuple<real, real> bound_constraint_dev(const real& q, const
 }
 
 template<bool is_grad>
-inline blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, const Array& x, Optimization* opt) {
+blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, const Array& x, Optimization* opt) {
 #if BLAST_TRACE_LEVEL >= 2
   ZoneScoped;
 #endif
@@ -841,7 +841,7 @@ inline blast_fn void compute_constraints_dev(double* result, Array& gradient_coe
 }
 
 template<bool is_grad>
-inline blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs, Matrix& gradient_coeffs_torque, /*Array& gradient_coeffs_collisions,*/ const Array& x, Optimization* opt) {
+blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs, Matrix& gradient_coeffs_torque, /*Array& gradient_coeffs_collisions,*/ const Array& x, Optimization* opt) {
 #if BLAST_TRACE_LEVEL >= 2
   ZoneScoped;
 #endif
@@ -1130,9 +1130,9 @@ inline blast_fn void compute_constraints_per_point(double* result, real& externa
   }
 }
 
-inline blast_fn u32 ncon_lb_acc(Optimization* opt, const u32 x_idx) {
-  const int n_points            = opt->bspline.lb[x_idx];
-  const int n_joints            = opt->manip.n_joints;
+inline blast_fn u32 ncon_lb_acc(const Optimization* opt, const u32 x_idx) {
+  const int n_points            = (int)opt->bspline.lb[x_idx];
+  const int n_joints            = (int)opt->manip.n_joints;
   const int n_constraints_basic = n_points * n_joints;
   u32       n_constraints       = 0;
   if (opt->constraints.position)
@@ -1159,8 +1159,8 @@ inline blast_fn u32 ncon_lb_acc(Optimization* opt, const u32 x_idx) {
   return n_constraints;
 }
 
-inline u32 ncon_extras(Optimization* opt) {
-  const int n_joints      = opt->manip.n_joints;
+inline u32 ncon_extras(const Optimization* opt) {
+  const int n_joints      = (int)opt->manip.n_joints;
   u32       n_constraints = 0;
 
   if (opt->constraints.torque)

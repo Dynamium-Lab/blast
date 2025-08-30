@@ -175,7 +175,7 @@ enum nlopt_result {
 
 
 /*     COPIES A VECTOR, X, TO A VECTOR, Y, with the given increments */
-static void dcopy___(const int* n_, const double* dx, int incx,
+inline void dcopy___(const int* n_, const double* dx, int incx,
                      double* dy, int incy) {
   int i, n = *n_;
 
@@ -194,42 +194,41 @@ static void dcopy___(const int* n_, const double* dx, int incx,
 } /* dcopy___ */
 
 /* CONSTANT TIMES A VECTOR PLUS A VECTOR. */
-static void daxpy_sl__(int* n_, const double* da_, const double* dx,
+inline void daxpy_sl__(int* n_, const double* da_, const double* dx,
                        int incx, double* dy, int incy) {
-  int    n  = *n_, i;
+  int    n  = *n_;
   double da = *da_;
 
   if (n <= 0 || da == 0)
     return;
-  for (i = 0; i < n; ++i)
+  for (int i = 0; i < n; ++i)
     dy[i * incy] += da * dx[i * incx];
 }
 
 /* dot product dx dot dy. */
-static double ddot_sl__(int* n_, double* dx, int incx, double* dy, int incy) {
-  int    n   = *n_, i;
+inline double ddot_sl__(int* n_, double* dx, int incx, double* dy, int incy) {
+  int    n   = *n_;
   double sum = 0;
   if (n <= 0)
     return 0;
-  for (i = 0; i < n; ++i)
+  for (int i = 0; i < n; ++i)
     sum += dx[i * incx] * dy[i * incy];
   return (double) sum;
 }
 
 /* compute the L2 norm of array DX of length N, stride INCX */
-static double dnrm2___(int* n_, double* dx, int incx) {
-  int    i, n = *n_;
-  double xmax = 0, scale;
-  double sum  = 0;
-  for (i = 0; i < n; ++i) {
-    double xabs = fabs(dx[incx * i]);
-    if (xmax < xabs)
+inline double dnrm2___(const int* n_, const double* dx, int incx) {
+  const int n    = *n_;
+  double    xmax = 0;
+  double    sum  = 0;
+  for (int i = 0; i < n; ++i) {
+    if (double xabs = fabs(dx[incx * i]); xmax < xabs)
       xmax = xabs;
   }
   if (xmax == 0)
     return 0;
-  scale = 1.0 / xmax;
-  for (i = 0; i < n; ++i) {
+  double scale = 1.0 / xmax;
+  for (int i = 0; i < n; ++i) {
     double xs = scale * dx[incx * i];
     sum += xs * xs;
   }
@@ -237,7 +236,7 @@ static double dnrm2___(int* n_, double* dx, int incx) {
 }
 
 /* apply Givens rotation */
-static void dsrot_(int n, double* dx, int incx,
+inline void dsrot_(int n, double* dx, int incx,
                    double* dy, int incy, double* c__, double* s_) {
   int    i;
   double c = *c__, s = *s_;
@@ -250,7 +249,7 @@ static void dsrot_(int n, double* dx, int incx,
 }
 
 /* construct Givens rotation */
-static void dsrotg_(double* da, double* db, double* c, double* s) {
+inline void dsrotg_(double* da, double* db, double* c, double* s) {
   double absa, absb, roe, scale;
 
   absa = fabs(*da);
@@ -281,7 +280,7 @@ static void dsrotg_(double* da, double* db, double* c, double* s) {
 }
 
 /* scales vector X(n) by constant da */
-static void dscal_sl__(int* n_, const double* da, double* dx, int incx) {
+inline void dscal_sl__(int* n_, const double* da, double* dx, int incx) {
   int    i, n = *n_;
   double alpha = *da;
   for (i = 0; i < n; ++i)
@@ -297,7 +296,7 @@ static const int c__2 = 2;
 #define MIN2(a, b) ((a) <= (b) ? (a) : (b))
 #define MAX2(a, b) ((a) >= (b) ? (a) : (b))
 
-static void h12_(const int* mode, int* lpivot, int* l1,
+inline void h12_(const int* mode, int* lpivot, int* l1,
                  int* m, double* u, const int* iue, double* up,
                  double* c__, const int* ice, const int* icv, const int* ncv) {
   /* Initialized data */
@@ -427,7 +426,7 @@ L80:
   return;
 } /* h12_ */
 
-static void nnls_(double* a, int* mda, int* m, int* n, double* b, double* x, double* rnorm, double* w,
+inline void nnls_(double* a, int* mda, int* m, int* n, double* b, double* x, double* rnorm, double* w,
                   double* z__, int* indx, int* mode) {
   /* Initialized data */
 
@@ -683,7 +682,7 @@ L290:
   return;
 } /* nnls_ */
 
-static void ldp_(double* g, int* mg, int* m, int* n,
+inline void ldp_(double* g, int* mg, int* m, int* n,
                  double* h__, double* x, double* xnorm, double* w,
                  int* indx, int* mode) {
   /* Initialized data */
@@ -807,7 +806,7 @@ L50:
   return;
 } /* ldp_ */
 
-static void lsi_(double* e, double* f, double* g,
+inline void lsi_(double* e, double* f, double* g,
                  double* h__, int* le, int* me, int* lg, int* mg,
                  int* n, double* x, double* xnorm, double* w, int* jw, int* mode) {
   /* Initialized data */
@@ -923,7 +922,7 @@ L50:
   return;
 } /* lsi_ */
 
-static void hfti_(double* a, int* mda, int* m, int* n, double* b, int* mdb, const int* nb, double* tau, int* krank, double* rnorm, double* h__, double* g, int* ip) {
+inline void hfti_(double* a, int* mda, int* m, int* n, double* b, int* mdb, const int* nb, double* tau, int* krank, double* rnorm, double* h__, double* g, int* ip) {
   /* Initialized data */
 
   const double factor = .001;
@@ -1329,7 +1328,7 @@ L75:
   return;
 } /* lsei_ */
 
-static void lsq_(int* m, int* meq, int* n, int* nl,
+inline void lsq_(int* m, int* meq, int* n, int* nl,
                  int* la, double* l, double* g, double* a, double* b, const double* xl, const double* xu, double* x, double* y,
                  double* w, int* jw, int* mode) {
   /* Initialized data */
@@ -1533,7 +1532,7 @@ static void lsq_(int* m, int* meq, int* n, int* nl,
   /*   END OF SUBROUTINE LSQ */
 } /* lsq_ */
 
-static void ldl_(int* n, double* a, double* z__,
+inline void ldl_(int* n, double* a, double* z__,
                  double* sigma, double* w) {
   /* Initialized data */
   ZoneScoped;
@@ -1773,11 +1772,11 @@ inline void nlopt_eval_constraint(double* result, double* grad, const nlopt_cons
     c->mf(c->m, result, n, x, grad, c->f_data);
 }
 
-static double sc(double x, double smin, double smax) {
+inline double sc(double x, double smin, double smax) {
   return smin + x * (smax - smin);
 }
 
-static double vector_norm(unsigned n, const double* vec, const double* w, const double* scale_min, const double* scale_max) {
+inline double vector_norm(unsigned n, const double* vec, const double* w, const double* scale_min, const double* scale_max) {
   unsigned i;
   double   ret = 0;
   if (scale_min && scale_max) {
@@ -1798,7 +1797,7 @@ static double vector_norm(unsigned n, const double* vec, const double* w, const 
   return ret;
 }
 
-static double diff_norm(unsigned n, const double* x, const double* oldx, const double* w, const double* scale_min, const double* scale_max) {
+inline double diff_norm(unsigned n, const double* x, const double* oldx, const double* w, const double* scale_min, const double* scale_max) {
   unsigned i;
   double   ret = 0;
   if (scale_min && scale_max) {
@@ -1819,7 +1818,7 @@ static double diff_norm(unsigned n, const double* x, const double* oldx, const d
   return ret;
 }
 
-static int relstop(double vold, double vnew, double reltol, double abstol) {
+inline int relstop(double vold, double vnew, double reltol, double abstol) {
   if (isinf(vold))
     return 0;
   return (fabs(vnew - vold) < abstol || fabs(vnew - vold) < reltol * (fabs(vnew) + fabs(vold)) * 0.5 || (reltol > 0 && vnew == vold)); /* catch vnew == vold == 0 */
@@ -1835,7 +1834,7 @@ inline int nlopt_stop_f(const nlopt_stopping* s, double f, double oldf) {
 
 inline int nlopt_stop_x(const nlopt_stopping* s, const double* x, const double* oldx) {
   unsigned i;
-  if (diff_norm(s->n, x, oldx, s->x_weights, NULL, NULL) < s->xtol_rel * vector_norm(s->n, x, s->x_weights, NULL, NULL))
+  if (diff_norm(s->n, x, oldx, s->x_weights, nullptr, nullptr) < s->xtol_rel * vector_norm(s->n, x, s->x_weights, nullptr, nullptr))
     return 1;
   if (!s->xtol_abs)
     return 0;
@@ -1847,7 +1846,7 @@ inline int nlopt_stop_x(const nlopt_stopping* s, const double* x, const double* 
 
 inline int nlopt_stop_dx(const nlopt_stopping* s, const double* x, const double* dx) {
   unsigned i;
-  if (vector_norm(s->n, dx, s->x_weights, NULL, NULL) < s->xtol_rel * vector_norm(s->n, x, s->x_weights, NULL, NULL))
+  if (vector_norm(s->n, dx, s->x_weights, nullptr, nullptr) < s->xtol_rel * vector_norm(s->n, x, s->x_weights, nullptr, nullptr))
     return 1;
   if (!s->xtol_abs)
     return 0;
@@ -1904,7 +1903,7 @@ inline double nlopt_seconds() {
     start_inited = 1;
     start        = clock();
   }
-  return (clock() - start) * 1.0 / CLOCKS_PER_SEC;
+  return (double) (clock() - start) * 1.0 / CLOCKS_PER_SEC;
 #endif
 }
 
@@ -1916,7 +1915,7 @@ inline int nlopt_stop_evalstime(const nlopt_stopping* stop) {
   return nlopt_stop_evals(stop) || nlopt_stop_time(stop);
 }
 
-static void slsqpb_(int* m, int* meq, int* la, int* n, double* x, const double* xl, const double* xu, double* f,
+inline void slsqpb_(int* m, int* meq, int* la, int* n, double* x, const double* xl, const double* xu, double* f,
                     double* c__, double* g, double* a, double* acc,
                     int* iter, int* mode, double* r__, double* l,
                     double* x0, double* mu, double* s, double* u,
@@ -1925,9 +1924,8 @@ static void slsqpb_(int* m, int* meq, int* la, int* n, double* x, const double* 
   ZoneScoped;
   /* Initialized data */
 
-  const double one    = 1.;
-  const double alfmin = .1;
-  const double hun    = 100.;
+  constexpr double one    = 1.;
+  constexpr double alfmin = .1;
   const double ten    = 10.;
   const double two    = 2.;
 
@@ -2041,6 +2039,7 @@ L130:
     }
   }
   if (*mode == 4) {
+    constexpr double hun = 100.;
     i__1 = *m;
     for (j = 1; j <= i__1; ++j) {
       if (j <= *meq) {
@@ -2211,6 +2210,7 @@ L220:
       goto L200;
     case 2:
       goto L210;
+    default:;
   }
 /*   CHECK CONVERGENCE */
 L240:
@@ -2309,7 +2309,7 @@ L330:
 /* *********************************************************************** */
 /*                              optimizer                               * */
 /* *********************************************************************** */
-static void slsqp(int* m, int* meq, int* la, int* n,
+inline void slsqp(int* m, int* meq, int* la, int* n,
                   double* x, const double* xl, const double* xu, double* f,
                   double* c__, double* g, double* a, double* acc,
                   int* iter, int* mode, double* w, int* l_w__, int* jw, int* l_jw__, slsqpb_state* state) {
@@ -2550,7 +2550,7 @@ static void slsqp(int* m, int* meq, int* la, int* n,
   return;
 } /* slsqp */
 
-static void length_work(int* LEN_W, int* LEN_JW, int M, int MEQ, int N) {
+inline void length_work(int* LEN_W, int* LEN_JW, int M, int MEQ, int N) {
   int N1 = N + 1, MINEQ = M - MEQ + N1 + N1;
   *LEN_W  = (3 * N1 + M) * (N1 + 1) + (N1 - MEQ + 1) * (MINEQ + 2) + 2 * MINEQ + (N1 + MINEQ) * (N1 - MEQ) + 2 * MEQ + N1 + (N + 1) * N / 2 + 2 * M + 3 * N + 3 * N1 + 1;
   *LEN_JW = MINEQ;
@@ -2650,8 +2650,8 @@ inline nlopt_result sqp(
         want_grad = 1;
         /* fall through */
       case 1: { /* don't need grad unless we don't have it yet */
-        double* newgrad  = 0;
-        double* newcgrad = 0;
+        double* newgrad  = nullptr;
+        double* newcgrad = nullptr;
         if (want_grad) {
           newgrad  = grad;
           newcgrad = cgradtmp;
@@ -2828,7 +2828,6 @@ inline nlopt_result sqp(blast::Array& x, blast::Optimization& opt, nlopt_stoppin
   int          prev_mode         = 0;
   double       acc               = 0; /* we do our own convergence tests below */
   int          iter              = 0; /* tell sqsqp to ignore this check, since we check evaluation counts ourselves */
-  unsigned     i                 = 0;
   unsigned     ii                = 0;
   nlopt_result ret               = NLOPT_SUCCESS;
   int          feasible          = 0;
@@ -2887,8 +2886,8 @@ inline nlopt_result sqp(blast::Array& x, blast::Optimization& opt, nlopt_stoppin
         want_grad = 1;
         /* fall through */
       case 1: { /* don't need grad unless we don't have it yet */
-        double* newgrad  = 0;
-        double* newcgrad = 0;
+        double* newgrad  = nullptr;
+        double* newcgrad = nullptr;
         if (want_grad) {
           newgrad  = grad;
           newcgrad = cgradtmp;
@@ -3015,5 +3014,3 @@ done:
   free(work);
   return ret;
 }
-
-

@@ -223,7 +223,7 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   ub.back() = 60.0;
   lb.back() = 0.01;
 
-  nlopt_constraint fc;
+  nlopt_constraint fc{};
   fc.m      = opt->constraints.n_constraints;
   fc.f      = nullptr;
   fc.mf     = nlopt_constraints;
@@ -403,7 +403,7 @@ inline Result optimize_dev(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   ub.back() = 60.0;
   lb.back() = 0.01;
 
-  nlopt_constraint fc;
+  nlopt_constraint fc{};
   fc.m      = opt->constraints.n_constraints;
   fc.f      = nullptr;
   fc.mf     = nlopt_constraints_dev;
@@ -581,7 +581,7 @@ inline Result optimize_dev_new(Optimization* opt, u32 output_steps_ms = 1 /*ms*/
   ub.back() = 60.0;
   lb.back() = 0.01;
 
-  nlopt_constraint fc;
+  nlopt_constraint fc{};
   fc.m      = opt->constraints.n_constraints;
   fc.f      = nullptr;
   fc.mf     = nlopt_constraints_dev_new;
