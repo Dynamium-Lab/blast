@@ -18,13 +18,11 @@ inline blast_fn real bound_constraint(const real& value, const real& value_min, 
   // todo: remove INF_REAL from constraints at initialization
   if (value_max == INF_REAL || value_min == -INF_REAL) { // todo: fix for one is INF and not the other
     return -1.0;
-  } else {
-    real c           = (value_max + value_min) / 2;
-    real value_prime = value - c;
-    real b           = (value_max - value_min) / 2;
-
-    return (std::abs(value_prime) - b) / b;
   }
+  real center     = (value_max + value_min) / 2;
+  real half_range = (value_max - value_min) / 2;
+
+  return std::abs(value - center) / half_range - 1.0;
 }
 
 inline blast_fn real abs_constraint(const real& value, const real& value_max) {
@@ -109,6 +107,9 @@ inline blast_fn void constraints_with_segments(const Array& x, Optimization& opt
 #endif
     const int first_affected_control_point = std::max(3, segment);
     const int last_affected_control_point  = std::min((n_ctrl - 1) - 3, segment + (int) opt.bspline.p);
+    const int n_affected_control_points    = last_affected_control_point - first_affected_control_point;
+    Assert(n_affected_control_points >= 3);
+    Assert(n_affected_control_points <= 6);
 
     Matrix bp(&opt.bspline.basis_p(0, segment * n_points_per_segment), n_ctrl, n_points_per_segment);
     Matrix bv(&opt.bspline.basis_v(0, segment * n_points_per_segment), n_ctrl, n_points_per_segment);
@@ -160,94 +161,116 @@ inline blast_fn void constraints_with_segments(const Array& x, Optimization& opt
     std::copy_n(max_acc_constraints.data, n_joints, &constraints[fill_idx]), fill_idx += n_joints;
     std::copy_n(max_tor_constraints.data, n_joints, &constraints[fill_idx]);
 
-    if (grad.size) {
-      // The gradient should be a (x_len)x(n_constraints) matrix that looks like this:
-      // [dp1/dx1, dp2/dx1, ..., dv1/dx1, dv2/dx1, ..., da1/dx1, da2/dx1, ..., dt1/dx1, dt2/dx1]
-      // [dp1/dx2, dp2/dx2, ..., dv1/dx2, dv2/dx2, ..., da1/dx2, da2/dx2, ..., dt1/dx2, dt2/dx2]
-      // [dp1/dx3, dp2/dx3, ..., dv1/dx3, dv2/dx3, ..., da1/dx3, da2/dx3, ..., dt1/dx3, dt2/dx3]
-      // [dp1/dx4, dp2/dx4, ..., dv1/dx4, dv2/dx4, ..., da1/dx4, da2/dx4, ..., dt1/dx4, dt2/dx4]
-      // [dp1/dx5, dp2/dx5, ..., dv1/dx5, dv2/dx5, ..., da1/dx5, da2/dx5, ..., dt1/dx5, dt2/dx5]
-      // [dp1/dx6, dp2/dx6, ..., dv1/dx6, dv2/dx6, ..., da1/dx6, da2/dx6, ..., dt1/dx6, dt2/dx6]
-      // [.....................]
-      // [.....................]
-      // [.....................]
-      // [.....................]
-      // [dp1/dT=0,dp2/dT=0,..., dv1/dT , dv1/dT , ..., da1/dT , da2/dT , ..., dt1/dT , dt2/dT ]
-      // *** per segment ***
-      // where x is the optimization vector
 
+    // The gradient should be a (x_len)x(n_constraints) matrix that looks like this:
+    // [dp1/dx1, dp2/dx1, ..., dv1/dx1, dv2/dx1, ..., da1/dx1, da2/dx1, ..., dt1/dx1, dt2/dx1]
+    // [dp1/dx2, dp2/dx2, ..., dv1/dx2, dv2/dx2, ..., da1/dx2, da2/dx2, ..., dt1/dx2, dt2/dx2]
+    // [dp1/dx3, dp2/dx3, ..., dv1/dx3, dv2/dx3, ..., da1/dx3, da2/dx3, ..., dt1/dx3, dt2/dx3]
+    // [dp1/dx4, dp2/dx4, ..., dv1/dx4, dv2/dx4, ..., da1/dx4, da2/dx4, ..., dt1/dx4, dt2/dx4]
+    // [dp1/dx5, dp2/dx5, ..., dv1/dx5, dv2/dx5, ..., da1/dx5, da2/dx5, ..., dt1/dx5, dt2/dx5]
+    // [dp1/dx6, dp2/dx6, ..., dv1/dx6, dv2/dx6, ..., da1/dx6, da2/dx6, ..., dt1/dx6, dt2/dx6]
+    // [.....................]
+    // [.....................]
+    // [.....................]
+    // [.....................]
+    // [dp1/dT=0,dp2/dT=0,..., dv1/dT , dv1/dT , ..., da1/dT , da2/dT , ..., dt1/dT , dt2/dT ]
+    // *** per segment ***
+    // where x is the optimization vector
+    if (grad.size) {
+      // Matrix (alias) in which we can insert the gradient for the current segment
       Matrix grad_segment(&grad(0, segment * n_constraints_per_segment), x_len, n_constraints_per_segment);
       Assert(grad_segment.is_alias);
 
       int con = 0;
+
       // positions
       for (int joint = 0; joint < n_joints; joint++) {
         {
           // todo (andre): do this when initializing the optimization, not here
+          // todo: document the current behaviour in the API
+          //        (doesn't currently work if one is inf and the other is not)
           if (pmax[joint] == INF_REAL)  // note: replace INF_REAL with huge value
             pmax[joint] = 1e300;
           if (pmin[joint] == -INF_REAL) // note: replace -INF_REAL with huge negative value
             pmin[joint] = -1e300;
         }
 
-        Array fill = grad_segment.col(con);
+        // Array of the column where to put the gradient for the current constraint
+        Array fill_column = grad_segment.col(con);
+        Assert(con == (segment * n_constraints_per_segment + joint));
+        Assert(fill.size == x_len);
         Assert(fill.is_alias);
 
-        auto [basis_idx_start, basis_idx_end] = compute_basis_idx(joint, n_ctrl, first_affected_control_point, last_affected_control_point);
-        auto fill_idx_start                   = basis_idx_start - 3;
+        // Which values in 'x' affect the current joint's position
+        auto x_idx = joint * (n_ctrl - 6); // todo: does not work with tasks that don't impose p,v,a for every joint!!
+        // shift to the first affected control point keeping in mind that the first 3 are not in the optimization vector
+        x_idx += first_affected_control_point - 3;
 
+        real center     = (pmax[joint] + pmin[joint]) / 2;
+        real half_range = (pmax[joint] - pmin[joint]) / 2;
 
-        real c          = (pmax[joint] + pmin[joint]) / 2;
-        real b          = (pmax[joint] - pmin[joint]) / 2;
-        real one_over_b = 1 / b;
-        real q_prime;
+        // 3 to 6 basis functions depending on the segment (first and last 3 control points are not in x)
+        Array bp_to_use(&bp(first_affected_control_point, max_pos_indices[joint]), n_affected_control_points);
+        Assert(bp_to_use.is_alias);
 
-        // fill 3 to 6 basis functions depending on the segment (first and last 3 control points are not in x)
-        for (int i = basis_idx_start; i < basis_idx_end; i++) {
-          q_prime = max_pos_constraints[joint] - c;
+        real coeff = sign(opt.bspline.traj.pos(joint, max_pos_indices[joint]) - center) / half_range;
 
-          fill[fill_idx_start++] = bp(i, max_pos_indices[joint]) * sign(q_prime) * one_over_b;
+        for (int i = 0; i < n_affected_control_points; i++) {
+          fill_column[x_idx++] = bp_to_use[i] * coeff;
         }
 
         con++;
       }
-
-      // todo: deal with T (andre: T does not affect the position constraint)
 
       // velocities
       auto one_over_T = 1 / opt.bspline.traj.t.back();
       for (int joint = 0; joint < n_joints; joint++) {
-        Array fill = grad_segment.col(con);
+        // Array of the column where to put the gradient for the current constraint
+        Array fill_column = grad_segment.col(con);
+        Assert(con == (segment * n_constraints_per_segment + n_joints + joint));
+        Assert(fill.size == x_len);
         Assert(fill.is_alias);
 
-        auto [basis_idx_start, basis_idx_end] = compute_basis_idx(joint, n_ctrl, first_affected_control_point, last_affected_control_point);
-        auto fill_idx_start                   = basis_idx_start - 3;
+        // Which values in 'x' affect the current joint's position
+        auto x_idx = joint * (n_ctrl - 6); // todo: does not work with tasks that don't impose p,v,a for every joint!!
+        // shift to the first affected control point keeping in mind that the first 3 are not in the optimization vector
+        x_idx += first_affected_control_point - 3;
 
-        real one_over_vmax = 1 / vmax[joint];
+        Array bv_to_use(&bv(first_affected_control_point, max_vel_indices[joint]), n_affected_control_points);
+        Assert(bv_to_use.is_alias);
 
-        // fill 3 to 6 basis functions depending on the segment (first and last 3 control points are not in x)
-        for (int i = basis_idx_start; i < basis_idx_end; i++) {
-          fill[fill_idx_start++] = bv(i, max_vel_indices[joint]) * one_over_T * sign(max_vel_constraints[joint]) * one_over_vmax; // todo: verify that fill[i - 3] is right
+        real coeff = sign(opt.bspline.traj.vel(joint, max_vel_indices[joint])) / vmax[joint] * one_over_T;
+
+        for (int i = 0; i < n_affected_control_points; i++) {
+          fill_column[x_idx++] = bv_to_use[i] * coeff;
         }
         con++;
       }
 
+      // dvj/dT --> if T increases, abs(v) drops. If T == 1, T doubles, v halves. If T increases by 25%
       // todo: deal with T
 
       // accelerations
       auto one_over_T2 = one_over_T * one_over_T;
       for (int joint = 0; joint < n_joints; joint++) {
-        Array fill = grad_segment.col(con);
+        // Array of the column where to put the gradient for the current constraint
+        Array fill_column = grad_segment.col(con);
+        Assert(con == (segment * n_constraints_per_segment + 2*n_joints + joint));
+        Assert(fill.size == x_len);
         Assert(fill.is_alias);
 
-        auto [basis_idx_start, basis_idx_end] = compute_basis_idx(joint, n_ctrl, first_affected_control_point, last_affected_control_point);
-        auto fill_idx_start                   = basis_idx_start - 3;
+        // Which values in 'x' affect the current joint's position
+        auto x_idx = joint * (n_ctrl - 6); // todo: does not work with tasks that don't impose p,v,a for every joint!!
+        // shift to the first affected control point keeping in mind that the first 3 are not in the optimization vector
+        x_idx += first_affected_control_point - 3;
 
-        real one_over_amax = 1 / amax[joint];
+        Array ba_to_use(&ba(first_affected_control_point, max_acc_indices[joint]), n_affected_control_points);
+        Assert(ba_to_use.is_alias);
 
-        // fill 3 to 6 basis functions depending on the segment (first and last 3 control points are not in x)
-        for (int i = basis_idx_start; i < basis_idx_end; i++) {
-          fill[fill_idx_start++] = ba(i, max_acc_indices[joint]) * one_over_T2 * sign(max_acc_constraints[joint]) * one_over_amax; // todo: verify that fill[i - 3] is right
+        real coeff = sign(opt.bspline.traj.acc(joint, max_acc_indices[joint])) / amax[joint] * one_over_T2;
+
+        for (int i = 0; i < n_affected_control_points; i++) {
+          fill_column[x_idx++] = ba_to_use[i] * coeff;
         }
         con++;
       }
