@@ -229,6 +229,11 @@ inline blast_fn void Bspline::compute_control(const Array& x, const Matrix& task
  * using the computed control points and the basis functions for position, velocity, and acceleration.
  */
 inline blast_fn void Bspline::compute_trajectory(const Array& x, const Matrix& task) {
+#if BLAST_TRACE_LEVEL >= 2
+  ZoneScoped;
+#endif
+
+
   Assert(x.size == x_len(task));
   Assert(task.rows == n_joints);
   Assert(task.cols == 6);

@@ -1,6 +1,7 @@
 <component name="ProjectDictionaryState">
   <dictionary name="project">
     <words>
+      <w>amax</w>
       <w>cerr</w>
       <w>cout</w>
       <w>distmin</w>
@@ -10,7 +11,9 @@
       <w>kinova</w>
       <w>nonnegative</w>
       <w>pmax</w>
+      <w>pmin</w>
       <w>sincos</w>
+      <w>vmax</w>
       <w>xmmintrin</w>
     </words>
   </dictionary>
