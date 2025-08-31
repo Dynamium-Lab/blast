@@ -198,8 +198,8 @@ inline blast_fn void constraints_with_segments(const Array& x, Optimization& opt
         // shift to the first affected control point keeping in mind that the first 3 are not in the optimization vector
         x_idx += first_affected_control_point - 3;
 
-        real center     = (pmax[joint] + pmin[joint]) / 2;
-        real half_range = (pmax[joint] - pmin[joint]) / 2;
+        // real center     = (pmax[joint] + pmin[joint]) / 2;
+        // real half_range = (pmax[joint] - pmin[joint]) / 2;
 
         // 3 to 6 basis functions depending on the segment (first and last 3 control points are not in x)
         Array bp_to_use(&bp(first_affected_control_point, max_pos_indices[joint]), n_affected_control_points);
@@ -236,9 +236,14 @@ inline blast_fn void constraints_with_segments(const Array& x, Optimization& opt
         for (int i = 0; i < n_affected_control_points; i++) {
           fill_column[x_idx++] = bv_to_use[i] * coeff;
         }
+
+        // dvj/dT = - (Cv + 1) / T
+        fill_column[x_len - 1] = -(max_vel_constraints[joint] + 1) / x.back();
+
         con++;
       }
 
+      // note: added in loop.
       // dvj/dT --> if T increases, abs(v) drops. If T == 1, T doubles, v halves. If T increases by 25%
       // todo: deal with T
 
@@ -264,9 +269,14 @@ inline blast_fn void constraints_with_segments(const Array& x, Optimization& opt
         for (int i = 0; i < n_affected_control_points; i++) {
           fill_column[x_idx++] = ba_to_use[i] * coeff;
         }
+
+        // daj/dT = -2 * (Ca + 1) / T
+        fill_column[x_len - 1] = -2.0 * (max_acc_constraints[joint] + 1) / x.back();
+
         con++;
       }
 
+      // note: added in loop.
       // todo: deal with T
 
       // torque
