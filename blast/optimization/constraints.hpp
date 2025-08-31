@@ -52,14 +52,6 @@ inline blast_fn Matrix get_J_tool(const Optimization* opt, const ManipulatorTemp
   return J_tool;
 }
 
-// note: basis use the idx as is, but grad need idx - 3 (since it does not know we skip first and last 3)
-inline blast_fn std::tuple<int, int> compute_basis_idx(const int joint, const int n_ctrl, const int first_affected_control_point, const int last_affected_control_point) {
-  auto basis_idx_start = joint * (n_ctrl - 6) + first_affected_control_point;
-  auto basis_idx_end   = joint * (n_ctrl - 6) + last_affected_control_point;
-
-  return std::make_tuple(basis_idx_start, basis_idx_end);
-}
-
 inline blast_fn void constraints_with_segments(const Array& x, Optimization& opt, Array& constraints, Matrix& grad) {
   // constraints (p,v,a,tor) for each joint, for each segment
   // [p1, p2,..., v1, v2,..., a1, a2,..., t1, t2,...]
@@ -198,8 +190,8 @@ inline blast_fn void constraints_with_segments(const Array& x, Optimization& opt
         // Array of the column where to put the gradient for the current constraint
         Array fill_column = grad_segment.col(con);
         Assert(con == (segment * n_constraints_per_segment + joint));
-        Assert(fill.size == x_len);
-        Assert(fill.is_alias);
+        Assert(fill_column.size == x_len);
+        Assert(fill_column.is_alias);
 
         // Which values in 'x' affect the current joint's position
         auto x_idx = joint * (n_ctrl - 6); // todo: does not work with tasks that don't impose p,v,a for every joint!!
@@ -228,8 +220,8 @@ inline blast_fn void constraints_with_segments(const Array& x, Optimization& opt
         // Array of the column where to put the gradient for the current constraint
         Array fill_column = grad_segment.col(con);
         Assert(con == (segment * n_constraints_per_segment + n_joints + joint));
-        Assert(fill.size == x_len);
-        Assert(fill.is_alias);
+        Assert(fill_column.size == x_len);
+        Assert(fill_column.is_alias);
 
         // Which values in 'x' affect the current joint's position
         auto x_idx = joint * (n_ctrl - 6); // todo: does not work with tasks that don't impose p,v,a for every joint!!
@@ -255,9 +247,9 @@ inline blast_fn void constraints_with_segments(const Array& x, Optimization& opt
       for (int joint = 0; joint < n_joints; joint++) {
         // Array of the column where to put the gradient for the current constraint
         Array fill_column = grad_segment.col(con);
-        Assert(con == (segment * n_constraints_per_segment + 2*n_joints + joint));
-        Assert(fill.size == x_len);
-        Assert(fill.is_alias);
+        Assert(con == (segment * n_constraints_per_segment + 2 * n_joints + joint));
+        Assert(fill_column.size == x_len);
+        Assert(fill_column.is_alias);
 
         // Which values in 'x' affect the current joint's position
         auto x_idx = joint * (n_ctrl - 6); // todo: does not work with tasks that don't impose p,v,a for every joint!!
@@ -287,61 +279,74 @@ inline blast_fn void constraints_with_segments(const Array& x, Optimization& opt
       Matrix grad_tau_p(n_joints, n_joints); // variation of torque[joint] in respect to delta p[joint]
       Matrix grad_tau_v(n_joints, n_joints); // variation of torque[joint] in respect to delta v[joint]
       Matrix grad_tau_a(n_joints, n_joints); // variation of torque[joint] in respect to delta a[joint]
-      Array  max_pos_plus = max_pos_constraints;
-      Array  max_vel_plus = max_vel_constraints;
-      Array  max_acc_plus = max_acc_constraints;
       for (int joint = 0; joint < n_joints; joint++) {
+        auto p_at_max_tor  = opt.bspline.traj.pos.col(max_tor_indices[joint]);
+        auto v_at_max_tor  = opt.bspline.traj.vel.col(max_tor_indices[joint]);
+        auto a_at_max_tore = opt.bspline.traj.acc.col(max_tor_indices[joint]);
+
         // variation in pos
-        max_pos_plus[joint] += eps;
-        forward_kinematics(opt.manip, manip_data, max_pos_plus);
-        dynamics(opt.manip, manip_data, max_vel_plus, max_acc_plus);
-        max_pos_plus[joint] -= eps;
+        p_at_max_tor[joint] += eps;
+        forward_kinematics(opt.manip, manip_data, p_at_max_tor);
+        dynamics(opt.manip, manip_data, v_at_max_tor, a_at_max_tore);
+        p_at_max_tor[joint] -= eps;
 
         for (int j = 0; j < n_joints; j++) {
-          auto max_tor_plus    = (std::abs(manip_data.efforts[j]) - tau_max[j]) / tau_max[j];
+          auto max_tor_plus    = (std::abs(manip_data.efforts[j])) / tau_max[j] - 1.0;
           grad_tau_p(j, joint) = (max_tor_plus - max_tor_constraints[j]) / eps;
         }
 
         // restore to original positions (only once, since vel and acc do not affect fk)
-        forward_kinematics(opt.manip, manip_data, max_pos_plus);
+        forward_kinematics(opt.manip, manip_data, p_at_max_tor);
 
         // variation in vel
-        max_vel_plus[joint] += eps;
-        dynamics(opt.manip, manip_data, max_vel_plus, max_acc_plus);
-        max_vel_plus[joint] -= eps;
+        v_at_max_tor[joint] += eps;
+        dynamics(opt.manip, manip_data, v_at_max_tor, a_at_max_tore);
+        v_at_max_tor[joint] -= eps;
 
         for (int j = 0; j < n_joints; j++) {
-          auto max_tor_plus    = (std::abs(manip_data.efforts[j]) - tau_max[j]) / tau_max[j];
+          auto max_tor_plus    = (std::abs(manip_data.efforts[j])) / tau_max[j] - 1.0;
           grad_tau_v(j, joint) = (max_tor_plus - max_tor_constraints[j]) / eps;
         }
 
         // variation in acc
-        max_acc_plus[joint] += eps;
-        dynamics(opt.manip, manip_data, max_vel_plus, max_acc_plus);
-        max_acc_plus[joint] -= eps;
+        a_at_max_tore[joint] += eps;
+        dynamics(opt.manip, manip_data, v_at_max_tor, a_at_max_tore);
+        a_at_max_tore[joint] -= eps;
 
         for (int j = 0; j < n_joints; j++) {
-          auto max_tor_plus    = (std::abs(manip_data.efforts[j]) - tau_max[j]) / tau_max[j];
+          auto max_tor_plus    = (std::abs(manip_data.efforts[j])) / tau_max[j] - 1.0;
           grad_tau_a(j, joint) = (max_tor_plus - max_tor_constraints[j]) / eps;
         }
       }
 
+      // Which values in 'x' affect the torque (these are the same for each joint)
+      auto x_idx = first_affected_control_point - 3; // todo: does not work with tasks that don't impose p,v,a for every joint!!
+      // skip the control points unaffected in the segment
+      auto x_idx_skip = (n_ctrl - 6) - n_affected_control_points;
       for (int joint = 0; joint < n_joints; joint++) {
-        Array fill = grad_segment.col(con);
-        Assert(fill.is_alias);
+        // Array of the column where to put the gradient for the current constraint
+        Array fill_column = grad_segment.col(con);
+        Assert(con == (segment * n_constraints_per_segment + 2 * n_joints + joint));
+        Assert(fill_column.size == x_len);
+        Assert(fill_column.is_alias);
 
-        auto [basis_idx_start, basis_idx_end] = compute_basis_idx(joint, n_ctrl, first_affected_control_point, last_affected_control_point);
-        auto fill_idx_start                   = basis_idx_start - 3;
-        auto fill_idx_skip                    = (n_ctrl - 6) - (basis_idx_end + 1 - basis_idx_start);
-
+        Array bp_to_use(&bp(first_affected_control_point, max_tor_indices[joint]), n_affected_control_points);
+        Assert(bp_to_use.is_alias);
+        Array bv_to_use(&bv(first_affected_control_point, max_tor_indices[joint]), n_affected_control_points);
+        Assert(bv_to_use.is_alias);
+        Array ba_to_use(&ba(first_affected_control_point, max_tor_indices[joint]), n_affected_control_points);
+        Assert(ba_to_use.is_alias);
         for (int j = 0; j < n_joints; j++) {
           // fill 3 to 6 basis functions depending on the segment (first and last 3 control points are not in x)
-          for (int i = basis_idx_start; i < basis_idx_end; i++) {
-            fill[fill_idx_start++] = bp(i, max_tor_indices[joint]) * grad_tau_p(j, joint) +
-                                     bv(i, max_tor_indices[joint]) * one_over_T * grad_tau_v(j, joint) +
-                                     ba(i, max_tor_indices[joint]) * one_over_T2 * grad_tau_a(j, joint);
+          auto tmp_grad_p = grad_tau_p(j, joint);
+          auto tmp_grad_v = grad_tau_v(j, joint);
+          auto tmp_grad_a = grad_tau_a(j, joint);
+          for (int i = 0; i < n_affected_control_points; i++) {
+            fill_column[x_idx++] = bp_to_use[i] * tmp_grad_p +
+                                   bv_to_use[i] * tmp_grad_v * one_over_T +
+                                   ba_to_use[i] * tmp_grad_a * one_over_T2;
           }
-          fill_idx_start += fill_idx_skip;
+          x_idx += x_idx_skip;
         }
         con++;
       }
