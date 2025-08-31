@@ -205,7 +205,7 @@ inline blast_fn void constraints_with_segments(const Array& x, Optimization& opt
         Array bp_to_use(&bp(first_affected_control_point, max_pos_indices[joint]), n_affected_control_points);
         Assert(bp_to_use.is_alias);
 
-        real coeff = sign(opt.bspline.traj.pos(joint, max_pos_indices[joint]) - center) / half_range;
+        real coeff = 2.0 * std::abs(opt.bspline.traj.pos(joint, max_pos_indices[joint])) / (pmax[joint] - pmin[joint]);
 
         for (int i = 0; i < n_affected_control_points; i++) {
           fill_column[x_idx++] = bp_to_use[i] * coeff;
