@@ -19,10 +19,16 @@ inline blast_fn real bound_constraint(const real& value, const real& value_min, 
   if (value_max == INF_REAL || value_min == -INF_REAL) { // todo: fix for one is INF and not the other
     return -1.0;
   }
-  real center     = (value_max + value_min) / 2;
-  real half_range = (value_max - value_min) / 2;
+  const real center     = (value_max + value_min) / 2;
+  const real half_range = (value_max - value_min) / 2;
+  const real range      = value_max - value_min;
 
-  return std::abs(value - center) / half_range - 1.0;
+  auto result  = std::abs(value - center) / half_range - 1.0;
+  auto result2 = std::abs(2 * value - range) / range - 1.0;
+  Assert(result == result2);
+  // todo: if this always passes, only keep result2 because it is slightly faster
+
+  return result;
 }
 
 inline blast_fn real abs_constraint(const real& value, const real& value_max) {
@@ -187,6 +193,8 @@ inline blast_fn void constraints_with_segments(const Array& x, Optimization& opt
             pmin[joint] = -1e300;
         }
 
+        real pos = opt.bspline.traj.pos(joint, max_pos_indices[joint]);
+
         // Array of the column where to put the gradient for the current constraint
         Array fill_column = grad_segment.col(con);
         Assert(con == (segment * n_constraints_per_segment + joint));
@@ -198,9 +206,6 @@ inline blast_fn void constraints_with_segments(const Array& x, Optimization& opt
         // shift to the first affected control point keeping in mind that the first 3 are not in the optimization vector
         x_idx += first_affected_control_point - 3;
 
-        // real center     = (pmax[joint] + pmin[joint]) / 2;
-        // real half_range = (pmax[joint] - pmin[joint]) / 2;
-
         // 3 to 6 basis functions depending on the segment (first and last 3 control points are not in x)
         Array bp_to_use(&bp(first_affected_control_point, max_pos_indices[joint]), n_affected_control_points);
         Assert(bp_to_use.is_alias);
@@ -211,6 +216,7 @@ inline blast_fn void constraints_with_segments(const Array& x, Optimization& opt
           fill_column[x_idx++] = bp_to_use[i] * coeff;
         }
 
+        // note: dp/dT == 0
         con++;
       }
 
@@ -238,14 +244,10 @@ inline blast_fn void constraints_with_segments(const Array& x, Optimization& opt
         }
 
         // dvj/dT = - (Cv + 1) / T
-        fill_column[x_len - 1] = -(max_vel_constraints[joint] + 1) / x.back();
+        fill_column.back() = -(max_vel_constraints[joint] + 1) * one_over_T;
 
         con++;
       }
-
-      // note: added in loop.
-      // dvj/dT --> if T increases, abs(v) drops. If T == 1, T doubles, v halves. If T increases by 25%
-      // todo: deal with T
 
       // accelerations
       auto one_over_T2 = one_over_T * one_over_T;
@@ -271,25 +273,62 @@ inline blast_fn void constraints_with_segments(const Array& x, Optimization& opt
         }
 
         // daj/dT = -2 * (Ca + 1) / T
-        fill_column[x_len - 1] = -2.0 * (max_acc_constraints[joint] + 1) / x.back();
+        fill_column.back() = -2 * (constraints[con] + 1) * one_over_T;
 
         con++;
       }
 
-      // note: added in loop.
-      // todo: deal with T
-
       // torque
-      real eps = 1e-5;
-
       // [dt0/dp0, dt1/dp0, ..., dt4/dp0, dt5/dp0]
       // [dt0/dp1, dt1/dp1, ..., dt4/dp1, dt5/dp1]
       // [dt0/dp2, dt1/dp2, ..., dt4/dp2, dt5/dp2]
       // [dt0/dp3, dt1/dp3, ..., dt4/dp3, dt5/dp3]
+      // [.
+      // [.
+      // [.
       Matrix grad_tau_p(n_joints, n_joints); // variation of torque[joint] in respect to delta p[joint]
       Matrix grad_tau_v(n_joints, n_joints); // variation of torque[joint] in respect to delta v[joint]
       Matrix grad_tau_a(n_joints, n_joints); // variation of torque[joint] in respect to delta a[joint]
       for (int joint = 0; joint < n_joints; joint++) {
+
+        constexpr real eps            = 1e-5;
+        const auto     point          = max_tor_indices[joint];
+        auto           p              = opt.bspline.traj.pos.col(point);
+        auto           v              = opt.bspline.traj.vel.col(point);
+        auto           a              = opt.bspline.traj.acc.col(point);
+        auto           old_constraint = constraints[con];
+
+        auto p_plus = p;
+        auto v_plus = v;
+        auto a_plus = a;
+
+        for (int j = 0; j < n_joints; j++) {
+          // dtau_joint/dp_j
+          // finite difference on position
+          p_plus[j] += eps;
+
+          // compute the derivative of constraint(joint) w.r.t. theta(j). (remember, joint != j)
+          forward_kinematics(opt.manip, manip_data, p_plus);
+          dynamics(opt.manip, manip_data, v_plus, a_plus);
+          const real new_constraint = std::abs(manip_data.efforts[j]) / tau_max[j];
+          const real dtau_dp        = (new_constraint - old_constraint) / eps;
+
+          // compute the actual gradient w.r.t. affected control points
+          Array bp_to_use(&bp(first_affected_control_point, max_pos_indices[joint]), n_affected_control_points);
+          Assert(bp_to_use.is_alias);
+
+          // Which values in 'x' affect the current joint's position
+          auto x_idx = joint * (n_ctrl - 6); // todo: does not work with tasks that don't impose p,v,a for every joint!!
+          // shift to the first affected control point keeping in mind that the first 3 are not in the optimization vector
+          x_idx += first_affected_control_point - 3;
+
+          // reset finite difference
+          p_plus[j] = p[j];
+        }
+
+
+
+
         auto p_at_max_tor  = opt.bspline.traj.pos.col(max_tor_indices[joint]);
         auto v_at_max_tor  = opt.bspline.traj.vel.col(max_tor_indices[joint]);
         auto a_at_max_tore = opt.bspline.traj.acc.col(max_tor_indices[joint]);
