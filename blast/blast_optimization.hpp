@@ -131,6 +131,10 @@ struct Optimization {
   void set_world(World new_world);
 };
 
+inline void constraints_with_segments(const Array& x, Optimization& opt, Array& constraints, Matrix& grad);
+inline void compute_constraints_with_segments(const Array& x, Optimization& opt, Array& constraints);
+inline void nlopt_constraints_with_segments(unsigned m, double* result, unsigned x_len, const double* x, double* grad, void* f_data);
+
 inline void   compute_constraints(double* result, const Array& x, Optimization* opt);
 inline void   nlopt_constraints(unsigned m, double* result, unsigned x_len, const double* x, double* grad, void* f_data);
 inline double compute_objective(Array& current_x, Optimization* opt);
