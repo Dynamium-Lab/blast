@@ -47,6 +47,7 @@ set(TESTS
     # Acceleration
     # test_gradients_acceleration acceleration/test_gradients_acceleration.cpp
     # test_constraints_acceleration acceleration/test_constraints_acceleration.cpp
+    test_accelerations acceleration/test_accelerations.cpp
     test_inplace acceleration/test_inplace.cpp
 
     # Container

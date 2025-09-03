@@ -507,6 +507,7 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
 #endif
 
       double f = HUGE_VAL;
+      // note: can we initialize grad to 0 here
 #ifdef BLAST_USE_NATIVE_SQP
       stop.nevals_p              = 0;
       result.nlopt_exit_criteria = sqp(

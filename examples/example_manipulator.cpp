@@ -15,7 +15,9 @@ int main() {
 
   opt.world = get_lab_world();
 
-  Bspline bspline(16, 100, 5, 6);
+  // Sleep(200);
+
+  Bspline bspline(16, 110, 5, 6);
   opt.bspline = bspline;
 
   opt.guess.type = Guess::custom;
@@ -34,7 +36,7 @@ int main() {
   opt.success_tolerance = 0.01;
   // Sleep(100);
 
-  auto result = optimize(&opt);
+  auto result = optimize_with_segments(&opt);
 
   cout << "Compute time:        " << result.compute_time << endl;
   cout << "Function evaluations:" << result.num_eval << endl;

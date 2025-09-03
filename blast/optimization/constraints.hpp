@@ -58,7 +58,7 @@ inline blast_fn Matrix get_J_tool(const Optimization* opt, const ManipulatorTemp
   return J_tool;
 }
 
-inline blast_fn void constraints_with_segments(const Array& x, Optimization& opt, Array& constraints, Matrix& grad) {
+inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Optimization& opt, Array& constraints, Matrix& grad) {
   // constraints (p,v,a,tor) for each joint, for each segment
   // [p1, p2,..., v1, v2,..., a1, a2,..., t1, t2,...]
 
@@ -444,7 +444,7 @@ inline blast_fn void compute_constraints_with_segments(const Array& x, Optimizat
   // Assert(constraints.is_alias); todo: fix for optimization validation
 
   const int n_segments                = (int) opt.bspline.n_ctrl - (int) opt.bspline.p;
-  const int n_points_per_segment      = (int) opt.bspline.n_points / n_segments; // todo: check if fine?
+  const int n_points_per_segment      = (int) opt.bspline.n_points / n_segments; // todo: check if fine? -> (Nikos) constructor that sets n_points from n_points_per_segment
   const int n_joints                  = (int) opt.manip.n_joints;
   const int n_ctrl                    = (int) opt.bspline.n_ctrl;
   const int x_len                     = (int) x.size;
@@ -478,10 +478,11 @@ inline blast_fn void compute_constraints_with_segments(const Array& x, Optimizat
     Assert(n_affected_control_points >= 3);
     Assert(n_affected_control_points <= 6);
 
-    Matrix bp(&opt.bspline.basis_p(0, start_point_for_segment), n_ctrl, n_points_per_segment);    // note:
-    Matrix bv(&opt.bspline.basis_v(0, start_point_for_segment), n_ctrl, n_points_per_segment);    // note:
-    Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_per_segment);    // note:
+    Matrix bp(&opt.bspline.basis_p(0, start_point_for_segment), n_ctrl, n_points_per_segment); // note:
+    Matrix bv(&opt.bspline.basis_v(0, start_point_for_segment), n_ctrl, n_points_per_segment); // note:
+    Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_per_segment); // note:
 
+    // Initialize max_constraints with -INF_REAL
     Array max_pos_constraints(n_joints, -INF_REAL);                                               // note:
     Array max_vel_constraints(n_joints, -INF_REAL);                                               // note:
     Array max_acc_constraints(n_joints, -INF_REAL);                                               // note:
@@ -557,9 +558,10 @@ inline blast_fn void nlopt_constraints_with_segments(unsigned m, double* result,
   constraints.alias(result, m);
 
   if (grad) {
+    memset(grad, 0, m * x_len * sizeof(real));
     Matrix gradients;
     gradients.alias(grad, x_len, m);
-    constraints_with_segments(xv, *opt, constraints, gradients);
+    constraints_and_gradients_with_segments(xv, *opt, constraints, gradients);
   } else {
     // no gradients requested
     compute_constraints_with_segments(xv, *opt, constraints);
