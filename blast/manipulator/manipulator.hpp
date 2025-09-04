@@ -211,40 +211,27 @@ inline host_fn Manipulator::Manipulator(u32 joint_count, const ManipulatorLimits
     set_capsules(*capsules);
 }
 
-// todo: add a bunch of warnings if not correct.
 inline host_fn void Manipulator::set_limits(const ManipulatorLimits& limits) {
-  if (limits.pmax.size != 0) {
+  if (limits.pmax.size) {
     Assert(limits.pmax.size == n_joints);
-    pmax = limits.pmax;
+    std::copy_n(limits.pmax.data, n_joints, pmax.data());
   }
-  if (limits.pmin.size != 0) {
+  if (limits.pmin.size) {
     Assert(limits.pmin.size == n_joints);
-    pmin = limits.pmin;
+    std::copy_n(limits.pmin.data, n_joints, pmin.data());
   }
-  if (limits.vmax.size != 0) {
+  if (limits.vmax.size) {
     Assert(limits.vmax.size == n_joints);
-    vmax = limits.vmax;
+    std::copy_n(limits.vmax.data, n_joints, vmax.data());
   }
-  // if (limits.vmin.size != 0) {
-  //   Assert(limits.vmin.size == n_joints);
-  //   vmin = limits.vmin;
-  // }
   if (limits.amax.size != 0) {
     Assert(limits.amax.size == n_joints);
-    amax = limits.amax;
+    std::copy_n(limits.amax.data, n_joints, amax.data());
   }
-  // if (limits.amin.size != 0) {
-  //   Assert(limits.amin.size == n_joints);
-  //   amin = limits.amin;
-  // }
   if (limits.tau_max.size != 0) {
     Assert(limits.tau_max.size == n_joints);
-    tau_max = limits.tau_max;
+    std::copy_n(limits.tau_max.data, n_joints, tau_max.data());
   }
-  // if (limits.tau_min.size != 0) {
-  //   Assert(limits.tau_min.size == n_joints);
-  //   tau_min = limits.tau_min;
-  // }
   if (limits.tcp_max != 0.0) {
     tcp_max = limits.tcp_max;
   }

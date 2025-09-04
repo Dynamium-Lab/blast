@@ -257,6 +257,8 @@ struct Matrix {
   // construct and allocate memory for 'r x c' elements
   inline blast_fn Matrix(u32 r, u32 c);
 
+  inline blast_fn Matrix(u32 r, u32 c, real value);
+
   // copy constructor
   inline blast_fn Matrix(const Matrix&);
 

@@ -56,11 +56,8 @@ struct ManipulatorLimits {
   Array pmax; // max joint position
   Array pmin; // min joint position
   Array vmax; // max joint velocity
-  // Array vmin;    // min joint velocity
   Array amax; // max joint acceleration
-  // Array amin;    // min joint acceleration
   Array tau_max; // max joint torque
-  // Array tau_min; // min joint torque
 
   real tcp_max; // max tcp speed
 };
@@ -145,7 +142,7 @@ struct ManipulatorTempData {
   std::array<Mat3, MAX_JOINTS>      rotations{};
   std::array<Mat3, MAX_JOINTS>      rotations_mult{};
   std::array<Vec3, MAX_JOINTS + 1>  p_j{};
-  std::array<Capsule, CAPSULE_SIZE> capsule_list{};
+  std::array<Capsule, MAX_CAPSULES> capsule_list{};
 };
 
 /**
@@ -159,14 +156,11 @@ struct Manipulator {
   u32 n_joints = 0;
 
   // Manipulator limits
-  Array pmax;
-  Array pmin;
-  Array vmax;
-  // Array vmin;
-  Array amax;
-  // Array amin;
-  Array tau_max;
-  // Array tau_min;
+  std::array<real, MAX_JOINTS> pmax{};
+  std::array<real, MAX_JOINTS> pmin{};
+  std::array<real, MAX_JOINTS> vmax{};
+  std::array<real, MAX_JOINTS> amax{};
+  std::array<real, MAX_JOINTS> tau_max{};
 
   real tcp_max = 0.0; // max TCP speed
 
@@ -197,7 +191,7 @@ struct Manipulator {
   // Internal caches and collision
   int                                             _n_caps                = 0;
   int                                             _n_internal_collisions = 0;
-  std::array<CollisionModelCapsule, CAPSULE_SIZE> _collision_model{};
+  std::array<CollisionModelCapsule, MAX_CAPSULES> _collision_model{};
   ObjMatrix<u8>                                   _collision_matrix{};
   Array                                           _collision_base{};
   Sphere                                          _base_sphere{};

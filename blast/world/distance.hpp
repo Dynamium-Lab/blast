@@ -924,27 +924,23 @@ inline blast_fn real distance_per_point(const Capsule& capsule, CapsuleData& cap
   return sqrt(dist_min) - capsule.r;
 }
 
-inline blast_fn real test_collisions_per_point(std::array<Capsule, CAPSULE_SIZE>& robot_capsules, const World* world) {
+inline blast_fn real test_collisions_per_point(const std::array<Capsule, MAX_CAPSULES>& robot_capsules, const World* world) {
   real dist_min = INF_REAL;
-  real dist;
 
-  for (int c = 0; c < robot_capsules.size(); c++) {
+  for (const auto& capsule: robot_capsules) {
     // --- Static tests
     for (const auto& box: world->boxes) {
-      dist = distance(robot_capsules[c], box);
-      if (dist < dist_min)
+      if (const auto dist = distance(capsule, box); dist < dist_min)
         dist_min = dist;
     }
 
     for (auto caps: world->capsules) {
-      dist = distance(robot_capsules[c], caps);
-      if (dist < dist_min)
+      if (const auto dist = distance(capsule, caps); dist < dist_min)
         dist_min = dist;
     }
 
     for (auto sphere: world->spheres) {
-      dist = distance(robot_capsules[c], sphere);
-      if (dist < dist_min)
+      if (const auto dist = distance(capsule, sphere); dist < dist_min)
         dist_min = dist;
     }
   }

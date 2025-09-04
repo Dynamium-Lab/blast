@@ -74,21 +74,30 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
   const int n_joints                  = (int) opt.manip.n_joints;
   const int n_ctrl                    = (int) opt.bspline.n_ctrl;
   const int x_len                     = (int) x.size;
-  const int n_constraints_per_segment = (n_joints * 4); //  todo: remove hard-coded 4
+  const int n_capsules                = (int) opt.manip._n_caps;
+  const int n_constraints_per_segment = (n_joints * 4); //  todo: remove hard-coded 4 (p.v.a.tau)
   Assert(constraints.size == n_segments * n_constraints_per_segment);
 
   // limits
-  Array       pmax    = opt.manip.pmax;
-  Array       pmin    = opt.manip.pmin;
-  const Array vmax    = opt.manip.vmax;
-  const Array amax    = opt.manip.amax;
-  const Array tau_max = opt.manip.tau_max;
+  auto& pmax    = opt.manip.pmax;
+  auto& pmin    = opt.manip.pmin;
+  auto& vmax    = opt.manip.vmax;
+  auto& amax    = opt.manip.amax;
+  auto& tau_max = opt.manip.tau_max;
+  for (int j = 0; j < n_joints; j++) {
+    // todo: document the current behaviour in the API
+    //        (doesn't currently work if one is inf and the other is not)
+    if (pmax[j] == INF_REAL)  // note: replace INF_REAL with huge value
+      pmax[j] = 1e300;
+    if (pmin[j] == -INF_REAL) // note: replace -INF_REAL with huge negative value
+      pmin[j] = -1e300;
+  }
 
-  ManipulatorTempData manip_data;
-  std::vector<u8>     max_pos_indices(n_joints);
-  std::vector<u8>     max_vel_indices(n_joints);
-  std::vector<u8>     max_acc_indices(n_joints);
-  std::vector<u8>     max_tor_indices(n_joints);
+  ManipulatorTempData        manip_data;
+  std::array<u8, MAX_JOINTS> max_pos_indices{};
+  std::array<u8, MAX_JOINTS> max_vel_indices{};
+  std::array<u8, MAX_JOINTS> max_acc_indices{};
+  std::array<u8, MAX_JOINTS> max_tor_indices{};
 
   opt.bspline.compute_trajectory(x, opt.task);
 
@@ -104,14 +113,14 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
     Assert(n_affected_control_points >= 3);
     Assert(n_affected_control_points <= 6);
 
-    Matrix bp(&opt.bspline.basis_p(0, start_point_for_segment), n_ctrl, n_points_per_segment);    // note:
-    Matrix bv(&opt.bspline.basis_v(0, start_point_for_segment), n_ctrl, n_points_per_segment);    // note:
-    Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_per_segment);    // note:
+    Matrix bp(&opt.bspline.basis_p(0, start_point_for_segment), n_ctrl, n_points_per_segment); // note:
+    Matrix bv(&opt.bspline.basis_v(0, start_point_for_segment), n_ctrl, n_points_per_segment); // note:
+    Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_per_segment); // note:
 
-    Array max_pos_constraints(n_joints, -INF_REAL);                                               // note:
-    Array max_vel_constraints(n_joints, -INF_REAL);                                               // note:
-    Array max_acc_constraints(n_joints, -INF_REAL);                                               // note:
-    Array max_tor_constraints(n_joints, -INF_REAL);                                               // note:
+    Array max_pos_constraints(n_joints, -INF_REAL); // note:
+    Array max_vel_constraints(n_joints, -INF_REAL); // note:
+    Array max_acc_constraints(n_joints, -INF_REAL); // note:
+    Array max_tor_constraints(n_joints, -INF_REAL); // note:
 
     for (int point_in_segment = 0; point_in_segment < n_points_per_segment; point_in_segment++) { // note:
       auto p = opt.bspline.traj.pos.col(start_point_for_segment + point_in_segment);              // note:
@@ -122,35 +131,25 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
       dynamics(opt.manip, manip_data, v, a);
 
       for (int j = 0; j < n_joints; j++) {
-        {
-          // todo (andre): do this when initializing the optimization, not here
-          // todo: document the current behaviour in the API
-          //        (doesn't currently work if one is inf and the other is not)
-          if (pmax[j] == INF_REAL)  // note: replace INF_REAL with huge value
-            pmax[j] = 1e300;
-          if (pmin[j] == -INF_REAL) // note: replace -INF_REAL with huge negative value
-            pmin[j] = -1e300;
-        }
         // position
-        if (auto c = bound_constraint(p[j], pmin[j], pmax[j]); // note: todo: remove 1.01 and use for validation only
-            c > max_pos_constraints[j]) {
+        if (auto c = bound_constraint(p[j], pmin[j], pmax[j]); c > max_pos_constraints[j]) {
           max_pos_constraints[j] = c;
           max_pos_indices[j]     = point_in_segment; // note:
         }
         // velocity
-        if (auto c = std::abs(v[j]) / vmax[j] - 1.0; // note: todo: remove 1.01 and use for validation only
+        if (auto c = std::abs(v[j]) / vmax[j] - 1.0;
             c > max_vel_constraints[j]) {
           max_vel_constraints[j] = c;
           max_vel_indices[j]     = point_in_segment; // note:
         }
         // acceleration
-        if (auto c = std::abs(a[j]) / amax[j] - 1.0; // note: todo: remove 1.01 and use for validation only
+        if (auto c = std::abs(a[j]) / amax[j] - 1.0;
             c > max_acc_constraints[j]) {
           max_acc_constraints[j] = c;
           max_acc_indices[j]     = point_in_segment; // note:
         }
         // torque
-        if (auto c = std::abs(manip_data.efforts[j]) / tau_max[j] - 1.0; // note: todo: remove 1.01 and use for validation only
+        if (auto c = std::abs(manip_data.efforts[j]) / tau_max[j] - 1.0;
             c > max_tor_constraints[j]) {
           max_tor_constraints[j] = c;
           max_tor_indices[j]     = point_in_segment; // note:
@@ -452,11 +451,11 @@ inline blast_fn void compute_constraints_with_segments(const Array& x, Optimizat
   Assert(constraints.size == n_segments * n_constraints_per_segment);
 
   // limits
-  Array       pmax    = opt.manip.pmax;
-  Array       pmin    = opt.manip.pmin;
-  const Array vmax    = opt.manip.vmax;
-  const Array amax    = opt.manip.amax;
-  const Array tau_max = opt.manip.tau_max;
+  auto pmax    = opt.manip.pmax;
+  auto pmin    = opt.manip.pmin;
+  auto vmax    = opt.manip.vmax;
+  auto amax    = opt.manip.amax;
+  auto tau_max = opt.manip.tau_max;
 
   ManipulatorTempData manip_data;
   std::vector<u8>     max_pos_indices(n_joints);

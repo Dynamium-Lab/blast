@@ -1,5 +1,5 @@
 
-#define BLAST_TRACE_LEVEL 3
+#define BLAST_TRACE_LEVEL 0
 #define BLAST_USE_NATIVE_SQP
 
 #include <blast>
@@ -38,6 +38,7 @@ int main() {
   // Sleep(100);
 
 
+  auto   t1 = get_tick_us();
   Result result(&opt);
   for (real i = 0.5; i < 5; i += 0.5) {
 
@@ -54,5 +55,8 @@ int main() {
     cout << "Stopping criteria:   " << result.nlopt_exit_criteria << endl;
     cout << endl;
   }
+  auto t2 = get_tick_us();
+  cout << "Compute time:        " << (double)(t2 - t1) / 1000. << endl;
+
   return 0;
 }

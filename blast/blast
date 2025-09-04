@@ -6,10 +6,19 @@
 #include <iostream>
 #include <vector>
 
-constexpr int32_t MAX_JOINTS = 8;
-constexpr int32_t CAPSULE_SIZE = 8;
-
 namespace blast {
+
+#ifdef BLAST_MAX_JOINTS
+constexpr int32_t MAX_JOINTS = BLAST_MAX_JOINTS;
+#else
+constexpr int32_t MAX_JOINTS = 8;
+#endif
+
+#ifdef BLAST_MAX_CAPSULES
+constexpr int32_t MAX_CAPSULES = BLAST_MAX_CAPSULES;
+#else
+constexpr int32_t MAX_CAPSULES = 8;
+#endif
 
 using u8 = uint8_t;
 using u16 = uint16_t;
