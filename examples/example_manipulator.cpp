@@ -13,15 +13,16 @@ int main() {
   // Optimization opt(get_generic_gen3(), get_gen3_task());
   Optimization opt(get_generic_Link6(), get_link6_task());
 
-  opt.world = get_lab_world();
+  // opt.world = get_lab_world();
 
   // Sleep(200);
 
   Bspline bspline(16, 110, 5, 6);
   opt.bspline = bspline;
 
-  opt.guess.type = Guess::custom;
-  opt.guess.x0   = Array(opt.bspline.x_len(opt.task), 2.0);
+  // opt.guess.type = Guess::custom;
+  // opt.guess.x0   = Array(opt.bspline.x_len(opt.task), 1.5);
+  // opt.guess.type = Guess::random;
   // opt.guess.n_shot = 100;
 
   opt.constraints.position            = true;
@@ -36,15 +37,22 @@ int main() {
   opt.success_tolerance = 0.01;
   // Sleep(100);
 
-  auto result = optimize_with_segments(&opt);
 
-  cout << "Compute time:        " << result.compute_time << endl;
-  cout << "Function evaluations:" << result.num_eval << endl;
-  cout << "Trajectory time:     " << result.x[result.x.size - 1] << endl;
-  cout << "Success:             " << result.success << endl;
-  cout << "False success:       " << result.success_false << endl;
-  cout << "Number of tries:     " << result.num_tries << endl;
-  cout << "Stopping criteria:   " << result.nlopt_exit_criteria << endl;
+  Result result(&opt);
+  for (real i = 0.5; i < 5; i += 0.5) {
 
+    opt.guess.type = Guess::custom;
+    opt.guess.x0   = Array(opt.bspline.x_len(opt.task), i);
+    result         = optimize_with_segments(&opt);
+
+    cout << "Compute time:        " << result.compute_time << endl;
+    cout << "Function evaluations:" << result.num_eval << endl;
+    cout << "Trajectory time:     " << result.x[result.x.size - 1] << endl;
+    cout << "Success:             " << result.success << endl;
+    cout << "False success:       " << result.success_false << endl;
+    cout << "Number of tries:     " << result.num_tries << endl;
+    cout << "Stopping criteria:   " << result.nlopt_exit_criteria << endl;
+    cout << endl;
+  }
   return 0;
 }
