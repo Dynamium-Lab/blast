@@ -2594,7 +2594,6 @@ inline nlopt_result sqp(
   double       acc               = 0; /* we do our own convergence tests below */
   int          iter              = 0; /* tell sqsqp to ignore this check, since we check evaluation counts ourselves */
   unsigned     i                 = 0;
-  unsigned     ii                = 0;
   nlopt_result ret               = NLOPT_SUCCESS;
   int          feasible          = 0;
   int          feasible_cur      = 0;
@@ -2667,38 +2666,20 @@ inline nlopt_result sqp(
         }
         if (!isinf(fcur)) {
           want_grad = 0;
-          ii        = 0;
-          for (i = 0; i < p; ++i) { // equality constraints
-            unsigned j, k;
-            nlopt_eval_constraint(c + ii, newcgrad, h + i, x_len, xcur);
-            if (stop->force_stop) {
-              ret = NLOPT_FORCED_STOP;
-              goto done;
-            }
-            for (k = 0; k < h[i].m; ++k, ++ii) {
-              infeasibility_cur = MAX2(infeasibility_cur, fabs(c[ii]));
-              feasible_cur      = feasible_cur && fabs(c[ii]) <= h[i].tol[k];
-              if (newcgrad) {
-                for (j = 0; j < x_len; ++j)
-                  cgrad[j * U(mpi1) + ii] = cgradtmp[k * x_len + j];
-              }
-            }
-          }
           for (i = 0; i < m; ++i) { // inequality constraints
-            unsigned j, k;
-            nlopt_eval_constraint(c + ii, newcgrad, fc + i, x_len, xcur);
+            nlopt_eval_constraint(c, newcgrad, fc + i, x_len, xcur);
             if (stop->force_stop) {
               ret = NLOPT_FORCED_STOP;
               goto done;
             }
-            for (k = 0; k < fc[i].m; ++k, ++ii) {
-              infeasibility_cur = MAX2(infeasibility_cur, c[ii]);
-              feasible_cur      = feasible_cur && c[ii] <= fc[i].tol[k];
+            for (int k = 0; k < fc[i].m; ++k) {
+              infeasibility_cur = MAX2(infeasibility_cur, c[k]);
+              feasible_cur      = feasible_cur && c[k] <= fc[i].tol[k];
               if (newcgrad) {
-                for (j = 0; j < x_len; ++j)
-                  cgrad[j * U(mpi1) + ii] = -cgradtmp[k * x_len + j];
+                for (int j = 0; j < x_len; ++j)
+                  cgrad[j * U(mpi1) + k] = -cgradtmp[k * x_len + j];
               }
-              c[ii] = -c[ii]; /* slsqp sign convention */
+              c[k] = -c[k]; /* slsqp sign convention */
             }
           }
         }
