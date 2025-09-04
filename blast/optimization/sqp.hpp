@@ -1926,8 +1926,8 @@ inline void slsqpb_(int* m, int* meq, int* la, int* n, double* x, const double* 
 
   constexpr double one    = 1.;
   constexpr double alfmin = .1;
-  const double ten    = 10.;
-  const double two    = 2.;
+  const double     ten    = 10.;
+  const double     two    = 2.;
 
   /* System generated locals */
   int    a_dim1, a_offset, i__1, i__2;
@@ -2040,7 +2040,7 @@ L130:
   }
   if (*mode == 4) {
     constexpr double hun = 100.;
-    i__1 = *m;
+    i__1                 = *m;
     for (j = 1; j <= i__1; ++j) {
       if (j <= *meq) {
         a[j + n1 * a_dim1] = -c__[j];
@@ -2676,10 +2676,8 @@ inline nlopt_result sqp(
               goto done;
             }
             for (k = 0; k < h[i].m; ++k, ++ii) {
-              infeasibility_cur =
-                      MAX2(infeasibility_cur, fabs(c[ii]));
-              feasible_cur =
-                      feasible_cur && fabs(c[ii]) <= h[i].tol[k];
+              infeasibility_cur = MAX2(infeasibility_cur, fabs(c[ii]));
+              feasible_cur      = feasible_cur && fabs(c[ii]) <= h[i].tol[k];
               if (newcgrad) {
                 for (j = 0; j < x_len; ++j)
                   cgrad[j * U(mpi1) + ii] = cgradtmp[k * x_len + j];
@@ -2694,10 +2692,8 @@ inline nlopt_result sqp(
               goto done;
             }
             for (k = 0; k < fc[i].m; ++k, ++ii) {
-              infeasibility_cur =
-                      MAX2(infeasibility_cur, c[ii]);
-              feasible_cur =
-                      feasible_cur && c[ii] <= fc[i].tol[k];
+              infeasibility_cur = MAX2(infeasibility_cur, c[ii]);
+              feasible_cur      = feasible_cur && c[ii] <= fc[i].tol[k];
               if (newcgrad) {
                 for (j = 0; j < x_len; ++j)
                   cgrad[j * U(mpi1) + ii] = -cgradtmp[k * x_len + j];
