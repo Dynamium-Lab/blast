@@ -428,21 +428,21 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
 
   const auto n = opt->bspline.x_len(opt->task);
 
-  Array con_tol(opt->constraints.n_constraints, 0.001);
-  Array x_tol(n, 0.000001);
+  Array con_tol(opt->constraints.n_constraints, 0.01);
+  Array x_tol(n, 0.001);
 
 #ifdef BLAST_USE_NATIVE_SQP
   nlopt_stopping stop;
   stop.n          = n;
   stop.minf_max   = -HUGE_VAL;
   stop.ftol_rel   = 0;
-  stop.ftol_abs   = 0.0001;
+  stop.ftol_abs   = 0.001;
   stop.xtol_rel   = 0;
   stop.xtol_abs   = x_tol.data;
   stop.x_weights  = nullptr;
   stop.nevals_p   = 0;
-  stop.maxeval    = 100000;
-  stop.maxtime    = 5000;
+  stop.maxeval    = 1000;
+  stop.maxtime    = 5;
   stop.start      = nlopt_seconds();
   stop.force_stop = false;
   stop.stop_msg   = nullptr;
@@ -474,9 +474,9 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_xtol_abs(o, x_tol.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_maxtime(o, 5000);
+  nlopt_res = nlopt_set_maxtime(o, 5);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_maxeval(o, 100000);
+  nlopt_res = nlopt_set_maxeval(o, 1000);
   Assert(nlopt_res == NLOPT_SUCCESS);
 #endif
 

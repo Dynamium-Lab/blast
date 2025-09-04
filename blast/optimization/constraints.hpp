@@ -132,25 +132,25 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
             pmin[j] = -1e300;
         }
         // position
-        if (auto c = bound_constraint(1.01 * p[j], pmin[j], pmax[j]); // note: todo: remove 1.01 and use for validation only
+        if (auto c = bound_constraint(p[j], pmin[j], pmax[j]); // note: todo: remove 1.01 and use for validation only
             c > max_pos_constraints[j]) {
           max_pos_constraints[j] = c;
           max_pos_indices[j]     = point_in_segment; // note:
         }
         // velocity
-        if (auto c = std::abs(1.01 * v[j]) / vmax[j] - 1.0; // note: todo: remove 1.01 and use for validation only
+        if (auto c = std::abs(v[j]) / vmax[j] - 1.0; // note: todo: remove 1.01 and use for validation only
             c > max_vel_constraints[j]) {
           max_vel_constraints[j] = c;
           max_vel_indices[j]     = point_in_segment; // note:
         }
         // acceleration
-        if (auto c = std::abs(1.01 * a[j]) / amax[j] - 1.0; // note: todo: remove 1.01 and use for validation only
+        if (auto c = std::abs(a[j]) / amax[j] - 1.0; // note: todo: remove 1.01 and use for validation only
             c > max_acc_constraints[j]) {
           max_acc_constraints[j] = c;
           max_acc_indices[j]     = point_in_segment; // note:
         }
         // torque
-        if (auto c = std::abs(1.01 * manip_data.efforts[j]) / tau_max[j] - 1.0; // note: todo: remove 1.01 and use for validation only
+        if (auto c = std::abs(manip_data.efforts[j]) / tau_max[j] - 1.0; // note: todo: remove 1.01 and use for validation only
             c > max_tor_constraints[j]) {
           max_tor_constraints[j] = c;
           max_tor_indices[j]     = point_in_segment; // note:
@@ -318,7 +318,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           // compute the derivative of constraint(joint) w.r.t. theta(j). (remember, joint != j)
           forward_kinematics(opt.manip, manip_data, p_plus);
           dynamics(opt.manip, manip_data, v_plus, a_plus);
-          const real new_constraint_p = std::abs(1.01 * manip_data.efforts[joint]) / tau_max_now - 1; // note: todo: remove 1.01 and use for validation only
+          const real new_constraint_p = std::abs(manip_data.efforts[joint]) / tau_max_now - 1; // note: todo: remove 1.01 and use for validation only
           const real dtau_dp          = (new_constraint_p - old_constraint) / eps;
           // reset finite difference
           p_plus[j] = p[j];
@@ -330,7 +330,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           // finite difference on velocity
           v_plus[j] += eps;
           dynamics(opt.manip, manip_data, v_plus, a_plus);
-          const real new_constraint_v = std::abs(1.01 * manip_data.efforts[joint]) / tau_max_now - 1; // note: todo: remove 1.01 and use for validation only
+          const real new_constraint_v = std::abs(manip_data.efforts[joint]) / tau_max_now - 1; // note: todo: remove 1.01 and use for validation only
           const real dtau_dv          = (new_constraint_v - old_constraint) / eps;
           // reset finite difference
           v_plus[j] = v[j];
@@ -339,7 +339,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           // finite difference on acceleration
           a_plus[j] += eps;
           dynamics(opt.manip, manip_data, v_plus, a_plus);
-          const real new_constraint_a = std::abs(1.01 * manip_data.efforts[joint]) / tau_max_now - 1; // note: todo: remove 1.01 and use for validation only
+          const real new_constraint_a = std::abs(manip_data.efforts[joint]) / tau_max_now - 1; // note: todo: remove 1.01 and use for validation only
           const real dtau_da          = (new_constraint_a - old_constraint) / eps;
           // reset finite difference
           a_plus[j] = a[j];
@@ -507,25 +507,25 @@ inline blast_fn void compute_constraints_with_segments(const Array& x, Optimizat
             pmin[j] = -1e300;
         }
         // position
-        if (auto c = bound_constraint(1.01 * p[j], pmin[j], pmax[j]); // note: todo: remove 1.01 and use for validation only
+        if (auto c = bound_constraint(p[j], pmin[j], pmax[j]); // note: todo: remove 1.01 and use for validation only
             c > max_pos_constraints[j]) {
           max_pos_constraints[j] = c;
           max_pos_indices[j]     = point_in_segment; // note:
         }
         // velocity
-        if (auto c = std::abs(1.01 * v[j]) / vmax[j] - 1.0; // note: todo: remove 1.01 and use for validation only
+        if (auto c = std::abs(v[j]) / vmax[j] - 1.0; // note: todo: remove 1.01 and use for validation only
             c > max_vel_constraints[j]) {
           max_vel_constraints[j] = c;
           max_vel_indices[j]     = point_in_segment; // note:
         }
         // acceleration
-        if (auto c = std::abs(1.01 * a[j]) / amax[j] - 1.0; // note: todo: remove 1.01 and use for validation only
+        if (auto c = std::abs(a[j]) / amax[j] - 1.0; // note: todo: remove 1.01 and use for validation only
             c > max_acc_constraints[j]) {
           max_acc_constraints[j] = c;
           max_acc_indices[j]     = point_in_segment; // note:
         }
         // torque
-        if (auto c = std::abs(1.01 * manip_data.efforts[j]) / tau_max[j] - 1.0; // note: todo: remove 1.01 and use for validation only
+        if (auto c = std::abs(manip_data.efforts[j]) / tau_max[j] - 1.0; // note: todo: remove 1.01 and use for validation only
             c > max_tor_constraints[j]) {
           max_tor_constraints[j] = c;
           max_tor_indices[j]     = point_in_segment; // note:
@@ -633,7 +633,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
       ZoneScopedN("Position");
 #endif
       for (int j = 0; j < opt->manip.n_joints; j++) {
-        moving_result[0] = bound_constraint(1.01 * opt->bspline.traj.pos(j, i), opt->manip.pmin[j], opt->manip.pmax[j]);
+        moving_result[0] = bound_constraint(opt->bspline.traj.pos(j, i), opt->manip.pmin[j], opt->manip.pmax[j]);
         moving_result++;
       }
     }
@@ -643,8 +643,8 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
       ZoneScopedN("Velocity");
 #endif
       for (int j = 0; j < opt->manip.n_joints; j++) {
-        // moving_result[0] = abs_constraint(1.01 * opt->bspline.traj.vel(j, i), opt->manip.vmax[j]);
-        moving_result[0] = std::abs(1.01 * opt->bspline.traj.vel(j, i)) / opt->manip.vmax[j] - 1.0;
+        // moving_result[0] = abs_constraint(opt->bspline.traj.vel(j, i), opt->manip.vmax[j]);
+        moving_result[0] = std::abs(opt->bspline.traj.vel(j, i)) / opt->manip.vmax[j] - 1.0;
         moving_result++;
       }
     }
@@ -654,7 +654,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
       ZoneScopedN("Acceleration");
 #endif
       for (int j = 0; j < opt->manip.n_joints; j++) {
-        moving_result[0] = std::abs(1.01 * opt->bspline.traj.acc(j, i)) / opt->manip.amax[j] - 1.0;
+        moving_result[0] = std::abs(opt->bspline.traj.acc(j, i)) / opt->manip.amax[j] - 1.0;
         moving_result++;
       }
     }
@@ -668,7 +668,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
       dynamics(opt->manip, manip_data, vel, acc); // fills _efforts
 
       for (int j = 0; j < opt->manip.n_joints; j++) {
-        moving_result[0] = std::abs(1.01 * manip_data.efforts[j]) / opt->manip.tau_max[j] - 1.0;
+        moving_result[0] = std::abs(manip_data.efforts[j]) / opt->manip.tau_max[j] - 1.0;
         moving_result++;
       }
     }
@@ -679,7 +679,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
 #endif
       auto J_tool      = get_J_tool(opt, manip_data);
       real tcp_speed   = norm(J_tool * opt->bspline.traj.vel.col(i));
-      moving_result[0] = bound_constraint(1.01 * tcp_speed, 0.0, opt->manip.tcp_max);
+      moving_result[0] = bound_constraint(tcp_speed, 0.0, opt->manip.tcp_max);
       moving_result++;
     }
 
@@ -948,7 +948,7 @@ blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, co
 
   // Lambda to process common bound constraint operations
   auto process_bound = [&](real value, real bound_max) {
-    auto [constraint, gradient_coeff] = abs_constraint_dev(1.01 * value, bound_max);
+    auto [constraint, gradient_coeff] = abs_constraint_dev(value, bound_max);
     *moving_result++                  = constraint;
     gradient_coeffs[grad_idx++]       = gradient_coeff;
   };
@@ -975,7 +975,7 @@ blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, co
       ZoneScopedN("Position");
 #endif
       for (int j = 0; j < opt->manip.n_joints; j++) {
-        auto [constraint, gradient_coeff] = bound_constraint_dev<is_grad>(1.01 * opt->bspline.traj.pos(j, i), opt->manip.pmin[j], opt->manip.pmax[j]);
+        auto [constraint, gradient_coeff] = bound_constraint_dev<is_grad>(opt->bspline.traj.pos(j, i), opt->manip.pmin[j], opt->manip.pmax[j]);
         *moving_result++                  = constraint;
         gradient_coeffs[grad_idx++]       = gradient_coeff;
       }
@@ -1008,7 +1008,7 @@ blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, co
       auto acc = opt->bspline.traj.acc.col(i);
       dynamics(opt->manip, manip_data, vel, acc);
       for (int j = 0; j < opt->manip.n_joints; j++) {
-        *moving_result++ = abs_constraint(1.01 * manip_data.efforts[j], opt->manip.tau_max[j]);
+        *moving_result++ = abs_constraint(manip_data.efforts[j], opt->manip.tau_max[j]);
         grad_idx++; // todo: add analytical gradients
       }
     }
@@ -1019,7 +1019,7 @@ blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, co
 #endif
       auto J_tool      = get_J_tool(opt, manip_data);
       real tcp_speed   = norm(J_tool * opt->bspline.traj.vel.col(i));
-      *moving_result++ = bound_constraint(1.01 * tcp_speed, 0.0, opt->manip.tcp_max);
+      *moving_result++ = bound_constraint(tcp_speed, 0.0, opt->manip.tcp_max);
       grad_idx++; // todo: add analytical gradients
     }
 
@@ -1110,7 +1110,7 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
 
   // Lambda to process common bound constraint operations
   auto process_bound = [&](real value, real bound_max) {
-    auto [constraint, gradient_coeff] = abs_constraint_dev(1.01 * value, bound_max);
+    auto [constraint, gradient_coeff] = abs_constraint_dev(value, bound_max);
     *moving_result++                  = constraint;
     gradient_coeffs[grad_idx++]       = gradient_coeff;
   };
@@ -1144,7 +1144,7 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
       ZoneScopedN("Position");
 #endif
       for (int j = 0; j < joints; j++) {
-        auto [constraint, gradient_coeff] = bound_constraint_dev<is_grad>(1.01 * opt->bspline.traj.pos(j, i), opt->manip.pmin[j], opt->manip.pmax[j]);
+        auto [constraint, gradient_coeff] = bound_constraint_dev<is_grad>(opt->bspline.traj.pos(j, i), opt->manip.pmin[j], opt->manip.pmax[j]);
         *moving_result++                  = constraint;
         gradient_coeffs[grad_idx++]       = gradient_coeff;
       }
@@ -1177,7 +1177,7 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
       auto acc = opt->bspline.traj.acc.col(i);
       dynamics(opt->manip, manip_data, vel, acc);
       for (int j = 0; j < joints; j++) {
-        torque_constraint[j] = abs_constraint(1.01 * manip_data.efforts[j], opt->manip.tau_max[j]);
+        torque_constraint[j] = abs_constraint(manip_data.efforts[j], opt->manip.tau_max[j]);
         *moving_result++     = torque_constraint[j];
       }
 
@@ -1189,7 +1189,7 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
         pos[j] -= eps;
 
         for (u32 k = 0; k < joints; k++) {
-          torque_constraint_plus[k]                     = abs_constraint(1.01 * manip_data.efforts[k], opt->manip.tau_max[k]);
+          torque_constraint_plus[k]                     = abs_constraint(manip_data.efforts[k], opt->manip.tau_max[k]);
           gradient_coeffs_torque(k, j + 3 * joints * i) = (torque_constraint_plus[k] - torque_constraint[k]) / eps;
         }
       }
@@ -1202,7 +1202,7 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
         vel[j] -= eps;
 
         for (u32 k = 0; k < joints; k++) {
-          torque_constraint_plus[k]                              = abs_constraint(1.01 * manip_data.efforts[k], opt->manip.tau_max[k]);
+          torque_constraint_plus[k]                              = abs_constraint(manip_data.efforts[k], opt->manip.tau_max[k]);
           gradient_coeffs_torque(k, j + joints + 3 * joints * i) = (torque_constraint_plus[k] - torque_constraint[k]) / eps;
         }
       }
@@ -1214,7 +1214,7 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
         acc[j] -= eps;
 
         for (u32 k = 0; k < joints; k++) {
-          torque_constraint_plus[k]                                  = abs_constraint(1.01 * manip_data.efforts[k], opt->manip.tau_max[k]);
+          torque_constraint_plus[k]                                  = abs_constraint(manip_data.efforts[k], opt->manip.tau_max[k]);
           gradient_coeffs_torque(k, j + 2 * joints + 3 * joints * i) = (torque_constraint_plus[k] - torque_constraint[k]) / eps;
         }
       }
@@ -1226,7 +1226,7 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
 #endif
       auto J_tool      = get_J_tool(opt, manip_data);
       real tcp_speed   = norm(J_tool * opt->bspline.traj.vel.col(i));
-      *moving_result++ = bound_constraint(1.01 * tcp_speed, 0.0, opt->manip.tcp_max);
+      *moving_result++ = bound_constraint(tcp_speed, 0.0, opt->manip.tcp_max);
       grad_idx++; // todo: add analytical gradients
     }
 
@@ -1344,7 +1344,7 @@ inline blast_fn void compute_constraints_per_point(double* result, real& externa
     dynamics(opt->manip, manip_data, vel, acc); // fills _efforts
 
     for (int j = 0; j < opt->manip.n_joints; j++) {
-      moving_result[0] = (std::abs(1.01 * manip_data.efforts[j]) - opt->manip.tau_max[j]) / opt->manip.tau_max[j];
+      moving_result[0] = (std::abs(manip_data.efforts[j]) - opt->manip.tau_max[j]) / opt->manip.tau_max[j];
       moving_result++;
     }
   }
@@ -1355,7 +1355,7 @@ inline blast_fn void compute_constraints_per_point(double* result, real& externa
 #endif
     auto J_tool      = get_J_tool(opt, manip_data);
     real tcp_speed   = norm(J_tool * opt->bspline.traj.vel.col(i));
-    moving_result[0] = bound_constraint(1.01 * tcp_speed, 0.0, opt->manip.tcp_max);
+    moving_result[0] = bound_constraint(tcp_speed, 0.0, opt->manip.tcp_max);
     moving_result++;
   }
 
