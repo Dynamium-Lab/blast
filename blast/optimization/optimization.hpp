@@ -408,7 +408,15 @@ inline void initialize_optimization_with_segments(Optimization* opt) {
 }
 
 inline void n_con_with_segments(Optimization* opt) {
-  opt->constraints.n_constraints = (opt->manip.n_joints * 4) * ((int) opt->bspline.n_ctrl - (int) opt->bspline.p);
+  const int n_segments = ((int) opt->bspline.n_ctrl - (int) opt->bspline.p);
+
+  int n_constraints_per_segment = (int) opt->manip.n_joints * 4; // p.v.a.tau
+  if (opt->constraints.external_collisions) {
+    n_constraints_per_segment += opt->manip._n_caps;
+  }
+
+  opt->constraints.n_constraints = n_segments * n_constraints_per_segment;
+  opt->constraints.n_constraints_per_segment = n_constraints_per_segment;
 }
 
 inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {

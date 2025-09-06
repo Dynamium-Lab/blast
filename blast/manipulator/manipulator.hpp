@@ -283,11 +283,11 @@ inline host_fn void Manipulator::set_capsules(const ManipulatorCapsules& capsule
   }
 }
 
-inline void compute_capsules(const Manipulator& manip, ManipulatorTempData& temp) {
+inline void compute_capsules(const Manipulator& manip, ManipulatorTempData& manip_data) {
   for (u32 i = 0; i < manip._n_caps; ++i) {
-    temp.capsule_list[i] = {
-            {temp.p_j[manip._collision_model[i].joint_frame] + temp.rotations_mult[manip._collision_model[i].joint_frame] * manip._collision_model[i].p1},
-            {temp.p_j[manip._collision_model[i].joint_frame] + temp.rotations_mult[manip._collision_model[i].joint_frame] * manip._collision_model[i].p2},
+    manip_data.capsule_list[i] = {
+            {manip_data.p_j[manip._collision_model[i].joint_frame] + manip_data.rotations_mult[manip._collision_model[i].joint_frame] * manip._collision_model[i].p1},
+            {manip_data.p_j[manip._collision_model[i].joint_frame] + manip_data.rotations_mult[manip._collision_model[i].joint_frame] * manip._collision_model[i].p2},
             manip._collision_model[i].r};
   }
 }

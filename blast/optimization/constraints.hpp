@@ -62,6 +62,24 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
   // constraints (p,v,a,tor) for each joint, for each segment
   // [p1, p2,..., v1, v2,..., a1, a2,..., t1, t2,...]
 
+  enum class CollisionObjectType {
+    box,
+    sphere,
+    capsule,
+  };
+  struct CollisionEntities {
+    // object in the world
+    CollisionObjectType other_object_type;
+    union {
+      Box     box;
+      Sphere  sphere;
+      Capsule capsule;
+    };
+
+    // which point in time to look up the capsule
+    int point_in_segment;
+  };
+
   // basis: n_ctrl x n_points
   Assert(constraints.is_alias);
   if (grad.size) {
@@ -74,16 +92,18 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
   const int n_joints                  = (int) opt.manip.n_joints;
   const int n_ctrl                    = (int) opt.bspline.n_ctrl;
   const int x_len                     = (int) x.size;
-  const int n_capsules                = (int) opt.manip._n_caps;
-  const int n_constraints_per_segment = (n_joints * 4); //  todo: remove hard-coded 4 (p.v.a.tau)
+  const int n_capsules                = opt.manip._n_caps;
+  const int n_constraints_per_segment = (n_joints * 4) + n_capsules; //  todo: remove hard-coded 4 (p.v.a.tau)
   Assert(constraints.size == n_segments * n_constraints_per_segment);
 
+  const auto& world = opt.world;
+
   // limits
-  auto& pmax    = opt.manip.pmax;
-  auto& pmin    = opt.manip.pmin;
-  auto& vmax    = opt.manip.vmax;
-  auto& amax    = opt.manip.amax;
-  auto& tau_max = opt.manip.tau_max;
+  auto pmax    = opt.manip.pmax;
+  auto pmin    = opt.manip.pmin;
+  auto vmax    = opt.manip.vmax;
+  auto amax    = opt.manip.amax;
+  auto tau_max = opt.manip.tau_max;
   for (int j = 0; j < n_joints; j++) {
     // todo: document the current behaviour in the API
     //        (doesn't currently work if one is inf and the other is not)
@@ -93,11 +113,12 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
       pmin[j] = -1e300;
   }
 
-  ManipulatorTempData        manip_data;
-  std::array<u8, MAX_JOINTS> max_pos_indices{};
-  std::array<u8, MAX_JOINTS> max_vel_indices{};
-  std::array<u8, MAX_JOINTS> max_acc_indices{};
-  std::array<u8, MAX_JOINTS> max_tor_indices{};
+  ManipulatorTempData                         manip_data;
+  std::array<u8, MAX_JOINTS>                  max_pos_indices{};
+  std::array<u8, MAX_JOINTS>                  max_vel_indices{};
+  std::array<u8, MAX_JOINTS>                  max_acc_indices{};
+  std::array<u8, MAX_JOINTS>                  max_tor_indices{};
+  std::array<CollisionEntities, MAX_CAPSULES> max_collision_entities{};
 
   opt.bspline.compute_trajectory(x, opt.task);
 
@@ -117,10 +138,11 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
     Matrix bv(&opt.bspline.basis_v(0, start_point_for_segment), n_ctrl, n_points_per_segment); // note:
     Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_per_segment); // note:
 
-    Array max_pos_constraints(n_joints, -INF_REAL); // note:
-    Array max_vel_constraints(n_joints, -INF_REAL); // note:
-    Array max_acc_constraints(n_joints, -INF_REAL); // note:
-    Array max_tor_constraints(n_joints, -INF_REAL); // note:
+    Array max_pos_constraints(n_joints, -INF_REAL);
+    Array max_vel_constraints(n_joints, -INF_REAL);
+    Array max_acc_constraints(n_joints, -INF_REAL);
+    Array max_tor_constraints(n_joints, -INF_REAL);
+    Array max_col_constraints(n_capsules, -INF_REAL);
 
     for (int point_in_segment = 0; point_in_segment < n_points_per_segment; point_in_segment++) { // note:
       auto p = opt.bspline.traj.pos.col(start_point_for_segment + point_in_segment);              // note:
@@ -128,44 +150,100 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
       auto a = opt.bspline.traj.acc.col(start_point_for_segment + point_in_segment);              // note:
 
       forward_kinematics(opt.manip, manip_data, p);
+      compute_capsules(opt.manip, manip_data);
       dynamics(opt.manip, manip_data, v, a);
 
       for (int j = 0; j < n_joints; j++) {
         // position
-        if (auto c = bound_constraint(p[j], pmin[j], pmax[j]); c > max_pos_constraints[j]) {
+        if (const auto c = bound_constraint(p[j], pmin[j], pmax[j]);
+            c > max_pos_constraints[j]) {
           max_pos_constraints[j] = c;
           max_pos_indices[j]     = point_in_segment; // note:
         }
         // velocity
-        if (auto c = std::abs(v[j]) / vmax[j] - 1.0;
+        if (const auto c = std::abs(v[j]) / vmax[j] - 1.0;
             c > max_vel_constraints[j]) {
           max_vel_constraints[j] = c;
           max_vel_indices[j]     = point_in_segment; // note:
         }
         // acceleration
-        if (auto c = std::abs(a[j]) / amax[j] - 1.0;
+        if (const auto c = std::abs(a[j]) / amax[j] - 1.0;
             c > max_acc_constraints[j]) {
           max_acc_constraints[j] = c;
           max_acc_indices[j]     = point_in_segment; // note:
         }
         // torque
-        if (auto c = std::abs(manip_data.efforts[j]) / tau_max[j] - 1.0;
+        if (const auto c = std::abs(manip_data.efforts[j]) / tau_max[j] - 1.0;
             c > max_tor_constraints[j]) {
           max_tor_constraints[j] = c;
           max_tor_indices[j]     = point_in_segment; // note:
         }
       }
+
+      // check every capsule with world
+      for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++) {
+        real       dist_min = INF_REAL;
+        const auto capsule  = manip_data.capsule_list[capsule_id];
+
+        CollisionEntities collision_objects{};
+
+        // check against boxes
+        int count = 0;
+        for (const auto& box: world.boxes) {
+          if (const auto dist = distance(capsule, box);
+              dist < dist_min) {
+            dist_min                            = dist;
+            collision_objects.other_object_type = CollisionObjectType::box;
+            collision_objects.box               = box;
+            collision_objects.point_in_segment  = point_in_segment;
+          }
+          count++;
+        }
+
+        // check against capsules
+        count = 0;
+        for (const auto caps: world.capsules) {
+          if (const auto dist = distance(capsule, caps);
+              dist < dist_min) {
+            dist_min                            = dist;
+            collision_objects.other_object_type = CollisionObjectType::capsule;
+            collision_objects.capsule           = capsule;
+            collision_objects.point_in_segment  = point_in_segment;
+          }
+          count++;
+        }
+
+        // check against spheres
+        count = 0;
+        for (const auto sphere: world.spheres) {
+          if (const auto dist = distance(capsule, sphere);
+              dist < dist_min) {
+            dist_min                            = dist;
+            collision_objects.other_object_type = CollisionObjectType::sphere;
+            collision_objects.sphere            = sphere;
+            collision_objects.point_in_segment  = point_in_segment;
+          }
+          count++;
+        }
+
+        // update worst position for the current capsule if necessary
+        if (dist_min > max_col_constraints[capsule_id]) {
+          max_col_constraints[capsule_id]    = dist_min;
+          max_collision_entities[capsule_id] = collision_objects;
+        }
+      }
     }
 
-    // at this point we have max constraints for pos, vel, acc, tor, for this segment
+    // at this point we have max constraints for pos, vel, acc, tor, and collisions for this segment
 
     // fill in the constraints for the current segment
     // [p1, p2,..., v1, v2,..., a1, a2,..., t1, t2,...]
     auto fill_idx = segment * n_constraints_per_segment;
-    std::copy_n(max_pos_constraints.data, n_joints, &constraints[fill_idx]), fill_idx += n_joints; // note (andre): we can use the comma operator because we don't need the result of copy_n()
+    std::copy_n(max_pos_constraints.data, n_joints, &constraints[fill_idx]), fill_idx += n_joints; // note (andre): we can use the comma operator because we don't need the output of copy_n()
     std::copy_n(max_vel_constraints.data, n_joints, &constraints[fill_idx]), fill_idx += n_joints;
     std::copy_n(max_acc_constraints.data, n_joints, &constraints[fill_idx]), fill_idx += n_joints;
-    std::copy_n(max_tor_constraints.data, n_joints, &constraints[fill_idx]);
+    std::copy_n(max_tor_constraints.data, n_joints, &constraints[fill_idx]), fill_idx += n_joints;
+    std::copy_n(max_col_constraints.data, n_capsules, &constraints[fill_idx]), fill_idx += n_capsules;
 
 
     // The gradient should be a (x_len)x(n_constraints) matrix that looks like this:
@@ -355,81 +433,67 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           fill_column.back() += dtau_dv * (-v[j] * one_over_T) + dtau_da * (-2 * a[j] * one_over_T); // note:
         }
         con++;                                                                                       // note: moved out of the inner j loop (only changes at the end of all j torques per joint)
+      }
 
-        // Nikos' implementation
-        //   Matrix grad_tau_p(n_joints, n_joints); // variation of torque[joint] in respect to delta p[joint]
-        //   Matrix grad_tau_v(n_joints, n_joints); // variation of torque[joint] in respect to delta v[joint]
-        //   Matrix grad_tau_a(n_joints, n_joints); // variation of torque[joint] in respect to delta a[joint]
-        //   auto   p_at_max_tor  = opt.bspline.traj.pos.col(max_tor_indices[joint]);
-        //   auto   v_at_max_tor  = opt.bspline.traj.vel.col(max_tor_indices[joint]);
-        //   auto   a_at_max_tore = opt.bspline.traj.acc.col(max_tor_indices[joint]);
-        //
-        //   // variation in pos
-        //   p_at_max_tor[joint] += eps;
-        //   forward_kinematics(opt.manip, manip_data, p_at_max_tor);
-        //   dynamics(opt.manip, manip_data, v_at_max_tor, a_at_max_tore);
-        //   p_at_max_tor[joint] -= eps;
-        //
-        //   for (int j = 0; j < n_joints; j++) {
-        //     auto max_tor_plus    = (std::abs(manip_data.efforts[j])) / tau_max[j] - 1.0;
-        //     grad_tau_p(j, joint) = (max_tor_plus - max_tor_constraints[j]) / eps;
-        //   }
-        //
-        //   // restore to original positions (only once, since vel and acc do not affect fk)
-        //   forward_kinematics(opt.manip, manip_data, p_at_max_tor);
-        //
-        //   // variation in vel
-        //   v_at_max_tor[joint] += eps;
-        //   dynamics(opt.manip, manip_data, v_at_max_tor, a_at_max_tore);
-        //   v_at_max_tor[joint] -= eps;
-        //
-        //   for (int j = 0; j < n_joints; j++) {
-        //     auto max_tor_plus    = (std::abs(manip_data.efforts[j])) / tau_max[j] - 1.0;
-        //     grad_tau_v(j, joint) = (max_tor_plus - max_tor_constraints[j]) / eps;
-        //   }
-        //
-        //   // variation in acc
-        //   a_at_max_tore[joint] += eps;
-        //   dynamics(opt.manip, manip_data, v_at_max_tor, a_at_max_tore);
-        //   a_at_max_tore[joint] -= eps;
-        //
-        //   for (int j = 0; j < n_joints; j++) {
-        //     auto max_tor_plus    = (std::abs(manip_data.efforts[j])) / tau_max[j] - 1.0;
-        //     grad_tau_a(j, joint) = (max_tor_plus - max_tor_constraints[j]) / eps;
-        //   }
-        // }
-        //
-        // // Which values in 'x' affect the torque (these are the same for each joint)
-        // auto x_idx = first_affected_control_point - 3; // todo: does not work with tasks that don't impose p,v,a for every joint!!
-        // // skip the control points unaffected in the segment
-        // auto x_idx_skip = (n_ctrl - 6) - n_affected_control_points;
-        // for (int joint = 0; joint < n_joints; joint++) {
-        //   // Array of the column where to put the gradient for the current constraint
-        //   Array fill_column = grad_segment.col(con);
-        //   Assert(con == (segment * n_constraints_per_segment + 2 * n_joints + joint));
-        //   Assert(fill_column.size == x_len);
-        //   Assert(fill_column.is_alias);
-        //
-        //   Array bp_to_use(&bp(first_affected_control_point, max_tor_indices[joint]), n_affected_control_points);
-        //   Assert(bp_to_use.is_alias);
-        //   Array bv_to_use(&bv(first_affected_control_point, max_tor_indices[joint]), n_affected_control_points);
-        //   Assert(bv_to_use.is_alias);
-        //   Array ba_to_use(&ba(first_affected_control_point, max_tor_indices[joint]), n_affected_control_points);
-        //   Assert(ba_to_use.is_alias);
-        //   for (int j = 0; j < n_joints; j++) {
-        //     // fill 3 to 6 basis functions depending on the segment (first and last 3 control points are not in x)
-        //     auto tmp_grad_p = grad_tau_p(j, joint);
-        //     auto tmp_grad_v = grad_tau_v(j, joint);
-        //     auto tmp_grad_a = grad_tau_a(j, joint);
-        //     for (int i = 0; i < n_affected_control_points; i++) {
-        //       fill_column[x_idx++] = bp_to_use[i] * tmp_grad_p +
-        //                              bv_to_use[i] * tmp_grad_v * one_over_T +
-        //                              ba_to_use[i] * tmp_grad_a * one_over_T2;
-        //     }
-        //     x_idx += x_idx_skip;
-        //   }
-        //   con++;
-        // todo: deal with T
+      // collisions
+      for (int capsule_id = 0; capsule_id < n_joints; capsule_id++) {
+        constexpr real eps    = 1e-5;
+        const auto     point  = max_collision_entities[capsule_id].point_in_segment;
+        auto           p      = opt.bspline.traj.pos.col(start_point_for_segment + point);
+        auto           p_plus = p;
+
+        auto x_idx      = first_affected_control_point - 3;
+        auto x_idx_skip = n_ctrl - 6;
+
+        Array fill_column = grad_segment.col(con);
+        Assert(con == joint); // note:
+        Assert(fill_column.size == x_len);
+        Assert(fill_column.is_alias);
+
+        // 3 to 6 basis functions depending on the segment (first and last 3 control points are not in x)
+        Array bp_to_use(&bp(first_affected_control_point, point), n_affected_control_points);
+        Assert(bp_to_use.is_alias);
+
+        // finite difference w.r.t. joint positions then multiply by relevant basis functions.
+        for (int j = 0; j < n_joints; j++) {
+          // todo: check if the joint can actually move the current capsule
+          p_plus[j] += eps;
+
+          // recompute collision constraint, but only with the current capsule and the identified object.
+          forward_kinematics(opt.manip, manip_data, p_plus);
+          compute_capsules(opt.manip, manip_data);
+          const auto capsule = manip_data.capsule_list[capsule_id];
+
+          real        distance_plus;
+          const auto& objects = max_collision_entities[capsule_id];
+          switch (objects.other_object_type) {
+            case CollisionObjectType::box: {
+              distance_plus = distance(capsule, objects.box);
+              break;
+            }
+            case CollisionObjectType::capsule: {
+              distance_plus = distance(capsule, objects.capsule);
+              break;
+            }
+            case CollisionObjectType::sphere: {
+              distance_plus = distance(capsule, objects.sphere);
+              break;
+            }
+          }
+
+          // partial difference d(collision)/dp
+          const real dcoll_dp = (distance_plus - max_col_constraints[capsule_id]) / eps;
+
+          // fill the gradient for the control points that affect current joint 'j' d(collision)/dp * dp/d(control point)
+          for (int i = 0; i < n_affected_control_points; i++) {
+            fill_column[x_idx + i] = bp_to_use[i] * dcoll_dp;
+          }
+          x_idx += x_idx_skip;
+
+          p_plus[j] = p[j]; // reset finite difference
+        }
+
+        con++; // finished filling the column with the gradient of the collision of the current capsule w.r.t. each joint position
       }
     }
   }
@@ -556,15 +620,13 @@ inline blast_fn void nlopt_constraints_with_segments(unsigned m, double* result,
   Array constraints;
   constraints.alias(result, m);
 
+  Matrix gradients;
   if (grad) {
     memset(grad, 0, m * x_len * sizeof(real));
-    Matrix gradients;
     gradients.alias(grad, x_len, m);
-    constraints_and_gradients_with_segments(xv, *opt, constraints, gradients);
-  } else {
-    // no gradients requested
-    compute_constraints_with_segments(xv, *opt, constraints);
   }
+
+  constraints_and_gradients_with_segments(xv, *opt, constraints, gradients);
 }
 
 inline blast_fn void compute_constraints(double* result, const Array& x, Optimization* opt) {

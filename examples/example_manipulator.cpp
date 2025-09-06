@@ -13,7 +13,7 @@ int main() {
   // Optimization opt(get_generic_gen3(), get_gen3_task());
   Optimization opt(get_generic_Link6(), get_link6_task());
 
-  // opt.world = get_lab_world();
+  opt.world = get_lab_world();
 
   // Sleep(200);
 
@@ -31,7 +31,7 @@ int main() {
   opt.constraints.torque              = true;
   opt.constraints.tcp_speed           = false;
   opt.constraints.self_collisions     = false;
-  opt.constraints.external_collisions = false;
+  opt.constraints.external_collisions = true;
 
   opt.max_tries         = 1;
   opt.success_tolerance = 0.01;
