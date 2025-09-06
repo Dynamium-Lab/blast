@@ -499,114 +499,114 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
   }
 }
 
-inline blast_fn void compute_constraints_with_segments(const Array& x, Optimization& opt, Array& constraints) {
-  // constraints (p,v,a,tor) for each joint, for each segment
-  // [p1, p2,..., v1, v2,..., a1, a2,..., t1, t2,...]
-
-  // basis: n_ctrl x n_points
-  // Assert(constraints.is_alias); todo: fix for optimization validation
-
-  const int n_segments                = (int) opt.bspline.n_ctrl - (int) opt.bspline.p;
-  const int n_points_per_segment      = (int) opt.bspline.n_points / n_segments; // todo: check if fine? -> (Nikos) constructor that sets n_points from n_points_per_segment
-  const int n_joints                  = (int) opt.manip.n_joints;
-  const int n_ctrl                    = (int) opt.bspline.n_ctrl;
-  const int x_len                     = (int) x.size;
-  const int n_constraints_per_segment = (n_joints * 4); //  todo: remove hard-coded 4
-  Assert(constraints.size == n_segments * n_constraints_per_segment);
-
-  // limits
-  auto pmax    = opt.manip.pmax;
-  auto pmin    = opt.manip.pmin;
-  auto vmax    = opt.manip.vmax;
-  auto amax    = opt.manip.amax;
-  auto tau_max = opt.manip.tau_max;
-
-  ManipulatorTempData manip_data;
-  std::vector<u8>     max_pos_indices(n_joints);
-  std::vector<u8>     max_vel_indices(n_joints);
-  std::vector<u8>     max_acc_indices(n_joints);
-  std::vector<u8>     max_tor_indices(n_joints);
-
-  opt.bspline.compute_trajectory(x, opt.task);
-
-
-  for (int segment = 0; segment < n_segments; segment++) {
-#if BLAST_TRACE_LEVEL >= 2
-    ZoneScopedN("All Segment Constraints");
-#endif
-    const int first_affected_control_point = std::max(3, segment);
-    const int last_affected_control_point  = std::min((n_ctrl - 1) - 3, segment + (int) opt.bspline.p);
-    const int n_affected_control_points    = last_affected_control_point - first_affected_control_point + 1; // note: affected_control_points are inclusive, so when we have last = 5, first = 3, we want 3 (5 - 3) + 1
-    const int start_point_for_segment      = segment * n_points_per_segment;                                 // note:
-    Assert(n_affected_control_points >= 3);
-    Assert(n_affected_control_points <= 6);
-
-    Matrix bp(&opt.bspline.basis_p(0, start_point_for_segment), n_ctrl, n_points_per_segment); // note:
-    Matrix bv(&opt.bspline.basis_v(0, start_point_for_segment), n_ctrl, n_points_per_segment); // note:
-    Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_per_segment); // note:
-
-    // Initialize max_constraints with -INF_REAL
-    Array max_pos_constraints(n_joints, -INF_REAL);                                               // note:
-    Array max_vel_constraints(n_joints, -INF_REAL);                                               // note:
-    Array max_acc_constraints(n_joints, -INF_REAL);                                               // note:
-    Array max_tor_constraints(n_joints, -INF_REAL);                                               // note:
-
-    for (int point_in_segment = 0; point_in_segment < n_points_per_segment; point_in_segment++) { // note:
-      auto p = opt.bspline.traj.pos.col(start_point_for_segment + point_in_segment);              // note:
-      auto v = opt.bspline.traj.vel.col(start_point_for_segment + point_in_segment);              // note:
-      auto a = opt.bspline.traj.acc.col(start_point_for_segment + point_in_segment);              // note:
-
-      forward_kinematics(opt.manip, manip_data, p);
-      dynamics(opt.manip, manip_data, v, a);
-
-      for (int j = 0; j < n_joints; j++) {
-        {
-          // todo (andre): do this when initializing the optimization, not here
-          // todo: document the current behaviour in the API
-          //        (doesn't currently work if one is inf and the other is not)
-          if (pmax[j] == INF_REAL)  // note: replace INF_REAL with huge value
-            pmax[j] = 1e300;
-          if (pmin[j] == -INF_REAL) // note: replace -INF_REAL with huge negative value
-            pmin[j] = -1e300;
-        }
-        // position
-        if (auto c = bound_constraint(p[j], pmin[j], pmax[j]); // note: todo: remove 1.01 and use for validation only
-            c > max_pos_constraints[j]) {
-          max_pos_constraints[j] = c;
-          max_pos_indices[j]     = point_in_segment; // note:
-        }
-        // velocity
-        if (auto c = std::abs(v[j]) / vmax[j] - 1.0; // note: todo: remove 1.01 and use for validation only
-            c > max_vel_constraints[j]) {
-          max_vel_constraints[j] = c;
-          max_vel_indices[j]     = point_in_segment; // note:
-        }
-        // acceleration
-        if (auto c = std::abs(a[j]) / amax[j] - 1.0; // note: todo: remove 1.01 and use for validation only
-            c > max_acc_constraints[j]) {
-          max_acc_constraints[j] = c;
-          max_acc_indices[j]     = point_in_segment; // note:
-        }
-        // torque
-        if (auto c = std::abs(manip_data.efforts[j]) / tau_max[j] - 1.0; // note: todo: remove 1.01 and use for validation only
-            c > max_tor_constraints[j]) {
-          max_tor_constraints[j] = c;
-          max_tor_indices[j]     = point_in_segment; // note:
-        }
-      }
-    }
-
-    // at this point we have max constraints for pos, vel, acc, tor, for this segment
-
-    // fill in the constraints for the current segment
-    // [p1, p2,..., v1, v2,..., a1, a2,..., t1, t2,...]
-    auto fill_idx = segment * n_constraints_per_segment;
-    std::copy_n(max_pos_constraints.data, n_joints, &constraints[fill_idx]), fill_idx += n_joints; // note (andre): we can use the comma operator because we don't need the result of copy_n()
-    std::copy_n(max_vel_constraints.data, n_joints, &constraints[fill_idx]), fill_idx += n_joints;
-    std::copy_n(max_acc_constraints.data, n_joints, &constraints[fill_idx]), fill_idx += n_joints;
-    std::copy_n(max_tor_constraints.data, n_joints, &constraints[fill_idx]);
-  }
-}
+// inline blast_fn void compute_constraints_with_segments(const Array& x, Optimization& opt, Array& constraints) {
+//   // constraints (p,v,a,tor) for each joint, for each segment
+//   // [p1, p2,..., v1, v2,..., a1, a2,..., t1, t2,...]
+//
+//   // basis: n_ctrl x n_points
+//   // Assert(constraints.is_alias); todo: fix for optimization validation
+//
+//   const int n_segments                = (int) opt.bspline.n_ctrl - (int) opt.bspline.p;
+//   const int n_points_per_segment      = (int) opt.bspline.n_points / n_segments; // todo: check if fine? -> (Nikos) constructor that sets n_points from n_points_per_segment
+//   const int n_joints                  = (int) opt.manip.n_joints;
+//   const int n_ctrl                    = (int) opt.bspline.n_ctrl;
+//   const int x_len                     = (int) x.size;
+//   const int n_constraints_per_segment = (n_joints * 4); //  todo: remove hard-coded 4
+//   Assert(constraints.size == n_segments * n_constraints_per_segment);
+//
+//   // limits
+//   auto pmax    = opt.manip.pmax;
+//   auto pmin    = opt.manip.pmin;
+//   auto vmax    = opt.manip.vmax;
+//   auto amax    = opt.manip.amax;
+//   auto tau_max = opt.manip.tau_max;
+//
+//   ManipulatorTempData manip_data;
+//   std::vector<u8>     max_pos_indices(n_joints);
+//   std::vector<u8>     max_vel_indices(n_joints);
+//   std::vector<u8>     max_acc_indices(n_joints);
+//   std::vector<u8>     max_tor_indices(n_joints);
+//
+//   opt.bspline.compute_trajectory(x, opt.task);
+//
+//
+//   for (int segment = 0; segment < n_segments; segment++) {
+// #if BLAST_TRACE_LEVEL >= 2
+//     ZoneScopedN("All Segment Constraints");
+// #endif
+//     const int first_affected_control_point = std::max(3, segment);
+//     const int last_affected_control_point  = std::min((n_ctrl - 1) - 3, segment + (int) opt.bspline.p);
+//     const int n_affected_control_points    = last_affected_control_point - first_affected_control_point + 1; // note: affected_control_points are inclusive, so when we have last = 5, first = 3, we want 3 (5 - 3) + 1
+//     const int start_point_for_segment      = segment * n_points_per_segment;                                 // note:
+//     Assert(n_affected_control_points >= 3);
+//     Assert(n_affected_control_points <= 6);
+//
+//     Matrix bp(&opt.bspline.basis_p(0, start_point_for_segment), n_ctrl, n_points_per_segment); // note:
+//     Matrix bv(&opt.bspline.basis_v(0, start_point_for_segment), n_ctrl, n_points_per_segment); // note:
+//     Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_per_segment); // note:
+//
+//     // Initialize max_constraints with -INF_REAL
+//     Array max_pos_constraints(n_joints, -INF_REAL);                                               // note:
+//     Array max_vel_constraints(n_joints, -INF_REAL);                                               // note:
+//     Array max_acc_constraints(n_joints, -INF_REAL);                                               // note:
+//     Array max_tor_constraints(n_joints, -INF_REAL);                                               // note:
+//
+//     for (int point_in_segment = 0; point_in_segment < n_points_per_segment; point_in_segment++) { // note:
+//       auto p = opt.bspline.traj.pos.col(start_point_for_segment + point_in_segment);              // note:
+//       auto v = opt.bspline.traj.vel.col(start_point_for_segment + point_in_segment);              // note:
+//       auto a = opt.bspline.traj.acc.col(start_point_for_segment + point_in_segment);              // note:
+//
+//       forward_kinematics(opt.manip, manip_data, p);
+//       dynamics(opt.manip, manip_data, v, a);
+//
+//       for (int j = 0; j < n_joints; j++) {
+//         {
+//           // todo (andre): do this when initializing the optimization, not here
+//           // todo: document the current behaviour in the API
+//           //        (doesn't currently work if one is inf and the other is not)
+//           if (pmax[j] == INF_REAL)  // note: replace INF_REAL with huge value
+//             pmax[j] = 1e300;
+//           if (pmin[j] == -INF_REAL) // note: replace -INF_REAL with huge negative value
+//             pmin[j] = -1e300;
+//         }
+//         // position
+//         if (auto c = bound_constraint(p[j], pmin[j], pmax[j]); // note: todo: remove 1.01 and use for validation only
+//             c > max_pos_constraints[j]) {
+//           max_pos_constraints[j] = c;
+//           max_pos_indices[j]     = point_in_segment; // note:
+//         }
+//         // velocity
+//         if (auto c = std::abs(v[j]) / vmax[j] - 1.0; // note: todo: remove 1.01 and use for validation only
+//             c > max_vel_constraints[j]) {
+//           max_vel_constraints[j] = c;
+//           max_vel_indices[j]     = point_in_segment; // note:
+//         }
+//         // acceleration
+//         if (auto c = std::abs(a[j]) / amax[j] - 1.0; // note: todo: remove 1.01 and use for validation only
+//             c > max_acc_constraints[j]) {
+//           max_acc_constraints[j] = c;
+//           max_acc_indices[j]     = point_in_segment; // note:
+//         }
+//         // torque
+//         if (auto c = std::abs(manip_data.efforts[j]) / tau_max[j] - 1.0; // note: todo: remove 1.01 and use for validation only
+//             c > max_tor_constraints[j]) {
+//           max_tor_constraints[j] = c;
+//           max_tor_indices[j]     = point_in_segment; // note:
+//         }
+//       }
+//     }
+//
+//     // at this point we have max constraints for pos, vel, acc, tor, for this segment
+//
+//     // fill in the constraints for the current segment
+//     // [p1, p2,..., v1, v2,..., a1, a2,..., t1, t2,...]
+//     auto fill_idx = segment * n_constraints_per_segment;
+//     std::copy_n(max_pos_constraints.data, n_joints, &constraints[fill_idx]), fill_idx += n_joints; // note (andre): we can use the comma operator because we don't need the result of copy_n()
+//     std::copy_n(max_vel_constraints.data, n_joints, &constraints[fill_idx]), fill_idx += n_joints;
+//     std::copy_n(max_acc_constraints.data, n_joints, &constraints[fill_idx]), fill_idx += n_joints;
+//     std::copy_n(max_tor_constraints.data, n_joints, &constraints[fill_idx]);
+//   }
+// }
 
 inline blast_fn void nlopt_constraints_with_segments(unsigned m, double* result, unsigned x_len, const double* x, double* grad, void* f_data) {
 #if BLAST_TRACE_LEVEL >= 1

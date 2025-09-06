@@ -545,7 +545,8 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
       ZoneScopedN("Solution validation");
 #endif
       Array constraints_points(opt->constraints.n_constraints);
-      compute_constraints_with_segments(x, *opt, constraints_points);
+      Matrix gradient;
+      constraints_and_gradients_with_segments(x, *opt, constraints_points, gradient);
       is_valid = max(constraints_points) < opt->success_tolerance;
     }
 
@@ -563,7 +564,8 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
       opt_val_more.set_bspline(bspline_val_more);
       n_con_with_segments(&opt_val_more);
       Array constraints_more_points(opt_val_more.constraints.n_constraints);
-      compute_constraints_with_segments(x, opt_val_more, constraints_more_points);
+      Matrix gradient;
+      constraints_and_gradients_with_segments(x, opt_val_more, constraints_more_points, gradient);
       is_valid_more = max(constraints_more_points) < opt->success_tolerance;
 
       result.x = x;
