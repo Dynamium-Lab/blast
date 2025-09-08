@@ -36,7 +36,9 @@ struct ObjMatrix {
 /// @param cols The number of columns.
 template<typename T>
 inline ObjMatrix<T>::ObjMatrix(int rows, int cols) :
-    cols(cols), rows(rows), size(rows * cols) {
+    cols(cols),
+    rows(rows),
+    size(rows * cols) {
   Assert(rows >= 0 && cols >= 0);
   data.resize(cols * rows);
 }
@@ -45,13 +47,19 @@ inline ObjMatrix<T>::ObjMatrix(int rows, int cols) :
 /// @param other The matrix to copy.
 template<typename T>
 inline ObjMatrix<T>::ObjMatrix(const ObjMatrix& other) :
-    data(other.data), cols(other.cols), rows(other.rows), size(other.size) {}
+    data(other.data),
+    cols(other.cols),
+    rows(other.rows),
+    size(other.size) {}
 
 /// @brief Move constructor. Does NOT copy the data.
 /// @param other The matrix to move.
 template<typename T>
 inline ObjMatrix<T>::ObjMatrix(ObjMatrix&& other) noexcept :
-    data(std::move(other.data)), cols(other.cols), rows(other.rows), size(other.size) {
+    data(std::move(other.data)),
+    cols(other.cols),
+    rows(other.rows),
+    size(other.size) {
   other.cols = 0;
   other.rows = 0;
   other.size = 0;
@@ -156,6 +164,5 @@ inline blast_fn std::vector<T> ObjMatrix<T>::col_copy(int c) const {
     result[r] = data[index++];
   return result;
 }
-
 
 } // namespace blast

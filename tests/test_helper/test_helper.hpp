@@ -500,7 +500,7 @@ inline host_fn Matrix get_gen3_task() {
 }
 
 inline host_fn std::vector<Matrix> get_Link6_demo1_tasks() {
-  // Read tasks Demo 1
+  // Read tasks Demo 1 (13 tasks)
   // Array pos_zero = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
   Array pos_home = deg2rad({0.00177001953125,
                             -19.997268676757812,
@@ -633,43 +633,43 @@ inline host_fn std::vector<Matrix> get_Link6_demo1_tasks() {
   Matrix task_home_start(6, 6);
 
   // w1_10cm to w1 & w1 to w1_10cm & w1_10cm to wb1
-  Matrix task_w1_0(6, 6);
-  Matrix task_w1_1(6, 6);
+  // Matrix task_w1_0(6, 6);
+  // Matrix task_w1_1(6, 6);
   Matrix task_w1_wb1(6, 6);
 
   // wb1 to b2_10cm
   Matrix task_wb1_b2(6, 6);
   // b2_10cm to b2 & b2 to b2_10cm & b2_10cm to bb2
-  Matrix task_b2_0(6, 6);
-  Matrix task_b2_1(6, 6);
+  // Matrix task_b2_0(6, 6);
+  // Matrix task_b2_1(6, 6);
   Matrix task_b2_bb2(6, 6);
 
   // bb2 to w3_10cm
   Matrix task_bb2_w3(6, 6);
   // w3_10cm to w3 & w3 to w3_10cm & w3_10cm to wb3
-  Matrix task_w3_0(6, 6);
-  Matrix task_w3_1(6, 6);
+  // Matrix task_w3_0(6, 6);
+  // Matrix task_w3_1(6, 6);
   Matrix task_w3_wb3(6, 6);
 
   // wb3 to w4_10cm
   Matrix task_wb3_w4(6, 6);
   // w4_10cm to w4 & w4 to w4_10cm & w4_10cm to wb4
-  Matrix task_w4_0(6, 6);
-  Matrix task_w4_1(6, 6);
+  // Matrix task_w4_0(6, 6);
+  // Matrix task_w4_1(6, 6);
   Matrix task_w4_wb4(6, 6);
 
   // wb4 to b5_10cm
   Matrix task_wb4_b5(6, 6);
   // b5_10cm to b5 & b5 to b5_10cm & b5_10cm to bb5
-  Matrix task_b5_0(6, 6);
-  Matrix task_b5_1(6, 6);
+  // Matrix task_b5_0(6, 6);
+  // Matrix task_b5_1(6, 6);
   Matrix task_b5_bb5(6, 6);
 
   // bb5 to b6_10cm
   Matrix task_bb5_b6(6, 6);
   // b6_10cm to b6 & b6 to b6_10cm & b6_10cm to bb6
-  Matrix task_b6_0(6, 6);
-  Matrix task_b6_1(6, 6);
+  // Matrix task_b6_0(6, 6);
+  // Matrix task_b6_1(6, 6);
   Matrix task_b6_bb6(6, 6);
 
   // bb6 to home
@@ -681,10 +681,10 @@ inline host_fn std::vector<Matrix> get_Link6_demo1_tasks() {
     task_home_start(i, 3) = pos_w1_10cm[i];
 
     // Bloc 1
-    task_w1_0(i, 0) = pos_w1_10cm[i];
-    task_w1_0(i, 3) = pos_w1[i];
-    task_w1_1(i, 0) = pos_w1[i];
-    task_w1_1(i, 3) = pos_w1_10cm[i];
+    // task_w1_0(i, 0) = pos_w1_10cm[i];
+    // task_w1_0(i, 3) = pos_w1[i];
+    // task_w1_1(i, 0) = pos_w1[i];
+    // task_w1_1(i, 3) = pos_w1_10cm[i];
 
     task_w1_wb1(i, 0) = pos_w1_10cm[i];
     task_w1_wb1(i, 3) = pos_wb1[i];
@@ -693,10 +693,10 @@ inline host_fn std::vector<Matrix> get_Link6_demo1_tasks() {
     task_wb1_b2(i, 0) = pos_wb1[i];
     task_wb1_b2(i, 3) = pos_b2_10cm[i];
 
-    task_b2_0(i, 0) = pos_b2_10cm[i];
-    task_b2_0(i, 3) = pos_b2[i];
-    task_b2_1(i, 0) = pos_b2[i];
-    task_b2_1(i, 3) = pos_b2_10cm[i];
+    // task_b2_0(i, 0) = pos_b2_10cm[i];
+    // task_b2_0(i, 3) = pos_b2[i];
+    // task_b2_1(i, 0) = pos_b2[i];
+    // task_b2_1(i, 3) = pos_b2_10cm[i];
 
     task_b2_bb2(i, 0) = pos_b2_10cm[i];
     task_b2_bb2(i, 3) = pos_bb2[i];
@@ -705,10 +705,10 @@ inline host_fn std::vector<Matrix> get_Link6_demo1_tasks() {
     task_bb2_w3(i, 0) = pos_bb2[i];
     task_bb2_w3(i, 3) = pos_w3_10cm[i];
 
-    task_w3_0(i, 0) = pos_w3_10cm[i];
-    task_w3_0(i, 3) = pos_w3[i];
-    task_w3_1(i, 0) = pos_w3[i];
-    task_w3_1(i, 3) = pos_w3_10cm[i];
+    // task_w3_0(i, 0) = pos_w3_10cm[i];
+    // task_w3_0(i, 3) = pos_w3[i];
+    // task_w3_1(i, 0) = pos_w3[i];
+    // task_w3_1(i, 3) = pos_w3_10cm[i];
 
     task_w3_wb3(i, 0) = pos_w3_10cm[i];
     task_w3_wb3(i, 3) = pos_wb3[i];
@@ -717,10 +717,10 @@ inline host_fn std::vector<Matrix> get_Link6_demo1_tasks() {
     task_wb3_w4(i, 0) = pos_wb3[i];
     task_wb3_w4(i, 3) = pos_w4_10cm[i];
 
-    task_w4_0(i, 0) = pos_w4_10cm[i];
-    task_w4_0(i, 3) = pos_w4[i];
-    task_w4_1(i, 0) = pos_w4[i];
-    task_w4_1(i, 3) = pos_w4_10cm[i];
+    // task_w4_0(i, 0) = pos_w4_10cm[i];
+    // task_w4_0(i, 3) = pos_w4[i];
+    // task_w4_1(i, 0) = pos_w4[i];
+    // task_w4_1(i, 3) = pos_w4_10cm[i];
 
     task_w4_wb4(i, 0) = pos_w4_10cm[i];
     task_w4_wb4(i, 3) = pos_wb4[i];
@@ -729,10 +729,10 @@ inline host_fn std::vector<Matrix> get_Link6_demo1_tasks() {
     task_wb4_b5(i, 0) = pos_wb4[i];
     task_wb4_b5(i, 3) = pos_b5_10cm[i];
 
-    task_b5_0(i, 0) = pos_b5_10cm[i];
-    task_b5_0(i, 3) = pos_b5[i];
-    task_b5_1(i, 0) = pos_b5[i];
-    task_b5_1(i, 3) = pos_b5_10cm[i];
+    // task_b5_0(i, 0) = pos_b5_10cm[i];
+    // task_b5_0(i, 3) = pos_b5[i];
+    // task_b5_1(i, 0) = pos_b5[i];
+    // task_b5_1(i, 3) = pos_b5_10cm[i];
 
     task_b5_bb5(i, 0) = pos_b5_10cm[i];
     task_b5_bb5(i, 3) = pos_bb5[i];
@@ -741,10 +741,10 @@ inline host_fn std::vector<Matrix> get_Link6_demo1_tasks() {
     task_bb5_b6(i, 0) = pos_bb5[i];
     task_bb5_b6(i, 3) = pos_b6_10cm[i];
 
-    task_b6_0(i, 0) = pos_b6_10cm[i];
-    task_b6_0(i, 3) = pos_b6[i];
-    task_b6_1(i, 0) = pos_b6[i];
-    task_b6_1(i, 3) = pos_b6_10cm[i];
+    // task_b6_0(i, 0) = pos_b6_10cm[i];
+    // task_b6_0(i, 3) = pos_b6[i];
+    // task_b6_1(i, 0) = pos_b6[i];
+    // task_b6_1(i, 3) = pos_b6_10cm[i];
 
     task_b6_bb6(i, 0) = pos_b6_10cm[i];
     task_b6_bb6(i, 3) = pos_bb6[i];
@@ -753,41 +753,41 @@ inline host_fn std::vector<Matrix> get_Link6_demo1_tasks() {
     task_home_finish(i, 0) = pos_bb6[i];
     task_home_finish(i, 3) = pos_home[i];
   }
-  // Sequence tasks
+  // Sequence tasks (13 tasks)
   tasks.push_back(task_home_start); // 0
   // Bloc 1
-  tasks.push_back(task_w1_0);   // 1
-  tasks.push_back(task_w1_1);   // 2
+  // tasks.push_back(task_w1_0);   // 1
+  // tasks.push_back(task_w1_1);   // 2
   tasks.push_back(task_w1_wb1); // 3
 
   tasks.push_back(task_wb1_b2); // 4
   // Bloc 2
-  tasks.push_back(task_b2_0);   // 5
-  tasks.push_back(task_b2_1);   // 6
+  // tasks.push_back(task_b2_0);   // 5
+  // tasks.push_back(task_b2_1);   // 6
   tasks.push_back(task_b2_bb2); // 7
 
   tasks.push_back(task_bb2_w3); // 8
   // Bloc 3
-  tasks.push_back(task_w3_0);   // 9
-  tasks.push_back(task_w3_1);   // 10
+  // tasks.push_back(task_w3_0);   // 9
+  // tasks.push_back(task_w3_1);   // 10
   tasks.push_back(task_w3_wb3); // 11
 
   tasks.push_back(task_wb3_w4); // 12
   // Bloc 4
-  tasks.push_back(task_w4_0);   // 13
-  tasks.push_back(task_w4_1);   // 14
+  // tasks.push_back(task_w4_0);   // 13
+  // tasks.push_back(task_w4_1);   // 14
   tasks.push_back(task_w4_wb4); // 15
 
   tasks.push_back(task_wb4_b5); // 16
   // Bloc 5
-  tasks.push_back(task_b5_0);   // 17
-  tasks.push_back(task_b5_1);   // 18
+  // tasks.push_back(task_b5_0);   // 17
+  // tasks.push_back(task_b5_1);   // 18
   tasks.push_back(task_b5_bb5); // 19
 
   tasks.push_back(task_bb5_b6); // 20
   // Bloc 6
-  tasks.push_back(task_b6_0);        // 21
-  tasks.push_back(task_b6_1);        // 22
+  // tasks.push_back(task_b6_0);        // 21
+  // tasks.push_back(task_b6_1);        // 22
   tasks.push_back(task_b6_bb6);      // 23
 
   tasks.push_back(task_home_finish); // 24

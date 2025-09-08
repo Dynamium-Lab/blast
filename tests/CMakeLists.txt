@@ -35,6 +35,7 @@ set(BENCHMARKS
     bench_manipulator benchmarks/bench_manipulator.cpp
     bench_accelerations acceleration/bench_accelerations.cpp
     bench_inplace acceleration/bench_inplace.cpp
+    bench_paper_gradients benchmarks/bench_paper_gradients.cpp
     #    bench_constraints benchmarks/bench_constraints.cpp
     #    bench_functions benchmarks/bench_functions.cpp
 )

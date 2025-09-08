@@ -32,7 +32,7 @@ inline blast_fn real bound_constraint(const real& value, const real& value_min, 
 }
 
 inline blast_fn real abs_constraint(const real& value, const real& value_max) {
-  return (std::abs(value) - value_max) / value_max;
+  return std::abs(value) / value_max - 1.0;
 }
 
 inline blast_fn Matrix get_J_tool(const Optimization* opt, const ManipulatorTempData& temp) {
@@ -69,15 +69,15 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
   };
   struct CollisionEntities {
     // object in the world
-    CollisionObjectType other_object_type;
+    CollisionObjectType other_object_type = CollisionObjectType::box;
     union {
-      Box     box;
+      Box     box{};
       Sphere  sphere;
       Capsule capsule;
     };
 
     // which point in time to look up the capsule
-    int point_in_segment;
+    int point_in_segment = 0;
   };
 
   // basis: n_ctrl x n_points
@@ -225,6 +225,8 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           }
           count++;
         }
+
+        dist_min = -dist_min; // negative distance is positive constraint
 
         // update worst position for the current capsule if necessary
         if (dist_min > max_col_constraints[capsule_id]) {
@@ -480,6 +482,8 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
               break;
             }
           }
+
+          distance_plus = -distance_plus; // negative distance is positive constraint
 
           // partial difference d(collision)/dp
           const real dcoll_dp = (distance_plus - max_col_constraints[capsule_id]) / eps;
@@ -1149,7 +1153,7 @@ blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, co
 }
 
 template<bool is_grad>
-blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs, Matrix& gradient_coeffs_torque, /*Array& gradient_coeffs_collisions,*/ const Array& x, Optimization* opt) {
+blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs, Matrix& dtau_dp, Matrix& dtau_dv, Matrix& dtau_da, /*Array& gradient_coeffs_collisions,*/ const Array& x, Optimization* opt) {
 #if BLAST_TRACE_LEVEL >= 2
   ZoneScoped;
 #endif
@@ -1182,11 +1186,7 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
 #endif
 
     ManipulatorTempData manip_data;
-    Array               pos_plus(joints);
-    Array               vel_plus(joints);
-    Array               acc_plus(joints);
-    Array               torque_constraint(joints);
-    Array               torque_constraint_plus(joints);
+    // Array               torque_constraint_plus(joints);
 
     constexpr real eps = 1e-5;
 
@@ -1237,46 +1237,57 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
       auto vel = opt->bspline.traj.vel.col(i);
       auto acc = opt->bspline.traj.acc.col(i);
       dynamics(opt->manip, manip_data, vel, acc);
+
+      Array pos_plus(joints);
+      Array vel_plus(joints);
+      Array acc_plus(joints);
+      Array torque_constraint(joints);
+
       for (int j = 0; j < joints; j++) {
         torque_constraint[j] = abs_constraint(manip_data.efforts[j], opt->manip.tau_max[j]);
         *moving_result++     = torque_constraint[j];
+        grad_idx++; // todo: add analytical gradients
       }
+
+      pos_plus = pos;
+      vel_plus = vel;
+      acc_plus = acc;
 
       // grad_coeffs pos
       for (u32 j = 0; j < joints; j++) {
-        pos[j] += eps;
-        forward_kinematics(opt->manip, manip_data, pos);
-        dynamics(opt->manip, manip_data, vel, acc);
-        pos[j] -= eps;
+        pos_plus[j] += eps;
+        forward_kinematics(opt->manip, manip_data, pos_plus);
+        dynamics(opt->manip, manip_data, vel_plus, acc_plus);
+        pos_plus[j] -= eps;
 
         for (u32 k = 0; k < joints; k++) {
-          torque_constraint_plus[k]                     = abs_constraint(manip_data.efforts[k], opt->manip.tau_max[k]);
-          gradient_coeffs_torque(k, j + 3 * joints * i) = (torque_constraint_plus[k] - torque_constraint[k]) / eps;
+          auto torque_constraint_plus = abs_constraint(manip_data.efforts[k], opt->manip.tau_max[k]);
+          dtau_dp(k, j + joints * i)  = (torque_constraint_plus - torque_constraint[k]) / eps;
         }
       }
 
-      forward_kinematics(opt->manip, manip_data, pos);
+      forward_kinematics(opt->manip, manip_data, pos_plus);
       // grad_coeffs vel
       for (u32 j = 0; j < joints; j++) {
-        vel[j] += eps;
-        dynamics(opt->manip, manip_data, vel, acc);
-        vel[j] -= eps;
+        vel_plus[j] += eps;
+        dynamics(opt->manip, manip_data, vel_plus, acc_plus);
+        vel_plus[j] -= eps;
 
         for (u32 k = 0; k < joints; k++) {
-          torque_constraint_plus[k]                              = abs_constraint(manip_data.efforts[k], opt->manip.tau_max[k]);
-          gradient_coeffs_torque(k, j + joints + 3 * joints * i) = (torque_constraint_plus[k] - torque_constraint[k]) / eps;
+          auto torque_constraint_plus = abs_constraint(manip_data.efforts[k], opt->manip.tau_max[k]);
+          dtau_dv(k, j + joints * i)  = (torque_constraint_plus - torque_constraint[k]) / eps;
         }
       }
 
       // grad_coeffs acc
       for (u32 j = 0; j < joints; j++) {
-        acc[j] += eps;
-        dynamics(opt->manip, manip_data, vel, acc);
-        acc[j] -= eps;
+        acc_plus[j] += eps;
+        dynamics(opt->manip, manip_data, vel_plus, acc_plus);
+        acc_plus[j] -= eps;
 
         for (u32 k = 0; k < joints; k++) {
-          torque_constraint_plus[k]                                  = abs_constraint(manip_data.efforts[k], opt->manip.tau_max[k]);
-          gradient_coeffs_torque(k, j + 2 * joints + 3 * joints * i) = (torque_constraint_plus[k] - torque_constraint[k]) / eps;
+          auto torque_constraint_plus = abs_constraint(manip_data.efforts[k], opt->manip.tau_max[k]);
+          dtau_da(k, j + joints * i)  = (torque_constraint_plus - torque_constraint[k]) / eps;
         }
       }
     }
@@ -1539,7 +1550,7 @@ inline blast_fn void nlopt_constraints_dev(unsigned m, double* result, unsigned 
 
       n_con_lb = ncon_lb_acc(opt, x_idx); // find the amount of constraints before the current point
 
-      Array external_collisions(opt->bspline.ub[x_idx] - opt->bspline.lb[x_idx]);
+      Array external_collisions(opt->bspline.ub[x_idx] - opt->bspline.lb[x_idx] + 1);
       // todo: create alias matrix that points to grad
       // todo: can we change the order in which we store the gradients ?
       grad_idx       = n_con_lb * xlen + j;                                    // gradients are stored column-wise xlen * npoints
@@ -1567,7 +1578,7 @@ inline blast_fn void nlopt_constraints_dev(unsigned m, double* result, unsigned 
         }
 
         if (opt->constraints.torque || opt->constraints.tcp_speed || opt->constraints.self_collisions || opt->constraints.external_collisions) {
-          compute_constraints_per_point(r_plus.data, external_collisions[i], i, opt);
+          compute_constraints_per_point(r_plus.data, external_collisions[i - opt->bspline.lb[x_idx]], i, opt);
           n_torque         = 0;
           n_tcp_speed      = 0;
           n_self_collision = 0;
@@ -1668,13 +1679,15 @@ inline blast_fn void nlopt_constraints_dev_new(unsigned m, double* result, unsig
   Array xv;
   xv.alias(x, xlen);
 
-  Array  gradient_coeffs(m);                                                                           // todo: check performance
-  Matrix gradient_torque_coeffs(opt->manip.n_joints, 3 * opt->manip.n_joints * opt->bspline.n_points); // todo: check performance
+  Array  gradient_coeffs(m);                                                        // todo: check performance
+  Matrix dtau_dp(opt->manip.n_joints, opt->manip.n_joints * opt->bspline.n_points); // todo: check performance
+  Matrix dtau_dv(opt->manip.n_joints, opt->manip.n_joints * opt->bspline.n_points); // todo: check performance
+  Matrix dtau_da(opt->manip.n_joints, opt->manip.n_joints * opt->bspline.n_points); // todo: check performance
   if (!grad) {
-    compute_constraints_dev_new<false>(result, gradient_coeffs, gradient_torque_coeffs, xv, opt);
+    compute_constraints_dev_new<false>(result, gradient_coeffs, dtau_dp, dtau_dv, dtau_da, xv, opt);
   }
   if (grad) {
-    compute_constraints_dev_new<true>(result, gradient_coeffs, gradient_torque_coeffs, xv, opt);
+    compute_constraints_dev_new<true>(result, gradient_coeffs, dtau_dp, dtau_dv, dtau_da, xv, opt);
     memset(grad, 0, m * xlen * sizeof(real)); // note: zeros grad, since grad originally starts with -6e+66 ...
 
     constexpr real eps      = 1e-5;
@@ -1702,11 +1715,8 @@ inline blast_fn void nlopt_constraints_dev_new(unsigned m, double* result, unsig
       joint = j / x_per_joint > joint ? joint + 1 : joint; // increase joint by 1 everytime we reach its ctrl points
       x_idx = j - joint * x_per_joint + 3;                 // todo: fix for NaN in PVA of task
 
-      x_plus[j] += eps;
-
-      // Array xv_plus;
-      // xv_plus.alias(x_plus.data, xlen);
-      opt->bspline.compute_trajectory(x_plus, opt->task);
+      // x_plus[j] += eps;                                    // todo: add this is for extra constraints (tcp, collisions)
+      // opt->bspline.compute_trajectory(x_plus, opt->task);
 
       n_con_lb = ncon_lb_acc(opt, x_idx); // find the amount of constraints before the current point
 
@@ -1737,34 +1747,34 @@ inline blast_fn void nlopt_constraints_dev_new(unsigned m, double* result, unsig
           constraint_idx += (opt->manip.n_joints - joint);  // note: eventhough this gradient is not done analytically, we still need to increase the constraint index
         }
 
-        if (opt->constraints.torque || opt->constraints.tcp_speed || opt->constraints.self_collisions || opt->constraints.external_collisions) {
-          // compute_constraints_per_point(r_plus.data, external_collisions[i], i, opt);
-          n_torque         = 0;
+        if (opt->constraints.torque) { // todo: add analytical gradients for torque
+
+          for (u32 k = 0; k < opt->manip.n_joints; k++) {
+            grad[grad_idx] = opt->bspline.basis_p(x_idx, i) * dtau_dp(k, joint + opt->manip.n_joints * i) +
+                             opt->bspline.basis_v(x_idx, i) / opt->bspline.traj.t.back() * dtau_dv(k, joint + opt->manip.n_joints * i) +
+                             opt->bspline.basis_a(x_idx, i) / (opt->bspline.traj.t.back() * opt->bspline.traj.t.back()) * dtau_da(k, joint + opt->manip.n_joints * i);
+            grad_idx += xlen;
+            constraint_idx++; // note: eventhough this gradient is not done analytically, we still need to increase the constraint index
+          }
+        }
+
+        if (opt->constraints.tcp_speed || opt->constraints.self_collisions || opt->constraints.external_collisions) {
+          compute_constraints_per_point(r_plus.data, external_collisions[i], i, opt); // todo: not working ...
+          // n_torque         = 0;
           n_tcp_speed      = 0;
           n_self_collision = 0;
-          if (opt->constraints.torque) { // todo: add analytical gradients for torque
-            n_torque = opt->manip.n_joints;
-
-            for (u32 k = 0; k < opt->manip.n_joints; k++) {
-              grad[grad_idx] = opt->bspline.basis_p(x_idx, i) * gradient_torque_coeffs(k, joint + 3 * opt->manip.n_joints * i) +
-                               opt->bspline.basis_v(x_idx, i) / opt->bspline.traj.t.back() * gradient_torque_coeffs(k, joint + opt->manip.n_joints + 3 * opt->manip.n_joints * i) +
-                               opt->bspline.basis_a(x_idx, i) / (opt->bspline.traj.t.back() * opt->bspline.traj.t.back()) * gradient_torque_coeffs(k, joint + 2 * opt->manip.n_joints + 3 * opt->manip.n_joints * i);
-              grad_idx += xlen;
-              constraint_idx++; // note: eventhough this gradient is not done analytically, we still need to increase the constraint index
-            }
-          }
 
           if (opt->constraints.tcp_speed) { // todo: not working
             n_tcp_speed = 1;
 
-            grad[grad_idx] = (r_plus.data[n_torque] - result[constraint_idx]) / eps;
+            grad[grad_idx] = (r_plus.data[0] - result[constraint_idx]) / eps;
             grad_idx += xlen;
             constraint_idx++; // note: eventhough this gradient is not done analytically, we still need to increase the constraint index
           }
 
           if (opt->constraints.self_collisions) { // todo: not working
             n_self_collision = opt->manip._n_internal_collisions;
-            for (u32 k = n_torque + n_tcp_speed; k < n_torque + n_tcp_speed + n_self_collision; k++) {
+            for (u32 k = n_tcp_speed; k < n_tcp_speed + n_self_collision; k++) {
               grad[grad_idx] = (r_plus.data[k] - result[constraint_idx]) / eps;
               grad_idx += xlen;
               constraint_idx++; // note: eventhough this gradient is not done analytically, we still need to increase the constraint index
@@ -1796,7 +1806,7 @@ inline blast_fn void nlopt_constraints_dev_new(unsigned m, double* result, unsig
         // grad_idx += opt->constraints.n_collision_constraints; // todo: add analytical gradients
       }
 
-      x_plus[j] -= eps;
+      // x_plus[j] -= eps;
     }
 
     {

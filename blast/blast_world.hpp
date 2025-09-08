@@ -103,12 +103,12 @@ struct DynamicDoor {
 
 inline blast_fn Array test_collisions(const ObjMatrix<Capsule>& robot_capsules, const World* world, u32 n_lowest_distances, real start_time, real end_time);
 
-inline blast_fn real distance(const Capsule& capsule,   const Box& box);
-inline blast_fn real distance(const Capsule& capsule,   const Sphere& sphere);
-inline blast_fn real distance(const Capsule& capsule1,  const Capsule& capsule2);
-inline blast_fn real distance(const Capsule& capsule,   const Vec3& point);
-inline blast_fn real distance(const Box& box,           const Vec3& point);
-inline blast_fn real distance(const Sphere& sphere,     const Vec3& point);
+inline blast_fn real distance(const Capsule& capsule, const Box& box);
+inline blast_fn real distance(const Capsule& capsule, const Sphere& sphere);
+inline blast_fn real distance(const Capsule& capsule1, const Capsule& capsule2);
+inline blast_fn real distance(const Capsule& capsule, const Vec3& point);
+inline blast_fn real distance(const Box& box, const Vec3& point);
+inline blast_fn real distance(const Sphere& sphere, const Vec3& point);
 
 inline blast_fn Vec3 get_point(const Array& x, const Matrix& capsule_list);
 

@@ -37,14 +37,17 @@ int main() {
   opt.success_tolerance = 0.01;
   // Sleep(100);
 
+  int  max_x       = 1;
+  real increment_x = 0.1;
 
   auto   t1 = get_tick_us();
   Result result(&opt);
-  for (real i = 0.5; i < 5; i += 0.5) {
+  for (real i = increment_x; i < max_x; i += increment_x) {
 
     opt.guess.type = Guess::custom;
     opt.guess.x0   = Array(opt.bspline.x_len(opt.task), i);
-    result         = optimize_with_segments(&opt);
+    result         = optimize(&opt);
+    // result         = optimize_with_segments(&opt);
 
     cout << "Compute time:        " << result.compute_time << endl;
     cout << "Function evaluations:" << result.num_eval << endl;
@@ -56,7 +59,9 @@ int main() {
     cout << endl;
   }
   auto t2 = get_tick_us();
-  cout << "Compute time:        " << (double)(t2 - t1) / 1000. << endl;
+  cout << "Compute time:        " << (double) (t2 - t1) / 1000. << endl;
+  cout << "Average compute time:        " << (double) (t2 - t1) / 1000. * increment_x / (real) max_x << endl;
+
 
   return 0;
 }

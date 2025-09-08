@@ -2,9 +2,9 @@
 <project version="4">
   <component name="CMakeSharedSettings">
     <configurations>
-      <configuration PROFILE_NAME="Release" ENABLED="true" GENERATION_DIR="build/release" CONFIG_NAME="Release" NO_GENERATOR="true" />
-      <configuration PROFILE_NAME="Debug" ENABLED="true" GENERATION_DIR="build/debug" CONFIG_NAME="Debug" TOOLCHAIN_NAME="Default" NO_GENERATOR="true" />
-      <configuration PROFILE_NAME="RelWithDebInfo" ENABLED="true" GENERATION_DIR="build/relwithdebinfo" CONFIG_NAME="RelWithDebInfo" NO_GENERATOR="true" />
+      <configuration PROFILE_NAME="Release-Visual Studio" ENABLED="true" GENERATION_DIR="build/release" CONFIG_NAME="Release" TOOLCHAIN_NAME="Visual Studio" NO_GENERATOR="true" />
+      <configuration PROFILE_NAME="Debug-Visual Studio" ENABLED="true" GENERATION_DIR="build/debug" CONFIG_NAME="Debug" TOOLCHAIN_NAME="Visual Studio" NO_GENERATOR="true" />
+      <configuration PROFILE_NAME="RelWithDebInfo-Visual Studio" ENABLED="true" GENERATION_DIR="build/relwithdebinfo" CONFIG_NAME="RelWithDebInfo" TOOLCHAIN_NAME="Visual Studio" NO_GENERATOR="true" />
     </configurations>
   </component>
 </project>
