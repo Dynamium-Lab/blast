@@ -47,6 +47,68 @@ inline Matrix get_random_guesses(const u32 n, const u32 d) {
   return result;
 }
 
+inline Array guess_shot_mean_segments(Optimization* opt) { // no collisions
+  Array best_x(opt->bspline.x_len(opt->task));
+  real  best_val = INF_REAL;
+  for (int idx_nshot = 0; idx_nshot < opt->guess.n_shot; idx_nshot++) {
+    auto x = guess_random((opt->bspline), opt->task);
+    opt->bspline.compute_trajectory(x, opt->task);
+    Array  c1(opt->constraints.n_constraints);
+    Matrix gradient;
+    constraints_and_gradients_with_segments(x, *opt, c1, gradient); // todo: change for segments
+    real r = 0;
+    for (u32 i = 0; i < c1.size; i++)
+      r += std::max({c1[i], 0.0});
+    Assert(!isnan(r));
+    r = r * x.back(); // todo: Evaluate time estimate impact on trajectory
+    if (r < best_val) {
+      best_x   = x;
+      best_val = r;
+    }
+  }
+  return best_x;
+}
+
+inline Array get_best_x_segments(Optimization* opt) {
+  real  best_f = INF_REAL;
+  Array best_x(opt->guess.candidates.rows);
+  for (u32 i = 0; i < opt->guess.candidates.cols; i++) {
+    auto current_x = opt->guess.candidates.col(i);
+    auto current_f = compute_objective(current_x, opt);
+
+    best_x = current_f < best_f ? current_x : best_x;
+    best_f = current_f < best_f ? current_f : best_f;
+  }
+
+  return best_x;
+}
+
+inline Array init_guess_segments(Optimization* opt) {
+  Array x(opt->bspline.x_len(opt->task));
+  switch (opt->guess.type) {
+    case Guess::rrt_connect: {
+      // auto x = guess_rrt<og::RRTConnect>(opt); todo: create and use opt->guess.parameter for range
+      std::cout << "RRTConnect is not yet supported" << std::endl;
+      break;
+    }
+    case Guess::random: {
+      x = guess_shot_mean_segments(opt);
+      break;
+    }
+    case Guess::custom: {
+      x = opt->guess.x0;
+      break;
+    }
+    case Guess::from_list: {
+      x = get_best_x_segments(opt);
+      break;
+    }
+    default:
+      Assert(false);
+  }
+  return x;
+}
+
 // todo: Remove collisions
 inline Array guess_shot_mean(Optimization* opt) { // no collisions
   Array best_x(opt->bspline.x_len(opt->task));
