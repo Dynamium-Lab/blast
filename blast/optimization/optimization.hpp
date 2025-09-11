@@ -115,23 +115,11 @@ inline void n_con(Optimization* opt) {
 
   if (opt->constraints.tcp_speed)
     opt->constraints.n_constraints += n_points;
-
+  if (opt->constraints.self_collisions)
+    opt->constraints.n_constraints += n_points;
   if (opt->constraints.external_collisions)
-    opt->constraints.n_constraints += opt->constraints.n_collision_constraints;
-  if (opt->constraints.self_collisions) {
-    // if constexpr (std::is_same_v<T_manip, GenericManipulator>) {
-    //     // auto col_matrix = opt->manip._collision_matrix;
-    //     for (int i = 0; i < opt->manip._collision_matrix.cols; i++) {
-    //         for (int j = i+1; j < opt->manip._n_caps; j++) {
-    //             opt->manip._n_internal_collisions += opt->manip._collision_matrix(j, i) == 0 ? 0 : 1;
-    //         }
-    //         opt->manip._n_internal_collisions += opt->manip._collision_base[i] == 0 ? 0 : 1;
-    //     }
-    // }
-    // else {
-    opt->constraints.n_constraints += opt->manip._n_internal_collisions * n_points;
-    // }
-  }
+    opt->constraints.n_constraints += n_points;
+
 
   for (auto& n: opt->constraints.n_extra_constraints)
     opt->constraints.n_constraints += n;
@@ -411,11 +399,15 @@ inline void n_con_with_segments(Optimization* opt) {
   const int n_segments = ((int) opt->bspline.n_ctrl - (int) opt->bspline.p);
 
   int n_constraints_per_segment = (int) opt->manip.n_joints * 4; // p.v.a.tau
+  if (opt->constraints.tcp_speed)
+    n_constraints_per_segment += 1;
+  if (opt->constraints.self_collisions)
+    n_constraints_per_segment += 1;
   if (opt->constraints.external_collisions) {
     n_constraints_per_segment += opt->manip._n_caps;
   }
 
-  opt->constraints.n_constraints = n_segments * n_constraints_per_segment;
+  opt->constraints.n_constraints             = n_segments * n_constraints_per_segment;
   opt->constraints.n_constraints_per_segment = n_constraints_per_segment;
 }
 
@@ -504,7 +496,7 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
 #if BLAST_TRACE_LEVEL >= 1
       ZoneScopedN("Initial guess");
 #endif
-      x         = init_guess(opt);
+      x         = init_guess_segments(opt);
       result.x0 = x;
     }
 
@@ -544,7 +536,7 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
 #if BLAST_TRACE_LEVEL >= 1
       ZoneScopedN("Solution validation");
 #endif
-      Array constraints_points(opt->constraints.n_constraints);
+      Array  constraints_points(opt->constraints.n_constraints);
       Matrix gradient;
       constraints_and_gradients_with_segments(x, *opt, constraints_points, gradient);
       is_valid = max(constraints_points) < opt->success_tolerance;
@@ -563,7 +555,7 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
       auto opt_val_more(*opt);
       opt_val_more.set_bspline(bspline_val_more);
       n_con_with_segments(&opt_val_more);
-      Array constraints_more_points(opt_val_more.constraints.n_constraints);
+      Array  constraints_more_points(opt_val_more.constraints.n_constraints);
       Matrix gradient;
       constraints_and_gradients_with_segments(x, opt_val_more, constraints_more_points, gradient);
       is_valid_more = max(constraints_more_points) < opt->success_tolerance;

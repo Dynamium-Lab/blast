@@ -8,6 +8,7 @@ endfunction()
 set(EXAMPLES
     example_manipulator example_manipulator.cpp
     eval_manipulator eval_manipulator.cpp
+    get_bspline_and_basis_functions get_bspline_and_basis_functions.cpp
     #        example_demo1 demo1_link6.cpp
     #        example_demo2 demo2.cpp
     #        example_demo2_link6 demo2_link6.cpp

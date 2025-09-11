@@ -17,7 +17,7 @@ int main() {
 
   // Sleep(200);
 
-  Bspline bspline(16, 110, 5, 6);
+  Bspline bspline(10, 100, 5, 6);
   opt.bspline = bspline;
 
   // opt.guess.type = Guess::custom;
@@ -29,25 +29,34 @@ int main() {
   opt.constraints.velocity            = true;
   opt.constraints.acceleration        = true;
   opt.constraints.torque              = true;
-  opt.constraints.tcp_speed           = false;
-  opt.constraints.self_collisions     = false;
+  opt.constraints.tcp_speed           = true;
+  opt.constraints.self_collisions     = true;
   opt.constraints.external_collisions = true;
 
-  opt.max_tries         = 1;
-  opt.success_tolerance = 0.01;
+  opt.constraints.n_collision_constraints = 1;
+  opt.max_tries                           = 1;
+  opt.success_tolerance                   = 0.01;
   // Sleep(100);
 
-  int  max_x       = 1;
-  real increment_x = 0.1;
+  // int  max_x       = 2;
+  // real increment_x = 0.1;
+  int max_iter = 10;
 
-  auto   t1 = get_tick_us();
+  opt.guess.type = Guess::custom;
+
+  n_con_with_segments(&opt);
+  auto t0                   = get_tick_us();
+  opt.guess.x0              = guess_shot_mean_segments(&opt);
+  auto   time_for_one_guess = (get_tick_us() - t0) / 1000.;
+  auto   t1                 = get_tick_us();
   Result result(&opt);
-  for (real i = increment_x; i < max_x; i += increment_x) {
+  // for (real i = increment_x; i < max_x; i += increment_x) {
+  for (real i = 0; i < max_iter; i++) {
 
-    opt.guess.type = Guess::custom;
-    opt.guess.x0   = Array(opt.bspline.x_len(opt.task), i);
-    result         = optimize(&opt);
-    // result         = optimize_with_segments(&opt);
+    // opt.guess.x0        = random_array(opt.bspline.x_len(opt.task), 1);
+    // opt.guess.x0.back() = 0.5;
+    result = optimize(&opt);
+    // result = optimize_with_segments(&opt);
 
     cout << "Compute time:        " << result.compute_time << endl;
     cout << "Function evaluations:" << result.num_eval << endl;
@@ -60,7 +69,8 @@ int main() {
   }
   auto t2 = get_tick_us();
   cout << "Compute time:        " << (double) (t2 - t1) / 1000. << endl;
-  cout << "Average compute time:        " << (double) (t2 - t1) / 1000. * increment_x / (real) max_x << endl;
+  cout << "Average compute time:        " << (double) (t2 - t1) / 1000. / (real) max_iter << endl;
+  cout << "Initial guess time:        " << time_for_one_guess << endl;
 
 
   return 0;

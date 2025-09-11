@@ -19,13 +19,12 @@ inline blast_fn real bound_constraint(const real& value, const real& value_min, 
   if (value_max == INF_REAL || value_min == -INF_REAL) { // todo: fix for one is INF and not the other
     return -1.0;
   }
-  const real center     = (value_max + value_min) / 2;
-  const real half_range = (value_max - value_min) / 2;
-  const real range      = value_max - value_min;
+  const real center = (value_max + value_min) / 2;
+  const real range  = value_max - value_min;
 
-  auto result  = std::abs(value - center) / half_range - 1.0;
-  auto result2 = std::abs(2 * value) / range - 1.0; // note: fixed, there was an error here
-  Assert(result == result2);
+  auto result = 2 * std::abs(value - center) / range - 1.0;
+  // auto result2 = std::abs(2 * value) / range - 1.0; // note: fixed, there was an error here todo: this is not true, unless min = -max
+  // Assert(result == result2);
   // todo: if this always passes, only keep result2 because it is slightly faster
 
   return result;
@@ -81,7 +80,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
   };
 
   // basis: n_ctrl x n_points
-  Assert(constraints.is_alias);
+  // Assert(constraints.is_alias); todo: fix for validation
   if (grad.size) {
     Assert(grad.is_alias);
     Assert(grad.rows == x.size);
@@ -93,7 +92,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
   const int n_ctrl                    = (int) opt.bspline.n_ctrl;
   const int x_len                     = (int) x.size;
   const int n_capsules                = opt.manip._n_caps;
-  const int n_constraints_per_segment = (n_joints * 4) + n_capsules; //  todo: remove hard-coded 4 (p.v.a.tau)
+  const int n_constraints_per_segment = (n_joints * 4) + 1 + 1 + n_capsules; //  todo: remove hard-coded 4 (p.v.a.tau), +1 for self collisions, +1 for tcp_speed
   Assert(constraints.size == n_segments * n_constraints_per_segment);
 
   const auto& world = opt.world;
@@ -104,6 +103,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
   auto vmax    = opt.manip.vmax;
   auto amax    = opt.manip.amax;
   auto tau_max = opt.manip.tau_max;
+  auto tcp_max = opt.manip.tcp_max;
   for (int j = 0; j < n_joints; j++) {
     // todo: document the current behaviour in the API
     //        (doesn't currently work if one is inf and the other is not)
@@ -119,6 +119,8 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
   std::array<u8, MAX_JOINTS>                  max_acc_indices{};
   std::array<u8, MAX_JOINTS>                  max_tor_indices{};
   std::array<CollisionEntities, MAX_CAPSULES> max_collision_entities{};
+  u8                                          max_internal_collision_index = 0;
+  u8                                          max_tcp_index                = 0;
 
   opt.bspline.compute_trajectory(x, opt.task);
 
@@ -142,6 +144,8 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
     Array max_vel_constraints(n_joints, -INF_REAL);
     Array max_acc_constraints(n_joints, -INF_REAL);
     Array max_tor_constraints(n_joints, -INF_REAL);
+    real  max_tcp_speed_constraints    = -INF_REAL;
+    real  max_internal_col_constraints = -INF_REAL; // todo: worst or worst per capsule ?
     Array max_col_constraints(n_capsules, -INF_REAL);
 
     for (int point_in_segment = 0; point_in_segment < n_points_per_segment; point_in_segment++) { // note:
@@ -178,6 +182,24 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           max_tor_constraints[j] = c;
           max_tor_indices[j]     = point_in_segment; // note:
         }
+      }
+
+      // tcp speed
+      {
+        const auto J_tool    = get_J_tool(&opt, manip_data); // todo: clean up get_J_tool to a get_tcp_speed
+        const auto tcp_speed = norm(get_J_tool(&opt, manip_data) * v);
+        if (const auto c = bound_constraint(tcp_speed, 0.0, tcp_max);
+            c > max_tcp_speed_constraints) {
+          max_tcp_speed_constraints = c;
+          max_tcp_index             = point_in_segment;
+        }
+      }
+
+      // check every internal collision
+      if (const auto c = max(-get_internal_collisions(opt.manip, manip_data));
+          c > max_internal_col_constraints) {
+        max_internal_col_constraints = c;
+        max_internal_collision_index = point_in_segment;
       }
 
       // check every capsule with world
@@ -245,6 +267,8 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
     std::copy_n(max_vel_constraints.data, n_joints, &constraints[fill_idx]), fill_idx += n_joints;
     std::copy_n(max_acc_constraints.data, n_joints, &constraints[fill_idx]), fill_idx += n_joints;
     std::copy_n(max_tor_constraints.data, n_joints, &constraints[fill_idx]), fill_idx += n_joints;
+    constraints[fill_idx++] = max_tcp_speed_constraints;
+    constraints[fill_idx++] = max_internal_col_constraints;
     std::copy_n(max_col_constraints.data, n_capsules, &constraints[fill_idx]), fill_idx += n_capsules;
 
 
@@ -289,7 +313,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
         Array bp_to_use(&bp(first_affected_control_point, max_pos_indices[joint]), n_affected_control_points);
         Assert(bp_to_use.is_alias);
 
-        real coeff = 2.0 * std::abs(opt.bspline.traj.pos(joint, start_point_for_segment + max_pos_indices[joint])) / (pmax[joint] - pmin[joint]); // note:
+        real coeff = 2.0 * sign(opt.bspline.traj.pos(joint, start_point_for_segment + max_pos_indices[joint]) - (pmax[joint] + pmin[joint]) / 2) / (pmax[joint] - pmin[joint]); // note:
 
         for (int i = 0; i < n_affected_control_points; i++) {
           fill_column[x_idx++] = bp_to_use[i] * coeff;
@@ -372,9 +396,9 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 
         constexpr real eps            = 1e-5;
         const auto     point          = max_tor_indices[joint];
-        auto           p              = opt.bspline.traj.pos.col(start_point_for_segment + point); // note:
-        auto           v              = opt.bspline.traj.vel.col(start_point_for_segment + point); // note:
-        auto           a              = opt.bspline.traj.acc.col(start_point_for_segment + point); // note:
+        const auto     p              = opt.bspline.traj.pos.col(start_point_for_segment + point); // note:
+        const auto     v              = opt.bspline.traj.vel.col(start_point_for_segment + point); // note:
+        const auto     a              = opt.bspline.traj.acc.col(start_point_for_segment + point); // note:
         auto           old_constraint = max_tor_constraints[joint];                                // note:
         auto           tau_max_now    = tau_max[joint];                                            // note:
 
@@ -437,18 +461,114 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
         con++;                                                                                       // note: moved out of the inner j loop (only changes at the end of all j torques per joint)
       }
 
-      // collisions
-      for (int capsule_id = 0; capsule_id < n_joints; capsule_id++) {
+      // tcp speed
+      {
         constexpr real eps    = 1e-5;
-        const auto     point  = max_collision_entities[capsule_id].point_in_segment;
-        auto           p      = opt.bspline.traj.pos.col(start_point_for_segment + point);
+        const auto     point  = max_tcp_index;
+        const auto     p      = opt.bspline.traj.pos.col(start_point_for_segment + point);
+        const auto     v      = opt.bspline.traj.vel.col(start_point_for_segment + point);
+        auto           p_plus = p;
+        auto           v_plus = v;
+
+        auto x_idx      = first_affected_control_point - 3;
+        auto x_idx_skip = n_ctrl - 6;
+
+        Array fill_column = grad_segment.col(con);
+        Assert(con == 4 * n_joints); // note:
+        Assert(fill_column.size == x_len);
+        Assert(fill_column.is_alias);
+
+        // 3 to 6 basis functions depending on the segment (first and last 3 control points are not in x)
+        Array bp_to_use(&bp(first_affected_control_point, point), n_affected_control_points);
+        Array bv_to_use(&bv(first_affected_control_point, point), n_affected_control_points);
+        Assert(bp_to_use.is_alias);
+        Assert(bv_to_use.is_alias);
+        for (int j = 0; j < n_joints; j++) {
+          // todo: check if the joint can actually move the current capsule
+          p_plus[j] += eps;
+
+          // recompute tcp_speed
+          forward_kinematics(opt.manip, manip_data, p_plus);
+          const auto J_tool_p         = get_J_tool(&opt, manip_data);
+          const auto tcp_speed_p      = norm(J_tool_p * v_plus);
+          const auto new_constraint_p = bound_constraint(tcp_speed_p, 0.0, tcp_max);
+          // partial difference d(tcp_speed)/dp
+          const real dtcp_speed_dp = (new_constraint_p - max_tcp_speed_constraints) / eps;
+          p_plus[j]                = p[j]; // reset finite difference
+
+          v_plus[j] += eps;
+          forward_kinematics(opt.manip, manip_data, p_plus);
+          const auto J_tool_v         = get_J_tool(&opt, manip_data);
+          const auto tcp_speed_v      = norm(J_tool_v * v_plus);
+          const auto new_constraint_v = bound_constraint(tcp_speed_v, 0.0, tcp_max);
+          const real dtcp_speed_dv    = (new_constraint_v - max_tcp_speed_constraints) / eps;
+          v_plus[j]                   = v[j];
+
+          // fill the gradient for the control points that affect current joint 'j' d(collision)/dp * dp/d(control point)
+          for (int i = 0; i < n_affected_control_points; i++) {
+            fill_column[x_idx + i] = bp_to_use[i] * dtcp_speed_dp +
+                                     bv_to_use[i] * dtcp_speed_dv * one_over_T;
+          }
+          x_idx += x_idx_skip;
+          // gradient w.r.t. T
+          fill_column.back() += dtcp_speed_dv * (-v[j] * one_over_T);
+        }
+        con++;
+      }
+
+      // internal collisions
+      {
+        constexpr real eps    = 1e-5;
+        const auto     point  = max_internal_collision_index;
+        const auto     p      = opt.bspline.traj.pos.col(start_point_for_segment + point);
         auto           p_plus = p;
 
         auto x_idx      = first_affected_control_point - 3;
         auto x_idx_skip = n_ctrl - 6;
 
         Array fill_column = grad_segment.col(con);
-        Assert(con == joint); // note:
+        Assert(con == 4 * n_joints + 1); // note:
+        Assert(fill_column.size == x_len);
+        Assert(fill_column.is_alias);
+
+        // 3 to 6 basis functions depending on the segment (first and last 3 control points are not in x)
+        Array bp_to_use(&bp(first_affected_control_point, point), n_affected_control_points);
+        Assert(bp_to_use.is_alias);
+        for (int j = 0; j < n_joints; j++) {
+          // todo: check if the joint can actually move the current capsule
+          p_plus[j] += eps;
+
+          // recompute internal collisions at the worst point in segment
+          forward_kinematics(opt.manip, manip_data, p_plus);
+          compute_capsules(opt.manip, manip_data);
+          const auto new_internal_collision_constraint = max(-get_internal_collisions(opt.manip, manip_data));
+          // partial difference d(internal_collision)/dp
+          const real dint_coll_dp = (new_internal_collision_constraint - max_internal_col_constraints) / eps;
+
+          // fill the gradient for the control points that affect current joint 'j' d(collision)/dp * dp/d(control point)
+          for (int i = 0; i < n_affected_control_points; i++) {
+            fill_column[x_idx + i] = bp_to_use[i] * dint_coll_dp;
+          }
+          x_idx += x_idx_skip;
+
+          p_plus[j] = p[j]; // reset finite difference
+        }
+        con++;
+      }
+
+
+      // collisions
+      for (int capsule_id = 0; capsule_id < n_joints; capsule_id++) {
+        constexpr real eps    = 1e-5;
+        const auto     point  = max_collision_entities[capsule_id].point_in_segment;
+        const auto     p      = opt.bspline.traj.pos.col(start_point_for_segment + point);
+        auto           p_plus = p;
+
+        auto x_idx      = first_affected_control_point - 3;
+        auto x_idx_skip = n_ctrl - 6;
+
+        Array fill_column = grad_segment.col(con);
+        Assert(con == 4 * n_joints + 2 + capsule_id); // note:
         Assert(fill_column.size == x_len);
         Assert(fill_column.is_alias);
 
@@ -649,7 +769,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
   }
 
   // todo: no copy every iteration
-  ObjMatrix<Capsule> capsules(opt->manip._n_caps, (int) opt->bspline.n_points / (int) opt->constraints.n_collision_skip);
+  // ObjMatrix<Capsule> capsules(opt->manip._n_caps, (int) opt->bspline.n_points / (int) opt->constraints.n_collision_skip);
 
   // todo: compute n_con_per_point() so that every worker knows where to put their result
 
@@ -683,13 +803,13 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
       // todo: this cleaner
       if (opt->constraints.external_collisions || opt->constraints.self_collisions) {
         compute_capsules(opt->manip, manip_data);
-        if (opt->constraints.external_collisions) {
-          if (i % opt->constraints.n_collision_skip == 0 && i != opt->bspline.n_points - 1) {
-            for (int j = 0; j < opt->manip._n_caps; j++) {
-              capsules(j, i / (int) opt->constraints.n_collision_skip) = manip_data.capsule_list[j];
-            }
-          }
-        }
+        // if (opt->constraints.external_collisions) {
+        //   if (i % opt->constraints.n_collision_skip == 0 && i / opt->constraints.n_collision_skip < capsules.cols) {
+        //     for (int j = 0; j < opt->manip._n_caps; j++) {
+        //       capsules(j, i / (int) opt->constraints.n_collision_skip) = manip_data.capsule_list[j];
+        //     }
+        //   }
+        // }
       }
     }
 
@@ -752,24 +872,23 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
 #if BLAST_TRACE_LEVEL >= 3
       ZoneScopedN("SelfCollisions");
 #endif
-      auto tmp_coll = get_internal_collisions(opt->manip, manip_data);
-      for (u32 j = 0; j < tmp_coll.size; j++)
-        moving_result[j] = -tmp_coll[j] + 0.01; //*std::abs(tmp_coll[j]);
-      moving_result += tmp_coll.size;
+      auto tmp_coll = max(get_internal_collisions(opt->manip, manip_data));
+      // for (u32 j = 0; j < tmp_coll.size; j++)
+      moving_result[0] = -tmp_coll; //*std::abs(tmp_coll[j]);
+      moving_result++;
     }
-  }
 
-  if (opt->constraints.external_collisions) {
+    if (opt->constraints.external_collisions) {
 #if BLAST_TRACE_LEVEL >= 3
-    ZoneScopedN("ExternalCollisions");
+      ZoneScopedN("ExternalCollisions");
 #endif
-    auto collisions = test_collisions(capsules, &(opt->world), opt->constraints.n_collision_constraints, opt->trajectory_start_time, opt->trajectory_start_time + x.back());
-    for (u32 j = 0; j < opt->constraints.n_collision_constraints; j++) {
-      moving_result[j] = -collisions[j] + 0.01; //*std::abs(collisions[j]);
+      auto collisions = test_collisions_per_point(manip_data.capsule_list, &(opt->world));
+      // for (u32 j = 0; j < opt->constraints.n_collision_constraints; j++) {
+      moving_result[0] = -collisions; //*std::abs(collisions[j]);
+      // }
+      moving_result++;
     }
-    moving_result += opt->constraints.n_collision_constraints;
   }
-
   {
 #if BLAST_TRACE_LEVEL >= 3
     ZoneScopedN("CustomConstraints");
@@ -971,7 +1090,7 @@ inline blast_fn bool validate_task(Optimization* opt) {
 
 // ------------------------- Accelerated functions --------------------------------
 inline blast_fn std::tuple<real, real> abs_constraint_dev(const real& q, const real& q_max) {
-  return std::make_tuple((std::abs(q) - q_max) / q_max, sign(q) * 1 / q_max);
+  return std::make_tuple((std::abs(q)) / q_max - 1.0, sign(q) * 1 / q_max);
 }
 
 template<bool is_grad>
@@ -980,17 +1099,17 @@ blast_fn std::tuple<real, real> bound_constraint_dev(const real& q, const real& 
   if (q_max == INF_REAL || q_min == -INF_REAL)
     return std::make_tuple(-1.0, 0.0);
   else {
-    real c          = (q_max + q_min) / 2;
-    real q_prime    = q - c;
-    real b          = (q_max - q_min) / 2;
-    real constraint = (std::abs(q_prime) - b) / b;
+    const real center = (q_max + q_min) / 2;
+    const real range  = q_max - q_min;
+
+    auto result = 2 * std::abs(q - center) / range - 1.0;
 
     // Conditionally compute gradient coefficient
     real gradient_coeff = 0.0;
     if constexpr (is_grad) {
-      gradient_coeff = sign(q_prime) * 1 / b;
+      gradient_coeff = 2 * sign(q - center) / range;
     }
-    return std::make_tuple(constraint, gradient_coeff);
+    return std::make_tuple(result, gradient_coeff);
   }
 }
 
@@ -1467,9 +1586,9 @@ inline blast_fn u32 ncon_lb_acc(const Optimization* opt, const u32 x_idx) {
     n_constraints += n_points;
 
   if (opt->constraints.external_collisions)
-    n_constraints += opt->constraints.n_collision_constraints;
+    n_constraints += n_points;
   if (opt->constraints.self_collisions) {
-    n_constraints += opt->manip._n_internal_collisions * n_points;
+    n_constraints += n_points;
   }
 
   for (auto& n_con: opt->constraints.n_extra_constraints)

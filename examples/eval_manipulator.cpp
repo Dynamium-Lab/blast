@@ -22,6 +22,10 @@
 #include <unordered_set>
 #include <windows.h>
 
+#include <cassert>
+#include <fstream>
+#include <stdexcept>
+
 
 using namespace blast;
 
@@ -184,10 +188,11 @@ static inline void configure_current_thread_for_performance() {
 // ===== End helpers =====
 
 struct Config {
-  int    n_ctrl   = 0;
-  int    n_points = 0;
-  int    n_optim  = 0;
-  int    task_idx = 0;
+  int    n_ctrl     = 0;
+  int    n_points   = 0;
+  int    n_optim    = 0;
+  int    task_idx   = 0;
+  int    config_idx = 0;
   Matrix task;
 };
 constexpr int                   config_size = 39;
@@ -204,12 +209,11 @@ std::vector<Result> result_acc3_list;
 // Results for our final per_segment integration
 std::vector<Result> result_segments_list;
 std::vector<u32>    task_id;
+std::vector<u32>    config_ids;
 int                 result_index = 0;
 std::mutex          mut_result;
 
 using nlohmann::json;
-#include <cassert>
-#include <fstream>
 // helper: convert one Result to the JSON shape you’ve been using
 static inline json result_to_json(const Result& r) {
   json j;
@@ -229,74 +233,53 @@ static inline json result_to_json(const Result& r) {
 
   return j;
 }
-// main writer: packs config + all result variants into one object per index
-void write_results_json(const std::string&                     path,
-                        const std::vector<Result>&             target_result_list,
-                        const std::vector<Result>&             target_result_acc1_list,
-                        const std::vector<Result>&             target_result_acc3_list,
-                        const std::vector<Result>&             target_result_segments_list,
-                        const std::vector<u32>&                target_task_id,
-                        const std::array<Config, config_size>& target_config_list,
-                        const char*                            variant_main, // e.g., "blast"
-                        const char*                            variant_acc1     = "acc1",
-                        const char*                            variant_acc2     = "acc2",
-                        const char*                            variant_acc3     = "acc3",
-                        const char*                            variant_segments = "segments") {
-  // sanity checks to catch missing/extra rows early
-  const size_t N = target_result_list.size();
-  assert(task_id.size() == N && "task_id.size() must match result_list.size()");
-  assert(result_acc1_list.size() == N && "result_acc1_list size mismatch");
-  assert(result_acc2_list.size() == N && "result_acc2_list size mismatch");
-  assert(result_acc3_list.size() == N && "result_acc3_list size mismatch");
-  assert(result_segments_list.size() == N && "result_segments_list size mismatch");
+struct VariantGroup {
+  const char*                label; // "base" | "acc1" | "acc3" | "segments"
+  const std::vector<Result>* list;  // pointer to results (same N and task_id alignment)
+};
 
+void write_results_json_simple(
+        const std::string&               path,
+        const std::vector<u32>&          target_config_ids,
+        const std::vector<u32>&          target_task_ids,
+        const std::array<Config, 39>&    target_config_list,
+        const std::vector<VariantGroup>& variants) {
+  using nlohmann::json;
   json arr = json::array();
-  arr.get_ref<json::array_t&>().reserve(N);
 
-  for (size_t i = 0; i < N; ++i) {
-    const u32     idx  = target_task_id[i];
-    const Config& cfg_ = target_config_list[idx];
+  for (const auto& v: variants) {
+    const auto& list = *v.list;
+    cout << "Variant type : " << v.label << " variant size : " << list.size() << endl;
+    for (size_t i = 0; i < list.size(); ++i) {
+      const Config& cfg = target_config_list[target_config_ids[i]];
+      const Result& r   = list[i];
 
-    json cur;
+      json row;
+      row["variant"]       = v.label;
+      row["task_idx"]      = target_task_ids[i];
+      row["n_ctrl"]        = cfg.n_ctrl;
+      row["n_points"]      = cfg.n_points;
+      row["success"]       = r.success;
+      row["success_false"] = r.success_false;
+      row["compute_time"]  = r.compute_time;
+      if (r.x.size)
+        row["trajectory_time"] = r.x.back();
 
-    // --- config block (from your Config struct)
-    auto& cfg           = cur["config"];
-    cfg["task_idx"]     = cfg_.task_idx;
-    cfg["n_optim"]      = cfg_.n_optim;
-    cfg["n_points"]     = cfg_.n_points;
-    cfg["n_ctrl"]       = cfg_.n_ctrl;
-    cfg["task"]["rows"] = cfg_.task.rows;
-    cfg["task"]["cols"] = cfg_.task.cols;
-    cfg["task"]["size"] = cfg_.task.size;
+      // dump arrays x and x0
+      row["x"] = json::array();
+      for (u32 k = 0; k < r.x.size; ++k)
+        row["x"].push_back(r.x[k]);
 
-    auto& td = cfg["task"]["data"] = json::array();
-    td.get_ref<json::array_t&>().reserve(cfg_.task.size);
-    for (u32 j = 0; j < cfg_.task.size; ++j)
-      td.push_back(cfg_.task.data[j]);
+      row["x0"] = json::array();
+      for (u32 k = 0; k < r.x0.size; ++k)
+        row["x0"].push_back(r.x0[k]);
 
-    // --- primary result
-    cur["variant"] = variant_main;
-    cur["base"]    = result_to_json(target_result_list[i]);
-
-    // --- add the other lists under a single "extras" key
-    auto& extras           = cur["extras"];
-    extras["acc1_variant"] = variant_acc1;
-    extras["acc1"]         = result_to_json(target_result_acc1_list[i]);
-
-    extras["acc3_variant"] = variant_acc3;
-    extras["acc3"]         = result_to_json(target_result_acc3_list[i]);
-
-    extras["segments_variant"] = variant_segments;
-    extras["segments"]         = result_to_json(target_result_segments_list[i]);
-
-    arr.push_back(std::move(cur));
+      arr.push_back(std::move(row));
+    }
   }
 
-  std::ofstream f(path, std::ios::trunc | std::ios::binary);
-  if (!f)
-    throw std::runtime_error("Failed to open " + path);
+  std::ofstream f(path);
   f << "{\n\"results\": " << arr.dump(2) << "\n}\n";
-  f.flush();
 }
 
 
@@ -318,11 +301,12 @@ inline void fill_config_list(std::array<Config, config_size>& target_config_list
       auto [n_ctrl, n_points_per_segments] = bspline_config;
       auto n_points                        = n_points_per_segments * (n_ctrl - 5);
 
-      target_config_list[config_idx].n_ctrl   = n_ctrl;
-      target_config_list[config_idx].n_points = n_points;
-      target_config_list[config_idx].task_idx = task_idx;
-      target_config_list[config_idx].n_optim  = 100;
-      target_config_list[config_idx++].task   = task;
+      target_config_list[config_idx].n_ctrl     = n_ctrl;
+      target_config_list[config_idx].n_points   = n_points;
+      target_config_list[config_idx].n_optim    = 100;
+      target_config_list[config_idx].task_idx   = task_idx;
+      target_config_list[config_idx].config_idx = config_idx;
+      target_config_list[config_idx++].task     = task;
     }
     task_idx++;
   }
@@ -350,9 +334,9 @@ inline u32 ncon_acc(const Optimization* opt, const int x_idx) {
     n_constraints += n_points;
 
   if (opt->constraints.external_collisions)
-    n_constraints += opt->constraints.n_collision_constraints;
+    n_constraints += n_points;
   if (opt->constraints.self_collisions) {
-    n_constraints += opt->manip._n_internal_collisions * n_points;
+    n_constraints += n_points;
   }
 
   for (auto& n_con: opt->constraints.n_extra_constraints)
@@ -366,7 +350,7 @@ inline void compute_constraints_grad1(double* result, const Array& x, const u32 
 
   opt->bspline.compute_trajectory(x, opt->task);
 
-  ObjMatrix<Capsule> capsules(opt->manip._n_caps, (u32) (opt->bspline.ub[x_idx] - opt->bspline.lb[x_idx] + 1) / opt->constraints.n_collision_skip);
+  // ObjMatrix<Capsule> capsules(opt->manip._n_caps, (u32) (opt->bspline.ub[x_idx] - opt->bspline.lb[x_idx] + 1) / opt->constraints.n_collision_skip);
   for (u32 i = opt->bspline.lb[x_idx]; i <= opt->bspline.ub[x_idx]; i++) {
 #if BLAST_TRACE_LEVEL >= 3
     ZoneScopedN("ConstraintSinglePoint");
@@ -397,13 +381,13 @@ inline void compute_constraints_grad1(double* result, const Array& x, const u32 
       // todo: this cleaner
       if (opt->constraints.external_collisions || opt->constraints.self_collisions) {
         compute_capsules(opt->manip, manip_data);
-        if (opt->constraints.external_collisions) {
-          if (i % opt->constraints.n_collision_skip == 0 && i != opt->bspline.n_points - 1) {
-            for (int j = 0; j < opt->manip._n_caps; j++) {
-              capsules(j, i / (int) opt->constraints.n_collision_skip) = manip_data.capsule_list[j];
-            }
-          }
-        }
+        // if (opt->constraints.external_collisions) {
+        //   if (i % opt->constraints.n_collision_skip == 0 && i / opt->constraints.n_collision_skip < capsules.cols) {
+        //     for (int j = 0; j < opt->manip._n_caps; j++) {
+        //       capsules(j, i / (int) opt->constraints.n_collision_skip) = manip_data.capsule_list[j];
+        //     }
+        //   }
+        // }
       }
     }
 
@@ -466,23 +450,24 @@ inline void compute_constraints_grad1(double* result, const Array& x, const u32 
 #if BLAST_TRACE_LEVEL >= 3
       ZoneScopedN("SelfCollisions");
 #endif
-      auto tmp_coll = get_internal_collisions(opt->manip, manip_data);
-      for (u32 j = 0; j < tmp_coll.size; j++)
-        moving_result[j] = -tmp_coll[j] + 0.01; //*std::abs(tmp_coll[j]);
-      moving_result += tmp_coll.size;
+      auto tmp_coll = max(get_internal_collisions(opt->manip, manip_data));
+      // for (u32 j = 0; j < tmp_coll.size; j++)
+      moving_result[0] = -tmp_coll; //*std::abs(tmp_coll[j]);
+      moving_result++;
+    }
+
+    if (opt->constraints.external_collisions) {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("ExternalCollisions");
+#endif
+      auto collisions = test_collisions_per_point(manip_data.capsule_list, &(opt->world));
+      // for (u32 j = 0; j < opt->constraints.n_collision_constraints; j++) {
+      moving_result[0] = -collisions; //*std::abs(collisions[j]);
+      // }
+      moving_result++;
     }
   }
 
-  if (opt->constraints.external_collisions) {
-#if BLAST_TRACE_LEVEL >= 3
-    ZoneScopedN("ExternalCollisions");
-#endif
-    auto collisions = test_collisions(capsules, &(opt->world), opt->constraints.n_collision_constraints, opt->trajectory_start_time, opt->trajectory_start_time + x.back());
-    for (u32 j = 0; j < opt->constraints.n_collision_constraints; j++) {
-      moving_result[j] = -collisions[j] + 0.01; //*std::abs(collisions[j]);
-    }
-    moving_result += opt->constraints.n_collision_constraints;
-  }
 
   {
 #if BLAST_TRACE_LEVEL >= 3
@@ -747,8 +732,8 @@ blast_fn void compute_constraints_acc3(double* result, Array& gradient_coeffs, M
   double* moving_result   = result;
   u32     grad_idx        = 0;
   u32     grad_torque_idx = 0;
-  Array   external_collisions(opt->bspline.n_points);
-  Array   external_collisions_plus(opt->bspline.n_points);
+  // Array   external_collisions(opt->bspline.n_points);
+  // Array   external_collisions_plus(opt->bspline.n_points);
 
   auto joints = opt->manip.n_joints;
 
@@ -909,19 +894,19 @@ blast_fn void compute_constraints_acc3(double* result, Array& gradient_coeffs, M
       grad_idx += tmp_coll.size; // todo: add analytical gradients
     }
 
-    if (opt->constraints.external_collisions) {
-#if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("ExternalCollisionsCalculate");
-#endif
-      external_collisions[i] = test_collisions_per_point(manip_data.capsule_list, &(opt->world));
-
-      for (u32 j = 0; j < joints; j++) {
-        pos[j] += eps;
-        forward_kinematics(opt->manip, manip_data, pos);
-        compute_capsules(opt->manip, manip_data);
-        external_collisions_plus[i] = test_collisions_per_point(manip_data.capsule_list, &(opt->world));
-      }
-    }
+    //     if (opt->constraints.external_collisions) {
+    // #if BLAST_TRACE_LEVEL >= 3
+    //       ZoneScopedN("ExternalCollisionsCalculate");
+    // #endif
+    //       external_collisions[i] = test_collisions_per_point(manip_data.capsule_list, &(opt->world));
+    //
+    //       for (u32 j = 0; j < joints; j++) {
+    //         pos[j] += eps;
+    //         forward_kinematics(opt->manip, manip_data, pos);
+    //         compute_capsules(opt->manip, manip_data);
+    //         external_collisions_plus[i] = test_collisions_per_point(manip_data.capsule_list, &(opt->world));
+    //       }
+    //     }
   }
 
   //   if (opt->constraints.external_collisions) {
@@ -1808,16 +1793,14 @@ inline blast_fn void nlopt_constraints_final(unsigned m, double* result, unsigne
 
   Array constraints;
   constraints.alias(result, m);
+  Matrix gradients;
 
   if (grad) {
     memset(grad, 0, m * x_len * sizeof(real));
-    Matrix gradients;
     gradients.alias(grad, x_len, m);
-    constraints_and_gradients_final(xv, *opt, constraints, gradients);
-  } else {
-    // no gradients requested
-    compute_constraints_final(xv, *opt, constraints);
   }
+
+  constraints_and_gradients_final(xv, *opt, constraints, gradients);
 }
 
 inline void initialize_optimization_final(Optimization* opt) {
@@ -2047,6 +2030,670 @@ inline Result optimize_final(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) 
 
   return result;
 }
+
+// acc 3 + extras (so acc 4 ?)
+template<bool is_grad> // note: n_collision_skip must be 1 for this to work !!!
+blast_fn void compute_constraints_acc4(double* result, Array& gradient_coeffs, Matrix& dtau_dp, Matrix& dtau_dv, Matrix& dtau_da, Matrix& dtcp_dp, Matrix& dtcp_dv, Matrix& dselfcol_dp, Matrix& dcol_dp, const Array& x, Optimization* opt) {
+#if BLAST_TRACE_LEVEL >= 2
+  ZoneScoped;
+#endif
+
+  double* moving_result = result;
+  u32     grad_idx      = 0;
+
+  constexpr real eps = 1e-5;
+
+  auto joints = opt->manip.n_joints;
+
+  {
+#if BLAST_TRACE_LEVEL >= 3
+    ZoneScopedN("ComputeTrajectory");
+#endif
+    opt->bspline.compute_trajectory(x, opt->task);
+  }
+
+  // Lambda to process common bound constraint operations
+  auto process_bound = [&](real value, real bound_max) {
+    auto [constraint, gradient_coeff] = abs_constraint_dev(value, bound_max);
+    *moving_result++                  = constraint;
+    gradient_coeffs[grad_idx++]       = gradient_coeff;
+  };
+
+  for (u32 i = 0; i < opt->bspline.n_points; i++) {
+#if BLAST_TRACE_LEVEL >= 3
+    ZoneScopedN("ConstraintSinglePoint");
+#endif
+
+    ManipulatorTempData manip_data;
+    // Array               torque_constraint_plus(joints);
+
+    auto pos = opt->bspline.traj.pos.col(i);
+    auto vel = opt->bspline.traj.vel.col(i);
+    auto acc = opt->bspline.traj.acc.col(i);
+    Assert(pos.is_alias);
+
+    {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("Kinematics");
+#endif
+      forward_kinematics(opt->manip, manip_data, pos);
+    }
+
+    if (opt->constraints.position) {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("Position");
+#endif
+      for (int j = 0; j < joints; j++) {
+        auto [constraint, gradient_coeff] = bound_constraint_dev<is_grad>(opt->bspline.traj.pos(j, i), opt->manip.pmin[j], opt->manip.pmax[j]);
+        *moving_result++                  = constraint;
+        gradient_coeffs[grad_idx++]       = gradient_coeff;
+      }
+    }
+
+    if (opt->constraints.velocity) {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("Velocity");
+#endif
+      for (int j = 0; j < joints; j++) {
+        process_bound(opt->bspline.traj.vel(j, i), opt->manip.vmax[j]);
+      }
+    }
+
+    if (opt->constraints.acceleration) {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("Acceleration");
+#endif
+      for (int j = 0; j < joints; j++) {
+        process_bound(opt->bspline.traj.acc(j, i), opt->manip.amax[j]);
+      }
+    }
+
+    Array torque_constraint(joints);
+    real  tcp_constraint;
+    real  self_collision_constraint;
+    real  external_collisions_constraint;
+
+    compute_capsules(opt->manip, manip_data);
+
+    if (opt->constraints.torque) {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("Dynamics");
+#endif
+      dynamics(opt->manip, manip_data, vel, acc);
+      for (int j = 0; j < joints; j++) {
+        torque_constraint[j] = abs_constraint(manip_data.efforts[j], opt->manip.tau_max[j]);
+        *moving_result++     = torque_constraint[j];
+      }
+    }
+
+    if (opt->constraints.tcp_speed) {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("TCPSpeed");
+#endif
+      auto J_tool      = get_J_tool(opt, manip_data);
+      real tcp_speed   = norm(J_tool * vel);
+      tcp_constraint   = bound_constraint(tcp_speed, 0.0, opt->manip.tcp_max);
+      *moving_result++ = tcp_constraint;
+    }
+
+    if (opt->constraints.self_collisions) {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("SelfCollisions");
+#endif
+      self_collision_constraint = -max(get_internal_collisions(opt->manip, manip_data));
+      *moving_result++          = self_collision_constraint;
+    }
+
+    if (opt->constraints.external_collisions) {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("ExternalCollisionsCalculate");
+#endif
+      external_collisions_constraint = -test_collisions_per_point(manip_data.capsule_list, &(opt->world));
+      *moving_result++               = external_collisions_constraint;
+    }
+
+    if (is_grad) {
+      Array pos_plus(joints);
+      Array vel_plus(joints);
+      Array acc_plus(joints);
+      pos_plus = pos;
+      vel_plus = vel;
+      acc_plus = acc;
+
+      // grad_coeffs pos
+      for (u32 j = 0; j < joints; j++) {
+        pos_plus[j] += eps;
+        forward_kinematics(opt->manip, manip_data, pos_plus);
+
+        if (opt->constraints.torque) {
+          dynamics(opt->manip, manip_data, vel_plus, acc_plus);
+          for (u32 k = 0; k < joints; k++) {
+            auto torque_constraint_plus = abs_constraint(manip_data.efforts[k], opt->manip.tau_max[k]);
+            dtau_dp(k, j + joints * i)  = (torque_constraint_plus - torque_constraint[k]) / eps;
+          }
+        }
+
+        if (opt->constraints.tcp_speed) {
+          auto J_tool_plus         = get_J_tool(opt, manip_data);
+          real tcp_speed_plus      = norm(J_tool_plus * vel_plus);
+          auto tcp_constraint_plus = bound_constraint(tcp_speed_plus, 0.0, opt->manip.tcp_max);
+          dtcp_dp(j, i)            = (tcp_constraint_plus - tcp_constraint) / eps;
+        }
+
+        compute_capsules(opt->manip, manip_data);
+        if (opt->constraints.self_collisions) {
+          auto self_collision_constraint_plus = -max(get_internal_collisions(opt->manip, manip_data));
+          dselfcol_dp(j, i)                   = (self_collision_constraint_plus - self_collision_constraint) / eps;
+        }
+
+        if (opt->constraints.external_collisions) {
+          auto external_collisions_plus = -test_collisions_per_point(manip_data.capsule_list, &(opt->world));
+          dcol_dp(j, i)                 = (external_collisions_plus - external_collisions_constraint) / eps;
+        }
+        pos_plus[j] = pos[j];
+      }
+
+      forward_kinematics(opt->manip, manip_data, pos_plus);
+      // grad_coeffs vel
+      for (u32 j = 0; j < joints; j++) {
+        vel_plus[j] += eps;
+
+        if (opt->constraints.torque) {
+          dynamics(opt->manip, manip_data, vel_plus, acc_plus);
+          for (u32 k = 0; k < joints; k++) {
+            auto torque_constraint_plus = abs_constraint(manip_data.efforts[k], opt->manip.tau_max[k]);
+            dtau_dv(k, j + joints * i)  = (torque_constraint_plus - torque_constraint[k]) / eps;
+          }
+        }
+
+        if (opt->constraints.tcp_speed) {
+          auto J_tool_plus         = get_J_tool(opt, manip_data);
+          real tcp_speed_plus      = norm(J_tool_plus * vel_plus);
+          auto tcp_constraint_plus = bound_constraint(tcp_speed_plus, 0.0, opt->manip.tcp_max);
+          dtcp_dv(j, i)            = (tcp_constraint_plus - tcp_constraint) / eps;
+        }
+
+        vel_plus[j] = vel[j];
+      }
+
+      // grad_coeffs acc
+      for (u32 j = 0; j < joints; j++) {
+        acc_plus[j] += eps;
+
+        if (opt->constraints.torque) {
+          dynamics(opt->manip, manip_data, vel_plus, acc_plus);
+          for (u32 k = 0; k < joints; k++) {
+            auto torque_constraint_plus = abs_constraint(manip_data.efforts[k], opt->manip.tau_max[k]);
+            dtau_da(k, j + joints * i)  = (torque_constraint_plus - torque_constraint[k]) / eps;
+          }
+        }
+        acc_plus[j] = acc[j];
+      }
+    }
+
+
+    //     if (opt->constraints.tcp_speed) {
+    // #if BLAST_TRACE_LEVEL >= 3
+    //       ZoneScopedN("TCPSpeed");
+    // #endif
+    //       auto vel = opt->bspline.traj.vel.col(i);
+    //
+    //       auto J_tool         = get_J_tool(opt, manip_data);
+    //       real tcp_speed      = norm(J_tool * vel);
+    //       auto tcp_constraint = bound_constraint(tcp_speed, 0.0, opt->manip.tcp_max);
+    //       *moving_result++    = tcp_constraint;
+    //
+    //       if (is_grad) {
+    //         Array pos_plus(joints);
+    //         Array vel_plus(joints);
+    //         pos_plus = pos;
+    //         vel_plus = vel;
+    //
+    //         // grad_coeffs pos
+    //         for (u32 j = 0; j < joints; j++) {
+    //           pos_plus[j] += eps;
+    //           forward_kinematics(opt->manip, manip_data, pos_plus);
+    //
+    //           auto J_tool_plus         = get_J_tool(opt, manip_data);
+    //           real tcp_speed_plus      = norm(J_tool_plus * vel_plus);
+    //           auto tcp_constraint_plus = bound_constraint(tcp_speed_plus, 0.0, opt->manip.tcp_max);
+    //           dtcp_dp(j, i)            = (tcp_constraint_plus - tcp_constraint) / eps;
+    //           pos_plus[j]              = pos[j];
+    //         }
+    //
+    //         forward_kinematics(opt->manip, manip_data, pos_plus);
+    //         // grad_coeffs vel
+    //         for (u32 j = 0; j < joints; j++) {
+    //           vel_plus[j] += eps;
+    //
+    //           auto J_tool_plus         = get_J_tool(opt, manip_data);
+    //           real tcp_speed_plus      = norm(J_tool_plus * vel_plus);
+    //           auto tcp_constraint_plus = bound_constraint(tcp_speed_plus, 0.0, opt->manip.tcp_max);
+    //           dtcp_dv(j, i)            = (tcp_constraint_plus - tcp_constraint) / eps;
+    //
+    //           vel_plus[j] = vel[j];
+    //         }
+    //       }
+    //     }
+    //
+    //     if (opt->constraints.self_collisions) {
+    // #if BLAST_TRACE_LEVEL >= 3
+    //       ZoneScopedN("SelfCollisions");
+    // #endif
+    //       compute_capsules(opt->manip, manip_data);
+    //       auto self_collision_constraint = -max(get_internal_collisions(opt->manip, manip_data));
+    //       *moving_result++               = self_collision_constraint;
+    //
+    //       if (is_grad) {
+    //         Array pos_plus(joints);
+    //
+    //         for (u32 j = 0; j < joints; j++) {
+    //           pos_plus[j] += eps;
+    //           forward_kinematics(opt->manip, manip_data, pos_plus);
+    //           compute_capsules(opt->manip, manip_data);
+    //           auto self_collision_constraint_plus = -max(get_internal_collisions(opt->manip, manip_data));
+    //
+    //           dselfcol_dp(j, i) = (self_collision_constraint_plus - self_collision_constraint) / eps;
+    //
+    //           pos_plus[j] = pos[j];
+    //         }
+    //       }
+    //     }
+    //
+    //     if (opt->constraints.external_collisions) {
+    // #if BLAST_TRACE_LEVEL >= 3
+    //       ZoneScopedN("ExternalCollisionsCalculate");
+    // #endif
+    //       compute_capsules(opt->manip, manip_data);
+    //       auto external_collisions = -test_collisions_per_point(manip_data.capsule_list, &(opt->world));
+    //       *moving_result++         = external_collisions;
+    //       if (is_grad) {
+    //
+    //         Array pos_plus(joints);
+    //
+    //         for (u32 j = 0; j < joints; j++) {
+    //           pos_plus[j] += eps;
+    //           forward_kinematics(opt->manip, manip_data, pos_plus);
+    //           compute_capsules(opt->manip, manip_data);
+    //           auto external_collisions_plus = -test_collisions_per_point(manip_data.capsule_list, &(opt->world));
+    //
+    //           dcol_dp(j, i) = (external_collisions_plus - external_collisions) / eps;
+    //
+    //           pos_plus[j] = pos[j];
+    //         }
+    //       }
+    //     }
+  }
+
+  {
+#if BLAST_TRACE_LEVEL >= 3
+    ZoneScopedN("CustomConstraints");
+#endif
+    for (u32 i = 0; i < opt->constraints.extra_constraints.size(); i++) {
+      auto extra_constraint = opt->constraints.extra_constraints[i];
+      extra_constraint(moving_result, opt);
+      moving_result += opt->constraints.n_extra_constraints[i];
+      grad_idx += opt->constraints.n_extra_constraints[i]; // todo: add analytical gradients
+    }
+  }
+}
+
+inline blast_fn void nlopt_constraints_acc4(unsigned m, double* result, unsigned xlen, const double* x, double* grad, void* f_data) {
+#if BLAST_TRACE_LEVEL >= 1
+  ZoneScoped;
+#endif
+  auto* opt = (Optimization*) f_data;
+
+  Array xv;
+  xv.alias(x, xlen);
+
+  int n_active_constraints = 0;
+  if (opt->constraints.position)
+    n_active_constraints++;
+  if (opt->constraints.velocity)
+    n_active_constraints++;
+  if (opt->constraints.acceleration)
+    n_active_constraints++;
+
+  Array  gradient_coeffs(opt->manip.n_joints * n_active_constraints * opt->bspline.n_points); // todo: check performance
+  Matrix dtau_dp(opt->manip.n_joints, opt->manip.n_joints * opt->bspline.n_points);           // todo: check performance
+  Matrix dtau_dv(opt->manip.n_joints, opt->manip.n_joints * opt->bspline.n_points);           // todo: check performance
+  Matrix dtau_da(opt->manip.n_joints, opt->manip.n_joints * opt->bspline.n_points);           // todo: check performance
+  Matrix dtcp_dp(opt->manip.n_joints, opt->bspline.n_points);
+  Matrix dtcp_dv(opt->manip.n_joints, opt->bspline.n_points);
+  Matrix dselfcol_dp(opt->manip.n_joints, opt->bspline.n_points);
+  Matrix dcol_dp(opt->manip.n_joints, opt->bspline.n_points);
+  if (!grad) {
+    compute_constraints_acc4<false>(result, gradient_coeffs, dtau_dp, dtau_dv, dtau_da, dtcp_dp, dtcp_dv, dselfcol_dp, dcol_dp, xv, opt);
+  }
+  if (grad) {
+    compute_constraints_acc4<true>(result, gradient_coeffs, dtau_dp, dtau_dv, dtau_da, dtcp_dp, dtcp_dv, dselfcol_dp, dcol_dp, xv, opt);
+    memset(grad, 0, m * xlen * sizeof(real)); // note: zeros grad, since grad originally starts with -6e+66 ...
+
+    constexpr real eps      = 1e-5;
+    u32            n_con_lb = 0;
+    Array          x_plus(xlen);
+
+    // lb & ub automatically calculated by bsplines
+    u32 x_per_joint = (xlen - 1) / opt->manip.n_joints; // = nctrl - 6 (skip first and last 3)
+    u32 joint       = 0;
+
+    u32 grad_idx       = 0;
+    u32 constraint_idx = 0;
+    u32 x_idx          = 0;
+
+    memcpy(x_plus.data, x, xlen * sizeof(real)); // todo: is this necessary ? done once, and x_plus is modified to original at the end of each iteration
+
+    for (u32 j = 0; j < xlen - 1; j++) {         // last one is T todo: maybe change to 2 for loops (joint & x_per_joint)
+      // vector x is stored as (ctrl points for joint 0, ctrl points for joint 1, ...)
+      joint = j / x_per_joint > joint ? joint + 1 : joint; // increase joint by 1 everytime we reach its ctrl points
+      x_idx = j - joint * x_per_joint + 3;                 // todo: fix for NaN in PVA of task
+
+      // x_plus[j] += eps;                                    // todo: add this is for extra constraints (tcp, collisions)
+      // opt->bspline.compute_trajectory(x_plus, opt->task);
+
+      n_con_lb = ncon_lb_acc(opt, x_idx); // find the amount of constraints before the current point
+
+      // todo: create alias matrix that points to grad
+      // todo: can we change the order in which we store the gradients ?
+      grad_idx       = n_con_lb * xlen + j;                                    // gradients are stored column-wise xlen * npoints
+      constraint_idx = opt->manip.n_joints * n_active_constraints * opt->bspline.lb[x_idx];
+      for (u32 i = opt->bspline.lb[x_idx]; i <= opt->bspline.ub[x_idx]; i++) { // lb & ub are inclusive
+        grad_idx += joint * xlen;
+        constraint_idx += joint;
+
+        if (opt->constraints.position) {
+          grad[grad_idx] = opt->bspline.basis_p(x_idx, i) * gradient_coeffs[constraint_idx];
+          grad_idx += opt->manip.n_joints * xlen; // increase index by the amount of joints * xlen
+          constraint_idx += opt->manip.n_joints;
+        }
+
+        if (opt->constraints.velocity) {          // todo: basis_v / t once before this loop
+          grad[grad_idx] = opt->bspline.basis_v(x_idx, i) / opt->bspline.traj.t.data[opt->bspline.traj.t.size - 1] * gradient_coeffs[constraint_idx];
+          grad_idx += opt->manip.n_joints * xlen; // increase index by the amount of joints * xlen
+          constraint_idx += opt->manip.n_joints;
+        }
+
+        if (opt->constraints.acceleration) {                // todo: basis_a / t / t once before this loop
+          grad[grad_idx] = opt->bspline.basis_a(x_idx, i) / (opt->bspline.traj.t.data[opt->bspline.traj.t.size - 1] * opt->bspline.traj.t.data[opt->bspline.traj.t.size - 1]) * gradient_coeffs[constraint_idx];
+          grad_idx += (opt->manip.n_joints - joint) * xlen; // increase index by the amount of (joints - current joint) * xlen
+          constraint_idx += (opt->manip.n_joints - joint);
+        }
+
+        if (opt->constraints.torque) {
+
+          for (u32 k = 0; k < opt->manip.n_joints; k++) {
+            grad[grad_idx] = opt->bspline.basis_p(x_idx, i) * dtau_dp(k, joint + opt->manip.n_joints * i) +
+                             opt->bspline.basis_v(x_idx, i) / opt->bspline.traj.t.back() * dtau_dv(k, joint + opt->manip.n_joints * i) +
+                             opt->bspline.basis_a(x_idx, i) / (opt->bspline.traj.t.back() * opt->bspline.traj.t.back()) * dtau_da(k, joint + opt->manip.n_joints * i);
+            grad_idx += xlen;
+            // constraint_idx++; // note: eventhough this gradient is not done analytically, we still need to increase the constraint index
+          }
+        }
+
+        if (opt->constraints.tcp_speed) {
+          grad[grad_idx] = opt->bspline.basis_p(x_idx, i) * dtcp_dp(joint, i) +
+                           opt->bspline.basis_v(x_idx, i) / opt->bspline.traj.t.back() * dtcp_dv(joint, i);
+          grad_idx += xlen;
+          // constraint_idx++; // note: eventhough this gradient is not done analytically, we still need to increase the constraint index
+        }
+
+        if (opt->constraints.self_collisions) {
+          grad[grad_idx] = opt->bspline.basis_p(x_idx, i) * dselfcol_dp(joint, i);
+          grad_idx += xlen;
+          // constraint_idx++; // note: eventhough this gradient is not done analytically, we still need to increase the constraint index
+        }
+
+        if (opt->constraints.external_collisions) {
+          grad[grad_idx] = opt->bspline.basis_p(x_idx, i) * dcol_dp(joint, i);
+          grad_idx += xlen;
+          // constraint_idx++; // note: eventhough this gradient is not done analytically, we still need to increase the constraint index
+        }
+      }
+    }
+
+    {
+      // last point T
+      u32 j = xlen - 1;
+
+      auto   n_joints             = opt->manip.n_joints;
+      auto   constraint_per_point = m / opt->bspline.n_points;
+      auto   one_over_T           = 1 / opt->bspline.traj.t.back();
+      Matrix gradients;
+      gradients.alias(grad, xlen, m);
+      Array constraints;
+      constraints.alias(result, m);
+
+      for (int i = 1; i < opt->bspline.n_points; i++) {
+        int    constraint_in_point_idx = 0;
+        auto   vel                     = opt->bspline.traj.vel.col(i);
+        auto   acc                     = opt->bspline.traj.acc.col(i);
+        Matrix grad_point(&gradients(0, i * constraint_per_point), xlen, constraint_per_point);
+        Array  constraint_point(&constraints[i * constraint_per_point], constraint_per_point);
+
+        // dp/dT == 0
+        constraint_in_point_idx += (int) n_joints;
+        // dv/dT
+        for (int k = 0; k < n_joints; k++) {
+          grad_point.data[constraint_in_point_idx * xlen + j] = -(constraint_point[constraint_in_point_idx] + 1) * one_over_T;
+          constraint_in_point_idx++;
+        }
+        // da_dT
+        for (int k = 0; k < n_joints; k++) {
+          grad_point.data[constraint_in_point_idx * xlen + j] = -2 * (constraint_point[constraint_in_point_idx] + 1) * one_over_T;
+          constraint_in_point_idx++;
+        }
+        // dtau_dT
+        for (int k = 0; k < n_joints; k++) {
+          for (int l = 0; l < n_joints; l++) {
+            grad_point.data[constraint_in_point_idx * xlen + j] += dtau_dv(k, l + n_joints * i) * (-vel[l] * one_over_T) + dtau_da(k, l + n_joints * i) * (-2 * acc[l] * one_over_T);
+          }
+          constraint_in_point_idx++;
+        }
+        // dtcp_dT
+        {
+          for (int k = 0; k < n_joints; k++) {
+            grad_point.data[constraint_in_point_idx * xlen + j] += dtcp_dv(k, i) * (-vel[k] * one_over_T);
+          }
+          constraint_in_point_idx++; // unused, but added for uniformity
+        }
+      }
+    }
+
+    if (opt->constraints.show_info) { // when more info is needed per iteration
+      Matrix gradients(xlen, m);
+      Array  constraints(m);
+      for (u32 j = 0; j < xlen; j++) {
+        for (u32 i = 0; i < m; i++) {
+          gradients(j, i) = grad[i * xlen + j];
+          constraints[i]  = result[i];
+        }
+      }
+      opt->constraints.grad_list.push_back(gradients);
+      opt->constraints.constr_list.push_back(constraints);
+      opt->constraints.x_list.push_back(xv);
+    }
+  }
+}
+
+inline Result optimize_acc4(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
+  auto   T1 = get_tick_us();
+  Result result(opt); // todo: this is expensive
+
+  // Initialization
+  // configure_internal_data(opt); // todo: Ensure we can remove
+  // initialize_optimization(opt);
+  n_con(opt);
+
+  // Initial validation
+  if (!validate_task(opt)) { // todo: support validate_task when there are no capsules...
+    print(opt->task);
+    return result;
+  }
+
+  const auto n = opt->bspline.x_len(opt->task);
+
+  Array con_tol(opt->constraints.n_constraints, 0.001);
+  Array x_tol(n, 0.000001);
+
+#ifdef BLAST_USE_NATIVE_SQP
+  nlopt_stopping stop;
+  stop.n          = n;
+  stop.minf_max   = -HUGE_VAL;
+  stop.ftol_rel   = 0;
+  stop.ftol_abs   = 0.0001;
+  stop.xtol_rel   = 0;
+  stop.xtol_abs   = x_tol.data;
+  stop.x_weights  = nullptr;
+  stop.nevals_p   = 0;
+  stop.maxeval    = 100000;
+  stop.maxtime    = 5000;
+  stop.start      = nlopt_seconds();
+  stop.force_stop = false;
+  stop.stop_msg   = nullptr;
+
+  Array ub(n, INF_REAL);
+  Array lb(n, -INF_REAL);
+  ub.back() = 60.0;
+  lb.back() = 0.01;
+
+  nlopt_constraint fc{};
+  fc.m      = opt->constraints.n_constraints;
+  fc.f      = nullptr;
+  fc.mf     = nlopt_constraints_acc4;
+  fc.pre    = nullptr;
+  fc.f_data = opt;
+  fc.tol    = con_tol.data;
+#else
+  nlopt_opt    o = nlopt_create(NLOPT_LD_SLSQP, n);
+  nlopt_result nlopt_res;
+  nlopt_res = nlopt_add_inequality_mconstraint(o, opt->constraints.n_constraints, nlopt_constraints_acc4, opt, con_tol.data);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_min_objective(o, objective_function, opt);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_lower_bound(o, (int) n - 1, 0.01);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_upper_bound(o, (int) n - 1, 60.0);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_ftol_abs(o, 0.0001);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_xtol_abs(o, x_tol.data);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_maxtime(o, 5000);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_maxeval(o, 100000);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+#endif
+
+
+  auto start_guess   = opt->guess; // save for restoration after restarts if necessary
+  int  try_count     = 0;
+  bool is_valid_more = false;
+  bool is_valid      = false;
+  for (; try_count < opt->max_tries; try_count++) { // todo: add nlopt stop criteria to list, add max_time for full loop
+#if BLAST_TRACE_LEVEL >= 1
+    ZoneScopedN("Optimization");
+#endif
+
+    // initial guess
+    Array x;
+    {
+#if BLAST_TRACE_LEVEL >= 1
+      ZoneScopedN("Initial guess");
+#endif
+      x         = init_guess(opt);
+      result.x0 = x;
+    }
+
+    // launch optimization
+    {
+#if BLAST_TRACE_LEVEL >= 1
+      ZoneScopedN("NLopt optimization");
+#endif
+
+      double f = HUGE_VAL;
+#ifdef BLAST_USE_NATIVE_SQP
+      stop.nevals_p              = 0;
+      result.nlopt_exit_criteria = sqp(
+              opt->bspline.x_len(opt->task),
+              objective_function,
+              opt,
+              1,
+              &fc,
+              0,
+              nullptr,
+              lb.data,
+              ub.data,
+              x.data,
+              &f,
+              &stop);
+      result.num_eval = stop.nevals_p;
+
+#else
+      result.nlopt_exit_criteria = nlopt_optimize(o, x.data, &f);
+      result.num_eval            = nlopt_get_numevals(o);
+#endif
+    }
+
+    // validate solution
+    {
+#if BLAST_TRACE_LEVEL >= 1
+      ZoneScopedN("Solution validation");
+#endif
+      Array constraints_points(opt->constraints.n_constraints);
+      compute_constraints(constraints_points.data, x, opt);
+      is_valid = max(constraints_points) < opt->success_tolerance;
+    }
+
+    {
+#if BLAST_TRACE_LEVEL >= 1
+      ZoneScopedN("Solution validation (more points)");
+#endif
+      u64 steps_ms    = (u64) (std::ceil(x.back() * 1e3 / output_steps_ms));
+      x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
+      int points_more = (int) (steps_ms + 1);
+
+      Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.p, opt->manip.n_joints); // todo: this is expensive
+      bspline_val_more.compute_trajectory(x, opt->task);
+      auto opt_val_more(*opt);
+      opt_val_more.set_bspline(bspline_val_more);
+      n_con(&opt_val_more);
+      Array constraints_more_points(opt_val_more.constraints.n_constraints);
+      compute_constraints(constraints_more_points.data, x, &opt_val_more);
+      is_valid_more = max(constraints_more_points) < opt->success_tolerance;
+
+      result.x = x;
+
+      if (is_valid && is_valid_more) {
+        result.trajectory = bspline_val_more.traj;
+        // break;
+      } else if (opt->guess.type != Guess::random && try_count == 0) {
+        opt->guess.type = Guess::random;
+      }
+    }
+#if BLAST_TRACE_LEVEL >= 1
+    FrameMark;
+#endif
+  }
+
+  opt->guess = start_guess; // reset to original
+
+  auto time = (real) (get_tick_us() - T1) / 1000.0;
+
+  // Output results
+  result.success       = is_valid && is_valid_more;
+  result.success_false = is_valid && !is_valid_more;
+  result.compute_time  = time;
+  result.opt           = opt;
+  result.num_tries     = try_count;
+
+#ifndef BLAST_USE_NATIVE_SQP
+  nlopt_destroy(o);
+#endif
+
+  return result;
+}
+
 // ------------------------------ Eval function ------------------------------
 
 void eval_function() {
@@ -2072,47 +2719,56 @@ void eval_function() {
     Bspline      bspline(n_ctrl, n_points, 5, 6);
     opt.bspline = bspline;
 
+    opt.world = get_lab_world();
+
     opt.constraints.position            = true;
     opt.constraints.velocity            = true;
     opt.constraints.acceleration        = true;
     opt.constraints.torque              = true;
-    opt.constraints.tcp_speed           = false;
-    opt.constraints.self_collisions     = false;
-    opt.constraints.external_collisions = false;
+    opt.constraints.tcp_speed           = true;
+    opt.constraints.self_collisions     = true;
+    opt.constraints.external_collisions = true;
 
-    opt.max_tries         = 1;
-    opt.success_tolerance = 0.01;
+    opt.max_tries                    = 1;
+    opt.success_tolerance            = 0.01;
+    opt.constraints.n_collision_skip = 1;
 
     opt.guess.type = Guess::custom;
-    auto x         = random_array(opt.bspline.x_len(opt.task), 1);
-    x.back()       = 0.5;
-    opt.guess.x0   = x;
+
 
     // temp vectors
     std::vector<Result> tmp_result_list, tmp_result_acc1_list, tmp_result_acc3_list,
             tmp_result_segments_list;
-    std::vector<u32> tmp_task_id;
+    std::vector<u32> tmp_task_id, tmp_config_id;
 
     tmp_result_list.reserve(n_optim);
     tmp_result_acc1_list.reserve(n_optim);
     tmp_result_acc3_list.reserve(n_optim);
     tmp_result_segments_list.reserve(n_optim);
     tmp_task_id.reserve(n_optim);
+    tmp_config_id.reserve(n_optim);
 
     for (int iter = 0; iter < n_optim; ++iter) {
+      opt.guess.x0 = guess_random((opt.bspline), opt.task);
+      // opt.guess.x0.back() = 0.5;
+      // opt.guess.x0        = random_array(opt.bspline.x_len(opt.task), 1);
+      // opt.guess.x0.back() = 0.5;
+
       auto result = optimize(&opt);
       tmp_result_list.push_back(result);
 
       auto result_acc1 = optimize_acc1(&opt);
       tmp_result_acc1_list.push_back(result_acc1);
 
-      auto result_acc3 = optimize_acc3(&opt);
+      auto result_acc3 = optimize_acc4(&opt);
       tmp_result_acc3_list.push_back(result_acc3);
 
-      auto result_segments = optimize_final(&opt);
+      // auto result_segments = optimize_final(&opt);
+      auto result_segments = optimize_with_segments(&opt);
       tmp_result_segments_list.push_back(result_segments);
 
       tmp_task_id.push_back(config.task_idx);
+      tmp_config_id.push_back(config.config_idx);
     }
 
     mut_result.lock();
@@ -2121,6 +2777,7 @@ void eval_function() {
     result_acc3_list.insert(result_acc3_list.end(), tmp_result_acc3_list.begin(), tmp_result_acc3_list.end());
     result_segments_list.insert(result_segments_list.end(), tmp_result_segments_list.begin(), tmp_result_segments_list.end());
     task_id.insert(task_id.end(), tmp_task_id.begin(), tmp_task_id.end());
+    config_ids.insert(config_ids.end(), tmp_config_id.begin(), tmp_config_id.end());
     mut_result.unlock();
   }
 }
@@ -2137,6 +2794,7 @@ int main() {
   result_acc3_list.reserve(config_list.size() * _n_optim);
   result_segments_list.reserve(config_list.size() * _n_optim);
   task_id.reserve(config_list.size() * _n_optim);
+  config_ids.reserve(config_list.size() * _n_optim);
 
   raise_process_priority();
 
@@ -2163,14 +2821,24 @@ int main() {
   for (auto& th: workers)
     th.join();
 
-  write_results_json("results_all_2.json",
-                     result_list,
-                     result_acc1_list,
-                     result_acc3_list,
-                     result_segments_list,
-                     task_id,
-                     config_list,
-                     "blast"); // you can rename the other variant labels via optional params
+  cout << "Workers are done" << endl;
+
+  cout << "Crunching the numbers" << endl;
+
+  const std::vector<VariantGroup> variants = {
+          {"base", &result_list},
+          {"acc1", &result_acc1_list},
+          {"acc3", &result_acc3_list},
+          {"segments", &result_segments_list},
+  };
+
+  write_results_json_simple(
+          "results_all_4.json",
+          config_ids,
+          task_id,
+          config_list,
+          variants);
+
 
   return 0;
 }
