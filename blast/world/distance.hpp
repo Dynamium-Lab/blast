@@ -924,7 +924,7 @@ inline blast_fn real distance_per_point(const Capsule& capsule, CapsuleData& cap
   return sqrt(dist_min) - capsule.r;
 }
 
-inline blast_fn real test_collisions_per_point(const std::array<Capsule, MAX_CAPSULES>& robot_capsules, const World* world) {
+inline blast_fn real test_collisions_per_point(const std::array<Capsule, MAX_CAPSULES>& robot_capsules, const World* world) { // todo: FIX THIS... when MAX_CAPSULE is higher than number of capsules, this returns 0 breaking the optimization
   real dist_min = INF_REAL;
 
   for (const auto& capsule: robot_capsules) {

@@ -30,6 +30,269 @@
 using namespace blast;
 
 constexpr int thread_count = 8;
+// ----------------------------- UR5e manip + tasks -----------------------------
+inline Manipulator get_generic_ur5e() {
+  // Manipulator
+  blast::u32 joints = 6;
+
+  // limits
+  blast::ManipulatorLimits limits;
+  limits.pmax = {6.283200, 6.283200, 3.141600, 6.283200, 6.283200, 6.283200};
+  limits.pmin = {-6.283200, -6.283200, -3.141600, -6.283200, -6.283200, -6.283200};
+  limits.vmax = {3.141600, 3.141600, 3.141600, 3.141600, 3.141600, 3.141600};
+  // limits.vmin = {-3.141600, -3.141600, -3.141600, -3.141600, -3.141600, -3.141600};
+  limits.amax = {13.96, 13.96, 13.96, 13.96, 13.96, 13.96};
+  // limits.amin = {-13.96, -13.96, -13.96, -13.96, -13.96, -13.96};
+  limits.tau_max = {150.000000, 150.000000, 150.000000, 28.000000, 28.000000, 28.000000};
+  // limits.tau_min = {-150.000000, -150.000000, -150.000000, -28.000000, -28.000000, -28.000000};
+  limits.tcp_max = 1.5; // todo: verify this value
+
+  blast::ManipulatorKinematics kinematics;
+  kinematics.dv = {
+          Vec3{0, 0, 0},
+          {-0.425, 0, 0},
+          {-0.3922, 0, 0.1333},
+          {0, -0.0997, -0},
+          {0, 0.0996, -0},
+          {0, 0, 0} // to end effector
+  };
+  kinematics.ev = {
+          Vec3{0, 0, 1},
+          {0, 0, 1},
+          {0, 0, 1},
+          {0, 0, 1},
+          {0, 0, 1},
+          {0, 0, 1}};
+  // kinematics.Q_static.resize(6);
+  kinematics.Q_static[0] = {-1.000000, 0.000000, 0.000000, -0.000000, -1.000000, 0.000000, 0.000000, -0.000000, 1.000000}; // modified
+  kinematics.Q_static[1] = {1.000000, 0.000000, 0.000000, -0.000000, -0.000000, 1.000000, 0.000000, -1.000000, -0.000000};
+  kinematics.Q_static[2] = {1.000000, 0.000000, 0.000000, -0.000000, 1.000000, 0.000000, 0.000000, -0.000000, 1.000000};
+  kinematics.Q_static[3] = {1.000000, 0.000000, 0.000000, -0.000000, 1.000000, 0.000000, 0.000000, -0.000000, 1.000000};
+  kinematics.Q_static[4] = {1.000000, 0.000000, 0.000000, -0.000000, -0.000000, 1.000000, 0.000000, -1.000000, -0.000000};
+  kinematics.Q_static[5] = {1.000000, -0.000000, 0.000000, 0.000000, -0.000000, -1.000000, 0.000000, 1.000000, -0.000000};
+  // kinematics.Q_static[6] = {1.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 1.000000};
+  kinematics.p_j0 = {0.000000, 0.000000, 0.162500};
+
+  blast::ManipulatorDynamics dynamics;
+  dynamics.m = {3.700000, 8.393000, 2.275000, 1.219000, 1.219000, 0.187900};
+  dynamics.I = {
+          Mat3{0.0103, 0, 0, 0, 0.0103, 0, 0, 0, 0.0067},
+          {0.1339, 0, 0, 0, 0.1339, 0, 0, 0, 0.0151},
+          {0.0312, 0, 0, 0, 0.0312, 0, 0, 0, 0.0041},
+          {0.0026, 0, 0, 0, 0.0026, 0, 0, 0, 0.0022},
+          {0.0026, 0, 0, 0, 0.0026, 0, 0, 0, 0.0022},
+          {0.0001, 0, 0, 0, 0.0001, 0, 0, 0, 0.0001}};
+  dynamics.av = {
+          Vec3{0, 0, 0},
+          {-0.2125, 0, 0.138},
+          {-0.1961, 0, 0.007},
+          {0, 0, 0},
+          {0, 0, 0},
+          {0, 0, -0.0229}};
+
+  blast::ManipulatorCapsules collisions;
+
+  blast::Sphere base;
+  base.c                    = {0, 0, 0.0325};
+  base.r                    = 0.09;
+  collisions.base_sphere    = base;
+  collisions.collision_base = {0, 0, 0, 1, 1, 1, 1};
+
+  collisions.collision_matrix.resize(7, 7);
+  collisions.collision_matrix(3, 0) = 1;
+  collisions.collision_matrix(4, 0) = 1;
+  collisions.collision_matrix(5, 0) = 1;
+  collisions.collision_matrix(6, 0) = 1;
+
+  collisions.collision_matrix(4, 1) = 1;
+  collisions.collision_matrix(5, 1) = 1;
+  collisions.collision_matrix(6, 1) = 1;
+
+  collisions.collision_matrix(6, 3) = 1;
+
+  // mirrored just for consistency
+  // collisions.collision_matrix(0, 3) = 1;
+  // collisions.collision_matrix(0, 4) = 1;
+  // collisions.collision_matrix(0, 5) = 1;
+  // collisions.collision_matrix(0, 6) = 1;
+  //
+  // collisions.collision_matrix(1, 4) = 1;
+  // collisions.collision_matrix(1, 5) = 1;
+  // collisions.collision_matrix(1, 6) = 1;
+  //
+  // collisions.collision_matrix(3, 6) = 1;
+
+  blast::CollisionModelCapsule capsule;
+  capsule.joint_frame = 0;
+  capsule.p1          = {0, 0, 0};
+  capsule.p2          = {0, -0.15, 0};
+  capsule.r           = 0.09;
+  collisions.capsule_list.push_back(capsule);
+
+  capsule.joint_frame = 1;
+  capsule.p1          = {-0.42, 0, 0.1375};
+  capsule.p2          = {0, 0, 0.1375};
+  capsule.r           = 0.06;
+  collisions.capsule_list.push_back(capsule);
+
+  capsule.joint_frame = 2;
+  capsule.p1          = {0, 0, 0.02};
+  capsule.p2          = {0, 0, 0.18};
+  capsule.r           = 0.065;
+  collisions.capsule_list.push_back(capsule);
+
+  capsule.joint_frame = 2;
+  capsule.p1          = {-0.373156, 0, 0.00850418};
+  capsule.p2          = {0.000440611, 0.000121443, 0.00850418};
+  capsule.r           = 0.05;
+  collisions.capsule_list.push_back(capsule);
+
+  capsule.joint_frame = 3;
+  capsule.p1          = {0, 0, 0};
+  capsule.p2          = {0, 0, -0.155};
+  capsule.r           = 0.0425;
+  collisions.capsule_list.push_back(capsule);
+
+  capsule.joint_frame = 3;
+  capsule.p1          = {0, 0.03, 0};
+  capsule.p2          = {0, -0.1, 0};
+  capsule.r           = 0.0425;
+  collisions.capsule_list.push_back(capsule);
+
+  capsule.joint_frame = 5;
+  capsule.p1          = {0, 0, -0.14};
+  capsule.p2          = {0, 0, -0.01};
+  capsule.r           = 0.038;
+  collisions.capsule_list.push_back(capsule);
+
+  blast::Manipulator generic_manip(joints, limits, kinematics, &dynamics, &collisions);
+  return generic_manip;
+}
+
+inline std::vector<Matrix> get_UR5e_tasks() {
+  int                n_joints = 6;
+  std::vector<Array> start_pos;
+  start_pos.push_back({1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883});
+  start_pos.push_back({2.4316, 0.0965, 1.1824, 1.8626, -0.8567, 0.0250});
+  start_pos.push_back({-0.704868, 2.17507, 0.834305, 0.132228, 2.27799, 0.00328674});
+  start_pos.push_back({-0.819005, 2.50686, 0.344732, -2.85083, -2.39379, -2.93992});
+  start_pos.push_back({2.04549, 0.675615, 0.137326, -0.814844, 0.449157, -3.08683});
+  start_pos.push_back({2.3499, 1.44305, -1.11122, -0.333013, 0.751039, -3.09482});
+  start_pos.push_back({2.36232, 1.06656, -0.132829, -0.933749, 0.788944, -3.13519});
+  start_pos.push_back({2.22452, 1.15771, -0.467326, -0.690436, 0.641695, -3.12205});
+
+  std::vector<Array> end_pos;
+  end_pos.push_back({2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.17328});
+  end_pos.push_back({0.1706, -2.5340, -1.2649, -2.4857, -1.4118, 2.9011});
+  end_pos.push_back({0.3572, 2.9674, 0.4629, 2.8527, -1.2170, 3.1408});
+  end_pos.push_back({-0.0436368, -2.65335, 0.593745, 2.05947, -1.61882, -3.12196});
+  end_pos.push_back({-2.6558, -0.6703, 0.0599, -2.5311, -2.0486, -0.0127});
+  end_pos.push_back({3.12394, -0.553571, -0.509807, 1.06314, 1.52902, -3.10058});
+  end_pos.push_back({2.4552, -0.1792, -1.0268, -1.9354, -0.8723, -0.0198});
+  end_pos.push_back({2.14686, -0.283198, -0.264971, -2.59327, -0.566506, -0.0169222});
+
+  std::vector<Matrix> task_list(64);
+  int                 task_idx = 0;
+  for (auto& s: start_pos) {
+    for (auto& e: end_pos) {
+      task_list[task_idx].resize(n_joints, 6);
+      for (int k = 0; k < n_joints; k++) {
+        task_list[task_idx](k, 0) = s[k];
+        task_list[task_idx](k, 3) = e[k];
+      }
+      task_idx++;
+    }
+  }
+  return task_list;
+}
+
+inline World get_kitchen_open_doors() {
+  World world;
+  world.add_box(Vec3{0.427, -1.0847, 1.1974}, Vec3{0.36029, 0.06, 0.36242}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_box(Vec3{0.427, 0.48791, 1.1974}, Vec3{0.36029, 0.06, 0.36242}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_box(Vec3{0.427, -0.29838, 1.5298}, Vec3{0.36029, 0.84629, 0.03}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_box(Vec3{0.427, -0.29838, 1.2074}, Vec3{0.36029, 0.84629, 0.03}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_box(Vec3{0.427, -0.29838, 0.86498}, Vec3{0.36029, 0.84629, 0.03}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_box(Vec3{0.72729, -0.29838, 1.2074}, Vec3{0.06, 0.84629, 0.36242}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_box(Vec3{-0.20911, 0.86968, 1.2009}, Vec3{0.032523, 0.42256, 0.36242}, Mat3{-0.70706, -0.70716, 0, -0.70716, -0.70706, 0, 0, 0, 1});
+  world.add_box(Vec3{-0.20549, -1.4701, 1.2009}, Vec3{0.037648, 0.42257, 0.36244}, Mat3{-0.70706, 0.70716, 0, 0.70716, -0.70706, 0, 0, 0, 1});
+  world.add_box(Vec3{-0.47232, -0.77127, -0.48346}, Vec3{0.023735, 0.41378, 0.41552}, Mat3{4.6327e-05, 0, 1, 0, 1, 0, 1, 0, 4.6327e-05});
+  world.add_box(Vec3{0.35698, 0.425, -0.066059}, Vec3{0.41378, 0.8425, 0.43736}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_box(Vec3{0.35698, -1.1546, -0.066059}, Vec3{0.41378, 0.03, 0.43736}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_box(Vec3{0.35698, -0.80106, 0.31136}, Vec3{0.41378, 0.38356, 0.06}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_box(Vec3{0.35698, -0.80106, -0.055}, Vec3{0.41378, 0.38356, 0.025}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_box(Vec3{0.35698, -0.80106, -0.47336}, Vec3{0.41378, 0.38356, 0.03}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  return world;
+}
+
+// ----------------------------- Gen3 manip + tasks -----------------------------
+inline std::vector<Matrix> get_Gen3_paper_tasks() {
+
+  int                n_joints = 7;
+  std::vector<Array> start_pos;
+  start_pos.push_back({-1.2215, 1.9006, -2.7479, -1.2570, -1.3301, 1.2168, 1.2276});
+  start_pos.push_back({-1.2111, 1.0074, 1.5468, 0.7477, 2.8742, -0.5686, 0.8434});
+  start_pos.push_back({-1.29472, 1.21316, -1.87968, -1.33023, -1.50246, 0.207459, 1.93951});
+  start_pos.push_back({-0.940587, 0.454046, -2.04557, -1.42284, -2.42939, -0.148302, -2.68966});
+  start_pos.push_back({-0.322615, 1.99658, -0.690786, -0.5912, -0.0424388, 0.061149, -0.910936});
+  start_pos.push_back({-0.448418, 0.321021, -0.730568, 0.474924, -1.66265, -1.24559, 0.673359});
+  start_pos.push_back({-0.839155, 0.567741, -1.33936, 0.149858, 2.3022, 1.30233, -1.94128});
+  start_pos.push_back({2.4646, -1.3391, -1.6020, 1.2399, -2.8390, 0.5598, -0.0744});
+  start_pos.push_back({-0.9387, 1.9515, 2.1091, 0.5064, -0.4756, 0.5181, 2.9568});
+  start_pos.push_back({-1.2804, 1.9185, -2.5408, -1.6593, 1.8834, -1.0995, -2.0906});
+
+  std::vector<Array> end_pos;
+  end_pos.push_back({-2.2485, -0.2788, -1.0306, -0.7692, 0.1985, -0.6363, 1.6482});
+  end_pos.push_back({0.316206, 0.429902, -2.60506, -1.29654, 1.26543, 0.836061, -0.0189057});
+  end_pos.push_back({0.574788, 1.94127, -1.95753, 0.656255, 1.67537, -0.079455, -1.14421});
+  end_pos.push_back({-2.29169, -0.592198, 2.25955, -0.10461, -0.0522387, 1.29476, -0.870656});
+  end_pos.push_back({-2.0435, -0.5774, -1.2565, -1.3726, 2.1209, -0.1030, -0.0170});
+  end_pos.push_back({1.1614, 1.3213, -1.4704, 1.2843, -0.0907, -0.1372, -0.1260});
+  end_pos.push_back({0.6055, 2.0039, 0.4019, -0.4372, 1.1506, -0.4391, -3.0771});
+  end_pos.push_back({-1.4917, -2.2247, 1.8558, 1.3672, 2.3899, -0.3546, -1.7443});
+  end_pos.push_back({-1.9901, -1.8203, -0.2981, -1.6681, -1.9974, -1.4377, -0.9739});
+  end_pos.push_back({-2.6543, -1.3441, -1.0625, -0.5575, -2.8525, -0.0867, -0.7317});
+
+  std::vector<Matrix> task_list(100);
+  int                 task_idx = 0;
+  for (auto& s: start_pos) {
+    for (auto& e: end_pos) {
+      task_list[task_idx].resize(n_joints, 6);
+      for (int k = 0; k < n_joints; k++) {
+        task_list[task_idx](k, 0) = s[k];
+        task_list[task_idx](k, 3) = e[k];
+      }
+      task_idx++;
+    }
+  }
+  return task_list;
+}
+
+inline World get_bookshelf_thin() {
+  World world;
+  // blast::add_static_capsule({1.1, 0.25, 0.37}, {1.1, 0.25, 0.51},  0.03, &bookshelf_thin);
+  // blast::add_static_capsule({0.8, 0.25, 0.37}, {0.8, 0.25, 0.51},  0.03, &bookshelf_thin);
+  // blast::add_static_capsule({1.1, -0.25, 0.62}, {1.1, -0.25, 0.76},  0.03, &bookshelf_thin);
+  // blast::add_static_capsule({0.8, -0.25, 0.62}, {0.8, -0.25, 0.76},  0.03, &bookshelf_thin);
+  // blast::add_static_capsule({1.1, 0.25, 0.87}, {1.1, 0.25, 1.01},  0.03, &bookshelf_thin);
+  // blast::add_static_capsule({0.8, 0.25, 0.87}, {0.8, 0.25, 1.01},  0.03, &bookshelf_thin);
+  // blast::add_static_capsule({1.1, -0.25, 1.12}, {1.1, -0.25, 1.26},  0.03, &bookshelf_thin);
+  // blast::add_static_capsule({0.8, -0.25, 1.12}, {0.8, -0.25, 1.26},  0.03, &bookshelf_thin);
+  // blast::add_static_capsule({1.1, 0.25, 1.37}, {1.1, 0.25, 1.51},  0.03, &bookshelf_thin);
+  // blast::add_static_capsule({0.8, 0.25, 1.37}, {0.8, 0.25, 1.51},  0.03, &bookshelf_thin);
+  world.add_box({1.0, 0.0, 0.35}, {0.31, 0.5, 0.02}, {-1, 0, 0, 0, -1, 0, 0, 0, 1});
+  world.add_box({1.0, 0, 0.6}, {0.31, 0.5, 0.02}, {-1, 0, 0, 0, -1, 0, 0, 0, 1});
+  world.add_box({1.0, 0, 0.85}, {0.31, 0.5, 0.02}, {-1, 0, 0, 0, -1, 0, 0, 0, 1});
+  world.add_box({1, 0, 1.1}, {0.31, 0.5, 0.02}, {-1, 0, 0, 0, -1, 0, 0, 0, 1});
+  world.add_box({1, 0, 1.35}, {0.31, 0.5, 0.02}, {-1, 0, 0, 0, -1, 0, 0, 0, 1});
+  world.add_box({1, 0, 0.9}, {0.31, 0.02, 0.7}, {-1, 0, 0, 0, -1, 0, 0, 0, 1});
+  world.add_box({1, 0, 1.6}, {0.31, 0.5, 0.02}, {-1, 0, 0, 0, -1, 0, 0, 0, 1});
+  world.add_box({0.7, 0.5, 0.82}, {0.02, 0.02, 0.82}, {-1, 0, 0, 0, -1, 0, 0, 0, 1});
+  world.add_box({0.7, -0.5, 0.82}, {0.02, 0.02, 0.82}, {-1, 0, 0, 0, -1, 0, 0, 0, 1});
+  world.add_box({1.3, 0.5, 0.82}, {0.02, 0.02, 0.82}, {-1, 0, 0, 0, -1, 0, 0, 0, 1});
+  world.add_box({1.3, -0.5, 0.82}, {0.02, 0.02, 0.82}, {-1, 0, 0, 0, -1, 0, 0, 0, 1});
+  return world;
+}
 
 // ------------------------------ Helper functions ------------------------------
 struct IOSilencer {
@@ -195,7 +458,7 @@ struct Config {
   int    config_idx = 0;
   Matrix task;
 };
-constexpr int                   config_size = 39;
+constexpr int                   config_size = 64 * 3; // for UR5e 64 tasks * 3 configs // for Gen3 100 tasks * 3 configs
 std::array<Config, config_size> config_list;
 constexpr int                   _n_optim     = 1;
 int                             config_index = 0;
@@ -239,11 +502,11 @@ struct VariantGroup {
 };
 
 void write_results_json_simple(
-        const std::string&               path,
-        const std::vector<u32>&          target_config_ids,
-        const std::vector<u32>&          target_task_ids,
-        const std::array<Config, 39>&    target_config_list,
-        const std::vector<VariantGroup>& variants) {
+        const std::string&                     path,
+        const std::vector<u32>&                target_config_ids,
+        const std::vector<u32>&                target_task_ids,
+        const std::array<Config, config_size>& target_config_list,
+        const std::vector<VariantGroup>&       variants) {
   using nlohmann::json;
   json arr = json::array();
 
@@ -287,11 +550,11 @@ void write_results_json_simple(
 inline void fill_config_list(std::array<Config, config_size>& target_config_list) {
 
   // These give rounded number of n_points_per_segment (With higher n_ctrl, we can allow for fewer points per segments)
-  std::array<std::tuple<int, int>, 3> bspline_config_list = {std::make_tuple(10, 20),  // 20 points per segments
-                                                             std::make_tuple(12, 15),  // 15 points per segment
-                                                             std::make_tuple(16, 10)}; // 10 points per segments
+  std::array<std::tuple<int, int>, 3> bspline_config_list = {std::make_tuple(12, 15), // 15 points per segment
+                                                             std::make_tuple(16, 10), // 10 points per segments
+                                                             std::make_tuple(20, 10)};
 
-  std::vector<Matrix> tasks = get_Link6_demo1_tasks();                                 // 13 tasks
+  std::vector<Matrix> tasks = get_Link6_demo1_tasks(); // 13 tasks
 
   int config_idx = 0;
   int task_idx   = 0;
@@ -304,6 +567,60 @@ inline void fill_config_list(std::array<Config, config_size>& target_config_list
       target_config_list[config_idx].n_ctrl     = n_ctrl;
       target_config_list[config_idx].n_points   = n_points;
       target_config_list[config_idx].n_optim    = 100;
+      target_config_list[config_idx].task_idx   = task_idx;
+      target_config_list[config_idx].config_idx = config_idx;
+      target_config_list[config_idx++].task     = task;
+    }
+    task_idx++;
+  }
+}
+
+inline void fill_config_list_UR5e(std::array<Config, config_size>& target_config_list) {
+  // These give rounded number of n_points_per_segment (With higher n_ctrl, we can allow for fewer points per segments)
+  std::array<std::tuple<int, int>, 3> bspline_config_list = {std::make_tuple(12, 15), // 15 points per segment
+                                                             std::make_tuple(16, 10), // 10 points per segments
+                                                             std::make_tuple(20, 10)};
+  // std::array<std::tuple<int, int>, 1> bspline_config_list = {std::make_tuple(16, 15)};
+  std::vector<Matrix> tasks = get_UR5e_tasks();
+
+  int config_idx = 0;
+  int task_idx   = 0;
+  // auto task       = tasks[0];
+  for (auto& task: tasks) {
+    for (auto& bspline_config: bspline_config_list) {
+      auto [n_ctrl, n_points_per_segments] = bspline_config;
+      auto n_points                        = n_points_per_segments * (n_ctrl - 5);
+
+      target_config_list[config_idx].n_ctrl     = n_ctrl;
+      target_config_list[config_idx].n_points   = n_points;
+      target_config_list[config_idx].n_optim    = 100;
+      target_config_list[config_idx].task_idx   = task_idx;
+      target_config_list[config_idx].config_idx = config_idx;
+      target_config_list[config_idx++].task     = task;
+    }
+    task_idx++;
+  }
+}
+
+inline void fill_config_list_Gen3(std::array<Config, config_size>& target_config_list) {
+  // These give rounded number of n_points_per_segment (With higher n_ctrl, we can allow for fewer points per segments)
+  // std::array<std::tuple<int, int>, 3> bspline_config_list = {std::make_tuple(12, 15), // 15 points per segment
+  //                                                            std::make_tuple(16, 10), // 10 points per segments
+  //                                                            std::make_tuple(20, 10)};
+  std::array<std::tuple<int, int>, 1> bspline_config_list = {std::make_tuple(16, 20)};
+  std::vector<Matrix>                 tasks               = get_Gen3_paper_tasks();
+
+  int config_idx = 0;
+  int task_idx   = 0;
+  // auto task       = tasks[0];
+  for (auto& task: tasks) {
+    for (auto& bspline_config: bspline_config_list) {
+      auto [n_ctrl, n_points_per_segments] = bspline_config;
+      auto n_points                        = n_points_per_segments * (n_ctrl - 5);
+
+      target_config_list[config_idx].n_ctrl     = n_ctrl;
+      target_config_list[config_idx].n_points   = n_points;
+      target_config_list[config_idx].n_optim    = 1;
       target_config_list[config_idx].task_idx   = task_idx;
       target_config_list[config_idx].config_idx = config_idx;
       target_config_list[config_idx++].task     = task;
@@ -721,6 +1038,458 @@ inline Result optimize_acc1(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   return result;
 }
 
+// acc 2
+inline u32 ncon_acc2(const Optimization* opt, const int x_idx) {
+  const u32 n_points            = opt->bspline.ub[x_idx] + 1 - opt->bspline.lb[x_idx]; // + 1 since ub is inclusive
+  const u32 n_joints            = opt->manip.n_joints;
+  const u32 n_constraints_basic = n_points * n_joints;
+  u32       n_constraints       = 0;
+
+  if (opt->constraints.position)
+    n_constraints += n_points;
+  if (opt->constraints.velocity)
+    n_constraints += n_points;
+  if (opt->constraints.acceleration)
+    n_constraints += n_points;
+  if (opt->constraints.torque)
+    n_constraints += n_constraints_basic;
+
+  if (opt->constraints.tcp_speed)
+    n_constraints += n_points;
+
+  if (opt->constraints.external_collisions)
+    n_constraints += n_points;
+  if (opt->constraints.self_collisions) {
+    n_constraints += n_points;
+  }
+
+  for (auto& n_con: opt->constraints.n_extra_constraints)
+    n_constraints += n_con;
+
+  return n_constraints;
+}
+
+struct ConstraintPerPoint {
+  Array  pos_constraint;
+  Array  vel_constraint;
+  Array  acc_constraint;
+  Matrix tor_constraint;
+  Array  tcp_constraint;
+  Array  collision_constraint;
+  Array  self_collision_constraint;
+
+  ConstraintPerPoint(int joints, int points) {
+    pos_constraint.resize(points);
+    vel_constraint.resize(points);
+    acc_constraint.resize(points);
+    tor_constraint.resize(joints, points);
+    tcp_constraint.resize(points);
+    collision_constraint.resize(points);
+    self_collision_constraint.resize(points);
+  }
+  ~ConstraintPerPoint() = default;
+};
+
+inline void compute_constraints_grad2(ConstraintPerPoint& constraints, const Array& x, const u32 x_idx, const u32 joint_idx, Optimization* opt) {
+
+  opt->bspline.compute_trajectory(x, opt->task);
+
+  auto n_joints = opt->manip.n_joints;
+
+  // ObjMatrix<Capsule> capsules(opt->manip._n_caps, (u32) (opt->bspline.ub[x_idx] - opt->bspline.lb[x_idx] + 1) / opt->constraints.n_collision_skip);
+  for (u32 i = opt->bspline.lb[x_idx]; i <= opt->bspline.ub[x_idx]; i++) {
+#if BLAST_TRACE_LEVEL >= 3
+    ZoneScopedN("ConstraintSinglePoint");
+#endif
+
+    // todo: reset frame???
+    // rotations_computed -> bool
+    // forward_kinematics_computed -> bool
+
+    ManipulatorTempData manip_data;
+
+
+    // This is calculated every loop
+    auto pos = opt->bspline.traj.pos.col(i);
+    auto vel = opt->bspline.traj.vel.col(i);
+    auto acc = opt->bspline.traj.acc.col(i);
+    Assert(pos.is_alias);
+
+    {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("Kinematics");
+#endif
+      forward_kinematics(opt->manip, manip_data, pos); // fills _Q, _Q_mult, and _p_j
+    }
+
+    {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("Capsules");
+#endif
+      // todo: this cleaner
+      // if (opt->constraints.external_collisions || opt->constraints.self_collisions) {
+      compute_capsules(opt->manip, manip_data);
+      // }
+    }
+
+    if (opt->constraints.position) {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("Position");
+#endif
+      // for (int j = 0; j < opt->manip.n_joints; j++) {
+      constraints.pos_constraint[i - opt->bspline.lb[x_idx]] = bound_constraint(pos[joint_idx], opt->manip.pmin[joint_idx], opt->manip.pmax[joint_idx]);
+
+      // }
+    }
+
+    if (opt->constraints.velocity) {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("Velocity");
+#endif
+      // for (int j = 0; j < opt->manip.n_joints; j++) {
+      constraints.vel_constraint[i - opt->bspline.lb[x_idx]] = std::abs(vel[joint_idx]) / opt->manip.vmax[joint_idx] - 1.0;
+      // }
+    }
+
+    if (opt->constraints.acceleration) {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("Acceleration");
+#endif
+      // for (int j = 0; j < opt->manip.n_joints; j++) {
+      constraints.acc_constraint[i - opt->bspline.lb[x_idx]] = std::abs(acc[joint_idx]) / opt->manip.amax[joint_idx] - 1.0;
+
+      // }
+    }
+
+    if (opt->constraints.torque) {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("Dynamics");
+#endif
+      dynamics(opt->manip, manip_data, vel, acc); // fills _efforts
+
+      for (int j = 0; j < opt->manip.n_joints; j++) {
+        constraints.tor_constraint(j, i - opt->bspline.lb[x_idx]) = std::abs(manip_data.efforts[j]) / opt->manip.tau_max[j] - 1.0;
+      }
+    }
+
+    if (opt->constraints.tcp_speed) {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("TCPSpeed");
+#endif
+      auto J_tool                                            = get_J_tool(opt, manip_data);
+      real tcp_speed                                         = norm(J_tool * opt->bspline.traj.vel.col(i));
+      constraints.tcp_constraint[i - opt->bspline.lb[x_idx]] = bound_constraint(tcp_speed, 0.0, opt->manip.tcp_max);
+    }
+
+    if (opt->constraints.self_collisions) {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("SelfCollisions");
+#endif
+      auto tmp_coll = max(-get_internal_collisions(opt->manip, manip_data));
+      // for (u32 j = 0; j < tmp_coll.size; j++)
+      constraints.self_collision_constraint[i - opt->bspline.lb[x_idx]] = tmp_coll; //*std::abs(tmp_coll[j]);
+    }
+
+    if (opt->constraints.external_collisions) {
+#if BLAST_TRACE_LEVEL >= 3
+      ZoneScopedN("ExternalCollisions");
+#endif
+      auto collisions = test_collisions_per_point(manip_data.capsule_list, &(opt->world));
+      // for (u32 j = 0; j < opt->constraints.n_collision_constraints; j++) {
+      constraints.collision_constraint[i - opt->bspline.lb[x_idx]] = -collisions; //*std::abs(collisions[j]);
+    }
+  }
+}
+
+inline void nlopt_constraints_acc2(unsigned m, double* result, unsigned xlen, const double* x, double* grad, void* f_data) {
+#if BLAST_TRACE_LEVEL >= 1
+  ZoneScoped;
+#endif
+  auto* opt = (Optimization*) f_data;
+
+  Array xv;
+  xv.alias(x, xlen);
+  compute_constraints(result, xv, opt);
+
+  // gradients calculation
+  if (grad) {
+    memset(grad, 0, m * xlen * sizeof(real)); // note: zeros grad, since grad originally starts with -6e+66 ...
+
+    constexpr real eps = 1e-5;
+
+    u32   n_con_lb = 0;
+    Array x_plus(xlen);
+
+    // lb & ub automatically calculated by bsplines
+    u32 x_per_joint = (xlen - 1) / opt->manip.n_joints; // = nctrl - 6 (skip first and last 3)
+    u32 joint       = 0;
+
+    u32 grad_idx       = 0;
+    u32 constraint_idx = 0;
+    u32 x_idx          = 0;
+
+    auto n_joints = opt->manip.n_joints;
+
+    memcpy(x_plus.data, x, xlen * sizeof(real)); // todo: is this necessary ? done once, and x_plus is modified to original at the end of each iteration
+
+    for (u32 j = 0; j < xlen - 1; j++) {
+      // last one is T todo: maybe change to 2 for loops (joint & x_per_joint)
+      // vector x is stored as (ctrl points for joint 0, ctrl points for joint 1, ...)
+      joint = j / x_per_joint > joint ? joint + 1 : joint; // increase joint by 1 everytime we reach its ctrl points
+      x_idx = j - joint * x_per_joint + 3;                 // todo: fix for NaN in PVA of task
+
+      x_plus[j] += eps;                                    // todo: add this is for extra constraints (tcp, collisions)
+      opt->bspline.compute_trajectory(x_plus, opt->task);
+
+      auto n_con_per_point = ncon_acc(opt, x_idx) / (opt->bspline.ub[x_idx] + 1 - opt->bspline.lb[x_idx]);
+
+      auto               n_points = (opt->bspline.ub[x_idx] + 1 - opt->bspline.lb[x_idx]);
+      ConstraintPerPoint constraint(n_joints, n_points);
+      compute_constraints_grad2(constraint, x_plus, x_idx, joint, opt);
+
+      n_con_lb = ncon_lb_acc(opt, x_idx); // find the amount of constraints before the current point
+
+      grad_idx = n_con_lb * xlen + j;     // gradients are stored column-wise xlen * npoints
+      for (u32 i = opt->bspline.lb[x_idx]; i <= opt->bspline.ub[x_idx]; i++) {
+        // lb & ub are inclusive
+        grad_idx += joint * xlen;
+
+        // position
+        grad[grad_idx] = (constraint.pos_constraint[i - opt->bspline.lb[x_idx]] - result[i * n_con_per_point + joint]) / eps;
+        grad_idx += n_joints * xlen;
+
+        // velocity
+        grad[grad_idx] = (constraint.vel_constraint[i - opt->bspline.lb[x_idx]] - result[i * n_con_per_point + n_joints + joint]) / eps;
+        grad_idx += n_joints * xlen;
+
+        // acceleration
+        grad[grad_idx] = (constraint.acc_constraint[i - opt->bspline.lb[x_idx]] - result[i * n_con_per_point + 2 * n_joints + joint]) / eps;
+        grad_idx += (n_joints - joint) * xlen;
+
+        // torque
+        for (int k = 0; k < n_joints; k++) {
+          grad[grad_idx] = (constraint.tor_constraint(k, i - opt->bspline.lb[x_idx]) - result[i * n_con_per_point + 3 * n_joints + k]) / eps;
+          grad_idx += xlen;
+        }
+
+        // tcp
+        grad[grad_idx] = (constraint.tcp_constraint[i - opt->bspline.lb[x_idx]] - result[i * n_con_per_point + 4 * n_joints]) / eps;
+        grad_idx += xlen;
+
+        // self col
+        grad[grad_idx] = (constraint.self_collision_constraint[i - opt->bspline.lb[x_idx]] - result[i * n_con_per_point + 4 * n_joints + 1]) / eps;
+        grad_idx += xlen;
+
+        // col
+        grad[grad_idx] = (constraint.collision_constraint[i - opt->bspline.lb[x_idx]] - result[i * n_con_per_point + 4 * n_joints + 2]) / eps;
+        grad_idx += xlen;
+      }
+
+      x_plus[j] = x[j];
+    }
+
+    {
+      // last point T
+      u32 j = xlen - 1;
+      memcpy(x_plus.data, x, xlen * sizeof(real));
+      x_plus[j] += eps;
+
+      Array xv_plus;
+      xv_plus.alias(x_plus.data, xlen);
+
+      // compute constraints
+      Array r_plus(m);
+      compute_constraints(r_plus.data, x_plus, opt);
+
+      for (u32 i = 0; i < m; i++)
+        grad[i * xlen + j] = (r_plus[i] - result[i]) / eps;
+    }
+  }
+}
+
+inline Result optimize_acc2(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
+  auto   T1 = get_tick_us();
+  Result result(opt); // todo: this is expensive
+
+  // Initialization
+  // configure_internal_data(opt); // todo: Ensure we can remove
+  initialize_optimization(opt);
+  n_con(opt);
+
+  // Initial validation
+  if (!validate_task(opt)) { // todo: support validate_task when there are no capsules...
+    print(opt->task);
+    return result;
+  }
+
+  const auto n = opt->bspline.x_len(opt->task);
+
+  Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
+  Array x_tol(n, 0.001);
+
+#ifdef BLAST_USE_NATIVE_SQP
+  nlopt_stopping stop;
+  stop.n          = n;
+  stop.minf_max   = -HUGE_VAL;
+  stop.ftol_rel   = 0;
+  stop.ftol_abs   = 0.001;
+  stop.xtol_rel   = 0;
+  stop.xtol_abs   = x_tol.data;
+  stop.x_weights  = nullptr;
+  stop.nevals_p   = 0;
+  stop.maxeval    = 1000;
+  stop.maxtime    = 30;
+  stop.start      = nlopt_seconds();
+  stop.force_stop = false;
+  stop.stop_msg   = nullptr;
+
+  Array ub(n, INF_REAL);
+  Array lb(n, -INF_REAL);
+  ub.back() = 60.0;
+  lb.back() = 0.01;
+
+  nlopt_constraint fc{};
+  fc.m      = opt->constraints.n_constraints;
+  fc.f      = nullptr;
+  fc.mf     = nlopt_constraints_acc2;
+  fc.pre    = nullptr;
+  fc.f_data = opt;
+  fc.tol    = con_tol.data;
+#else
+  nlopt_opt    o = nlopt_create(NLOPT_LD_SLSQP, n);
+  nlopt_result nlopt_res;
+  nlopt_res = nlopt_add_inequality_mconstraint(o, opt->constraints.n_constraints, nlopt_constraints_acc2, opt, con_tol.data);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_min_objective(o, objective_function, opt);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_lower_bound(o, (int) n - 1, 0.01);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_upper_bound(o, (int) n - 1, 60.0);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_ftol_abs(o, 0.0001);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_xtol_abs(o, x_tol.data);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_maxtime(o, 5);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_maxeval(o, 1000);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+#endif
+
+
+  auto start_guess   = opt->guess; // save for restoration after restarts if necessary
+  int  try_count     = 0;
+  bool is_valid_more = false;
+  bool is_valid      = false;
+  for (; try_count < opt->max_tries; try_count++) { // todo: add nlopt stop criteria to list, add max_time for full loop
+#if BLAST_TRACE_LEVEL >= 1
+    ZoneScopedN("Optimization");
+#endif
+
+    // initial guess
+    Array x;
+    {
+#if BLAST_TRACE_LEVEL >= 1
+      ZoneScopedN("Initial guess");
+#endif
+      x         = init_guess(opt);
+      result.x0 = x;
+    }
+
+    // launch optimization
+    {
+#if BLAST_TRACE_LEVEL >= 1
+      ZoneScopedN("NLopt optimization");
+#endif
+
+      double f = HUGE_VAL;
+      // note: can we initialize grad to 0 here
+#ifdef BLAST_USE_NATIVE_SQP
+      stop.nevals_p              = 0;
+      result.nlopt_exit_criteria = sqp(
+              opt->bspline.x_len(opt->task),
+              objective_function,
+              opt,
+              1,
+              &fc,
+              0,
+              nullptr,
+              lb.data,
+              ub.data,
+              x.data,
+              &f,
+              &stop);
+      result.num_eval = stop.nevals_p;
+
+#else
+      result.nlopt_exit_criteria = nlopt_optimize(o, x.data, &f);
+      result.num_eval            = nlopt_get_numevals(o);
+#endif
+    }
+
+    // validate solution
+    {
+#if BLAST_TRACE_LEVEL >= 1
+      ZoneScopedN("Solution validation");
+#endif
+      Array constraints_points(opt->constraints.n_constraints);
+      compute_constraints(constraints_points.data, x, opt);
+      auto max_con = max(constraints_points);
+      // cout << "max_con = " << max_con << endl;
+      is_valid = max_con < opt->success_tolerance * 2;
+    }
+
+    {
+#if BLAST_TRACE_LEVEL >= 1
+      ZoneScopedN("Solution validation (more points)");
+#endif
+      u64 steps_ms    = (u64) (std::ceil(x.back() * 1e3 / output_steps_ms));
+      x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
+      int points_more = (int) (steps_ms + 1);
+
+      Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.p, opt->manip.n_joints); // todo: this is expensive
+      bspline_val_more.compute_trajectory(x, opt->task);
+      auto opt_val_more(*opt);
+      opt_val_more.set_bspline(bspline_val_more);
+      n_con(&opt_val_more);
+      Array constraints_more_points(opt_val_more.constraints.n_constraints);
+      compute_constraints(constraints_more_points.data, x, &opt_val_more);
+      auto max_con_more = max(constraints_more_points);
+      // cout << "max_con_more = " << max_con_more << endl;
+      is_valid_more = max_con_more < opt->success_tolerance * 2;
+
+      result.x = x;
+
+      if (is_valid && is_valid_more) {
+        result.trajectory = bspline_val_more.traj;
+        // break;
+      } else if (opt->guess.type != Guess::random && try_count == 0) {
+        opt->guess.type = Guess::random;
+      }
+    }
+#if BLAST_TRACE_LEVEL >= 1
+    FrameMark;
+#endif
+  }
+
+  opt->guess = start_guess; // reset to original
+
+  auto time = (real) (get_tick_us() - T1) / 1000.0;
+
+  // Output results
+  result.success       = is_valid && is_valid_more;
+  result.success_false = is_valid && !is_valid_more;
+  result.compute_time  = time;
+  result.opt           = opt;
+  result.num_tries     = try_count;
+
+#ifndef BLAST_USE_NATIVE_SQP
+  nlopt_destroy(o);
+#endif
+
+  return result;
+}
+
 // acc 3
 
 template<bool is_grad>
@@ -746,7 +1515,7 @@ blast_fn void compute_constraints_acc3(double* result, Array& gradient_coeffs, M
 
   // Lambda to process common bound constraint operations
   auto process_bound = [&](real value, real bound_max) {
-    auto [constraint, gradient_coeff] = abs_constraint_dev(value, bound_max);
+    auto [constraint, gradient_coeff] = abs_constraint_dev<is_grad>(value, bound_max);
     *moving_result++                  = constraint;
     gradient_coeffs[grad_idx++]       = gradient_coeff;
   };
@@ -1132,29 +1901,6 @@ inline blast_fn void nlopt_constraints_acc3(unsigned m, double* result, unsigned
           }
         }
       }
-      // todo: add for non point dependant constraints (extras)
-      if (opt->constraints.external_collisions) {
-#if BLAST_TRACE_LEVEL >= 3
-        ZoneScopedN("ExternalCollisionsSort");
-#endif
-        // todo: fix
-        // Array dist_min(opt->constraints.n_collision_constraints, INF_REAL);
-        // for (u32 i = 0; i < opt->bspline.n_points; i++) {
-        //   for (u32 j = 0; j < opt->constraints.n_collision_constraints; j++) {
-        //     if (external_collisions[i] < dist_min[j]) {
-        //       for (int k = (int) opt->constraints.n_collision_constraints - 1; k > j; k--) {
-        //         dist_min[k] = dist_min[k - 1];
-        //       }
-        //       dist_min[j] = external_collisions[i];
-        //       break;
-        //     }
-        //   }
-        // }
-        // for (u32 i = 0; i < opt->constraints.n_collision_constraints; i++) {
-        //   grad[grad_idx] = -dist_min[i] + 0.01;               //*std::abs(collisions[j]);
-        // }
-        // grad_idx += opt->constraints.n_collision_constraints; // todo: add analytical gradients
-      }
 
       // x_plus[j] -= eps;
     }
@@ -1209,7 +1955,7 @@ inline Result optimize_acc3(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
 
   const auto n = opt->bspline.x_len(opt->task);
 
-  Array con_tol(opt->constraints.n_constraints, 0.001);
+  Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
   Array x_tol(n, 0.000001);
 
 #ifdef BLAST_USE_NATIVE_SQP
@@ -1869,7 +2615,7 @@ inline Result optimize_final(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) 
 
   const auto n = opt->bspline.x_len(opt->task);
 
-  Array con_tol(opt->constraints.n_constraints, 0.01);
+  Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
   Array x_tol(n, 0.001);
 
 #ifdef BLAST_USE_NATIVE_SQP
@@ -2054,7 +2800,7 @@ blast_fn void compute_constraints_acc4(double* result, Array& gradient_coeffs, M
 
   // Lambda to process common bound constraint operations
   auto process_bound = [&](real value, real bound_max) {
-    auto [constraint, gradient_coeff] = abs_constraint_dev(value, bound_max);
+    auto [constraint, gradient_coeff] = abs_constraint_dev<is_grad>(value, bound_max);
     *moving_result++                  = constraint;
     gradient_coeffs[grad_idx++]       = gradient_coeff;
   };
@@ -2140,7 +2886,7 @@ blast_fn void compute_constraints_acc4(double* result, Array& gradient_coeffs, M
 #if BLAST_TRACE_LEVEL >= 3
       ZoneScopedN("SelfCollisions");
 #endif
-      self_collision_constraint = -max(get_internal_collisions(opt->manip, manip_data));
+      self_collision_constraint = max(-get_internal_collisions(opt->manip, manip_data));
       *moving_result++          = self_collision_constraint;
     }
 
@@ -2182,7 +2928,7 @@ blast_fn void compute_constraints_acc4(double* result, Array& gradient_coeffs, M
 
         compute_capsules(opt->manip, manip_data);
         if (opt->constraints.self_collisions) {
-          auto self_collision_constraint_plus = -max(get_internal_collisions(opt->manip, manip_data));
+          auto self_collision_constraint_plus = max(-get_internal_collisions(opt->manip, manip_data));
           dselfcol_dp(j, i)                   = (self_collision_constraint_plus - self_collision_constraint) / eps;
         }
 
@@ -2190,6 +2936,7 @@ blast_fn void compute_constraints_acc4(double* result, Array& gradient_coeffs, M
           auto external_collisions_plus = -test_collisions_per_point(manip_data.capsule_list, &(opt->world));
           dcol_dp(j, i)                 = (external_collisions_plus - external_collisions_constraint) / eps;
         }
+
         pos_plus[j] = pos[j];
       }
 
@@ -2227,6 +2974,7 @@ blast_fn void compute_constraints_acc4(double* result, Array& gradient_coeffs, M
             dtau_da(k, j + joints * i)  = (torque_constraint_plus - torque_constraint[k]) / eps;
           }
         }
+
         acc_plus[j] = acc[j];
       }
     }
@@ -2382,17 +3130,12 @@ inline blast_fn void nlopt_constraints_acc4(unsigned m, double* result, unsigned
     u32 constraint_idx = 0;
     u32 x_idx          = 0;
 
-    memcpy(x_plus.data, x, xlen * sizeof(real)); // todo: is this necessary ? done once, and x_plus is modified to original at the end of each iteration
-
-    for (u32 j = 0; j < xlen - 1; j++) {         // last one is T todo: maybe change to 2 for loops (joint & x_per_joint)
+    for (u32 j = 0; j < xlen - 1; j++) { // last one is T todo: maybe change to 2 for loops (joint & x_per_joint)
       // vector x is stored as (ctrl points for joint 0, ctrl points for joint 1, ...)
       joint = j / x_per_joint > joint ? joint + 1 : joint; // increase joint by 1 everytime we reach its ctrl points
       x_idx = j - joint * x_per_joint + 3;                 // todo: fix for NaN in PVA of task
 
-      // x_plus[j] += eps;                                    // todo: add this is for extra constraints (tcp, collisions)
-      // opt->bspline.compute_trajectory(x_plus, opt->task);
-
-      n_con_lb = ncon_lb_acc(opt, x_idx); // find the amount of constraints before the current point
+      n_con_lb = ncon_lb_acc(opt, x_idx);                  // find the amount of constraints before the current point
 
       // todo: create alias matrix that points to grad
       // todo: can we change the order in which we store the gradients ?
@@ -2522,7 +3265,7 @@ inline Result optimize_acc4(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
 
   // Initialization
   // configure_internal_data(opt); // todo: Ensure we can remove
-  // initialize_optimization(opt);
+  initialize_optimization(opt);
   n_con(opt);
 
   // Initial validation
@@ -2533,21 +3276,21 @@ inline Result optimize_acc4(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
 
   const auto n = opt->bspline.x_len(opt->task);
 
-  Array con_tol(opt->constraints.n_constraints, 0.001);
-  Array x_tol(n, 0.000001);
+  Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
+  Array x_tol(n, 0.001);
 
 #ifdef BLAST_USE_NATIVE_SQP
   nlopt_stopping stop;
   stop.n          = n;
   stop.minf_max   = -HUGE_VAL;
   stop.ftol_rel   = 0;
-  stop.ftol_abs   = 0.0001;
+  stop.ftol_abs   = 0.001;
   stop.xtol_rel   = 0;
   stop.xtol_abs   = x_tol.data;
   stop.x_weights  = nullptr;
   stop.nevals_p   = 0;
   stop.maxeval    = 100000;
-  stop.maxtime    = 5000;
+  stop.maxtime    = 30;
   stop.start      = nlopt_seconds();
   stop.force_stop = false;
   stop.stop_msg   = nullptr;
@@ -2642,7 +3385,9 @@ inline Result optimize_acc4(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
 #endif
       Array constraints_points(opt->constraints.n_constraints);
       compute_constraints(constraints_points.data, x, opt);
-      is_valid = max(constraints_points) < opt->success_tolerance;
+      auto max_con = max(constraints_points);
+      // cout << "max_con = " << max_con << endl;
+      is_valid = max_con < opt->success_tolerance * 2;
     }
 
     {
@@ -2660,7 +3405,9 @@ inline Result optimize_acc4(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
       n_con(&opt_val_more);
       Array constraints_more_points(opt_val_more.constraints.n_constraints);
       compute_constraints(constraints_more_points.data, x, &opt_val_more);
-      is_valid_more = max(constraints_more_points) < opt->success_tolerance;
+      auto max_con_more = max(constraints_more_points);
+      // cout << "max_con_more = " << max_con_more << endl;
+      is_valid_more = max_con_more < opt->success_tolerance * 2;
 
       result.x = x;
 
@@ -2694,9 +3441,9 @@ inline Result optimize_acc4(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   return result;
 }
 
-// ------------------------------ Eval function ------------------------------
+// ------------------------------ Eval functions ------------------------------
 
-void eval_function() {
+void eval_function_Link6() {
   for (;;) {
     mut_config.lock();
     if (config_index >= config_list.size()) {
@@ -2715,8 +3462,9 @@ void eval_function() {
     auto  n_optim  = config.n_optim;
     auto& task     = config.task;
 
-    Optimization opt(get_generic_Link6(), task);
-    Bspline      bspline(n_ctrl, n_points, 5, 6);
+    auto         manip = get_generic_Link6();
+    Optimization opt(manip, task);
+    Bspline      bspline(n_ctrl, n_points, 5, manip.n_joints);
     opt.bspline = bspline;
 
     opt.world = get_lab_world();
@@ -2757,7 +3505,7 @@ void eval_function() {
       auto result = optimize(&opt);
       tmp_result_list.push_back(result);
 
-      auto result_acc1 = optimize_acc1(&opt);
+      auto result_acc1 = optimize_acc2(&opt);
       tmp_result_acc1_list.push_back(result_acc1);
 
       auto result_acc3 = optimize_acc4(&opt);
@@ -2782,12 +3530,208 @@ void eval_function() {
   }
 }
 
+void eval_function_UR5e() {
+  for (;;) {
+    mut_config.lock();
+    if (config_index >= config_list.size()) {
+      mut_config.unlock();
+      break;
+    }
+    auto config = config_list[config_index];
+    std::cout << "Worker " << std::this_thread::get_id()
+              << ", working on unit " << config_index + 1
+              << " of " << config_list.size() << std::endl;
+    config_index++;
+    mut_config.unlock();
+
+    auto  n_ctrl   = config.n_ctrl;
+    auto  n_points = config.n_points;
+    auto  n_optim  = config.n_optim;
+    auto& task     = config.task;
+
+    auto manip   = get_generic_ur5e();
+    manip.p_base = {-0.5, -0.3, 0.35};
+    manip.Q_base = {-1, 0, 0, 0, -1, 0, 0, 0, 1};
+
+    Optimization opt(manip, task);
+    Bspline      bspline(n_ctrl, n_points, 5, manip.n_joints);
+    opt.bspline = bspline;
+
+    opt.world = get_kitchen_open_doors();
+
+    opt.constraints.position            = true;
+    opt.constraints.velocity            = true;
+    opt.constraints.acceleration        = true;
+    opt.constraints.torque              = true;
+    opt.constraints.tcp_speed           = true;
+    opt.constraints.self_collisions     = true;
+    opt.constraints.external_collisions = true;
+
+    opt.max_tries                    = 1;
+    opt.success_tolerance            = 0.01;
+    opt.constraints.n_collision_skip = 1;
+
+
+    // temp vectors
+    std::vector<Result> tmp_result_list, tmp_result_acc1_list, tmp_result_acc3_list,
+            tmp_result_segments_list;
+    std::vector<u32> tmp_task_id, tmp_config_id;
+
+    tmp_result_list.reserve(n_optim);
+    tmp_result_acc1_list.reserve(n_optim);
+    tmp_result_acc3_list.reserve(n_optim);
+    tmp_result_segments_list.reserve(n_optim);
+    tmp_task_id.reserve(n_optim);
+    tmp_config_id.reserve(n_optim);
+
+    for (int iter = 0; iter < n_optim; ++iter) {
+      opt.guess.x0 = guess_random((opt.bspline), opt.task);
+      // opt.guess.x0.back() = 1.0;
+      // opt.guess.x0        = random_array(opt.bspline.x_len(opt.task), 1);
+      // opt.guess.x0.back() = 0.5;
+      // opt.guess.type = Guess::random;
+      initialize_optimization(&opt);
+      n_con(&opt);
+      auto x         = guess_shot_mean(&opt);
+      opt.guess.type = Guess::custom;
+      opt.guess.x0   = x;
+
+      // cout << "Base" << endl;
+      auto result = optimize(&opt);
+      tmp_result_list.push_back(result);
+
+      // cout << "acc1" << endl;
+      auto result_acc1 = optimize_acc2(&opt);
+      tmp_result_acc1_list.push_back(result_acc1);
+
+      // cout << "acc2" << endl;
+      auto result_acc3 = optimize_acc4(&opt);
+      tmp_result_acc3_list.push_back(result_acc3);
+
+      // auto result_segments = optimize_final(&opt);
+      // cout << "Segments" << endl;
+      auto result_segments = optimize_with_segments(&opt);
+      tmp_result_segments_list.push_back(result_segments);
+
+      tmp_task_id.push_back(config.task_idx);
+      tmp_config_id.push_back(config.config_idx);
+    }
+
+    mut_result.lock();
+    result_list.insert(result_list.end(), tmp_result_list.begin(), tmp_result_list.end());
+    result_acc1_list.insert(result_acc1_list.end(), tmp_result_acc1_list.begin(), tmp_result_acc1_list.end());
+    result_acc3_list.insert(result_acc3_list.end(), tmp_result_acc3_list.begin(), tmp_result_acc3_list.end());
+    result_segments_list.insert(result_segments_list.end(), tmp_result_segments_list.begin(), tmp_result_segments_list.end());
+    task_id.insert(task_id.end(), tmp_task_id.begin(), tmp_task_id.end());
+    config_ids.insert(config_ids.end(), tmp_config_id.begin(), tmp_config_id.end());
+    mut_result.unlock();
+  }
+}
+
+void eval_function_Gen3() {
+  for (;;) {
+    mut_config.lock();
+    if (config_index >= config_list.size()) {
+      mut_config.unlock();
+      break;
+    }
+    auto config = config_list[config_index];
+    std::cout << "Worker " << std::this_thread::get_id()
+              << ", working on unit " << config_index + 1
+              << " of " << config_list.size() << std::endl;
+    config_index++;
+    mut_config.unlock();
+
+    auto  n_ctrl   = config.n_ctrl;
+    auto  n_points = config.n_points;
+    auto  n_optim  = config.n_optim;
+    auto& task     = config.task;
+
+    auto manip   = get_generic_gen3();
+    manip.p_base = {0.4, 0, 0.6};
+    manip.Q_base = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+
+    Optimization opt(manip, task);
+    Bspline      bspline(n_ctrl, n_points, 5, manip.n_joints);
+    opt.bspline = bspline;
+
+    opt.world = get_bookshelf_thin();
+
+    opt.constraints.position            = true;
+    opt.constraints.velocity            = true;
+    opt.constraints.acceleration        = true;
+    opt.constraints.torque              = true;
+    opt.constraints.tcp_speed           = true;
+    opt.constraints.self_collisions     = true;
+    opt.constraints.external_collisions = true;
+
+    opt.max_tries                    = 1;
+    opt.success_tolerance            = 0.01;
+    opt.constraints.n_collision_skip = 1;
+
+
+    // temp vectors
+    std::vector<Result> tmp_result_list, tmp_result_acc1_list, tmp_result_acc3_list,
+            tmp_result_segments_list;
+    std::vector<u32> tmp_task_id, tmp_config_id;
+
+    tmp_result_list.reserve(n_optim);
+    tmp_result_acc1_list.reserve(n_optim);
+    tmp_result_acc3_list.reserve(n_optim);
+    tmp_result_segments_list.reserve(n_optim);
+    tmp_task_id.reserve(n_optim);
+    tmp_config_id.reserve(n_optim);
+
+    for (int iter = 0; iter < n_optim; ++iter) {
+      opt.guess.x0 = guess_random((opt.bspline), opt.task);
+      // opt.guess.x0.back() = 1.0;
+      // opt.guess.x0        = random_array(opt.bspline.x_len(opt.task), 1);
+      // opt.guess.x0.back() = 0.5;
+      // opt.guess.type = Guess::random;
+      initialize_optimization(&opt);
+      n_con(&opt);
+      auto x         = guess_shot_mean(&opt);
+      opt.guess.type = Guess::custom;
+      opt.guess.x0   = x;
+
+      // cout << "Base" << endl;
+      auto result = optimize(&opt);
+      tmp_result_list.push_back(result);
+
+      // cout << "acc1" << endl;
+      auto result_acc1 = optimize_acc2(&opt);
+      tmp_result_acc1_list.push_back(result_acc1);
+
+      // cout << "acc2" << endl;
+      auto result_acc3 = optimize_acc4(&opt);
+      tmp_result_acc3_list.push_back(result_acc3);
+
+      // auto result_segments = optimize_final(&opt);
+      // cout << "Segments" << endl;
+      auto result_segments = optimize_with_segments(&opt);
+      tmp_result_segments_list.push_back(result_segments);
+
+      tmp_task_id.push_back(config.task_idx);
+      tmp_config_id.push_back(config.config_idx);
+    }
+
+    mut_result.lock();
+    result_list.insert(result_list.end(), tmp_result_list.begin(), tmp_result_list.end());
+    result_acc1_list.insert(result_acc1_list.end(), tmp_result_acc1_list.begin(), tmp_result_acc1_list.end());
+    result_acc3_list.insert(result_acc3_list.end(), tmp_result_acc3_list.begin(), tmp_result_acc3_list.end());
+    result_segments_list.insert(result_segments_list.end(), tmp_result_segments_list.begin(), tmp_result_segments_list.end());
+    task_id.insert(task_id.end(), tmp_task_id.begin(), tmp_task_id.end());
+    config_ids.insert(config_ids.end(), tmp_config_id.begin(), tmp_config_id.end());
+    mut_result.unlock();
+  }
+}
 
 int main() {
   using namespace blast;
 
-  fill_config_list(config_list);
-
+  // fill_config_list(config_list); note : uses Link6
+  // fill_config_list_UR5e(config_list);
+  fill_config_list_Gen3(config_list);
   result_list.reserve(config_list.size() * _n_optim);
   result_acc1_list.reserve(config_list.size() * _n_optim);
   // result_acc2_list.reserve(config_list.size() * _n_optim);
@@ -2806,7 +3750,9 @@ int main() {
     workers.emplace_back([&, t] {
       configure_current_thread_for_performance();
 
-      eval_function();
+      // eval_function_Link6();
+      eval_function_UR5e();
+      // eval_function_Gen3();
     });
 
     // Pin the thread immediately after creation
@@ -2828,12 +3774,12 @@ int main() {
   const std::vector<VariantGroup> variants = {
           {"base", &result_list},
           {"acc1", &result_acc1_list},
-          {"acc3", &result_acc3_list},
+          {"acc2", &result_acc3_list},
           {"segments", &result_segments_list},
   };
 
   write_results_json_simple(
-          "results_all_4.json",
+          "results_all_Gen3_new.json",
           config_ids,
           task_id,
           config_list,

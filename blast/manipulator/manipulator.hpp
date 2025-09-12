@@ -270,7 +270,8 @@ inline host_fn void Manipulator::set_capsules(const ManipulatorCapsules& capsule
     _collision_base.resize(_n_caps);
     _collision_base = capsules.collision_base;
     _collision_matrix.resize(_n_caps, _n_caps);
-    _collision_matrix = capsules.collision_matrix;
+    _collision_matrix      = capsules.collision_matrix;
+    _n_internal_collisions = 0;
     for (int i = 0; i < _n_caps; ++i) {
       for (int j = i + 1; j < _n_caps; ++j) {
         _n_internal_collisions += (_collision_matrix(j, i) != 0);

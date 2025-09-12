@@ -30,7 +30,7 @@ inline blast::Matrix lds_golden_ratio(const u32 n, const u32 d) {
 Array guess_random(Bspline& bspline, Matrix& task) {
   Array x(bspline.x_len(task));
   fill_random(x, 1);
-  x.back() = std::abs(x.back()) * 5 + 0.1;
+  x.back() = std::abs(x.back()) * 2 + 0.1;
   return x;
 }
 

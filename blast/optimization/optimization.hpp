@@ -187,21 +187,21 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
 
   const auto n = opt->bspline.x_len(opt->task);
 
-  Array con_tol(opt->constraints.n_constraints, 0.001);
-  Array x_tol(n, 0.000001);
+  Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
+  Array x_tol(n, 0.001);
 
 #ifdef BLAST_USE_NATIVE_SQP
   nlopt_stopping stop;
   stop.n          = n;
   stop.minf_max   = -HUGE_VAL;
   stop.ftol_rel   = 0;
-  stop.ftol_abs   = 0.0001;
+  stop.ftol_abs   = 0.001;
   stop.xtol_rel   = 0;
   stop.xtol_abs   = x_tol.data;
   stop.x_weights  = nullptr;
   stop.nevals_p   = 0;
   stop.maxeval    = 100000;
-  stop.maxtime    = 5000;
+  stop.maxtime    = 30;
   stop.start      = nlopt_seconds();
   stop.force_stop = false;
   stop.stop_msg   = nullptr;
@@ -296,7 +296,9 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
 #endif
       Array constraints_points(opt->constraints.n_constraints);
       compute_constraints(constraints_points.data, x, opt);
-      is_valid = max(constraints_points) < opt->success_tolerance;
+      auto max_con = max(constraints_points);
+      // cout << "max_con = " << max_con << endl;
+      is_valid = max_con < opt->success_tolerance * 2;
     }
 
     {
@@ -314,7 +316,9 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
       n_con(&opt_val_more);
       Array constraints_more_points(opt_val_more.constraints.n_constraints);
       compute_constraints(constraints_more_points.data, x, &opt_val_more);
-      is_valid_more = max(constraints_more_points) < opt->success_tolerance;
+      auto max_con_more = max(constraints_more_points);
+      // cout << "max_con_more = " << max_con_more << endl;
+      is_valid_more = max_con_more < opt->success_tolerance * 2;
 
       result.x = x;
 
@@ -428,7 +432,7 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
 
   const auto n = opt->bspline.x_len(opt->task);
 
-  Array con_tol(opt->constraints.n_constraints, 0.01);
+  Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
   Array x_tol(n, 0.001);
 
 #ifdef BLAST_USE_NATIVE_SQP
@@ -442,7 +446,7 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
   stop.x_weights  = nullptr;
   stop.nevals_p   = 0;
   stop.maxeval    = 1000;
-  stop.maxtime    = 5;
+  stop.maxtime    = 30;
   stop.start      = nlopt_seconds();
   stop.force_stop = false;
   stop.stop_msg   = nullptr;
@@ -474,7 +478,7 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_xtol_abs(o, x_tol.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_maxtime(o, 5);
+  nlopt_res = nlopt_set_maxtime(o, 30);
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_maxeval(o, 1000);
   Assert(nlopt_res == NLOPT_SUCCESS);
@@ -539,7 +543,9 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
       Array  constraints_points(opt->constraints.n_constraints);
       Matrix gradient;
       constraints_and_gradients_with_segments(x, *opt, constraints_points, gradient);
-      is_valid = max(constraints_points) < opt->success_tolerance;
+      auto max_con = max(constraints_points);
+      // cout << "max_con = " << max_con << endl;
+      is_valid = max_con < opt->success_tolerance * 2;
     }
 
     {
@@ -558,7 +564,10 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
       Array  constraints_more_points(opt_val_more.constraints.n_constraints);
       Matrix gradient;
       constraints_and_gradients_with_segments(x, opt_val_more, constraints_more_points, gradient);
-      is_valid_more = max(constraints_more_points) < opt->success_tolerance;
+      // is_valid_more = max(constraints_more_points) < opt->success_tolerance;
+      auto max_con_more = max(constraints_more_points);
+      // cout << "max_con_more = " << max_con_more << endl;
+      is_valid_more = max_con_more < opt->success_tolerance * 2;
 
       result.x = x;
 

@@ -17,7 +17,7 @@ constexpr int32_t MAX_JOINTS = 8;
 #ifdef BLAST_MAX_CAPSULES
 constexpr int32_t MAX_CAPSULES = BLAST_MAX_CAPSULES;
 #else
-constexpr int32_t MAX_CAPSULES = 8;
+constexpr int32_t MAX_CAPSULES = 7;
 #endif
 
 using u8 = uint8_t;

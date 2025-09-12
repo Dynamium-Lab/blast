@@ -256,28 +256,24 @@ inline host_fn Manipulator get_generic_gen3() { // todo: fix capsules, not worki
   // Collision model
   CollisionModelCapsule model_caps;
 
-  // todo: fix capsules for accurate gen3 depiction
   // Capsule 1
   model_caps.joint_frame = 1;
-  model_caps.p1          = {0, 0, 0};
-  model_caps.joint_frame = 3;
-  model_caps.p2          = {0, 0, 0};
-  model_caps.r           = 0.055;
+  model_caps.p1          = {0, 0.035, 0};
+  model_caps.p2          = {0, -0.425, 0};
+  model_caps.r           = 0.06;
   collisions.capsule_list.push_back(model_caps);
 
   // Capsule 2
   model_caps.joint_frame = 3;
-  model_caps.p1          = {0, 0, 0};
-  model_caps.joint_frame = 5;
-  model_caps.p2          = {0, 0, 0};
-  model_caps.r           = 0.055;
+  model_caps.p1          = {0, 0, -0.025};
+  model_caps.p2          = {0, -0.3, -0.01};
+  model_caps.r           = 0.06;
   collisions.capsule_list.push_back(model_caps);
 
   // Capsule 3
   model_caps.joint_frame = 5;
-  model_caps.p1          = {0, 0, 0};
-  model_caps.joint_frame = 6;
-  model_caps.p2          = {0.0, 0.0, -0.0615 /*-0.2215*/}; // todo: figure this out : why did we use -0.16?
+  model_caps.p1          = {0, 0, -0.015};
+  model_caps.p2          = {0.0, -0.15, -0.015};
   model_caps.r           = 0.055;
   collisions.capsule_list.push_back(model_caps);
 
