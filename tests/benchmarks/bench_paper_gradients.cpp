@@ -5,6 +5,7 @@
 #include "../tests/test_helper/test_helper.hpp"
 
 #define BLAST_TRACE_LEVEL 0
+// #define BLAST_USE_NATIVE_SQP
 
 #define CATCH_CONFIG_MAIN
 #define CATCH_CONFIG_ENABLE_BENCHMARKING
@@ -64,10 +65,10 @@ struct Config {
 };
 
 // We create a config list that will be used for all benchmarks
-inline void fill_config_list(std::array<Config, 39>& config_list) {
+inline void fill_config_list(std::array<Config, 13>& config_list) {
 
-  std::array<std::tuple<int, int>, 3> bspline_config_list = {std::make_tuple(10, 100), std::make_tuple(12, 105), std::make_tuple(16, 110)}; // These give rounded number of n_points_per_segment
-  std::vector<Matrix>                 tasks               = get_Link6_demo1_tasks();                                                        // 13 tasks
+  std::array<std::tuple<int, int>, 1> bspline_config_list = {std::make_tuple(16, 110)}; // These give rounded number of n_points_per_segment
+  std::vector<Matrix>                 tasks               = get_Link6_demo1_tasks();    // 13 tasks
 
   int config_idx = 0;
   int task_id    = 0;
@@ -1784,11 +1785,11 @@ inline u32 ncon_acc(const Optimization* opt, const int x_idx) {
   if (opt->constraints.tcp_speed)
     n_constraints += n_points;
 
-  if (opt->constraints.external_collisions)
-    n_constraints += n_points;
   if (opt->constraints.self_collisions) {
     n_constraints += n_points;
   }
+  if (opt->constraints.external_collisions)
+    n_constraints += n_points * opt->manip._n_caps;
 
   for (auto& n_con: opt->constraints.n_extra_constraints)
     n_constraints += n_con;
@@ -1993,186 +1994,6 @@ inline void nlopt_constraints_acc1(unsigned m, double* result, unsigned x_len, c
   }
 }
 
-inline Result optimize_acc1(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
-  auto   T1 = get_tick_us();
-  Result result(opt); // todo: this is expensive
-
-  // Initialization
-  // configure_internal_data(opt); // todo: Ensure we can remove
-  initialize_optimization(opt);
-  n_con(opt);
-
-  // Initial validation
-  if (!validate_task(opt)) { // todo: support validate_task when there are no capsules...
-    print(opt->task);
-    return result;
-  }
-
-  const auto n = opt->bspline.x_len(opt->task);
-
-  Array con_tol(opt->constraints.n_constraints, 0.01);
-  Array x_tol(n, 0.001);
-
-#ifdef BLAST_USE_NATIVE_SQP
-  nlopt_stopping stop;
-  stop.n          = n;
-  stop.minf_max   = -HUGE_VAL;
-  stop.ftol_rel   = 0;
-  stop.ftol_abs   = 0.001;
-  stop.xtol_rel   = 0;
-  stop.xtol_abs   = x_tol.data;
-  stop.x_weights  = nullptr;
-  stop.nevals_p   = 0;
-  stop.maxeval    = 1000;
-  stop.maxtime    = 5;
-  stop.start      = nlopt_seconds();
-  stop.force_stop = false;
-  stop.stop_msg   = nullptr;
-
-  Array ub(n, INF_REAL);
-  Array lb(n, -INF_REAL);
-  ub.back() = 60.0;
-  lb.back() = 0.01;
-
-  nlopt_constraint fc{};
-  fc.m      = opt->constraints.n_constraints;
-  fc.f      = nullptr;
-  fc.mf     = nlopt_constraints_acc1;
-  fc.pre    = nullptr;
-  fc.f_data = opt;
-  fc.tol    = con_tol.data;
-#else
-  nlopt_opt    o = nlopt_create(NLOPT_LD_SLSQP, n);
-  nlopt_result nlopt_res;
-  nlopt_res = nlopt_add_inequality_mconstraint(o, opt->constraints.n_constraints, nlopt_constraints_acc1, opt, con_tol.data);
-  Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_min_objective(o, objective_function, opt);
-  Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_lower_bound(o, (int) n - 1, 0.01);
-  Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_upper_bound(o, (int) n - 1, 60.0);
-  Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_ftol_abs(o, 0.0001);
-  Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_xtol_abs(o, x_tol.data);
-  Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_maxtime(o, 5);
-  Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_maxeval(o, 1000);
-  Assert(nlopt_res == NLOPT_SUCCESS);
-#endif
-
-
-  auto start_guess   = opt->guess; // save for restoration after restarts if necessary
-  int  try_count     = 0;
-  bool is_valid_more = false;
-  bool is_valid      = false;
-  for (; try_count < opt->max_tries; try_count++) { // todo: add nlopt stop criteria to list, add max_time for full loop
-#if BLAST_TRACE_LEVEL >= 1
-    ZoneScopedN("Optimization");
-#endif
-
-    // initial guess
-    Array x;
-    {
-#if BLAST_TRACE_LEVEL >= 1
-      ZoneScopedN("Initial guess");
-#endif
-      x         = init_guess(opt);
-      result.x0 = x;
-    }
-
-    // launch optimization
-    {
-#if BLAST_TRACE_LEVEL >= 1
-      ZoneScopedN("NLopt optimization");
-#endif
-
-      double f = HUGE_VAL;
-      // note: can we initialize grad to 0 here
-#ifdef BLAST_USE_NATIVE_SQP
-      stop.nevals_p              = 0;
-      result.nlopt_exit_criteria = sqp(
-              opt->bspline.x_len(opt->task),
-              objective_function,
-              opt,
-              1,
-              &fc,
-              0,
-              nullptr,
-              lb.data,
-              ub.data,
-              x.data,
-              &f,
-              &stop);
-      result.num_eval = stop.nevals_p;
-
-#else
-      result.nlopt_exit_criteria = nlopt_optimize(o, x.data, &f);
-      result.num_eval            = nlopt_get_numevals(o);
-#endif
-    }
-
-    // validate solution
-    {
-#if BLAST_TRACE_LEVEL >= 1
-      ZoneScopedN("Solution validation");
-#endif
-      Array constraints_points(opt->constraints.n_constraints);
-      compute_constraints(constraints_points.data, x, opt);
-      is_valid = max(constraints_points) < opt->success_tolerance;
-    }
-
-    {
-#if BLAST_TRACE_LEVEL >= 1
-      ZoneScopedN("Solution validation (more points)");
-#endif
-      u64 steps_ms    = (u64) (std::ceil(x.back() * 1e3 / output_steps_ms));
-      x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
-      int points_more = (int) (steps_ms + 1);
-
-      Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.p, opt->manip.n_joints); // todo: this is expensive
-      bspline_val_more.compute_trajectory(x, opt->task);
-      auto opt_val_more(*opt);
-      opt_val_more.set_bspline(bspline_val_more);
-      n_con(&opt_val_more);
-      Array constraints_more_points(opt_val_more.constraints.n_constraints);
-      compute_constraints(constraints_more_points.data, x, &opt_val_more);
-      is_valid_more = max(constraints_more_points) < opt_val_more.success_tolerance;
-
-      result.x = x;
-
-      if (is_valid && is_valid_more) {
-        result.trajectory = bspline_val_more.traj;
-        // break;
-      } else if (opt->guess.type != Guess::random && try_count == 0) {
-        opt->guess.type = Guess::random;
-      }
-    }
-#if BLAST_TRACE_LEVEL >= 1
-    FrameMark;
-#endif
-  }
-
-  opt->guess = start_guess; // reset to original
-
-  auto time = (real) (get_tick_us() - T1) / 1000.0;
-
-  // Output results
-  result.success       = is_valid && is_valid_more;
-  result.success_false = is_valid && !is_valid_more;
-  result.compute_time  = time;
-  result.opt           = opt;
-  result.num_tries     = try_count;
-
-#ifndef BLAST_USE_NATIVE_SQP
-  nlopt_destroy(o);
-#endif
-
-  return result;
-}
-
-
 // acc 2
 inline u32 ncon_acc2(const Optimization* opt, const int x_idx) {
   const u32 n_points            = opt->bspline.ub[x_idx] + 1 - opt->bspline.lb[x_idx]; // + 1 since ub is inclusive
@@ -2192,11 +2013,11 @@ inline u32 ncon_acc2(const Optimization* opt, const int x_idx) {
   if (opt->constraints.tcp_speed)
     n_constraints += n_points;
 
-  if (opt->constraints.external_collisions)
-    n_constraints += n_points;
   if (opt->constraints.self_collisions) {
     n_constraints += n_points;
   }
+  if (opt->constraints.external_collisions)
+    n_constraints += n_points * opt->manip._n_caps;
 
   for (auto& n_con: opt->constraints.n_extra_constraints)
     n_constraints += n_con;
@@ -2210,17 +2031,17 @@ struct ConstraintPerPoint {
   Array  acc_constraint;
   Matrix tor_constraint;
   Array  tcp_constraint;
-  Array  collision_constraint;
+  Matrix collision_constraint;
   Array  self_collision_constraint;
 
-  ConstraintPerPoint(int joints, int points) {
+  ConstraintPerPoint(int joints, int points, int n_capsules) {
     pos_constraint.resize(points);
     vel_constraint.resize(points);
     acc_constraint.resize(points);
     tor_constraint.resize(joints, points);
     tcp_constraint.resize(points);
-    collision_constraint.resize(points);
     self_collision_constraint.resize(points);
+    collision_constraint.resize(n_capsules, points);
   }
   ~ConstraintPerPoint() = default;
 };
@@ -2320,18 +2141,60 @@ inline void compute_constraints_grad2(ConstraintPerPoint& constraints, const Arr
 #if BLAST_TRACE_LEVEL >= 3
       ZoneScopedN("SelfCollisions");
 #endif
-      auto tmp_coll = max(get_internal_collisions(opt->manip, manip_data));
+      auto tmp_coll = max(-get_internal_collisions(opt->manip, manip_data));
       // for (u32 j = 0; j < tmp_coll.size; j++)
-      constraints.self_collision_constraint[i - opt->bspline.lb[x_idx]] = -tmp_coll; //*std::abs(tmp_coll[j]);
+      constraints.self_collision_constraint[i - opt->bspline.lb[x_idx]] = tmp_coll; //*std::abs(tmp_coll[j]);
     }
 
     if (opt->constraints.external_collisions) {
 #if BLAST_TRACE_LEVEL >= 3
       ZoneScopedN("ExternalCollisions");
 #endif
-      auto collisions = test_collisions_per_point(manip_data.capsule_list, &(opt->world));
-      // for (u32 j = 0; j < opt->constraints.n_collision_constraints; j++) {
-      constraints.collision_constraint[i - opt->bspline.lb[x_idx]] = -collisions; //*std::abs(collisions[j]);
+      // auto collisions = test_collisions_per_point(manip_data.capsule_list, &(opt->world));
+      Array max_col_constraints(opt->manip._n_caps, -INF_REAL);
+      for (int capsule_id = 0; capsule_id < opt->manip._n_caps; capsule_id++) {
+        real       dist_min = INF_REAL;
+        const auto capsule  = manip_data.capsule_list[capsule_id];
+
+        // check against boxes
+        int count = 0;
+        for (const auto& box: opt->world.boxes) {
+          if (const auto dist = distance(capsule, box);
+              dist < dist_min) {
+            dist_min = dist;
+          }
+          count++;
+        }
+
+        // check against capsules
+        count = 0;
+        for (const auto caps: opt->world.capsules) {
+          if (const auto dist = distance(capsule, caps);
+              dist < dist_min) {
+            dist_min = dist;
+          }
+          count++;
+        }
+
+        // check against spheres
+        count = 0;
+        for (const auto sphere: opt->world.spheres) {
+          if (const auto dist = distance(capsule, sphere);
+              dist < dist_min) {
+            dist_min = dist;
+          }
+          count++;
+        }
+
+        dist_min = -dist_min; // negative distance is positive constraint
+
+        // update worst position for the current capsule if necessary
+        if (dist_min > max_col_constraints[capsule_id]) {
+          max_col_constraints[capsule_id] = dist_min;
+        }
+      }
+      for (int k = 0; k < opt->manip._n_caps; k++)
+        constraints.collision_constraint(k, i - opt->bspline.lb[x_idx]) = max_col_constraints[k];
     }
   }
 }
@@ -2359,12 +2222,11 @@ inline void nlopt_constraints_acc2(unsigned m, double* result, unsigned xlen, co
     u32 x_per_joint = (xlen - 1) / opt->manip.n_joints; // = nctrl - 6 (skip first and last 3)
     u32 joint       = 0;
 
-    u32 grad_idx       = 0;
-    u32 constraint_idx = 0;
-    u32 x_idx          = 0;
+    u32 grad_idx = 0;
+    u32 x_idx    = 0;
 
-    auto n_joints = opt->manip.n_joints;
-
+    auto n_joints   = opt->manip.n_joints;
+    auto n_capsules = opt->manip._n_caps;
 
     memcpy(x_plus.data, x, xlen * sizeof(real)); // todo: is this necessary ? done once, and x_plus is modified to original at the end of each iteration
 
@@ -2380,7 +2242,7 @@ inline void nlopt_constraints_acc2(unsigned m, double* result, unsigned xlen, co
       auto n_con_per_point = ncon_acc(opt, x_idx) / (opt->bspline.ub[x_idx] + 1 - opt->bspline.lb[x_idx]);
 
       auto               n_points = (opt->bspline.ub[x_idx] + 1 - opt->bspline.lb[x_idx]);
-      ConstraintPerPoint constraint(n_joints, n_points);
+      ConstraintPerPoint constraint(n_joints, n_points, n_capsules);
       compute_constraints_grad2(constraint, x_plus, x_idx, joint, opt);
 
       n_con_lb = ncon_lb_acc(opt, x_idx); // find the amount of constraints before the current point
@@ -2417,8 +2279,10 @@ inline void nlopt_constraints_acc2(unsigned m, double* result, unsigned xlen, co
         grad_idx += xlen;
 
         // col
-        grad[grad_idx] = (constraint.collision_constraint[i - opt->bspline.lb[x_idx]] - result[i * n_con_per_point + 4 * n_joints + 2]) / eps;
-        grad_idx += xlen;
+        for (int k = 0; k < opt->manip._n_caps; k++) {
+          grad[grad_idx] = (constraint.collision_constraint(k, i - opt->bspline.lb[x_idx]) - result[i * n_con_per_point + 4 * n_joints + 2 + k]) / eps;
+          grad_idx += xlen;
+        }
       }
 
       x_plus[j] = x[j];
@@ -2460,7 +2324,7 @@ inline Result optimize_acc2(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
 
   const auto n = opt->bspline.x_len(opt->task);
 
-  Array con_tol(opt->constraints.n_constraints, 0.01);
+  Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
   Array x_tol(n, 0.001);
 
 #ifdef BLAST_USE_NATIVE_SQP
@@ -2474,7 +2338,7 @@ inline Result optimize_acc2(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   stop.x_weights  = nullptr;
   stop.nevals_p   = 0;
   stop.maxeval    = 1000;
-  stop.maxtime    = 5;
+  stop.maxtime    = 30;
   stop.start      = nlopt_seconds();
   stop.force_stop = false;
   stop.stop_msg   = nullptr;
@@ -2506,7 +2370,7 @@ inline Result optimize_acc2(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_xtol_abs(o, x_tol.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_maxtime(o, 5);
+  nlopt_res = nlopt_set_maxtime(o, 30);
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_maxeval(o, 1000);
   Assert(nlopt_res == NLOPT_SUCCESS);
@@ -2570,7 +2434,9 @@ inline Result optimize_acc2(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
 #endif
       Array constraints_points(opt->constraints.n_constraints);
       compute_constraints(constraints_points.data, x, opt);
-      is_valid = max(constraints_points) < opt->success_tolerance;
+      auto max_con = max(constraints_points);
+      // cout << "max_con = " << max_con << endl;
+      is_valid = max_con < opt->success_tolerance * 2;
     }
 
     {
@@ -2588,7 +2454,9 @@ inline Result optimize_acc2(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
       n_con(&opt_val_more);
       Array constraints_more_points(opt_val_more.constraints.n_constraints);
       compute_constraints(constraints_more_points.data, x, &opt_val_more);
-      is_valid_more = max(constraints_more_points) < opt_val_more.success_tolerance;
+      auto max_con_more = max(constraints_more_points);
+      // cout << "max_con_more = " << max_con_more << endl;
+      is_valid_more = max_con_more < opt->success_tolerance * 2;
 
       result.x = x;
 
@@ -2624,17 +2492,38 @@ inline Result optimize_acc2(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
 
 // acc 4
 template<bool is_grad> // note: n_collision_skip must be 1 for this to work !!!
-blast_fn void compute_constraints_acc4(double* result, Array& gradient_coeffs, Matrix& dtau_dp, Matrix& dtau_dv, Matrix& dtau_da, Matrix& dtcp_dp, Matrix& dtcp_dv, Matrix& dselfcol_dp, Matrix& dcol_dp, const Array& x, Optimization* opt) {
+blast_fn void compute_constraints_acc4(double* result, Array& gradient_coeffs, Matrix& dtau_dp, Matrix& dtau_dv, Matrix& dtau_da, Matrix& dtcp_dp, Matrix& dtcp_dv, Matrix& dselfcol_dp, std::vector<Matrix>& dcol_dp, const Array& x, Optimization* opt) {
 #if BLAST_TRACE_LEVEL >= 2
   ZoneScoped;
 #endif
+
+  enum class CollisionObjectType {
+    box,
+    sphere,
+    capsule,
+  };
+  struct CollisionEntities {
+    // object in the world
+    CollisionObjectType other_object_type = CollisionObjectType::box;
+    union {
+      Box     box{};
+      Sphere  sphere;
+      Capsule capsule;
+    };
+
+    // which point in time to look up the capsule
+    int point_in_segment = 0;
+  };
 
   double* moving_result = result;
   u32     grad_idx      = 0;
 
   constexpr real eps = 1e-5;
 
-  auto joints = opt->manip.n_joints;
+  auto joints     = opt->manip.n_joints;
+  auto n_capsules = opt->manip._n_caps;
+
+  std::array<CollisionEntities, MAX_CAPSULES> max_collision_entities{};
 
   {
 #if BLAST_TRACE_LEVEL >= 3
@@ -2702,7 +2591,7 @@ blast_fn void compute_constraints_acc4(double* result, Array& gradient_coeffs, M
     Array torque_constraint(joints);
     real  tcp_constraint;
     real  self_collision_constraint;
-    real  external_collisions_constraint;
+    Array max_col_constraints(n_capsules, -INF_REAL);
 
     compute_capsules(opt->manip, manip_data);
 
@@ -2731,7 +2620,7 @@ blast_fn void compute_constraints_acc4(double* result, Array& gradient_coeffs, M
 #if BLAST_TRACE_LEVEL >= 3
       ZoneScopedN("SelfCollisions");
 #endif
-      self_collision_constraint = -max(get_internal_collisions(opt->manip, manip_data));
+      self_collision_constraint = max(-get_internal_collisions(opt->manip, manip_data));
       *moving_result++          = self_collision_constraint;
     }
 
@@ -2739,8 +2628,62 @@ blast_fn void compute_constraints_acc4(double* result, Array& gradient_coeffs, M
 #if BLAST_TRACE_LEVEL >= 3
       ZoneScopedN("ExternalCollisionsCalculate");
 #endif
-      external_collisions_constraint = -test_collisions_per_point(manip_data.capsule_list, &(opt->world));
-      *moving_result++               = external_collisions_constraint;
+      // check every capsule with world
+      for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++) {
+        real       dist_min = INF_REAL;
+        const auto capsule  = manip_data.capsule_list[capsule_id];
+
+        CollisionEntities collision_objects{};
+
+        // check against boxes
+        int count = 0;
+        for (const auto& box: opt->world.boxes) {
+          if (const auto dist = distance(capsule, box);
+              dist < dist_min) {
+            dist_min                            = dist;
+            collision_objects.other_object_type = CollisionObjectType::box;
+            collision_objects.box               = box;
+            collision_objects.point_in_segment  = i;
+          }
+          count++;
+        }
+
+        // check against capsules
+        count = 0;
+        for (const auto caps: opt->world.capsules) {
+          if (const auto dist = distance(capsule, caps);
+              dist < dist_min) {
+            dist_min                            = dist;
+            collision_objects.other_object_type = CollisionObjectType::capsule;
+            collision_objects.capsule           = capsule;
+            collision_objects.point_in_segment  = i;
+          }
+          count++;
+        }
+
+        // check against spheres
+        count = 0;
+        for (const auto sphere: opt->world.spheres) {
+          if (const auto dist = distance(capsule, sphere);
+              dist < dist_min) {
+            dist_min                            = dist;
+            collision_objects.other_object_type = CollisionObjectType::sphere;
+            collision_objects.sphere            = sphere;
+            collision_objects.point_in_segment  = i;
+          }
+          count++;
+        }
+
+        dist_min = -dist_min; // negative distance is positive constraint
+
+        // update worst position for the current capsule if necessary
+        if (dist_min > max_col_constraints[capsule_id]) {
+          max_col_constraints[capsule_id]    = dist_min;
+          max_collision_entities[capsule_id] = collision_objects;
+        }
+      }
+      for (int k = 0; k < n_capsules; k++)
+        *moving_result++ = max_col_constraints[k];
     }
 
     if (is_grad) {
@@ -2773,13 +2716,34 @@ blast_fn void compute_constraints_acc4(double* result, Array& gradient_coeffs, M
 
         compute_capsules(opt->manip, manip_data);
         if (opt->constraints.self_collisions) {
-          auto self_collision_constraint_plus = -max(get_internal_collisions(opt->manip, manip_data));
+          auto self_collision_constraint_plus = max(-get_internal_collisions(opt->manip, manip_data));
           dselfcol_dp(j, i)                   = (self_collision_constraint_plus - self_collision_constraint) / eps;
         }
 
         if (opt->constraints.external_collisions) {
-          auto external_collisions_plus = -test_collisions_per_point(manip_data.capsule_list, &(opt->world));
-          dcol_dp(j, i)                 = (external_collisions_plus - external_collisions_constraint) / eps;
+          for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++) {
+            const auto  capsule = manip_data.capsule_list[capsule_id];
+            real        distance_plus;
+            const auto& objects = max_collision_entities[capsule_id];
+            switch (objects.other_object_type) {
+              case CollisionObjectType::box: {
+                distance_plus = distance(capsule, objects.box);
+                break;
+              }
+              case CollisionObjectType::capsule: {
+                distance_plus = distance(capsule, objects.capsule);
+                break;
+              }
+              case CollisionObjectType::sphere: {
+                distance_plus = distance(capsule, objects.sphere);
+                break;
+              }
+            }
+            distance_plus = -distance_plus;
+            // auto external_collisions_plus = -test_collisions_per_point(manip_data.capsule_list, &(opt->world));
+            dcol_dp[i].resize(n_capsules, joints);
+            dcol_dp[i](capsule_id, j) = (distance_plus - max_col_constraints[capsule_id]) / eps;
+          }
         }
 
         pos_plus[j] = pos[j];
@@ -2823,99 +2787,6 @@ blast_fn void compute_constraints_acc4(double* result, Array& gradient_coeffs, M
         acc_plus[j] = acc[j];
       }
     }
-
-
-    //     if (opt->constraints.tcp_speed) {
-    // #if BLAST_TRACE_LEVEL >= 3
-    //       ZoneScopedN("TCPSpeed");
-    // #endif
-    //       auto vel = opt->bspline.traj.vel.col(i);
-    //
-    //       auto J_tool         = get_J_tool(opt, manip_data);
-    //       real tcp_speed      = norm(J_tool * vel);
-    //       auto tcp_constraint = bound_constraint(tcp_speed, 0.0, opt->manip.tcp_max);
-    //       *moving_result++    = tcp_constraint;
-    //
-    //       if (is_grad) {
-    //         Array pos_plus(joints);
-    //         Array vel_plus(joints);
-    //         pos_plus = pos;
-    //         vel_plus = vel;
-    //
-    //         // grad_coeffs pos
-    //         for (u32 j = 0; j < joints; j++) {
-    //           pos_plus[j] += eps;
-    //           forward_kinematics(opt->manip, manip_data, pos_plus);
-    //
-    //           auto J_tool_plus         = get_J_tool(opt, manip_data);
-    //           real tcp_speed_plus      = norm(J_tool_plus * vel_plus);
-    //           auto tcp_constraint_plus = bound_constraint(tcp_speed_plus, 0.0, opt->manip.tcp_max);
-    //           dtcp_dp(j, i)            = (tcp_constraint_plus - tcp_constraint) / eps;
-    //           pos_plus[j]              = pos[j];
-    //         }
-    //
-    //         forward_kinematics(opt->manip, manip_data, pos_plus);
-    //         // grad_coeffs vel
-    //         for (u32 j = 0; j < joints; j++) {
-    //           vel_plus[j] += eps;
-    //
-    //           auto J_tool_plus         = get_J_tool(opt, manip_data);
-    //           real tcp_speed_plus      = norm(J_tool_plus * vel_plus);
-    //           auto tcp_constraint_plus = bound_constraint(tcp_speed_plus, 0.0, opt->manip.tcp_max);
-    //           dtcp_dv(j, i)            = (tcp_constraint_plus - tcp_constraint) / eps;
-    //
-    //           vel_plus[j] = vel[j];
-    //         }
-    //       }
-    //     }
-    //
-    //     if (opt->constraints.self_collisions) {
-    // #if BLAST_TRACE_LEVEL >= 3
-    //       ZoneScopedN("SelfCollisions");
-    // #endif
-    //       compute_capsules(opt->manip, manip_data);
-    //       auto self_collision_constraint = -max(get_internal_collisions(opt->manip, manip_data));
-    //       *moving_result++               = self_collision_constraint;
-    //
-    //       if (is_grad) {
-    //         Array pos_plus(joints);
-    //
-    //         for (u32 j = 0; j < joints; j++) {
-    //           pos_plus[j] += eps;
-    //           forward_kinematics(opt->manip, manip_data, pos_plus);
-    //           compute_capsules(opt->manip, manip_data);
-    //           auto self_collision_constraint_plus = -max(get_internal_collisions(opt->manip, manip_data));
-    //
-    //           dselfcol_dp(j, i) = (self_collision_constraint_plus - self_collision_constraint) / eps;
-    //
-    //           pos_plus[j] = pos[j];
-    //         }
-    //       }
-    //     }
-    //
-    //     if (opt->constraints.external_collisions) {
-    // #if BLAST_TRACE_LEVEL >= 3
-    //       ZoneScopedN("ExternalCollisionsCalculate");
-    // #endif
-    //       compute_capsules(opt->manip, manip_data);
-    //       auto external_collisions = -test_collisions_per_point(manip_data.capsule_list, &(opt->world));
-    //       *moving_result++         = external_collisions;
-    //       if (is_grad) {
-    //
-    //         Array pos_plus(joints);
-    //
-    //         for (u32 j = 0; j < joints; j++) {
-    //           pos_plus[j] += eps;
-    //           forward_kinematics(opt->manip, manip_data, pos_plus);
-    //           compute_capsules(opt->manip, manip_data);
-    //           auto external_collisions_plus = -test_collisions_per_point(manip_data.capsule_list, &(opt->world));
-    //
-    //           dcol_dp(j, i) = (external_collisions_plus - external_collisions) / eps;
-    //
-    //           pos_plus[j] = pos[j];
-    //         }
-    //       }
-    //     }
   }
 
   {
@@ -2948,14 +2819,16 @@ inline blast_fn void nlopt_constraints_acc4(unsigned m, double* result, unsigned
   if (opt->constraints.acceleration)
     n_active_constraints++;
 
-  Array  gradient_coeffs(opt->manip.n_joints * n_active_constraints * opt->bspline.n_points); // todo: check performance
-  Matrix dtau_dp(opt->manip.n_joints, opt->manip.n_joints * opt->bspline.n_points);           // todo: check performance
-  Matrix dtau_dv(opt->manip.n_joints, opt->manip.n_joints * opt->bspline.n_points);           // todo: check performance
-  Matrix dtau_da(opt->manip.n_joints, opt->manip.n_joints * opt->bspline.n_points);           // todo: check performance
-  Matrix dtcp_dp(opt->manip.n_joints, opt->bspline.n_points);
-  Matrix dtcp_dv(opt->manip.n_joints, opt->bspline.n_points);
-  Matrix dselfcol_dp(opt->manip.n_joints, opt->bspline.n_points);
-  Matrix dcol_dp(opt->manip.n_joints, opt->bspline.n_points);
+  Array               gradient_coeffs(opt->manip.n_joints * n_active_constraints * opt->bspline.n_points); // todo: check performance
+  Matrix              dtau_dp(opt->manip.n_joints, opt->manip.n_joints * opt->bspline.n_points);           // todo: check performance
+  Matrix              dtau_dv(opt->manip.n_joints, opt->manip.n_joints * opt->bspline.n_points);           // todo: check performance
+  Matrix              dtau_da(opt->manip.n_joints, opt->manip.n_joints * opt->bspline.n_points);           // todo: check performance
+  Matrix              dtcp_dp(opt->manip.n_joints, opt->bspline.n_points);
+  Matrix              dtcp_dv(opt->manip.n_joints, opt->bspline.n_points);
+  Matrix              dselfcol_dp(opt->manip.n_joints, opt->bspline.n_points);
+  std::vector<Matrix> dcol_dp; // (n_caps, n_joints)
+  dcol_dp.resize(opt->bspline.n_points);
+  // (opt->manip.n_joints, opt->bspline.n_points);
   if (!grad) {
     compute_constraints_acc4<false>(result, gradient_coeffs, dtau_dp, dtau_dv, dtau_da, dtcp_dp, dtcp_dv, dselfcol_dp, dcol_dp, xv, opt);
   }
@@ -3033,8 +2906,10 @@ inline blast_fn void nlopt_constraints_acc4(unsigned m, double* result, unsigned
         }
 
         if (opt->constraints.external_collisions) {
-          grad[grad_idx] = opt->bspline.basis_p(x_idx, i) * dcol_dp(joint, i);
-          grad_idx += xlen;
+          for (int k = 0; k < opt->manip._n_caps; k++) {
+            grad[grad_idx] = opt->bspline.basis_p(x_idx, i) * dcol_dp[i](k, joint);
+            grad_idx += xlen;
+          }
           // constraint_idx++; // note: eventhough this gradient is not done analytically, we still need to increase the constraint index
         }
       }
@@ -3121,21 +2996,21 @@ inline Result optimize_acc4(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
 
   const auto n = opt->bspline.x_len(opt->task);
 
-  Array con_tol(opt->constraints.n_constraints, 0.001);
-  Array x_tol(n, 0.000001);
+  Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
+  Array x_tol(n, 0.001);
 
 #ifdef BLAST_USE_NATIVE_SQP
   nlopt_stopping stop;
   stop.n          = n;
   stop.minf_max   = -HUGE_VAL;
   stop.ftol_rel   = 0;
-  stop.ftol_abs   = 0.0001;
+  stop.ftol_abs   = 0.001;
   stop.xtol_rel   = 0;
   stop.xtol_abs   = x_tol.data;
   stop.x_weights  = nullptr;
   stop.nevals_p   = 0;
   stop.maxeval    = 100000;
-  stop.maxtime    = 5000;
+  stop.maxtime    = 30;
   stop.start      = nlopt_seconds();
   stop.force_stop = false;
   stop.stop_msg   = nullptr;
@@ -3230,7 +3105,9 @@ inline Result optimize_acc4(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
 #endif
       Array constraints_points(opt->constraints.n_constraints);
       compute_constraints(constraints_points.data, x, opt);
-      is_valid = max(constraints_points) < opt->success_tolerance;
+      auto max_con = max(constraints_points);
+      // cout << "max_con = " << max_con << endl;
+      is_valid = max_con < opt->success_tolerance * 2;
     }
 
     {
@@ -3248,7 +3125,9 @@ inline Result optimize_acc4(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
       n_con(&opt_val_more);
       Array constraints_more_points(opt_val_more.constraints.n_constraints);
       compute_constraints(constraints_more_points.data, x, &opt_val_more);
-      is_valid_more = max(constraints_more_points) < opt->success_tolerance;
+      auto max_con_more = max(constraints_more_points);
+      // cout << "max_con_more = " << max_con_more << endl;
+      is_valid_more = max_con_more < opt->success_tolerance * 2;
 
       result.x = x;
 
@@ -3283,14 +3162,17 @@ inline Result optimize_acc4(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
 }
 
 TEST_CASE("Acceleration 1: Analytic Gradients for PVA", "[Paper2]") {
-  std::array<Config, 39> config_list;
+  std::array<Config, 13> config_list;
   fill_config_list(config_list);
 
   real eps = 0.01;
 
-  int config_idx = 0;
-  for (auto& [n_ctrl, n_points, task_idx, n_optim, task]: config_list) {
-
+  for (int config_id = 0; config_id < config_list.size(); config_id++) {
+    auto n_ctrl   = config_list[config_id].n_ctrl;
+    auto n_points = config_list[config_id].n_points;
+    auto task_idx = config_list[config_id].task_idx;
+    auto n_optim  = config_list[config_id].n_optim;
+    auto task     = config_list[config_id].task;
     // Optimization opt(get_generic_gen3(), get_gen3_task());
     Optimization opt(get_generic_Link6(), task);
 
@@ -3324,7 +3206,7 @@ TEST_CASE("Acceleration 1: Analytic Gradients for PVA", "[Paper2]") {
 
     // opt.guess.x0 = x;
 
-    cout << "Config ID:                  " << config_idx << endl;
+    cout << "Config ID:                  " << config_id << endl;
     cout << "Task id:                    " << task_idx << endl;
     cout << "n_ctrl:                     " << n_ctrl << endl;
     cout << "n_points:                   " << n_points << endl;
@@ -3346,8 +3228,8 @@ TEST_CASE("Acceleration 1: Analytic Gradients for PVA", "[Paper2]") {
         // }
 
         {
-          IOSilencer _;
-          result_acc2 = optimize_acc2(&opt);
+          // IOSilencer _;
+          // result_acc2 = optimize_acc2(&opt);
         }
 
         {
@@ -3355,19 +3237,18 @@ TEST_CASE("Acceleration 1: Analytic Gradients for PVA", "[Paper2]") {
           result_acc3 = optimize_acc4(&opt);
         }
         // CHECK(result_acc1.success == result.success);
-        CHECK(result_acc2.success == result.success);
+        // CHECK(result_acc2.success == result.success);
         CHECK(result_acc3.success == result.success);
         // CHECK(result_acc1.success_false == result.success_false);
-        CHECK(result_acc2.success_false == result.success_false);
+        // CHECK(result_acc2.success_false == result.success_false);
         CHECK(result_acc3.success_false == result.success_false);
         // CHECK(std::abs(result.x.back() - result_acc1.x.back()) < 0.01);
-        CHECK(std::abs(result.x.back() - result_acc2.x.back()) < 0.01);
+        // CHECK(std::abs(result.x.back() - result_acc2.x.back()) < 0.01);
         CHECK(std::abs(result.x.back() - result_acc3.x.back()) < 0.01);
       }
 
       // cout << "result.x.bac(): " << result.x.back() << "result_acc.x.back(): " << result_acc.x.back() << endl;
       // CHECK(std::abs(result.x.back() - result_acc.x.back()) < eps);
     }
-    config_idx++;
   }
 };

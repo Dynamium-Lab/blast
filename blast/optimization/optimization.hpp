@@ -27,6 +27,9 @@ struct Result {
   int           num_tries           = 0;
   Trajectory    trajectory;
 
+  real max_constraint_value = 0.0;
+  int  max_constraint_idx   = 0;
+
   Result() = delete;
 
   explicit Result(Optimization* optim) {
@@ -118,7 +121,7 @@ inline void n_con(Optimization* opt) {
   if (opt->constraints.self_collisions)
     opt->constraints.n_constraints += n_points;
   if (opt->constraints.external_collisions)
-    opt->constraints.n_constraints += n_points;
+    opt->constraints.n_constraints += n_points * opt->manip._n_caps;
 
 
   for (auto& n: opt->constraints.n_extra_constraints)
@@ -208,7 +211,7 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
 
   Array ub(n, INF_REAL);
   Array lb(n, -INF_REAL);
-  ub.back() = 60.0;
+  ub.back() = 30.0;
   lb.back() = 0.01;
 
   nlopt_constraint fc{};
@@ -296,9 +299,10 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
 #endif
       Array constraints_points(opt->constraints.n_constraints);
       compute_constraints(constraints_points.data, x, opt);
-      auto max_con = max(constraints_points);
-      // cout << "max_con = " << max_con << endl;
-      is_valid = max_con < opt->success_tolerance * 2;
+      auto max_con                = max(constraints_points);
+      result.max_constraint_idx   = argmax(constraints_points);
+      result.max_constraint_value = max_con;
+      is_valid                    = max_con < opt->success_tolerance * 2;
     }
 
     {
@@ -368,35 +372,35 @@ inline void initialize_optimization_with_segments(Optimization* opt) {
   opt->ub.back() = 60.0;
 
   // Task
-  auto task = opt->task;
-  for (int i = 0; i < opt->manip.n_joints; i++) {
-    while (std::abs(task(i, 0) - task(i, 3)) > PI) { // PI since the highest angle between two points on a circle is halfway through, so PI
-      // Try updating start value
-      real tmp_value = task(i, 0);
-      if (task(i, 0) < task(i, 3)) {
-        tmp_value += 2 * PI;
-      } else {
-        tmp_value -= 2 * PI;
-      }
-      if (tmp_value > opt->manip.pmin[i] && tmp_value < opt->manip.pmax[i]) {
-        task(i, 0) = tmp_value;
-      } else {
-        // Try updating end value
-        tmp_value = task(i, 3);
-        if (task(i, 3) < task(i, 0)) {
-          tmp_value += 2 * PI;
-        } else {
-          tmp_value -= 2 * PI;
-        }
-        if (tmp_value > opt->manip.pmin[i] && tmp_value < opt->manip.pmax[i]) {
-          task(i, 0) = tmp_value;
-        } else {
-          break; // Nothing to be done
-        }
-      }
-    }
-  }
-  opt->task = task;
+  // auto task = opt->task;
+  // for (int i = 0; i < opt->manip.n_joints; i++) {
+  //   while (std::abs(task(i, 0) - task(i, 3)) > PI) { // PI since the highest angle between two points on a circle is halfway through, so PI
+  //     // Try updating start value
+  //     real tmp_value = task(i, 0);
+  //     if (task(i, 0) < task(i, 3)) {
+  //       tmp_value += 2 * PI;
+  //     } else {
+  //       tmp_value -= 2 * PI;
+  //     }
+  //     if (tmp_value > opt->manip.pmin[i] && tmp_value < opt->manip.pmax[i]) {
+  //       task(i, 0) = tmp_value;
+  //     } else {
+  //       // Try updating end value
+  //       tmp_value = task(i, 3);
+  //       if (task(i, 3) < task(i, 0)) {
+  //         tmp_value += 2 * PI;
+  //       } else {
+  //         tmp_value -= 2 * PI;
+  //       }
+  //       if (tmp_value > opt->manip.pmin[i] && tmp_value < opt->manip.pmax[i]) {
+  //         task(i, 0) = tmp_value;
+  //       } else {
+  //         break; // Nothing to be done
+  //       }
+  //     }
+  //   }
+  // }
+  // opt->task = task;
 }
 
 inline void n_con_with_segments(Optimization* opt) {
@@ -453,7 +457,7 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
 
   Array ub(n, INF_REAL);
   Array lb(n, -INF_REAL);
-  ub.back() = 60.0;
+  ub.back() = 30.0;
   lb.back() = 0.01;
 
   nlopt_constraint fc{};
@@ -543,9 +547,10 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
       Array  constraints_points(opt->constraints.n_constraints);
       Matrix gradient;
       constraints_and_gradients_with_segments(x, *opt, constraints_points, gradient);
-      auto max_con = max(constraints_points);
-      // cout << "max_con = " << max_con << endl;
-      is_valid = max_con < opt->success_tolerance * 2;
+      auto max_con                = max(constraints_points);
+      result.max_constraint_idx   = argmax(constraints_points);
+      result.max_constraint_value = max_con;
+      is_valid                    = max_con < opt->success_tolerance * 2;
     }
 
     {
