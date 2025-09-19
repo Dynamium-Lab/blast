@@ -17,7 +17,7 @@ int main() {
 
   // Sleep(200);
 
-  Bspline bspline(10, 100, 5, 6);
+  Bspline bspline(16, 110, 5, 6);
   opt.bspline = bspline;
 
   // opt.guess.type = Guess::custom;
@@ -44,11 +44,7 @@ int main() {
 
   opt.guess.type = Guess::custom;
 
-  n_con_with_segments(&opt);
-  auto t0                   = get_tick_us();
-  opt.guess.x0              = guess_shot_mean_segments(&opt);
-  auto   time_for_one_guess = (get_tick_us() - t0) / 1000.;
-  auto   t1                 = get_tick_us();
+  auto   t1 = get_tick_us();
   Result result(&opt);
   // for (real i = increment_x; i < max_x; i += increment_x) {
   for (real i = 0; i < max_iter; i++) {

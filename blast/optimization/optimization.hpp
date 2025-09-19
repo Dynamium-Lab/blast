@@ -27,8 +27,10 @@ struct Result {
   int           num_tries           = 0;
   Trajectory    trajectory;
 
-  real max_constraint_value = 0.0;
-  int  max_constraint_idx   = 0;
+  real max_constraint_value             = 0.0;
+  int  max_constraint_idx               = 0;
+  real max_constraint_more_points_value = 0.0;
+  int  max_constraint_more_points_idx   = 0;
 
   Result() = delete;
 
@@ -320,9 +322,10 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
       n_con(&opt_val_more);
       Array constraints_more_points(opt_val_more.constraints.n_constraints);
       compute_constraints(constraints_more_points.data, x, &opt_val_more);
-      auto max_con_more = max(constraints_more_points);
-      // cout << "max_con_more = " << max_con_more << endl;
-      is_valid_more = max_con_more < opt->success_tolerance * 2;
+      auto max_con_more                       = max(constraints_more_points);
+      result.max_constraint_more_points_idx   = argmax(constraints_more_points);
+      result.max_constraint_more_points_value = max_con_more;
+      is_valid_more                           = max_con_more < opt->success_tolerance * 2;
 
       result.x = x;
 
@@ -372,35 +375,35 @@ inline void initialize_optimization_with_segments(Optimization* opt) {
   opt->ub.back() = 60.0;
 
   // Task
-  // auto task = opt->task;
-  // for (int i = 0; i < opt->manip.n_joints; i++) {
-  //   while (std::abs(task(i, 0) - task(i, 3)) > PI) { // PI since the highest angle between two points on a circle is halfway through, so PI
-  //     // Try updating start value
-  //     real tmp_value = task(i, 0);
-  //     if (task(i, 0) < task(i, 3)) {
-  //       tmp_value += 2 * PI;
-  //     } else {
-  //       tmp_value -= 2 * PI;
-  //     }
-  //     if (tmp_value > opt->manip.pmin[i] && tmp_value < opt->manip.pmax[i]) {
-  //       task(i, 0) = tmp_value;
-  //     } else {
-  //       // Try updating end value
-  //       tmp_value = task(i, 3);
-  //       if (task(i, 3) < task(i, 0)) {
-  //         tmp_value += 2 * PI;
-  //       } else {
-  //         tmp_value -= 2 * PI;
-  //       }
-  //       if (tmp_value > opt->manip.pmin[i] && tmp_value < opt->manip.pmax[i]) {
-  //         task(i, 0) = tmp_value;
-  //       } else {
-  //         break; // Nothing to be done
-  //       }
-  //     }
-  //   }
-  // }
-  // opt->task = task;
+  auto task = opt->task;
+  for (int i = 0; i < opt->manip.n_joints; i++) {
+    while (std::abs(task(i, 0) - task(i, 3)) > PI) { // PI since the highest angle between two points on a circle is halfway through, so PI
+      // Try updating start value
+      real tmp_value = task(i, 0);
+      if (task(i, 0) < task(i, 3)) {
+        tmp_value += 2 * PI;
+      } else {
+        tmp_value -= 2 * PI;
+      }
+      if (tmp_value > opt->manip.pmin[i] && tmp_value < opt->manip.pmax[i]) {
+        task(i, 0) = tmp_value;
+      } else {
+        // Try updating end value
+        tmp_value = task(i, 3);
+        if (task(i, 3) < task(i, 0)) {
+          tmp_value += 2 * PI;
+        } else {
+          tmp_value -= 2 * PI;
+        }
+        if (tmp_value > opt->manip.pmin[i] && tmp_value < opt->manip.pmax[i]) {
+          task(i, 0) = tmp_value;
+        } else {
+          break; // Nothing to be done
+        }
+      }
+    }
+  }
+  opt->task = task;
 }
 
 inline void n_con_with_segments(Optimization* opt) {
@@ -570,9 +573,10 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
       Matrix gradient;
       constraints_and_gradients_with_segments(x, opt_val_more, constraints_more_points, gradient);
       // is_valid_more = max(constraints_more_points) < opt->success_tolerance;
-      auto max_con_more = max(constraints_more_points);
-      // cout << "max_con_more = " << max_con_more << endl;
-      is_valid_more = max_con_more < opt->success_tolerance * 2;
+      auto max_con_more                       = max(constraints_more_points);
+      result.max_constraint_more_points_idx   = argmax(constraints_more_points);
+      result.max_constraint_more_points_value = max_con_more;
+      is_valid_more                           = max_con_more < opt->success_tolerance * 2;
 
       result.x = x;
 

@@ -149,111 +149,151 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
     Array max_col_constraints(n_capsules, -INF_REAL);
 
     for (int point_in_segment = 0; point_in_segment < n_points_per_segment; point_in_segment++) { // note:
-      auto p = opt.bspline.traj.pos.col(start_point_for_segment + point_in_segment);              // note:
-      auto v = opt.bspline.traj.vel.col(start_point_for_segment + point_in_segment);              // note:
-      auto a = opt.bspline.traj.acc.col(start_point_for_segment + point_in_segment);              // note:
-
-      forward_kinematics(opt.manip, manip_data, p);
-      compute_capsules(opt.manip, manip_data);
-      dynamics(opt.manip, manip_data, v, a);
-
-      for (int j = 0; j < n_joints; j++) {
-        // position
-        if (const auto c = bound_constraint(p[j], pmin[j], pmax[j]);
-            c > max_pos_constraints[j]) {
-          max_pos_constraints[j] = c;
-          max_pos_indices[j]     = point_in_segment; // note:
-        }
-        // velocity
-        if (const auto c = std::abs(v[j]) / vmax[j] - 1.0;
-            c > max_vel_constraints[j]) {
-          max_vel_constraints[j] = c;
-          max_vel_indices[j]     = point_in_segment; // note:
-        }
-        // acceleration
-        if (const auto c = std::abs(a[j]) / amax[j] - 1.0;
-            c > max_acc_constraints[j]) {
-          max_acc_constraints[j] = c;
-          max_acc_indices[j]     = point_in_segment; // note:
-        }
-        // torque
-        if (const auto c = std::abs(manip_data.efforts[j]) / tau_max[j] - 1.0;
-            c > max_tor_constraints[j]) {
-          max_tor_constraints[j] = c;
-          max_tor_indices[j]     = point_in_segment; // note:
-        }
-      }
-
-      // tcp speed
       {
-        const auto J_tool    = get_J_tool(&opt, manip_data); // todo: clean up get_J_tool to a get_tcp_speed
-        const auto tcp_speed = norm(get_J_tool(&opt, manip_data) * v);
-        if (const auto c = bound_constraint(tcp_speed, 0.0, tcp_max);
-            c > max_tcp_speed_constraints) {
-          max_tcp_speed_constraints = c;
-          max_tcp_index             = point_in_segment;
-        }
-      }
+#if BLAST_TRACE_LEVEL >= 2
+        ZoneScopedN("All Point Constraints");
+#endif
+        auto p = opt.bspline.traj.pos.col(start_point_for_segment + point_in_segment); // note:
+        auto v = opt.bspline.traj.vel.col(start_point_for_segment + point_in_segment); // note:
+        auto a = opt.bspline.traj.acc.col(start_point_for_segment + point_in_segment); // note:
 
-      // check every internal collision
-      if (const auto c = max(-get_internal_collisions(opt.manip, manip_data));
-          c > max_internal_col_constraints) {
-        max_internal_col_constraints = c;
-        max_internal_collision_index = point_in_segment;
-      }
+        forward_kinematics(opt.manip, manip_data, p);
+        compute_capsules(opt.manip, manip_data);
+        dynamics(opt.manip, manip_data, v, a);
 
-      // check every capsule with world
-      for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++) {
-        real       dist_min = INF_REAL;
-        const auto capsule  = manip_data.capsule_list[capsule_id];
+        for (int j = 0; j < n_joints; j++) {
+          {
 
-        CollisionEntities collision_objects{};
-
-        // check against boxes
-        int count = 0;
-        for (const auto& box: world.boxes) {
-          if (const auto dist = distance(capsule, box);
-              dist < dist_min) {
-            dist_min                            = dist;
-            collision_objects.other_object_type = CollisionObjectType::box;
-            collision_objects.box               = box;
-            collision_objects.point_in_segment  = point_in_segment;
+#if BLAST_TRACE_LEVEL >= 3
+            ZoneScopedN("Pos Constraints");
+#endif
+            // position
+            if (const auto c = bound_constraint(p[j], pmin[j], pmax[j]);
+                c > max_pos_constraints[j]) {
+              max_pos_constraints[j] = c;
+              max_pos_indices[j]     = point_in_segment; // note:
+            }
           }
-          count++;
-        }
-
-        // check against capsules
-        count = 0;
-        for (const auto caps: world.capsules) {
-          if (const auto dist = distance(capsule, caps);
-              dist < dist_min) {
-            dist_min                            = dist;
-            collision_objects.other_object_type = CollisionObjectType::capsule;
-            collision_objects.capsule           = capsule;
-            collision_objects.point_in_segment  = point_in_segment;
+          {
+#if BLAST_TRACE_LEVEL >= 3
+            ZoneScopedN("Vel Constraints");
+#endif
+            // velocity
+            if (const auto c = std::abs(v[j]) / vmax[j] - 1.0;
+                c > max_vel_constraints[j]) {
+              max_vel_constraints[j] = c;
+              max_vel_indices[j]     = point_in_segment; // note:
+            }
           }
-          count++;
-        }
-
-        // check against spheres
-        count = 0;
-        for (const auto sphere: world.spheres) {
-          if (const auto dist = distance(capsule, sphere);
-              dist < dist_min) {
-            dist_min                            = dist;
-            collision_objects.other_object_type = CollisionObjectType::sphere;
-            collision_objects.sphere            = sphere;
-            collision_objects.point_in_segment  = point_in_segment;
+          {
+#if BLAST_TRACE_LEVEL >= 3
+            ZoneScopedN("Acc Constraints");
+#endif
+            // acceleration
+            if (const auto c = std::abs(a[j]) / amax[j] - 1.0;
+                c > max_acc_constraints[j]) {
+              max_acc_constraints[j] = c;
+              max_acc_indices[j]     = point_in_segment; // note:
+            }
           }
-          count++;
+          {
+#if BLAST_TRACE_LEVEL >= 3
+            ZoneScopedN("Tau Constraints");
+#endif
+            // torque
+            if (const auto c = std::abs(manip_data.efforts[j]) / tau_max[j] - 1.0;
+                c > max_tor_constraints[j]) {
+              max_tor_constraints[j] = c;
+              max_tor_indices[j]     = point_in_segment; // note:
+            }
+          }
         }
 
-        dist_min = -dist_min; // negative distance is positive constraint
+        // tcp speed
+        {
+#if BLAST_TRACE_LEVEL >= 3
+          ZoneScopedN("Tcp Constraints");
+#endif
+          const auto J_tool    = get_J_tool(&opt, manip_data); // todo: clean up get_J_tool to a get_tcp_speed
+          const auto tcp_speed = norm(get_J_tool(&opt, manip_data) * v);
+          if (const auto c = bound_constraint(tcp_speed, 0.0, tcp_max);
+              c > max_tcp_speed_constraints) {
+            max_tcp_speed_constraints = c;
+            max_tcp_index             = point_in_segment;
+          }
+        }
 
-        // update worst position for the current capsule if necessary
-        if (dist_min > max_col_constraints[capsule_id]) {
-          max_col_constraints[capsule_id]    = dist_min;
-          max_collision_entities[capsule_id] = collision_objects;
+        {
+#if BLAST_TRACE_LEVEL >= 3
+          ZoneScopedN("Self Constraints");
+#endif
+          // check every internal collision
+          if (const auto c = max(-get_internal_collisions(opt.manip, manip_data));
+              c > max_internal_col_constraints) {
+            max_internal_col_constraints = c;
+            max_internal_collision_index = point_in_segment;
+          }
+        }
+
+        {
+#if BLAST_TRACE_LEVEL >= 3
+          ZoneScopedN("Ext Constraints");
+#endif
+
+          // check every capsule with world
+          for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++) {
+            real       dist_min = INF_REAL;
+            const auto capsule  = manip_data.capsule_list[capsule_id];
+
+            CollisionEntities collision_objects{};
+
+            // check against boxes
+            int count = 0;
+            for (const auto& box: world.boxes) {
+              if (const auto dist = distance(capsule, box);
+                  dist < dist_min) {
+                dist_min                            = dist;
+                collision_objects.other_object_type = CollisionObjectType::box;
+                collision_objects.box               = box;
+                collision_objects.point_in_segment  = point_in_segment;
+              }
+              count++;
+            }
+
+            // check against capsules
+            count = 0;
+            for (const auto caps: world.capsules) {
+              if (const auto dist = distance(capsule, caps);
+                  dist < dist_min) {
+                dist_min                            = dist;
+                collision_objects.other_object_type = CollisionObjectType::capsule;
+                collision_objects.capsule           = capsule;
+                collision_objects.point_in_segment  = point_in_segment;
+              }
+              count++;
+            }
+
+            // check against spheres
+            count = 0;
+            for (const auto sphere: world.spheres) {
+              if (const auto dist = distance(capsule, sphere);
+                  dist < dist_min) {
+                dist_min                            = dist;
+                collision_objects.other_object_type = CollisionObjectType::sphere;
+                collision_objects.sphere            = sphere;
+                collision_objects.point_in_segment  = point_in_segment;
+              }
+              count++;
+            }
+
+            dist_min = -dist_min; // negative distance is positive constraint
+
+            // update worst position for the current capsule if necessary
+            if (dist_min > max_col_constraints[capsule_id]) {
+              max_col_constraints[capsule_id]    = dist_min;
+              max_collision_entities[capsule_id] = collision_objects;
+            }
+          }
         }
       }
     }
@@ -287,6 +327,9 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
     // *** per segment ***
     // where x is the optimization vector
     if (grad.size) {
+#if BLAST_TRACE_LEVEL >= 2
+      ZoneScopedN("Grad");
+#endif
       // Matrix (alias) in which we can insert the gradient for the current segment
       Matrix grad_segment(&grad(0, segment * n_constraints_per_segment), x_len, n_constraints_per_segment);
       Assert(grad_segment.is_alias);
@@ -835,11 +878,19 @@ inline blast_fn void nlopt_constraints(unsigned m, double* result, unsigned x_le
 
   Array xv;
   xv.alias(x, x_len);
-  compute_constraints(result, xv, opt);
+  {
+
+#if BLAST_TRACE_LEVEL >= 3
+    ZoneScopedN("Constraints");
+#endif
+    compute_constraints(result, xv, opt);
+  }
 
   // gradients calculation
   if (grad) {
-
+#if BLAST_TRACE_LEVEL >= 3
+    ZoneScopedN("Grad");
+#endif
     // todo: no construction??
     Array x_plus(x_len);
     Array r_plus(m);
