@@ -181,7 +181,7 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
 
   // Initialization
   // configure_internal_data(opt); // todo: Ensure we can remove
-  initialize_optimization(opt);
+  // initialize_optimization(opt);
   n_con(opt);
 
   // Initial validation
@@ -428,7 +428,7 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
 
   // Initialization
   // configure_internal_data(opt); // todo: Ensure we can remove
-  initialize_optimization_with_segments(opt);
+  // initialize_optimization_with_segments(opt);
   n_con_with_segments(opt);
 
   // Initial validation

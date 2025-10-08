@@ -7,7 +7,7 @@ endfunction()
 
 set(EXAMPLES
     example_manipulator example_manipulator.cpp
-    eval_manipulator eval_manipulator.cpp
+    eval_manipulator ICRA2026/eval_manipulator.cpp
     get_bspline_and_basis_functions get_bspline_and_basis_functions.cpp
     get_start_and_end_pos get_start_and_end_pos.cpp
     #        example_demo1 demo1_link6.cpp
