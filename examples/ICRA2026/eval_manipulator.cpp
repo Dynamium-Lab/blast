@@ -1818,14 +1818,17 @@ int main() {
       eval_function_UR5e();
     });
 
-    // Pin the thread immediately after creation
+#ifdef _WIN32
+    // Only available on Windows — pin threads to P-cores
     if (t < (int) cores.size()) {
       SetThreadGroupAffinity(
               (HANDLE) workers.back().native_handle(),
               &cores[t],
               nullptr);
     }
+#endif
   }
+
 
   for (auto& th: workers)
     th.join();
