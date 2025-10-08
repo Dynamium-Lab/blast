@@ -76,11 +76,27 @@ All files for `Blast` are in the `blast` subfolder. All `.cpp` files must be bui
 
 
 
-## ToDo for open source
-* [ ] Create better api for creating a Task
-* [ ] Create better api for launching optimization
-* [ ] Universal Robots UR5e
-* [ ] Yaskawa HC10DTP
+## ToDo 
+### Open source
+* [ ] Port blast-rush
+* [ ] Create better API
+* [ ] Fix all todos
+* [ ] Add missing math functions
+* [ ] Determine constraint format (min and max or only max?)
+* [ ] Add warning for incoherent constraints
 * [ ] Move all examples to `examples/`
 * [ ] Create better `examples`
+* [ ] Unit tests
+* [ ] Comprehensive tests
 * [ ] Fill out documentation
+* [ ] Contributing guide (coding standard, astyle formating)
+* [ ] Create better api for creating a Task (maybe)
+
+### Future versions
+* [ ] Integrating CoDO
+* [ ] Accelerating gradients
+* [ ] Task and motion planning
+
+
+
+
