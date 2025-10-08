@@ -1,4 +1,4 @@
-#include "blast.h"
+#include <blast>
 using namespace blast;
 
 #define CATCH_CONFIG_MAIN

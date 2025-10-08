@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <float.h>
+#include <string.h>
 
 #include "nlopt-internal.h"
 
@@ -33,14 +34,14 @@
 
 #ifdef NLOPT_CXX
 #include "stogo.h"
-#endif
-#ifdef NLOPT_CXX11
 #include "ags.h"
 #endif
 
 #include "cdirect.h"
 
+#ifdef NLOPT_LUKSAN
 #include "luksan.h"
+#endif
 
 #include "crs.h"
 
@@ -56,22 +57,71 @@
 #include "slsqp.h"
 
 /*********************************************************************/
+/* to emulate box constraint support with variable transform */
+
+static void x_bound_inv(int n, double *x, const double *lb, const double *ub)
+{
+    int i;
+    double mid, width, v;
+    if (!lb || !ub)
+        return;
+    for (i = 0; i < n; ++ i)
+    {
+        if (!nlopt_isinf(lb[i]) && !nlopt_isinf(ub[i]))
+        {
+            mid = (lb[i] + ub[i]) * 0.5;
+            width = (ub[i] - lb[i]) * 0.5;
+            v = (x[i] - mid) / width;
+            if (v <= -1.0)
+              v = -1.0 + 1e-12;
+            if (v >= 1.0)
+              v = 1.0 - 1e-12;
+            x[i] = atanh(v);
+        }
+        else if (!nlopt_isinf(lb[i]))
+            x[i] = (x[i] > lb[i]) ? sqrt(x[i] - lb[i]) : 0.0;
+        else if (!nlopt_isinf(ub[i]))
+            x[i] = (x[i] < ub[i]) ? sqrt(ub[i] - x[i]) : 0.0;
+    }
+}
+
+static void x_bound(int n, double *x, const double *lb, const double *ub)
+{
+    int i;
+    double mid, width, th;
+    if (!lb || !ub)
+        return;
+    for (i = 0; i < n; ++ i)
+    {
+        if (!nlopt_isinf(lb[i]) && !nlopt_isinf(ub[i]))
+        {
+            mid = (lb[i] + ub[i]) * 0.5;
+            width = (ub[i] - lb[i]) * 0.5;
+            th = tanh(x[i]);
+            x[i] = mid + th * width;
+        }
+        else if (!nlopt_isinf(lb[i]))
+            x[i] = lb[i] + x[i] * x[i];
+        else if (!nlopt_isinf(ub[i]))
+            x[i] = ub[i] - x[i] * x[i];
+    }
+}
 
 static double f_bound(int n, const double *x, void *data_)
 {
-    int i;
     nlopt_opt data = (nlopt_opt) data_;
     double f;
+    double *x_tr = NULL;
 
-    /* some methods do not support bound constraints, but support
-       discontinuous objectives so we can just return Inf for invalid x */
-    for (i = 0; i < n; ++i)
-        if (x[i] < data->lb[i] || x[i] > data->ub[i])
-            return HUGE_VAL;
-
-    f = data->f((unsigned) n, x, NULL, data->f_data);
-    return (nlopt_isnan(f) || nlopt_isinf(f) ? HUGE_VAL : f);
+    x_tr = (double *) malloc(n * sizeof(double));
+    memcpy(x_tr, x, n * sizeof(double));
+    x_bound(n, x_tr, data->lb, data->ub);
+    f = data->f((unsigned) n, x_tr, NULL, data->f_data);
+    free(x_tr);
+    return f;
 }
+
+/*********************************************************************/
 
 static double f_noderiv(int n, const double *x, void *data_)
 {
@@ -136,6 +186,28 @@ static int finite_domain(unsigned n, const double *lb, const double *ub)
         if (nlopt_isinf(ub[i] - lb[i]))
             return 0;
     return 1;
+}
+
+/*********************************************************************/
+/* when we nest optimization objects, we need to connect them
+   in a stack of force_stop_child nodes, so that if the user
+   calls nlopt_set_force_stop on the original nlopt_opt object
+   it will force all of the subsidiary optimization algorithms to stop. */
+
+static void push_force_stop_child(nlopt_opt opt, nlopt_opt newchild)
+{
+    /* assert: newchild != NULL && newchild->force_stop_child == NULL */
+    newchild->force_stop_child = opt->force_stop_child;
+    opt->force_stop_child = newchild;
+}
+
+static nlopt_opt pop_force_stop_child(nlopt_opt opt)
+{
+    /* assert: opt->force_stop_child != NULL */
+    nlopt_opt oldchild = opt->force_stop_child;
+    opt->force_stop_child = oldchild->force_stop_child;
+    oldchild->force_stop_child = NULL;
+    return oldchild;
 }
 
 /*********************************************************************/
@@ -373,8 +445,70 @@ static int elimdim_wrapcheck(nlopt_opt opt)
 }
 
 /*********************************************************************/
+/* wrapper functions for algorithms not considering all evaluated points as candidates
+ * or returning only the last evaluation which might not be optimum */
 
-#define POP(defaultpop) (opt->stochastic_population > 0 ? opt->stochastic_population : (nlopt_stochastic_population > 0 ? nlopt_stochastic_population : (defaultpop)))
+typedef struct {
+    nlopt_func f;
+    void *f_data;
+    const double *lb, *ub;      /* bounds, of length n */
+    double minf;
+    double *bestx;
+} memoize_data;
+
+
+static double memoize_func(unsigned n, const double *x, double *grad, void *d_)
+{
+    memoize_data *d = (memoize_data *) d_;
+    const double *lb = d->lb, *ub = d->ub;
+    double val;
+    unsigned i, feasible = 1;
+
+    val = d->f(n, x, grad, d->f_data);
+
+    for (i = 0; i < n; ++ i)
+    {
+        if (lb && (x[i] < lb[i]))
+            feasible = 0;
+        if (ub && (x[i] > ub[i]))
+            feasible = 0;
+    }
+    if (feasible && (val < d->minf))
+    {
+        d->minf = val;
+        memcpy(d->bestx, x, n * sizeof(double));
+    }
+    return val;
+}
+
+
+/* return whether to use memoize wrapping. */
+static int memoize_wrapcheck(nlopt_opt opt)
+{
+    if (!opt)
+        return 0;
+
+    /* constraints not supported */
+    if ((opt->m > 0) || (opt->p > 0))
+        return 0;
+
+    switch (opt->algorithm) {
+    case NLOPT_LN_COBYLA:
+    case NLOPT_LD_TNEWTON:
+    case NLOPT_LD_TNEWTON_RESTART:
+    case NLOPT_LD_TNEWTON_PRECOND:
+    case NLOPT_LD_TNEWTON_PRECOND_RESTART:
+        return 1;
+
+    default:
+        return 0;
+    }
+}
+
+
+/*********************************************************************/
+
+#define POP(defaultpop) (opt->stochastic_population > 0 ? (int)opt->stochastic_population : (nlopt_stochastic_population > 0 ? nlopt_stochastic_population : (defaultpop)))
 
 /* unlike nlopt_optimize() below, only handles minimization case */
 static nlopt_result nlopt_optimize_(nlopt_opt opt, double *x, double *minf)
@@ -389,10 +523,6 @@ static nlopt_result nlopt_optimize_(nlopt_opt opt, double *x, double *minf)
 
     if (!opt || !x || !minf || !opt->f || opt->maximize)
         RETURN_ERR(NLOPT_INVALID_ARGS, opt, "NULL args to nlopt_optimize_");
-
-    /* reset stopping flag */
-    nlopt_set_force_stop(opt, 0);
-    opt->force_stop_child = NULL;
 
     /* copy a few params to local vars for convenience */
     n = opt->n;
@@ -502,7 +632,7 @@ static nlopt_result nlopt_optimize_(nlopt_opt opt, double *x, double *minf)
         }
 
     case NLOPT_GN_AGS:
-#ifdef NLOPT_CXX11
+#ifdef NLOPT_CXX
         if (!finite_domain(n, lb, ub))
             RETURN_ERR(NLOPT_INVALID_ARGS, opt, "finite domain required for global algorithm");
         return ags_minimize(ni, f, f_data, opt->m, opt->fc, x, minf, lb, ub, &stop);
@@ -516,7 +646,7 @@ static nlopt_result nlopt_optimize_(nlopt_opt opt, double *x, double *minf)
 #ifdef NLOPT_CXX
         if (!finite_domain(n, lb, ub))
             RETURN_ERR(NLOPT_INVALID_ARGS, opt, "finite domain required for global algorithm");
-        if (!stogo_minimize(ni, f, f_data, x, minf, lb, ub, &stop, algorithm == NLOPT_GD_STOGO ? 0 : (int) POP(2 * n)))
+        if (!stogo_minimize(ni, f, f_data, x, minf, lb, ub, &stop, algorithm == NLOPT_GD_STOGO ? 0 : POP(2 * (int)n)))
             return NLOPT_FAILURE;
         break;
 #else
@@ -568,28 +698,53 @@ static nlopt_result nlopt_optimize_(nlopt_opt opt, double *x, double *minf)
     case NLOPT_LN_PRAXIS:
         {
             double step;
+            nlopt_result result;
+
             if (initial_step(opt, x, &step) != NLOPT_SUCCESS)
                 return NLOPT_OUT_OF_MEMORY;
-            return praxis_(nlopt_get_param(opt, "t0_tol", 0.0), DBL_EPSILON, step, ni, x, f_bound, opt, &stop, minf);
+
+            /* transform starting point into unbound space */
+            x_bound_inv(ni, x, opt->lb, opt->ub);
+
+            result = praxis_(nlopt_get_param(opt, "t0_tol", 0.0), DBL_EPSILON, step, ni, x, f_bound, opt, &stop, minf);
+
+            /* transform back optimal point to bounded space */
+            x_bound(ni, x, opt->lb, opt->ub);
+            return result;
         }
 
     case NLOPT_LD_LBFGS:
-        return luksan_plis(ni, f, f_data, lb, ub, x, minf, &stop, opt->vector_storage);
+#ifdef NLOPT_LUKSAN
+        return luksan_plis(ni, f, f_data, lb, ub, x, minf, &stop, opt->vector_storage, nlopt_get_param(opt, "tolg", 0.));
+#else
+        printf("ERROR - attempting to use NLOPT_LD_LBFGS, but Luksan code disabled\n");
+        return NLOPT_INVALID_ARGS;
+#endif
 
     case NLOPT_LD_VAR1:
     case NLOPT_LD_VAR2:
-        return luksan_plip(ni, f, f_data, lb, ub, x, minf, &stop, opt->vector_storage, algorithm == NLOPT_LD_VAR1 ? 1 : 2);
+#ifdef NLOPT_LUKSAN
+        return luksan_plip(ni, f, f_data, lb, ub, x, minf, &stop, opt->vector_storage, algorithm == NLOPT_LD_VAR1 ? 1 : 2, nlopt_get_param(opt, "tolg", 0.));
+#else
+        printf("ERROR - attempting to use NLOPT_LD_VAR*, but Luksan code disabled\n");
+        return NLOPT_INVALID_ARGS;
+#endif
 
     case NLOPT_LD_TNEWTON:
     case NLOPT_LD_TNEWTON_RESTART:
     case NLOPT_LD_TNEWTON_PRECOND:
     case NLOPT_LD_TNEWTON_PRECOND_RESTART:
-        return luksan_pnet(ni, f, f_data, lb, ub, x, minf, &stop, opt->vector_storage, 1 + (algorithm - NLOPT_LD_TNEWTON) % 2, 1 + (algorithm - NLOPT_LD_TNEWTON) / 2);
+#ifdef NLOPT_LUKSAN
+        return luksan_pnet(ni, f, f_data, lb, ub, x, minf, &stop, opt->vector_storage, 1 + (algorithm - NLOPT_LD_TNEWTON) % 2, 1 + (algorithm - NLOPT_LD_TNEWTON) / 2, nlopt_get_param(opt, "tolg", 0.));
+#else
+        printf("ERROR - attempting to use NLOPT_LD_TNEWTON*, but Luksan code disabled\n");
+        return NLOPT_INVALID_ARGS;
+#endif
 
     case NLOPT_GN_CRS2_LM:
         if (!finite_domain(n, lb, ub))
             RETURN_ERR(NLOPT_INVALID_ARGS, opt, "finite domain required for global algorithm");
-        return crs_minimize(ni, f, f_data, lb, ub, x, minf, &stop, (int) POP(0), 0);
+        return crs_minimize(ni, f, f_data, lb, ub, x, minf, &stop, POP(0), 0);
 
     case NLOPT_G_MLSL:
     case NLOPT_G_MLSL_LDS:
@@ -629,9 +784,9 @@ static nlopt_result nlopt_optimize_(nlopt_opt opt, double *x, double *minf)
                 nlopt_set_ftol_rel(local_opt, 1e-15);
                 nlopt_set_xtol_rel(local_opt, 1e-7);
             }
-            opt->force_stop_child = local_opt;
-            ret = mlsl_minimize(ni, f, f_data, lb, ub, x, minf, &stop, local_opt, (int) POP(0), algorithm >= NLOPT_GN_MLSL_LDS && algorithm != NLOPT_G_MLSL);
-            opt->force_stop_child = NULL;
+            push_force_stop_child(opt, local_opt);
+            ret = mlsl_minimize(ni, f, f_data, lb, ub, x, minf, &stop, local_opt, POP(0), algorithm >= NLOPT_GN_MLSL_LDS && algorithm != NLOPT_G_MLSL);
+            pop_force_stop_child(opt);
             if (!opt->local_opt)
                 nlopt_destroy(local_opt);
             return ret;
@@ -640,8 +795,16 @@ static nlopt_result nlopt_optimize_(nlopt_opt opt, double *x, double *minf)
     case NLOPT_LD_MMA:
     case NLOPT_LD_CCSAQ:
         {
+            int inner_maxeval = (int)nlopt_get_param(opt, "inner_maxeval",0);
+            int verbosity = (int)nlopt_get_param(opt, "verbosity",0);
+            double rho_init = nlopt_get_param(opt, "rho_init",1.0);
             nlopt_opt dual_opt;
             nlopt_result ret;
+
+            if (!(rho_init > 0) && !nlopt_isinf(rho_init))
+                RETURN_ERR(NLOPT_INVALID_ARGS, opt, "rho_init must be positive and finite");
+            verbosity = verbosity < 0 ? 0 : verbosity;
+
 #define LO(param, def) (opt->local_opt ? opt->local_opt->param : (def))
             dual_opt = nlopt_create((nlopt_algorithm)nlopt_get_param(opt, "dual_algorithm", LO(algorithm, nlopt_local_search_alg_deriv)),
                                     nlopt_count_constraints(opt->m, opt->fc));
@@ -651,13 +814,12 @@ static nlopt_result nlopt_optimize_(nlopt_opt opt, double *x, double *minf)
             nlopt_set_ftol_abs(dual_opt, nlopt_get_param(opt, "dual_ftol_abs", LO(ftol_abs, 0.0)));
             nlopt_set_xtol_rel(dual_opt, nlopt_get_param(opt, "dual_xtol_rel", 0.0));
             nlopt_set_xtol_abs1(dual_opt, nlopt_get_param(opt, "dual_xtol_abs", 0.0));
-            nlopt_set_maxeval(dual_opt, nlopt_get_param(opt, "dual_maxeval", LO(maxeval, 100000)));
+            nlopt_set_maxeval(dual_opt, (int)nlopt_get_param(opt, "dual_maxeval", LO(maxeval, 100000)));
 #undef LO
-
             if (algorithm == NLOPT_LD_MMA)
-                ret = mma_minimize(n, f, f_data, opt->m, opt->fc, lb, ub, x, minf, &stop, dual_opt, (int)nlopt_get_param(opt, "inner_maxeval",0), (unsigned)nlopt_get_param(opt, "verbosity",0));
+                ret = mma_minimize(n, f, f_data, opt->m, opt->fc, lb, ub, x, minf, &stop, dual_opt, inner_maxeval, (unsigned)verbosity, rho_init, opt->dx);
             else
-                ret = ccsa_quadratic_minimize(n, f, f_data, opt->m, opt->fc, opt->pre, lb, ub, x, minf, &stop, dual_opt, (int)nlopt_get_param(opt, "inner_maxeval",0), (unsigned)nlopt_get_param(opt, "verbosity",0));
+                ret = ccsa_quadratic_minimize(n, f, f_data, opt->m, opt->fc, opt->pre, lb, ub, x, minf, &stop, dual_opt, inner_maxeval, (unsigned)verbosity, rho_init, opt->dx);
             nlopt_destroy(dual_opt);
             return ret;
         }
@@ -757,11 +919,11 @@ static nlopt_result nlopt_optimize_(nlopt_opt opt, double *x, double *minf)
             }
             if (opt->dx)
                 nlopt_set_initial_step(local_opt, opt->dx);
-            opt->force_stop_child = local_opt;
+            push_force_stop_child(opt, local_opt);
             ret = auglag_minimize(ni, f, f_data,
                                   opt->m, opt->fc,
                                   opt->p, opt->h, lb, ub, x, minf, &stop, local_opt, algorithm == NLOPT_AUGLAG_EQ || algorithm == NLOPT_LN_AUGLAG_EQ || algorithm == NLOPT_LD_AUGLAG_EQ);
-            opt->force_stop_child = NULL;
+            pop_force_stop_child(opt);
             if (!opt->local_opt)
                 nlopt_destroy(local_opt);
             return ret;
@@ -770,7 +932,7 @@ static nlopt_result nlopt_optimize_(nlopt_opt opt, double *x, double *minf)
     case NLOPT_GN_ISRES:
         if (!finite_domain(n, lb, ub))
             RETURN_ERR(NLOPT_INVALID_ARGS, opt, "finite domain required for global algorithm");
-        return isres_minimize(ni, f, f_data, (int) (opt->m), opt->fc, (int) (opt->p), opt->h, lb, ub, x, minf, &stop, (int) POP(0));
+        return isres_minimize(ni, f, f_data, (int) (opt->m), opt->fc, (int) (opt->p), opt->h, lb, ub, x, minf, &stop, POP(0));
 
     case NLOPT_GN_ESCH:
         if (!finite_domain(n, lb, ub))
@@ -823,6 +985,7 @@ nlopt_result NLOPT_STDCALL nlopt_optimize(nlopt_opt opt, double *x, double *opt_
     void *f_data;
     nlopt_precond pre;
     f_max_data fmd;
+    memoize_data mmzd;
     int maximize;
     nlopt_result ret;
 
@@ -832,6 +995,10 @@ nlopt_result NLOPT_STDCALL nlopt_optimize(nlopt_opt opt, double *x, double *opt_
     f = opt->f;
     f_data = opt->f_data;
     pre = opt->pre;
+
+    /* reset stopping flag */
+    nlopt_set_force_stop(opt, 0);
+    opt->force_stop_child = NULL;
 
     /* for maximizing, just minimize the f_max wrapper, which
        flips the sign of everything */
@@ -847,7 +1014,19 @@ nlopt_result NLOPT_STDCALL nlopt_optimize(nlopt_opt opt, double *x, double *opt_
         opt->maximize = 0;
     }
 
-    {                           /* possibly eliminate lb == ub dimensions for some algorithms */
+    if (memoize_wrapcheck(opt))
+    {
+        mmzd.f = opt->f;
+        mmzd.f_data = opt->f_data;
+        mmzd.lb = opt->lb;
+        mmzd.ub = opt->ub;
+        mmzd.minf = DBL_MAX;
+        mmzd.bestx = (double *) malloc(opt->n * sizeof(double));
+        opt->f = memoize_func;
+        opt->f_data = &mmzd;
+    }
+
+    { /* possibly eliminate lb == ub dimensions for some algorithms */
         nlopt_opt elim_opt = opt;
         if (elimdim_wrapcheck(opt)) {
             elim_opt = elimdim_create(opt);
@@ -857,7 +1036,7 @@ nlopt_result NLOPT_STDCALL nlopt_optimize(nlopt_opt opt, double *x, double *opt_
                 goto done;
             }
             elimdim_shrink(opt->n, x, opt->lb, opt->ub);
-            opt->force_stop_child = elim_opt;
+            push_force_stop_child(opt, elim_opt);
         }
 
         ret = nlopt_optimize_(elim_opt, x, opt_f);
@@ -865,14 +1044,24 @@ nlopt_result NLOPT_STDCALL nlopt_optimize(nlopt_opt opt, double *x, double *opt_
         if (elim_opt != opt) {
             opt->numevals = elim_opt->numevals;
             opt->errmsg = elim_opt->errmsg; elim_opt->errmsg = NULL;
-            elimdim_destroy(elim_opt);
+            pop_force_stop_child(opt);
             elimdim_expand(opt->n, x, opt->lb, opt->ub);
-            opt->force_stop_child = NULL;
+            elimdim_destroy(elim_opt);
         }
     }
 
   done:
-    if (maximize) {             /* restore original signs */
+
+    if (memoize_wrapcheck(opt))
+    {
+        memcpy(x, mmzd.bestx, opt->n * sizeof(double));
+        free(mmzd.bestx);
+        *opt_f = mmzd.minf;
+        opt->f = mmzd.f;
+        opt->f_data = mmzd.f_data;
+    }
+
+    if (maximize) { /* restore original signs */
         opt->maximize = maximize;
         opt->stopval = -opt->stopval;
         opt->f = f;

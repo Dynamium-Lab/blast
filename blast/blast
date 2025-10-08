@@ -1,0 +1,63 @@
+#pragma once
+
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <iostream>
+#include <vector>
+
+namespace blast {
+
+#ifdef BLAST_MAX_JOINTS
+constexpr int32_t MAX_JOINTS = BLAST_MAX_JOINTS;
+#else
+constexpr int32_t MAX_JOINTS = 8;
+#endif
+
+#ifdef BLAST_MAX_CAPSULES
+constexpr int32_t MAX_CAPSULES = BLAST_MAX_CAPSULES;
+#else
+constexpr int32_t MAX_CAPSULES = 7;
+#endif
+
+using u8 = uint8_t;
+using u16 = uint16_t;
+using u32 = uint32_t;
+using u64 = uint64_t;
+using i8 = int8_t;
+using i16 = int16_t;
+using i32 = int32_t;
+using i64 = int64_t;
+
+} // namespace blast
+
+
+// determine if the compilation enables building for nvidia GPUs
+#ifdef __NVCC__
+#define blast_fn __host__ __device__
+#define host_fn __host__
+#define device_fn __device__
+#else
+#define blast_fn
+#define host_fn
+#define device_fn
+#endif
+
+#define VCL_NAMESPACE vcl
+#include "vectorclass.h"
+#include "vectormath_trig.h"
+
+#include "tracy/Tracy.hpp"
+#include "tracy/TracyC.h"
+
+#include "blast_error.hpp"
+#include "blast_math.hpp"
+#include "blast_profile.hpp"
+
+#include "blast_containers.hpp"
+#include "blast_utilities.hpp"
+
+#include "blast_world.hpp"
+#include "blast_manipulator.hpp"
+#include "blast_optimization.hpp"
+#include "blast_trajectory.hpp"

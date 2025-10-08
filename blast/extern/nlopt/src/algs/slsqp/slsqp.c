@@ -11,6 +11,8 @@
 
 #include "slsqp.h"
 
+#include <stdio.h>
+
 /*      ALGORITHM 733, COLLECTED ALGORITHMS FROM ACM. */
 /*      TRANSACTIONS ON MATHEMATICAL SOFTWARE, */
 /*      VOL. 20, NO. 3, SEPTEMBER, 1994, PP. 262-281. */
@@ -44,7 +46,7 @@
 /********************************* BLAS1 routines *************************/
 
 /*     COPIES A VECTOR, X, TO A VECTOR, Y, with the given increments */
-static void dcopy___(int *n_, const double *dx, int incx, 
+static void dcopy___(const int *n_, const double *dx, int incx,
 		     double *dy, int incy)
 {
      int i, n = *n_;
@@ -1249,7 +1251,7 @@ static void lsq_(int *m, int *meq, int *n, int *nl,
 	     im, ip, iu, iw;
     double diag;
     int mineq;
-    double xnorm;
+    double xnorm = 0.0;
 
 /*   MINIMIZE with respect to X */
 /*             ||E*X - F|| */
@@ -2235,7 +2237,7 @@ static void slsqp(int *m, int *meq, int *la, int *n,
 /* *    M              IS THE TOTAL NUMBER OF CONSTRAINTS, M .GE. 0      * */
 /* *    MEQ            IS THE NUMBER OF EQUALITY CONSTRAINTS, MEQ .GE. 0 * */
 /* *    LA             SEE A, LA .GE. MAX(M,1)                           * */
-/* *    N              IS THE NUMBER OF VARIBLES, N .GE. 1               * */
+/* *    N              IS THE NUMBER OF VARIABLES, N .GE. 1              * */
 /* *  * X()            X() STORES THE CURRENT ITERATE OF THE N VECTOR X  * */
 /* *                   ON ENTRY X() MUST BE INITIALIZED. ON EXIT X()     * */
 /* *                   STORES THE SOLUTION VECTOR X IF MODE = 0.         * */
@@ -2275,7 +2277,7 @@ static void slsqp(int *m, int *meq, int *la, int *n,
 /* *                1: FUNCTION EVALUATION, (F&C)                        * */
 /* *                                                                     * */
 /* *                   FAILURE MODES:                                    * */
-/* *                2: NUMBER OF EQUALITY CONTRAINTS LARGER THAN N       * */
+/* *                2: NUMBER OF EQUALITY CONSTRAINTS LARGER THAN N      * */
 /* *                3: MORE THAN 3*N ITERATIONS IN LSQ SUBPROBLEM        * */
 /* *                4: INEQUALITY CONSTRAINTS INCOMPATIBLE               * */
 /* *                5: SINGULAR MATRIX E IN LSQ SUBPROBLEM               * */
@@ -2361,7 +2363,7 @@ static void slsqp(int *m, int *meq, int *la, int *n,
 /* *                                                                     * */
 /* *  DATE:           APRIL - OCTOBER, 1981.                             * */
 /* *  STATUS:         DECEMBER, 31-ST, 1984.                             * */
-/* *  STATUS:         MARCH   , 21-ST, 1987, REVISED TO FORTAN 77        * */
+/* *  STATUS:         MARCH   , 21-ST, 1987, REVISED TO FORTRAN 77       * */
 /* *  STATUS:         MARCH   , 20-th, 1989, REVISED TO MS-FORTRAN       * */
 /* *  STATUS:         APRIL   , 14-th, 1989, HESSE   in-line coded       * */
 /* *  STATUS:         FEBRUARY, 28-th, 1991, FORTRAN/2 Version 1.04      * */
@@ -2442,6 +2444,12 @@ nlopt_result nlopt_slsqp(unsigned n, nlopt_func f, void *f_data,
 			 double *x, double *minf,
 			 nlopt_stopping *stop)
 {
+  printf("Printing from nlopt_slsqp\n");
+  printf("n = %d, m = %d, p = %d\n", n, m, p);
+  printf("lb = %f, ub = %f\n", lb[0], ub[0]);
+  printf("x = %f, %f, %f\n", x[0], x[1], x[2]);
+  printf("minf = %f\n", minf[0]);
+  print_nlopt_stopping(stop, "");
      slsqpb_state state = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,NULL};
      unsigned mtot = nlopt_count_constraints(m, fc);
      unsigned ptot = nlopt_count_constraints(p, h);
@@ -2459,6 +2467,11 @@ nlopt_result nlopt_slsqp(unsigned n, nlopt_func f, void *f_data,
      unsigned max_cdim;
      int want_grad = 1;
      
+     if (ptot > n) {
+       nlopt_stop_msg(stop, "slsqp: more equality constraints than variables");
+       return NLOPT_INVALID_ARGS;
+     }
+
      max_cdim = MAX2(nlopt_max_constraint_dim(m, fc),
 		    nlopt_max_constraint_dim(p, h));
      length_work(&len_w, &len_jw, mpi, pi, ni);
@@ -2605,7 +2618,7 @@ nlopt_result nlopt_slsqp(unsigned n, nlopt_func f, void *f_data,
 	  /* note: mode == -1 corresponds to the completion of a line search,
 	     and is the only time we should check convergence (as in original slsqp code) */
 	  if (mode == -1) {
-	       if (!nlopt_isinf(fprev)) {
+	       if (!nlopt_isinf(fprev) && feasible_cur) {
 		    if (nlopt_stop_ftol(stop, fcur, fprev))
 			 ret = NLOPT_FTOL_REACHED;
 		    else if (nlopt_stop_x(stop, xcur, xprev))
@@ -2619,6 +2632,13 @@ nlopt_result nlopt_slsqp(unsigned n, nlopt_func f, void *f_data,
 	  if (nlopt_stop_evals(stop)) ret = NLOPT_MAXEVAL_REACHED;
 	  else if (nlopt_stop_time(stop)) ret = NLOPT_MAXTIME_REACHED;
 	  else if (feasible && *minf < stop->minf_max) ret = NLOPT_MINF_MAX_REACHED;
+
+       // // print current iteration x
+       // for (i = 0; i < 8; ++i) {
+       //   printf("%f ", x[i]);
+       // }
+       // printf("\n");
+
      } while (ret == NLOPT_SUCCESS);
 
 done:

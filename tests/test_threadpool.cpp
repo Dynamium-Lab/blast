@@ -1,5 +1,4 @@
-#include <blast.h>
-#include "taskflow.hpp"
+#include <blast>
 
 const int total = 10000;
 const int units = 10;

@@ -1318,7 +1318,7 @@ L30:
 
 /*     Multiply the search direction by the second derivative matrix of Q and */
 /*     calculate some scalars for the choice of steplength. Then set BLEN to */
-/*     the length of the the step to the trust region boundary and STPLEN to */
+/*     the length of the step to the trust region boundary and STPLEN to */
 /*     the steplength, ignoring the simple bounds. */
 
     goto L210;
@@ -1979,12 +1979,12 @@ static nlopt_result bobyqb_(int *n, int *npt, double *x,
     int ksav;
     double gqsq, dist, sumw, sumz, diffa, diffb, diffc = 0.0, hdiag;
     int kbase;
-    double alpha, delta, adelt, denom, fsave, bdtol, delsq;
+    double alpha = 0.0, delta, adelt = 0.0, denom, fsave, bdtol, delsq;
     int nresc, nfsav;
-    double ratio, dnorm, vquad, pqold, tenth;
+    double ratio = 0.0, dnorm, vquad, pqold, tenth;
     int itest;
     double sumpq, scaden;
-    double errbig, cauchy, fracsq, biglsq, densav;
+    double errbig, cauchy = 0.0, fracsq, biglsq, densav;
     double bdtest;
     double crvmin, frhosq;
     double distsq;
@@ -2754,7 +2754,7 @@ L360:
 	    suma += zmat[knew + jj * zmat_dim1] * zmat[k + jj * zmat_dim1];
 	}
 	if (nlopt_isinf(suma)) {
-	  /* SGJ: detect singularity here (happend if we run
+	  /* SGJ: detect singularity here (happens if we run
 	     for too many iterations) ... is there another way to recover? */
 	  rc = NLOPT_ROUNDOFF_LIMITED;
 	  goto L720;

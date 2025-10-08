@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "blast.h"
+#include <blast>
 #include "blast_math.h"
 #include "blast_manipulator.h"
 #include "collisions/world.h"
