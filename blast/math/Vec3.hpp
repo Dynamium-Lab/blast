@@ -117,10 +117,24 @@ inline blast_fn Vec3& operator+=(Vec3& v1, const Vec3& v2) {
   return v1;
 }
 
+inline blast_fn Vec3& operator-=(Vec3& v1, const Vec3& v2) {
+  v1.x -= v2.x;
+  v1.y -= v2.y;
+  v1.z -= v2.z;
+  return v1;
+}
+
 inline blast_fn Vec3& operator*=(Vec3& v, real a) {
   v.x *= a;
   v.y *= a;
   v.z *= a;
+  return v;
+}
+
+inline blast_fn Vec3& operator/=(Vec3& v, real a) {
+  v.x /= a;
+  v.y /= a;
+  v.z /= a;
   return v;
 }
 } // namespace blast
