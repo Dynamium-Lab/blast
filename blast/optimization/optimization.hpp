@@ -19,7 +19,7 @@ struct Result {
   bool          success       = false;
   bool          success_false = false;
   real          compute_time  = 0;
-  Optimization* opt;
+  Optimization* opt; //todo: fix this (pointer becomes out of bounds fast)
   Array         x;
   Array         x0;
   nlopt_result  nlopt_exit_criteria = NLOPT_SUCCESS;
@@ -181,7 +181,7 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
 
   // Initialization
   // configure_internal_data(opt); // todo: Ensure we can remove
-  // initialize_optimization(opt);
+  initialize_optimization(opt);
   n_con(opt);
 
   // Initial validation
@@ -424,12 +424,14 @@ inline void n_con_with_segments(Optimization* opt) {
 
 inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   auto   T1 = get_tick_us();
-  Result result(opt); // todo: this is expensive
-
+  
   // Initialization
   // configure_internal_data(opt); // todo: Ensure we can remove
-  // initialize_optimization_with_segments(opt);
+  initialize_optimization_with_segments(opt);
   n_con_with_segments(opt);
+  
+  Result result(opt); // todo: this is expensive
+  result.opt->task = opt->task;
 
   // Initial validation
   if (!validate_task(opt)) { // todo: support validate_task when there are no capsules...
