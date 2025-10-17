@@ -9,19 +9,6 @@
 
 #include "../../tests/test_helper/test_helper.hpp"
 
-#include <fcntl.h> // _O_WRONLY
-#include <io.h>    // _open, _dup, _dup2, _close
-
-#define WIN32_LEAN_AND_MEAN
-#ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x0A00 // Windows 10+
-#endif
-#include <algorithm>
-#include <mutex>
-#include <thread>
-#include <unordered_set>
-#include <windows.h>
-
 #include <cassert>
 #include <fstream>
 #include <stdexcept>
@@ -225,68 +212,31 @@ inline World get_kitchen_open_doors() {
   return world;
 }
 
-// ------------------------------ Helper functions ------------------------------
-struct IOSilencer {
-  int             saved_stdout_fd = -1;
-  int             null_fd         = -1;
-  std::streambuf* old_cout        = nullptr;
-  std::streambuf* old_cerr        = nullptr;
-  std::ofstream   null_stream;
-
-  IOSilencer() {
-    // Flush buffers
-    std::cout.flush();
-    std::cerr.flush();
-    fflush(stdout);
-
-    // Redirect std::cout and std::cerr to /dev/null
-    null_stream.open("NUL"); // Windows null device
-    old_cout = std::cout.rdbuf();
-    old_cerr = std::cerr.rdbuf();
-    std::cout.rdbuf(null_stream.rdbuf());
-    std::cerr.rdbuf(null_stream.rdbuf());
-
-    // Redirect printf (C stdout)
-    saved_stdout_fd = _dup(_fileno(stdout));
-    null_fd         = _open("NUL", _O_WRONLY);
-    _dup2(null_fd, _fileno(stdout));
-  }
-
-  ~IOSilencer() {
-    std::cout.rdbuf(old_cout);
-    std::cerr.rdbuf(old_cerr);
-    fflush(stdout);
-
-    _dup2(saved_stdout_fd, _fileno(stdout));
-    _close(null_fd);
-    _close(saved_stdout_fd);
-  }
-};
-
-struct CpuRow {
-  ULONG id;    // CpuSet.Id (stable handle for SetThreadSelectedCpuSets)
-  WORD  group; // processor group
-  ULONG lpi;   // LogicalProcessorIndex (info only)
-  ULONG core;  // CoreIndex (same for SMT siblings)
-  BYTE  eff;   // EfficiencyClass (0 = most performant if hybrid)
-  bool  ok;    // Allocated & !Parked
-};
+// ============================================================================
+// Cross-platform performance/thread helpers
+// ============================================================================
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0A00
+#endif
+#include <algorithm>
+#include <iostream>
+#include <unordered_set>
+#include <vector>
+#include <windows.h>
 
 static std::vector<GROUP_AFFINITY> pick_physical_cores(size_t N) {
   std::vector<GROUP_AFFINITY> picks;
 
-  // --- Preferred: CPU set API ---
   DWORD len = 0;
-  GetSystemCpuSetInformation(nullptr, 0, &len, nullptr, 0); // note: nullptr process
+  GetSystemCpuSetInformation(nullptr, 0, &len, nullptr, 0);
   if (GetLastError() == ERROR_INSUFFICIENT_BUFFER && len > 0) {
     std::vector<unsigned char> buf(len);
     if (GetSystemCpuSetInformation(reinterpret_cast<SYSTEM_CPU_SET_INFORMATION*>(buf.data()),
                                    (ULONG) buf.size(), &len, nullptr, 0)) {
       std::unordered_set<ULONG> seen_core;
       BYTE                      min_eff = 255, max_eff = 0;
-
-      BYTE* p   = buf.data();
-      BYTE* end = p + len;
       struct Row {
         GROUP_AFFINITY ga;
         ULONG          core;
@@ -294,6 +244,8 @@ static std::vector<GROUP_AFFINITY> pick_physical_cores(size_t N) {
       };
       std::vector<Row> rows;
 
+      BYTE* p   = buf.data();
+      BYTE* end = p + len;
       while (p < end) {
         auto* info = reinterpret_cast<SYSTEM_CPU_SET_INFORMATION*>(p);
         if (info->Type == CpuSetInformation) {
@@ -305,10 +257,8 @@ static std::vector<GROUP_AFFINITY> pick_physical_cores(size_t N) {
             r.core     = c.CoreIndex;
             r.eff      = c.EfficiencyClass;
             rows.push_back(r);
-            if (r.eff < min_eff)
-              min_eff = r.eff;
-            if (r.eff > max_eff)
-              max_eff = r.eff;
+            min_eff = std::min(min_eff, r.eff);
+            max_eff = std::max(max_eff, r.eff);
           }
         }
         p += info->Size;
@@ -316,10 +266,8 @@ static std::vector<GROUP_AFFINITY> pick_physical_cores(size_t N) {
 
       if (!rows.empty()) {
         bool hybrid = (min_eff != max_eff);
-        std::sort(rows.begin(), rows.end(),
-                  [](const Row& a, const Row& b) { return a.core < b.core; });
-
-        for (const auto& r: rows) {
+        std::sort(rows.begin(), rows.end(), [](auto& a, auto& b) { return a.core < b.core; });
+        for (auto& r: rows) {
           if (hybrid && r.eff != min_eff)
             continue; // prefer P-cores
           if (seen_core.insert(r.core).second) {
@@ -332,52 +280,96 @@ static std::vector<GROUP_AFFINITY> pick_physical_cores(size_t N) {
     }
   }
 
-  if (!picks.empty())
-    return picks;
-
-  // --- Fallback: LogicalProcessorInformationEx ---
-  DWORD bytes = 0;
-  GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &bytes);
-  std::vector<unsigned char> buf2(bytes);
-  if (GetLogicalProcessorInformationEx(RelationProcessorCore,
-                                       reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(buf2.data()), &bytes)) {
-
-    BYTE* p2   = buf2.data();
-    BYTE* end2 = p2 + bytes;
-    while (p2 < end2) {
-      auto* ex = reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(p2);
-      if (ex->Relationship == RelationProcessorCore) {
-        const GROUP_AFFINITY& g = ex->Processor.GroupMask[0];
-        if (g.Mask) {
-          KAFFINITY      first = g.Mask & (~g.Mask + 1);
-          GROUP_AFFINITY ga{};
-          ga.Group = g.Group;
-          ga.Mask  = first;
-          picks.push_back(ga);
-          if (picks.size() == N)
-            break;
+  // fallback if empty
+  if (picks.empty()) {
+    DWORD bytes = 0;
+    GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &bytes);
+    std::vector<unsigned char> buf2(bytes);
+    if (GetLogicalProcessorInformationEx(RelationProcessorCore,
+                                         reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(buf2.data()), &bytes)) {
+      BYTE* p   = buf2.data();
+      BYTE* end = p + bytes;
+      while (p < end) {
+        auto* ex = reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(p);
+        if (ex->Relationship == RelationProcessorCore) {
+          const GROUP_AFFINITY& g = ex->Processor.GroupMask[0];
+          if (g.Mask) {
+            KAFFINITY      first = g.Mask & (~g.Mask + 1);
+            GROUP_AFFINITY ga{};
+            ga.Group = g.Group;
+            ga.Mask  = first;
+            picks.push_back(ga);
+            if (picks.size() == N)
+              break;
+          }
         }
+        p += ex->Size;
       }
-      p2 += ex->Size;
     }
   }
 
   return picks;
 }
 
-
-static inline void raise_process_priority() {
+inline void raise_process_priority() {
   SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
 }
 
-static inline void configure_current_thread_for_performance() {
+inline void configure_current_thread_for_performance() {
   THREAD_POWER_THROTTLING_STATE s{};
   s.Version     = THREAD_POWER_THROTTLING_CURRENT_VERSION;
   s.ControlMask = THREAD_POWER_THROTTLING_EXECUTION_SPEED;
-  s.StateMask   = 0; // favor performance (disable EcoQoS)
+  s.StateMask   = 0; // favor performance
   SetThreadInformation(GetCurrentThread(), ThreadPowerThrottling, &s, sizeof(s));
   SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
 }
+
+#else // =============================== LINUX =================================
+
+#include <cstring>
+#include <iostream>
+#include <pthread.h>
+#include <sched.h>
+#include <sys/resource.h>
+#include <unistd.h>
+#include <vector>
+
+struct GROUP_AFFINITY {}; // dummy placeholder for portability
+
+// Simple round-robin CPU pinning on Linux
+static std::vector<int> pick_physical_cores(size_t N) {
+  std::vector<int> cores;
+  int              ncpu = std::thread::hardware_concurrency();
+  for (int i = 0; i < (int) N && i < ncpu; ++i)
+    cores.push_back(i);
+  return cores;
+}
+
+inline void raise_process_priority() {
+  if (setpriority(PRIO_PROCESS, 0, -10) != 0)
+    std::cerr << "Warning: cannot raise process priority (" << strerror(errno) << ")\n";
+}
+
+inline void configure_current_thread_for_performance() {
+  pthread_t this_thread = pthread_self();
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);
+
+  static thread_local int next_core = 0;
+  int                     ncpu      = std::thread::hardware_concurrency();
+  int                     core_id   = next_core++ % ncpu;
+
+  CPU_SET(core_id, &cpuset);
+  if (pthread_setaffinity_np(this_thread, sizeof(cpu_set_t), &cpuset) != 0)
+    std::cerr << "Warning: cannot set CPU affinity (" << strerror(errno) << ")\n";
+
+  // Optional: try to lower nice value further
+  setpriority(PRIO_PROCESS, 0, -10);
+}
+
+#endif
+// ============================================================================
+
 
 // ===== End helpers =====
 
@@ -1826,14 +1818,17 @@ int main() {
       eval_function_UR5e();
     });
 
-    // Pin the thread immediately after creation
+#ifdef _WIN32
+    // Only available on Windows — pin threads to P-cores
     if (t < (int) cores.size()) {
       SetThreadGroupAffinity(
               (HANDLE) workers.back().native_handle(),
               &cores[t],
               nullptr);
     }
+#endif
   }
+
 
   for (auto& th: workers)
     th.join();
