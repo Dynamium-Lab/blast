@@ -251,38 +251,29 @@ dev_fn void cuGen3MultiTraj::compute_constraints_point(const real pos[7], const 
     const Mat3 Q7t(transpose(Q7));
 
     //-- Collision constraints
-    Vec3 p_orig(0, 0, 0);
-    Vec3 p_j2;
-    Vec3 p_j3;
-    Vec3 p_j4;
-    Vec3 p_j6;
-    Vec3 p_ee;
-    auto p_tmp = p_base;
-    auto Q_tmp = Q1;
-    p_tmp += Q_tmp * dv[0];
-    p_j2 = p_tmp;
-    p_tmp += (Q_tmp *= Q2) * dv[1];
-    p_j3 = p_tmp;
-    p_tmp += (Q_tmp *= Q3) * dv[2];
-    p_j4 = p_tmp;
-    p_tmp += (Q_tmp *= Q4) * dv[3];
-    p_tmp += (Q_tmp *= Q5) * dv[4];
-    p_j6 = p_tmp;
-    p_tmp += (Q_tmp *= Q6) * dv[5];
-    p_tmp += (Q_tmp *= Q7) * dv[6];
-    p_ee = p_tmp;
-    const real r1_sqr = 0.09f * 0.09f;
-    const real r2_sqr = 0.09f * 0.09f;
+    auto Q = Q1;
+    auto p_j2 = p_base + Q * dv[0];
+    auto p_j3 = p_j2 + (Q *= Q2) * dv[1];
+    auto p_j4 = p_j3 + (Q *= Q3) * dv[2];
+    auto p_j5 = p_j4 + (Q *= Q4) * dv[3];
+    auto p_j6 = p_j5 + (Q *= Q5) * dv[4];
+    auto p_j7 = p_j6 + (Q *= Q6) * dv[5];
+    auto p_ee = p_j7 + (Q *= Q7) * dv[6];
+    const real r1sqr = 0.0875 * 0.0875;
+    const real r2sqr = 0.0875 * 0.0875;
     // Self collisions sqr
-    real dist1sqr = two_segment_distance_sqr(p_orig, p_j2, p_j6, p_ee) - r1_sqr;
-    real dist2sqr = two_segment_distance_sqr(p_j2, p_j3, p_j6, p_ee) - r2_sqr;
+    real dist1sqr = two_segment_distance_sqr({0, 0, 0}, p_j2, p_j6, p_ee) - r1sqr;
+    // todo: bad way to check a sphere
+    real dist2J2sqr = two_segment_distance_sqr(p_j2, p_j2, p_j6, p_ee) - r2sqr; // d^2 from j2 to J6-EE capsule
+    real dist2Msqr = two_segment_distance_sqr(p_j2, p_j3, p_j6, p_ee) - r1sqr;  // d^2 from j2-j3 capsule to j6-EE capsule
+    real dist2sqr = std::min(dist2J2sqr, dist2Msqr);
     // Collision with table sqr
-    const real r4table = 0.05f;
-    const real r6table = 0.04f;
-    const Vec3 p_table(0, 0, -0.0025f);
+    const real r4table = 0.05; // todo: validate dimensions
+    const real r6table = 0.04; // todo: validate dimensions
+    const Vec3 p_table(0, 0, -0.0025); // todo: Correct coords (z or y) ??
     real distTJ4 = p_j4.z - p_table.z - r4table;
     real distTJ6 = p_j6.z - p_table.z - r6table;
-    real distTEE = p_ee.z - p_table.z - r6table;
+    real distTEE = p_ee.z - p_table.z - r6table;-
 
     con[0] = -dist1sqr;
     con[1] = -dist2sqr;
@@ -339,17 +330,17 @@ dev_fn void cuGen3MultiTraj::compute_constraints_point(const real pos[7], const 
     f7 = m[6] * cdd7;
     n7 = I[6] * wd7 + cross(w7, I[6] * w7) + cross(av[6], f7);
     f6 = m[5] * cdd6 + Q7 * f7;
-    n6 = I[5] * wd6 + cross(w6, I[5] * w6) + Q7 * n7 + cross(av[5], f6) + cross(sv[5], (Q7 * f7));
+    n6 = I[5] * wd6 + cross(w6, I[5] * w6) + Q7 * n7 + cross(av[5], f6) - cross(sv[5], (Q7 * f7));
     f5 = m[4] * cdd5 + Q6 * f6;
-    n5 = I[4] * wd5 + cross(w5, I[4] * w5) + Q6 * n6 + cross(av[4], f5) + cross(sv[4], (Q6 * f6));
+    n5 = I[4] * wd5 + cross(w5, I[4] * w5) + Q6 * n6 + cross(av[4], f5) - cross(sv[4], (Q6 * f6));
     f4 = m[3] * cdd4 + Q5 * f5;
-    n4 = I[3] * wd4 + cross(w4, I[3] * w4) + Q5 * n5 + cross(av[3], f4) + cross(sv[3], (Q5 * f5));
+    n4 = I[3] * wd4 + cross(w4, I[3] * w4) + Q5 * n5 + cross(av[3], f4) - cross(sv[3], (Q5 * f5));
     f3 = m[2] * cdd3 + Q4 * f4;
-    n3 = I[2] * wd3 + cross(w3, I[2] * w3) + Q4 * n4 + cross(av[2], f3) + cross(sv[2], (Q4 * f4));
+    n3 = I[2] * wd3 + cross(w3, I[2] * w3) + Q4 * n4 + cross(av[2], f3) - cross(sv[2], (Q4 * f4));
     f2 = m[1] * cdd2 + Q3 * f3;
-    n2 = I[1] * wd2 + cross(w2, I[1] * w2) + Q3 * n3 + cross(av[1], f2) + cross(sv[1], (Q3 * f3));
+    n2 = I[1] * wd2 + cross(w2, I[1] * w2) + Q3 * n3 + cross(av[1], f2) - cross(sv[1], (Q3 * f3));
     f1 = m[0] * cdd1 + Q2 * f2;
-    n1 = I[0] * wd1 + cross(w1, I[0] * w1) + Q2 * n2 + cross(av[0], f1) + cross(sv[0], (Q2 * f2));
+    n1 = I[0] * wd1 + cross(w1, I[0] * w1) + Q2 * n2 + cross(av[0], f1) - cross(sv[0], (Q2 * f2));
 
     //-- extract torques (last element of each moment vector)
     current_result[0] = (abs(n1.z) - tau_max[0]) / tau_max[0];

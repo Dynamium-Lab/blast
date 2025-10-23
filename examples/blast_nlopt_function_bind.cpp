@@ -562,6 +562,5 @@ int main() {
 
     file_handle_result << j_result;
 
-
     return 0;
 }

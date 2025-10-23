@@ -32,7 +32,7 @@ using real  = double;
 using real  = float;
 #define BLAST_SIZEOF_REAL 4
 #endif
-static_assert(sizeof(real) == BLAST_SIZEOF_REAL);
+static_assert(sizeof(real) == BLAST_SIZEOF_REAL, "size of real");
 
 
 // Constants
