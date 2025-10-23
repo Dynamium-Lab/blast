@@ -28,8 +28,8 @@ target_compile_features(blast PUBLIC cxx_std_17)
 target_link_libraries(blast PUBLIC nlopt)
 
 
-if(MSVC)
-target_compile_options(blast PUBLIC /arch:AVX2)
-else()
-target_compile_options(blast PUBLIC -march=native)
-endif()
+# if(MSVC)
+# target_compile_options(blast PUBLIC /arch:AVX2)
+# else()
+# target_compile_options(blast PUBLIC -march=native)
+# endif()
