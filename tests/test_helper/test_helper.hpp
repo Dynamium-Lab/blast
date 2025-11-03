@@ -211,8 +211,8 @@ Manipulator get_generic_gen3_fixed() { // todo: fix capsules, not working
     kinematics.Q_static[5] = {1, 0, 0, 0, 0, 1, 0, -1, 0};
     kinematics.Q_static[6] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
     kinematics.p_j0  = {0, 0, 0.1564f};
-    kinematics.p_base = {1.4, 0, 0};
-    kinematics.Q_base = {-1, 0, 0, 0, -1, 0, 0, 0, 1};
+    kinematics.p_base = {0, 0, 0};
+    kinematics.Q_base = {1, 0, 0, 0, 1, 0, 0, 0, 1};
 
     // dynamic properties
     ManipulatorDynamics dynamics;
@@ -696,7 +696,7 @@ inline host_fn Manipulator get_generic_fanuc_crx25ia() {
 
 inline host_fn World get_demo2_world() {
   World result;
-  result.add_box({0.7, 0, 0.38}, {1.0, 0.75, 0.38}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});                 // table 76 cm high
+  result.add_box({0.7, 0, 0.381}, {1.0, 0.75, 0.381}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});                 // table 76 cm high
   result.add_box({0.67, -0.1475, 0.96}, {0.35, 0.025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // vertical plate (no coll)
   // result.add_box({0.7, 0, -0.55}, {1.0, 0.75, 0.4}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});                 // table 76 cm high
   // result.add_box({0.67, -0.1475, -0.0562}, {0.35, 0.025, 0.4}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // vertical plate (no coll)
