@@ -23,29 +23,43 @@ std::vector<Matrix> get_tasks() {
 
   // Define positions
   Array pos_0 = {0, 0, 0, 0, 0, 0, 0};
-  Array pos_bin = wrap2pi(deg2rad(    {-44.7, 33.9,  162.4, 264.0, 84.6, 306.9, -26}));
+  // Array pos_bin = wrap2pi(deg2rad(    {-44.7, 33.9,  162.4, 264.0, 84.6, 306.9, -26}));
 
-  Array pos_b2_10cm = wrap2pi(deg2rad({36.1,  79.9,  114.8, 339.7, 41.9, 321.6, 116.2}));
-  Array pos_b2 = wrap2pi(deg2rad(     {37.6,  89.1,  114.6, 335.7, 42.7, 332.0, 119.4}));
+  // Array pos_b2_10cm = wrap2pi(deg2rad({36.1,  79.9,  114.8, 339.7, 41.9, 321.6, 116.2}));
+  // Array pos_b2 = wrap2pi(deg2rad(     {37.6,  89.1,  114.6, 335.7, 42.7, 332.0, 119.4}));
 
-  Array pos_b5_10cm = wrap2pi(deg2rad(     {73.3, 88.8,  98.4, 318.0, 43.4, 321.6, 142.4}));
-  Array pos_b5 = wrap2pi(deg2rad({72.4, 98.5,  98.5, 318.8, 42.0, 315.7, 135.7}));
+  // Array pos_b5_10cm = wrap2pi(deg2rad(     {73.3, 88.8,  98.4, 318.0, 43.4, 321.6, 142.4}));
+  // Array pos_b5 = wrap2pi(deg2rad({72.4, 98.5,  98.5, 318.8, 42.0, 315.7, 135.7}));
 
-  Array pos_b6_10cm = wrap2pi(deg2rad({69.2,  59.7,  122.7, 274.6, 55.1, 352.1, 87.7}));
-  Array pos_b6 = wrap2pi(deg2rad(     {62.2,  64.9,  142.5, 270.5, 53.1, 347.5,  88.7}));
+  // Array pos_b6_10cm = wrap2pi(deg2rad({69.2,  59.7,  122.7, 274.6, 55.1, 352.1, 87.7}));
+  // Array pos_b6 = wrap2pi(deg2rad(     {62.2,  64.9,  142.5, 270.5, 53.1, 347.5,  88.7}));
+
+  Array pos_bin = wrap2pi(deg2rad(    {302.097, 34.659, 159.209, 264.607, 78.817, 294.022, 328.983}));
+
+  // Array pos_b2_10cm = wrap2pi({ 1.1067,  1.4473,  1.5834, -0.7312,  0.6452, -0.7130,  2.3648 });
+  // Array pos_b2 = wrap2pi({ 1.2636,  1.7191,  1.7191, -0.7191,  0.7330, -0.7732,  2.3684 });
+
+  Array pos_b5_10cm = wrap2pi({ 0.6761,  0.9147,  1.2801, -0.6486,  0.4588, -0.5870,  2.3513 });
+  Array pos_b5 = wrap2pi({ 0.8933,  1.1840,  1.4310, -0.6902,  0.5524, -0.6508,  2.3581 });
+
+  Array pos_b6_10cm = wrap2pi({ 0.2450,  0.3815,  0.9775, -0.5638,  0.2701, -0.4574,  2.3381 });
+  Array pos_b6 = wrap2pi({ 0.4605,  0.6483,  1.1282, -0.6064,  0.3646, -0.5223,  2.3447 });
 
   // Fill task and add to list
   Matrix task(7,6);
-  fill_positions(task, pos_0, pos_b2_10cm);
-  result.push_back(task);
-  fill_positions(task, pos_b2_10cm, pos_b2);
-  result.push_back(task);
-  fill_positions(task, pos_b2, pos_b2_10cm);
-  result.push_back(task);
-  fill_positions(task, pos_b2_10cm, pos_bin);
-  result.push_back(task);
+  // fill_positions(task, pos_0, pos_b2_10cm);
+  // result.push_back(task);
+  // fill_positions(task, pos_b2_10cm, pos_b2);
+  // result.push_back(task);
+  // fill_positions(task, pos_b2, pos_b2_10cm);
+  // result.push_back(task);
+  // fill_positions(task, pos_b2_10cm, pos_bin);
+  // result.push_back(task);
 
-  fill_positions(task, pos_bin, pos_b5_10cm);
+  // fill_positions(task, pos_bin, pos_b5_10cm);
+  // result.push_back(task);
+  
+  fill_positions(task, pos_0, pos_b5_10cm);
   result.push_back(task);
   fill_positions(task, pos_b5_10cm, pos_b5);
   result.push_back(task);
@@ -131,11 +145,11 @@ void print_to_json(const std::vector<Result>& res, const int n_tests, const std:
 }
 
 int main() {
-  int n_tests = 10;
+  int n_tests = 1;
   
   // todo: confirm manip
   auto manip = get_generic_gen3_fixed();
-  manip.p_base = {1.4, 0, 0.7112};
+  manip.p_base = {1.27, 0.05, 0.7112};
   manip.Q_base = {-1, 0, 0, 0, -1, 0, 0, 0, 1};
   auto world = get_demo2_world();
 

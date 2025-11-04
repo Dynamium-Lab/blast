@@ -25,42 +25,31 @@ std::vector<Matrix> get_tasks() {
   Array pos_0 = {0, 0, 0, 0, 0, 0, 0};
   Array pos_bin = wrap2pi(deg2rad(    {-44.7, 33.9,  162.4, 264.0, 84.6, 306.9, -26}));
 
-  Array pos_b2_10cm = wrap2pi(deg2rad({36.1,  79.9,  114.8, 339.7, 41.9, 321.6, 116.2}));
-  Array pos_b2 = wrap2pi(deg2rad(     {37.6,  89.1,  114.6, 335.7, 42.7, 332.0, 119.4}));
+  Array pos_5_10cm = wrap2pi(deg2rad(     {84.8, 75.3, 99.6, 301.9, 40.4, 312.1, 118.2})); 
+  Array pos_5 = wrap2pi(deg2rad({85.3, 86.7, 103.5, 298.6, 44.7, 322.0, 123.0}));
 
-  Array pos_b5_10cm = wrap2pi(deg2rad(     {73.3, 88.8,  98.4, 318.0, 43.4, 321.6, 142.4}));
-  Array pos_b5 = wrap2pi(deg2rad({72.4, 98.5,  98.5, 318.8, 42.0, 315.7, 135.7}));
-
-  Array pos_b6_10cm = wrap2pi(deg2rad({69.2,  59.7,  122.7, 274.6, 55.1, 352.1, 87.7}));
-  Array pos_b6 = wrap2pi(deg2rad(     {62.2,  64.9,  142.5, 270.5, 53.1, 347.5,  88.7}));
+  Array pos_6_10cm = wrap2pi(deg2rad({66.0, 50.0, 126.2, 273.4, 41.3, 323.0, 92.7}));
+  Array pos_6 = wrap2pi(deg2rad(     {62.7, 55.1, 134.0, 269.5, 47.0, 333.7, 88.5}));
 
   // Fill task and add to list
   Matrix task(7,6);
-  fill_positions(task, pos_0, pos_b2_10cm);
-  result.push_back(task);
-  fill_positions(task, pos_b2_10cm, pos_b2);
-  result.push_back(task);
-  fill_positions(task, pos_b2, pos_b2_10cm);
-  result.push_back(task);
-  fill_positions(task, pos_b2_10cm, pos_bin);
-  result.push_back(task);
 
-  fill_positions(task, pos_bin, pos_b5_10cm);
+  fill_positions(task, pos_0, pos_5_10cm);
   result.push_back(task);
-  fill_positions(task, pos_b5_10cm, pos_b5);
+  fill_positions(task, pos_5_10cm, pos_5);
   result.push_back(task);
-  fill_positions(task, pos_b5, pos_b5_10cm);
+  fill_positions(task, pos_5, pos_5_10cm);
   result.push_back(task);
-  fill_positions(task, pos_b5_10cm, pos_bin);
+  fill_positions(task, pos_5_10cm, pos_bin);
   result.push_back(task);
   
-  fill_positions(task, pos_bin, pos_b6_10cm);
+  fill_positions(task, pos_bin, pos_6_10cm);
   result.push_back(task);
-  fill_positions(task, pos_b6_10cm, pos_b6);
+  fill_positions(task, pos_6_10cm, pos_6);
   result.push_back(task);
-  fill_positions(task, pos_b6, pos_b6_10cm);
+  fill_positions(task, pos_6, pos_6_10cm);
   result.push_back(task);
-  fill_positions(task, pos_b6_10cm, pos_bin);
+  fill_positions(task, pos_6_10cm, pos_bin);
   result.push_back(task);
 
   fill_positions(task, pos_bin, pos_0);
@@ -122,7 +111,7 @@ void print_to_json(const std::vector<Result>& res, const int n_tests, const std:
   int n_tasks = res.size()/n_tests;
   for (int i = 0; i < n_tasks; i++) {
     for (int j = 0; j < n_tests; j++) {
-      fill_array(res[i*n_tests + j], i, arr);
+      fill_array(res[i], i, arr);
     }
   }
   
@@ -130,12 +119,10 @@ void print_to_json(const std::vector<Result>& res, const int n_tests, const std:
   f << "{\n\"results\": " << arr.dump(2) << "\n}\n";
 }
 
-int main() {
-  int n_tests = 10;
-  
+int main() {  
   // todo: confirm manip
   auto manip = get_generic_gen3_fixed();
-  manip.p_base = {1.4, 0, 0.7112};
+  manip.p_base = {1.27, 0.05, 0.7112};
   manip.Q_base = {-1, 0, 0, 0, -1, 0, 0, 0, 1};
   auto world = get_demo2_world();
 
@@ -158,7 +145,7 @@ int main() {
   // tasks.resize(1);
 
   std::vector<Result> res;
-  res.reserve(tasks.size()*n_tests);
+  res.reserve(tasks.size());
 
   real total_time = 0.0;
   for (int t_id = 0; t_id < tasks.size(); t_id++) {
@@ -176,14 +163,16 @@ int main() {
     opt.success_tolerance                   = 0.01;
 
     Result result(&opt);
-    for (int i = 0; i < n_tests; i++) {
+    while (true) {
       opt.guess.x0        = random_array(opt.bspline.x_len(opt.task), 1);
       opt.guess.x0.back() = 0.5;
       result = optimize_with_segments(&opt);
       tasks[t_id] = result.opt->task;
       // result = optimize(&opt);
-      
-      res.push_back(result);
+      if (result.success && !result.success_false) {
+        res.push_back(result);
+        break;
+      }
     }
   }
 
@@ -192,58 +181,22 @@ int main() {
   std::cout << "Results (compute and trajectory time is average)" << std::endl;
   std::cout << "------------------------------------------------" << std::endl;
 
-  real total_compute_time = 0.0;
-  real total_trajectory_time = 0.0;
-  real total_convergence = 0.0;
-  for (int i = 0; i < tasks.size(); i++) {
-    real compute_time = 0.0;
-    real trajectory_time = 0.0;
-    real convergence = 0.0;
-    for (int j = 0; j < n_tests; j++) {
-      if (res[i*n_tests + j].success && !res[i*n_tests + j].success_false) {
-        compute_time += res[i*n_tests + j].compute_time;
-        trajectory_time += res[i*n_tests + j].x.back();
-        convergence ++;
-      }
-    }
-    std::cout << "- Task " << i << " -" << std::endl;
-    std::cout << " Convergence: " << convergence / n_tests << std::endl;
-    std::cout << " Compute time: " << compute_time / n_tests << std::endl;
-    std::cout << " Trajectory time: " << trajectory_time / n_tests << std::endl;
-
-    total_compute_time += compute_time / n_tests;
-    total_trajectory_time += trajectory_time / n_tests;
-    total_convergence += convergence / n_tests;
-  }
-
-  std::cout << "- Total results -" << std::endl;
-  std::cout << " Convergence: " << total_convergence / tasks.size() << std::endl;
-  std::cout << " Compute time (avg): " << total_compute_time / tasks.size() << std::endl;
-  std::cout << " Compute time (total): " << total_compute_time << std::endl;
-  std::cout << " Trajectory time (avg): " << total_trajectory_time / tasks.size() << std::endl;
-  std::cout << " Trajectory time (total): " << total_trajectory_time << std::endl;
-
   // print trajectory
   std::cout << std::endl << "Printing trajectory..." << std::endl;
   Matrix trajectory(0, manip.n_joints);
   for (int i = 0; i < tasks.size(); i++) {
-    for (int j = 0; j < n_tests; j++) {
-      if (res[i*n_tests + j].success && !res[i*n_tests + j].success_false) {
-        int points_more = (int) std::ceil(res[i*n_tests + j].x.back() * 1000.0) + 1;
+    int points_more = (int) std::ceil(res[i].x.back() * 1000.0) + 1;
 
-        Bspline bspline_val_more(res[i*n_tests + j].opt->bspline.n_ctrl, points_more, res[i*n_tests + j].opt->bspline.p, res[i*n_tests + j].opt->manip.n_joints); // todo: this is expensive
-        bspline_val_more.compute_trajectory(res[i*n_tests + j].x, tasks[i]);
+    Bspline bspline_val_more(res[i].opt->bspline.n_ctrl, points_more, res[i].opt->bspline.p, res[i].opt->manip.n_joints); // todo: this is expensive
+    bspline_val_more.compute_trajectory(res[i].x, tasks[i]);
 
-        trajectory = append_rows(trajectory, transpose(bspline_val_more.traj.pos));
-        break;
-      }
-    }
+    trajectory = append_rows(trajectory, transpose(bspline_val_more.traj.pos));
   }
   print_to_csv(trajectory, "../../../examples/Demo3/Trajectories/trajectory_demo2_gen3.csv");
   std::cout << "Trajectory printed." << std::endl;
 
   std::cout << "Printing results..." << std::endl;
-  print_to_json(res, n_tests, "../../../examples/Demo3/Trajectories/results_demo2_gen3.json");
+  print_to_json(res, 1, "../../../examples/Demo3/Trajectories/results_demo2_gen3.json");
   std::cout << std::endl;
   std::cout << "Results printed." << std::endl;
 
