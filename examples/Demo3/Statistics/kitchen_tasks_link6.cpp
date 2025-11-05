@@ -139,7 +139,7 @@ void print_to_json(const std::vector<Result>& res, const int n_tests, const std:
 }
 
 int main() {
-  int n_tests = 1;
+  int n_tests = 10;
 
   auto manip = get_generic_Link6_fixed();
   manip.p_base = {-0.5, -0.3, 0.35}; // link6
@@ -245,11 +245,11 @@ int main() {
       }
     }
   }
-  print_to_csv(trajectory, "../../../examples/Demo3/Trajectories/trajectory_kitchen_Link6.csv");
+  print_to_csv(trajectory, "../../../examples/Demo3/Statistics/trajectory_kitchen_Link6.csv");
   std::cout << "Trajectory printed." << std::endl;
 
   std::cout << "Printing results..." << std::endl;
-  print_to_json(res, n_tests, "../../../examples/Demo3/Trajectories/results_kitchen_Link6.json");
+  print_to_json(res, n_tests, "../../../examples/Demo3/Statistics/results_kitchen_Link6.json");
   std::cout << std::endl;
   std::cout << "Results printed." << std::endl;
 

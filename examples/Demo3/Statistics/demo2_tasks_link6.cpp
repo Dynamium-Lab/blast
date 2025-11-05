@@ -23,48 +23,63 @@ std::vector<Matrix> get_tasks() {
 
   // Define positions
   Array pos_0 = {0, 0, 0, 0, 0, 0};
-  Array pos_bin = wrap2pi(deg2rad(    {-44.7, 33.9,  162.4, 264.0, 84.6, 306.9}));
+  
+  Array pos_1      = deg2rad({-40.19879913330078, -34.87216567993164, 96.39874267578125, 1.4193572998046875, 41.67781066894531, -41.464874267578125});
+  Array pos_1_10cm = deg2rad({-40.445762634277344, -26.876392364501953, 83.60868835449219, 1.49383544921875, 19.951095581054688, -42.22943115234375});
 
-  Array pos_b2_10cm = wrap2pi(deg2rad({36.1,  79.9,  114.8, 339.7, 41.9, 321.6}));
-  Array pos_b2 = wrap2pi(deg2rad(     {37.6,  89.1,  114.6, 335.7, 42.7, 332.0}));
+  Array pos_2      = deg2rad({-23.84050750732422, -23.07632064819336, 121.39236450195312, -0.2214813232421875, 52.64436340332031, -23.962554931640625});
+  Array pos_2_10cm = deg2rad({-24.826316833496094, -9.07125473022461, 110.22100830078125, 1.2542877197265625, 30.40911865234375, -27.223480224609375});
 
-  Array pos_b5_10cm = wrap2pi(deg2rad(     {73.3, 88.8,  98.4, 318.0, 43.4, 321.6}));
-  Array pos_b5 = wrap2pi(deg2rad({72.4, 98.5,  98.5, 318.8, 42.0, 315.7}));
+  Array pos_3      = deg2rad({-34.8427734375, -42.51811599731445, 81.55162811279297, 0.0153350830078125, 33.299774169921875, -35.105316162109375});
+  Array pos_3_10cm = deg2rad({-33.93860626220703, -35.56209945678711, 70.89104461669922, -0.6509857177734375, 16.881134033203125, -31.8890380859375});
 
-  Array pos_b6_10cm = wrap2pi(deg2rad({69.2,  59.7,  122.7, 274.6, 55.1, 352.1}));
-  Array pos_b6 = wrap2pi(deg2rad(     {62.2,  64.9,  142.5, 270.5, 53.1, 347.5}));
+  Array pos_4      = deg2rad({-20.46697998046875, -30.862834930419922, 105.23368835449219, 1.3421478271484375, 43.346038818359375, -22.13421630859375});
+  Array pos_4_10cm = deg2rad({-19.595504760742188, -19.332134246826172, 95.92303466796875, -3.042205810546875, 23.505020141601562, -17.61700439453125});
+
+  Array pos_white_bin = deg2rad({62.90712356567383, -2.7591018676757812, 119.23771667480469, 8.18115234375, 28.954452514648438, 47.103912353515625});
+
+  Array pos_black_bin = deg2rad({27.443552017211914, -54.93880081176758, 28.312477111816406, 1.807525634765625, -4.7853546142578125, 29.731155395507812});
 
   // Fill task and add to list
   // todo: change tasks
   Matrix task(6,6);
-  fill_positions(task, pos_0, pos_b2_10cm);
+  fill_positions(task, pos_0, pos_1_10cm);
   result.push_back(task);
-  fill_positions(task, pos_b2_10cm, pos_b2);
+  fill_positions(task, pos_1_10cm, pos_1);
   result.push_back(task);
-  fill_positions(task, pos_b2, pos_b2_10cm);
+  fill_positions(task, pos_1, pos_1_10cm);
   result.push_back(task);
-  fill_positions(task, pos_b2_10cm, pos_bin);
+  fill_positions(task, pos_1_10cm, pos_white_bin);
   result.push_back(task);
 
-  fill_positions(task, pos_bin, pos_b5_10cm);
+  fill_positions(task, pos_white_bin, pos_2_10cm);
   result.push_back(task);
-  fill_positions(task, pos_b5_10cm, pos_b5);
+  fill_positions(task, pos_2_10cm, pos_2);
   result.push_back(task);
-  fill_positions(task, pos_b5, pos_b5_10cm);
+  fill_positions(task, pos_2, pos_2_10cm);
   result.push_back(task);
-  fill_positions(task, pos_b5_10cm, pos_bin);
+  fill_positions(task, pos_2_10cm, pos_black_bin);
   result.push_back(task);
   
-  fill_positions(task, pos_bin, pos_b6_10cm);
+  fill_positions(task, pos_black_bin, pos_3_10cm);
   result.push_back(task);
-  fill_positions(task, pos_b6_10cm, pos_b6);
+  fill_positions(task, pos_3_10cm, pos_3);
   result.push_back(task);
-  fill_positions(task, pos_b6, pos_b6_10cm);
+  fill_positions(task, pos_3, pos_3_10cm);
   result.push_back(task);
-  fill_positions(task, pos_b6_10cm, pos_bin);
+  fill_positions(task, pos_3_10cm, pos_white_bin);
+  result.push_back(task);
+  
+  fill_positions(task, pos_white_bin, pos_4_10cm);
+  result.push_back(task);
+  fill_positions(task, pos_4_10cm, pos_4);
+  result.push_back(task);
+  fill_positions(task, pos_4, pos_4_10cm);
+  result.push_back(task);
+  fill_positions(task, pos_4_10cm, pos_white_bin);
   result.push_back(task);
 
-  fill_positions(task, pos_bin, pos_0);
+  fill_positions(task, pos_white_bin, pos_0);
   result.push_back(task);
   
   return result;
@@ -155,15 +170,24 @@ void print_to_json(const std::vector<Result>& res, const int n_tests, const std:
 }
 
 int main() {
-  int n_tests = 1;
+  int n_tests = 10;
+  
+  Array trajectory_time = {0.808, 0.411, 0.412, 0.914, 0.829, 0.417, 0.417, 0.8, 0.719, 0.359, 0.359, 0.879, 0.802, 0.394, 0.394, 0.802, 0.996};
   
   auto manip = get_generic_Link6_fixed();
   manip.p_base = {0, 0, 0.8636}; // link6
   manip.Q_base = {1, 0, 0, 0, 1, 0, 0, 0, 1};
   auto world = get_demo2_world();
 
+  auto inflated_gen3 = get_generic_gen3_fixed();
+  inflated_gen3.p_base = {1.27, 0.05, 0.7112};
+  inflated_gen3.Q_base = {-1, 0, 0, 0, -1, 0, 0, 0, 1};
+  for (auto& caps : inflated_gen3._collision_model) {
+    caps.r += 0.05; // 5 cm buffer
+  }
+
   auto gen3_trajectory = transpose(read_csv_matrix_no_header("../../../examples/Demo3/Trajectories/trajectory_demo2_gen3.csv", ","));
-  add_robot_obstacles(get_generic_gen3_fixed(), gen3_trajectory, 0.0, gen3_trajectory.cols/1000, &world);
+  add_robot_obstacles(inflated_gen3, gen3_trajectory, 0.0, gen3_trajectory.cols/1000, &world);
 
   Bspline bspline(12, 70, 5, manip.n_joints);
 
@@ -194,6 +218,7 @@ int main() {
     opt.world = world;
     opt.bspline = bspline;
     opt.constraints = cons;
+    opt.trajectory_start_time = total_time;
 
     opt.guess = guess;
 
@@ -210,6 +235,7 @@ int main() {
       
       res.push_back(result);
     }
+    total_time += trajectory_time[t_id];
   }
 
   std::cout << std::endl;
@@ -247,28 +273,9 @@ int main() {
   std::cout << " Compute time (total): " << total_compute_time << std::endl;
   std::cout << " Trajectory time (avg): " << total_trajectory_time / tasks.size() << std::endl;
   std::cout << " Trajectory time (total): " << total_trajectory_time << std::endl;
-  
-  // print trajectory
-  std::cout << std::endl << "Printing trajectory..." << std::endl;
-  Matrix trajectory(0, manip.n_joints);
-  for (int i = 0; i < tasks.size(); i++) {
-    for (int j = 0; j < n_tests; j++) {
-      if (res[i*n_tests + j].success && !res[i*n_tests + j].success_false) {
-        int points_more = (int) std::ceil(res[i*n_tests + j].x.back() * 1000.0) + 1;
-
-        Bspline bspline_val_more(res[i*n_tests + j].opt->bspline.n_ctrl, points_more, res[i*n_tests + j].opt->bspline.p, res[i*n_tests + j].opt->manip.n_joints); // todo: this is expensive
-        bspline_val_more.compute_trajectory(res[i*n_tests + j].x, tasks[i]);
-
-        trajectory = append_rows(trajectory, transpose(bspline_val_more.traj.pos));
-        break;
-      }
-    }
-  }
-  print_to_csv(trajectory, "../../../examples/Demo3/Trajectories/trajectory_demo2_Link6.csv");
-  std::cout << "Trajectory printed." << std::endl;
 
   std::cout << "Printing results..." << std::endl;
-  print_to_json(res, n_tests, "../../../examples/Demo3/Trajectories/results_demo2_Link6.json");
+  print_to_json(res, n_tests, "../../../examples/Demo3/Statistics/results_demo2_Link6.json");
   std::cout << std::endl;
   std::cout << "Results printed." << std::endl;
 

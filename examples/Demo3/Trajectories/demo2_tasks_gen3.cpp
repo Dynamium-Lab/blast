@@ -176,11 +176,6 @@ int main() {
     }
   }
 
-  std::cout << std::endl;
-  std::cout << "------------------------------------------------" << std::endl;
-  std::cout << "Results (compute and trajectory time is average)" << std::endl;
-  std::cout << "------------------------------------------------" << std::endl;
-
   // print trajectory
   std::cout << std::endl << "Printing trajectory..." << std::endl;
   Matrix trajectory(0, manip.n_joints);
