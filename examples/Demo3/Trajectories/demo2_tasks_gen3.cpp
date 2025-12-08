@@ -178,16 +178,22 @@ int main() {
 
   // print trajectory
   std::cout << std::endl << "Printing trajectory..." << std::endl;
-  Matrix trajectory(0, manip.n_joints);
+  Matrix trajectory_pos(0, manip.n_joints);
+  Matrix trajectory_vel(0, manip.n_joints);
+  Matrix trajectory_acc(0, manip.n_joints);
   for (int i = 0; i < tasks.size(); i++) {
     int points_more = (int) std::ceil(res[i].x.back() * 1000.0) + 1;
 
     Bspline bspline_val_more(res[i].opt->bspline.n_ctrl, points_more, res[i].opt->bspline.p, res[i].opt->manip.n_joints); // todo: this is expensive
     bspline_val_more.compute_trajectory(res[i].x, tasks[i]);
 
-    trajectory = append_rows(trajectory, transpose(bspline_val_more.traj.pos));
+    trajectory_pos = append_rows(trajectory_pos, transpose(bspline_val_more.traj.pos));
+    trajectory_vel = append_rows(trajectory_vel, transpose(bspline_val_more.traj.vel));
+    trajectory_acc = append_rows(trajectory_acc, transpose(bspline_val_more.traj.acc));
   }
-  print_to_csv(trajectory, "../../../examples/Demo3/Trajectories/trajectory_demo2_gen3.csv");
+  print_to_csv(trajectory_pos, "../../../examples/Demo3/Trajectories/trajectory_demo2_gen3_pos.csv");
+  print_to_csv(trajectory_vel, "../../../examples/Demo3/Trajectories/trajectory_demo2_gen3_vel.csv");
+  print_to_csv(trajectory_acc, "../../../examples/Demo3/Trajectories/trajectory_demo2_gen3_acc.csv");
   std::cout << "Trajectory printed." << std::endl;
 
   std::cout << "Printing results..." << std::endl;
