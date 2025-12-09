@@ -66,7 +66,6 @@ int main() {
   auto t2 = get_tick_us();
   cout << "Compute time:        " << (double) (t2 - t1) / 1000. << endl;
   cout << "Average compute time:        " << (double) (t2 - t1) / 1000. / (real) max_iter << endl;
-  // cout << "Initial guess time:        " << time_for_one_guess << endl;
 
 
   return 0;
