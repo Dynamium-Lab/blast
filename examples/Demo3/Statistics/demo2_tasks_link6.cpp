@@ -23,7 +23,7 @@ std::vector<Matrix> get_tasks() {
 
   // Define positions
   Array pos_0 = {0, 0, 0, 0, 0, 0};
-  
+
   Array pos_1      = deg2rad({-40.19879913330078, -34.87216567993164, 96.39874267578125, 1.4193572998046875, 41.67781066894531, -41.464874267578125});
   Array pos_1_10cm = deg2rad({-40.445762634277344, -26.876392364501953, 83.60868835449219, 1.49383544921875, 19.951095581054688, -42.22943115234375});
 
@@ -42,7 +42,7 @@ std::vector<Matrix> get_tasks() {
 
   // Fill task and add to list
   // todo: change tasks
-  Matrix task(6,6);
+  Matrix task(6, 6);
   fill_positions(task, pos_0, pos_1_10cm);
   result.push_back(task);
   fill_positions(task, pos_1_10cm, pos_1);
@@ -60,7 +60,7 @@ std::vector<Matrix> get_tasks() {
   result.push_back(task);
   fill_positions(task, pos_2_10cm, pos_black_bin);
   result.push_back(task);
-  
+
   fill_positions(task, pos_black_bin, pos_3_10cm);
   result.push_back(task);
   fill_positions(task, pos_3_10cm, pos_3);
@@ -69,7 +69,7 @@ std::vector<Matrix> get_tasks() {
   result.push_back(task);
   fill_positions(task, pos_3_10cm, pos_white_bin);
   result.push_back(task);
-  
+
   fill_positions(task, pos_white_bin, pos_4_10cm);
   result.push_back(task);
   fill_positions(task, pos_4_10cm, pos_4);
@@ -81,13 +81,13 @@ std::vector<Matrix> get_tasks() {
 
   fill_positions(task, pos_white_bin, pos_0);
   result.push_back(task);
-  
+
   return result;
 }
 
 Matrix append_rows(const Matrix& m1, const Matrix& m2) {
   Assert(m1.cols == m2.cols);
-  Matrix result(m1.rows+m2.rows, m1.cols);
+  Matrix result(m1.rows + m2.rows, m1.cols);
   for (int i = 0; i < m1.rows; i++) {
     for (int j = 0; j < m1.cols; j++) {
       result(i, j) = m1(i, j);
@@ -101,7 +101,7 @@ Matrix append_rows(const Matrix& m1, const Matrix& m2) {
   return result;
 }
 
-template <typename T_manip>
+template<typename T_manip>
 inline void add_robot_obstacles(T_manip manip, const Matrix& trajectory, const real start_time, const real end_time, World* world) {
   std::vector<std::vector<Capsule>> capsules;
 
@@ -121,7 +121,7 @@ inline void add_robot_obstacles(T_manip manip, const Matrix& trajectory, const r
   }
 
   for (u32 i = 0; i < manip.n_joints; i++)
-    world->add_dynamic_capsule(capsules[i], (u32)capsules[i].size(), start_time, end_time);
+    world->add_dynamic_capsule(capsules[i], (u32) capsules[i].size(), start_time, end_time);
 }
 
 using nlohmann::json;
@@ -157,48 +157,50 @@ void fill_array(const Result& res, const int task_id, json& array) {
 }
 
 void print_to_json(const std::vector<Result>& res, const int n_tests, const std::string path) {
-  json arr = json::array();
-  int n_tasks = res.size()/n_tests;
+  json arr     = json::array();
+  int  n_tasks = res.size() / n_tests;
   for (int i = 0; i < n_tasks; i++) {
     for (int j = 0; j < n_tests; j++) {
-      fill_array(res[i*n_tests + j], i, arr);
+      fill_array(res[i * n_tests + j], i, arr);
     }
   }
-  
+
   std::ofstream f(path);
   f << "{\n\"results\": " << arr.dump(2) << "\n}\n";
 }
 
 int main() {
   int n_tests = 10;
-  
-  Array trajectory_time = {0.808, 0.411, 0.412, 0.914, 0.829, 0.417, 0.417, 0.8, 0.719, 0.359, 0.359, 0.879, 0.802, 0.394, 0.394, 0.802, 0.996};
-  
-  auto manip = get_generic_Link6_fixed();
-  manip.p_base = {0, 0, 0.8636}; // link6
-  manip.Q_base = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  auto world = get_demo2_world();
 
-  auto inflated_gen3 = get_generic_gen3_fixed();
-  inflated_gen3.p_base = {1.27, 0.05, 0.7112};
+  Array trajectory_time = {0.808, 0.411, 0.412, 0.914, 0.829, 0.417, 0.417, 0.8, 0.719, 0.359, 0.359, 0.879, 0.802, 0.394, 0.394, 0.802, 0.996};
+
+  auto manip   = get_generic_Link6_fixed();
+  manip.p_base = {0, 0, 0.833}; // link6
+  manip.Q_base = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  auto world   = get_demo2_world();
+
+  auto inflated_gen3   = get_generic_gen3_fixed();
+  inflated_gen3.p_base = {1.28, 0.025, 0.73};
   inflated_gen3.Q_base = {-1, 0, 0, 0, -1, 0, 0, 0, 1};
-  for (auto& caps : inflated_gen3._collision_model) {
+  for (auto& caps: inflated_gen3._collision_model) {
     caps.r += 0.05; // 5 cm buffer
   }
 
-  auto gen3_trajectory = transpose(read_csv_matrix_no_header("../../../examples/Demo3/Trajectories/trajectory_demo2_gen3.csv", ","));
-  add_robot_obstacles(inflated_gen3, gen3_trajectory, 0.0, gen3_trajectory.cols/1000, &world);
+  auto trajectory = read_csv_trajectory_no_header("../../../examples/Demo3/Trajectories/trajectory_full_gen3.csv", ",");
+
+  auto gen3_trajectory_pos = trajectory.pos;
+  add_robot_obstacles(inflated_gen3, gen3_trajectory_pos, 0.0, gen3_trajectory_pos.cols / 1000, &world);
 
   Bspline bspline(12, 70, 5, manip.n_joints);
 
   ConstraintSelection cons;
-  cons.position            = true;
-  cons.velocity            = true;
-  cons.acceleration        = true;
-  cons.torque              = true;
-  cons.tcp_speed           = true;
-  cons.self_collisions     = true;
-  cons.external_collisions = true;
+  cons.position                = true;
+  cons.velocity                = true;
+  cons.acceleration            = true;
+  cons.torque                  = true;
+  cons.tcp_speed               = true;
+  cons.self_collisions         = true;
+  cons.external_collisions     = true;
   cons.n_collision_constraints = 1;
 
   Guess guess;
@@ -207,7 +209,7 @@ int main() {
   auto tasks = get_tasks();
 
   std::vector<Result> res;
-  res.reserve(tasks.size()*n_tests);
+  res.reserve(tasks.size() * n_tests);
 
   real total_time = 0.0;
   for (int t_id = 0; t_id < tasks.size(); t_id++) {
@@ -215,24 +217,24 @@ int main() {
     auto t = tasks[t_id];
 
     Optimization opt(manip, t);
-    opt.world = world;
-    opt.bspline = bspline;
-    opt.constraints = cons;
+    opt.world                 = world;
+    opt.bspline               = bspline;
+    opt.constraints           = cons;
     opt.trajectory_start_time = total_time;
 
     opt.guess = guess;
 
-    opt.max_tries                           = 1;
-    opt.success_tolerance                   = 0.01;
+    opt.max_tries         = 1;
+    opt.success_tolerance = 0.01;
 
     Result result(&opt);
     for (int i = 0; i < n_tests; i++) {
       opt.guess.x0        = random_array(opt.bspline.x_len(opt.task), 1);
       opt.guess.x0.back() = 0.5;
-      result = optimize_with_segments(&opt);
-      tasks[t_id] = result.opt->task;
+      result              = optimize_with_segments(&opt);
+      tasks[t_id]         = result.opt->task;
       // result = optimize(&opt);
-      
+
       res.push_back(result);
     }
     total_time += trajectory_time[t_id];
@@ -243,18 +245,18 @@ int main() {
   std::cout << "Results (compute and trajectory time is average)" << std::endl;
   std::cout << "------------------------------------------------" << std::endl;
 
-  real total_compute_time = 0.0;
+  real total_compute_time    = 0.0;
   real total_trajectory_time = 0.0;
-  real total_convergence = 0.0;
+  real total_convergence     = 0.0;
   for (int i = 0; i < tasks.size(); i++) {
-    real compute_time = 0.0;
+    real compute_time    = 0.0;
     real trajectory_time = 0.0;
-    real convergence = 0.0;
+    real convergence     = 0.0;
     for (int j = 0; j < n_tests; j++) {
-      if (res[i*n_tests + j].success && !res[i*n_tests + j].success_false) {
-        compute_time += res[i*n_tests + j].compute_time;
-        trajectory_time += res[i*n_tests + j].x.back();
-        convergence ++;
+      if (res[i * n_tests + j].success && !res[i * n_tests + j].success_false) {
+        compute_time += res[i * n_tests + j].compute_time;
+        trajectory_time += res[i * n_tests + j].x.back();
+        convergence++;
       }
     }
     std::cout << "- Task " << i << " -" << std::endl;
