@@ -529,7 +529,7 @@ inline blast_fn Array test_collisions(const ObjMatrix<Capsule>& robot_capsules, 
   real  dist;
 
   u32  n_pts     = (u32) (robot_capsules).cols;
-  real time_step = n_pts == 1 ? 1 : (end_time - start_time) / (n_pts - 1);
+  real time_step = n_pts == 1 ? 0 : (end_time - start_time) / (n_pts - 1); // if only one point, p stays 0 and time_step has no meaning anyways
 
   {
     blast_time_block("External Collision Constraints : Static");

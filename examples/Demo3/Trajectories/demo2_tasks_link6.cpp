@@ -198,6 +198,7 @@ int main() {
   cons.self_collisions         = true;
   cons.external_collisions     = true;
   cons.n_collision_constraints = 1;
+  cons.n_collision_skip = 1;
 
   Guess guess;
   guess.type = Guess::custom;
