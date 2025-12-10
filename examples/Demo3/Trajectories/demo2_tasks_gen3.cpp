@@ -164,10 +164,10 @@ int main() {
 
     Result result(&opt);
     while (true) {
-      opt.guess.x0        = random_array(opt.bspline.x_len(opt.task), 1);
-      opt.guess.x0.back() = 0.5;
-      result              = optimize_with_segments(&opt);
-      tasks[t_id]         = result.opt->task;
+      opt.guess.x0 = guess_random(opt.bspline, result.opt->task);
+      // opt.guess.x0.back() = 0.5;
+      result      = optimize_with_segments(&opt);
+      tasks[t_id] = result.opt->task;
       // result = optimize(&opt);
       if (result.success && !result.success_false) {
         res.push_back(result);
