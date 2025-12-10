@@ -113,14 +113,14 @@ inline void add_robot_obstacles(T_manip manip, const Matrix& trajectory, const r
 
   Capsule temp_caps;
   for (u32 i = 0; i < trajectory.cols; i++) {
-    forward_kinematics(manip, data, trajectory.col(0));
+    forward_kinematics(manip, data, trajectory.col(i));
     compute_capsules(manip, data);
-    for (u32 j = 0; j < manip.n_joints; j++) {
+    for (u32 j = 0; j < manip._n_caps; j++) {
       capsules[j].push_back(data.capsule_list[j]);
     }
   }
 
-  for (u32 i = 0; i < manip.n_joints; i++)
+  for (u32 i = 0; i < manip._n_caps; i++)
     world->add_dynamic_capsule(capsules[i], (u32) capsules[i].size(), start_time, end_time);
 }
 
@@ -178,14 +178,14 @@ int main() {
   auto inflated_gen3   = get_generic_gen3_fixed();
   inflated_gen3.p_base = {1.28, 0.025, 0.73};
   inflated_gen3.Q_base = {-1, 0, 0, 0, -1, 0, 0, 0, 1};
-  for (auto& caps: inflated_gen3._collision_model) {
+  for (auto& caps: inflated_gen3._collision_model) { // todo: fix std::array
     caps.r += 0.05; // 5 cm buffer
   }
 
   auto trajectory = read_csv_trajectory_no_header("../../../examples/Demo3/Trajectories/trajectory_full_gen3.csv", ",");
 
   auto gen3_trajectory_pos = trajectory.pos;
-  add_robot_obstacles(inflated_gen3, gen3_trajectory_pos, 0.0, gen3_trajectory_pos.cols / 1000, &world);
+  add_robot_obstacles(inflated_gen3, gen3_trajectory_pos, 0.0, (real)gen3_trajectory_pos.cols / 1000.0, &world);
 
   Bspline bspline(12, 70, 5, manip.n_joints);
 
