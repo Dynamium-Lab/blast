@@ -287,13 +287,13 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
             }
 
             // --- Dynamic tests ---
-            int current_point = segment * n_points_per_segment + point_in_segment;
-            int max_point = n_segments * n_points_per_segment - 1;
-            real current_time = x.back() * ((real)current_point / (real)max_point); // trajectory time * progression along trajectory
+            int  current_point = segment * n_points_per_segment + point_in_segment;
+            int  max_point     = n_segments * n_points_per_segment - 1;                // todo: check -1 ?
+            real current_time  = x.back() * ((real) current_point / (real) max_point); // trajectory time * progression along trajectory
 
             for (const auto& box: world.dynamic_boxes) {
-              auto current_box = box.lookup(current_time);
-              const auto dist = distance(capsule, current_box);
+              auto       current_box = box.lookup(opt.trajectory_start_time + current_time);
+              const auto dist        = distance(capsule, current_box);
               if (dist < dist_min) {
                 dist_min                            = dist;
                 collision_objects.other_object_type = CollisionObjectType::box; // todo: Add dynamic boxes? Not sure if necessary if we take the current box instead???
@@ -304,8 +304,8 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
             }
 
             for (const auto& caps: world.dynamic_capsules) {
-              auto current_caps = caps.lookup(current_time);
-              const auto dist = distance(capsule, current_caps);
+              auto       current_caps = caps.lookup(opt.trajectory_start_time + current_time);
+              const auto dist         = distance(capsule, current_caps);
               if (dist < dist_min) {
                 dist_min                            = dist;
                 collision_objects.other_object_type = CollisionObjectType::capsule; // todo: Add dynamic capsules? Not sure if necessary if we take the current caps instead???
@@ -316,8 +316,8 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
             }
 
             for (const auto& sphere: world.dynamic_spheres) {
-              auto current_sphere = sphere.lookup(current_time);
-              const auto dist = distance(capsule, current_sphere);
+              auto       current_sphere = sphere.lookup(opt.trajectory_start_time + current_time);
+              const auto dist           = distance(capsule, current_sphere);
               if (dist < dist_min) {
                 dist_min                            = dist;
                 collision_objects.other_object_type = CollisionObjectType::sphere; // todo: Add dynamic spheres? Not sure if necessary if we take the current sphere instead???
@@ -328,8 +328,8 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
             }
 
             for (const auto& door: world.dynamic_doors) {
-              auto current_door = door.lookup(current_time);
-              const auto dist = distance(capsule, current_door);
+              auto       current_door = door.lookup(opt.trajectory_start_time + current_time);
+              const auto dist         = distance(capsule, current_door);
               if (dist < dist_min) {
                 dist_min                            = dist;
                 collision_objects.other_object_type = CollisionObjectType::box; // todo: Add dynamic doors? Not sure if necessary if we take the current door instead???
