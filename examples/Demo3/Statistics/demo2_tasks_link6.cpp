@@ -172,7 +172,23 @@ void print_to_json(const std::vector<Result>& res, const int n_tests, const std:
 int main() {
   int n_tests = 10;
 
-  Array trajectory_time = {0.808, 0.411, 0.412, 0.914, 0.829, 0.417, 0.417, 0.8, 0.719, 0.359, 0.359, 0.879, 0.802, 0.394, 0.394, 0.802, 0.996};
+  Array trajectory_time = {0.858,
+                           0.598,
+                           0.597,
+                           0.974,
+                           0.882,
+                           0.648,
+                           0.648,
+                           1.366,
+                           0.746,
+                           0.56,
+                           0.561,
+                           0.937,
+                           0.851,
+                           0.637,
+                           0.637,
+                           0.851,
+                           1.063};
 
   auto manip   = get_generic_Link6_fixed();
   manip.p_base = {0, 0, 0.833}; // link6
@@ -189,7 +205,7 @@ int main() {
   auto trajectory = read_csv_trajectory_no_header("../../../examples/Demo3/Trajectories/trajectory_full_gen3.csv", ",");
 
   auto gen3_trajectory_pos = trajectory.pos;
-  add_robot_obstacles(inflated_gen3, gen3_trajectory_pos, 0.0, (real)gen3_trajectory_pos.cols / 1000.0, &world);
+  add_robot_obstacles(inflated_gen3, gen3_trajectory_pos, 0.0, (real) gen3_trajectory_pos.cols / 1000.0, &world);
 
   Bspline bspline(12, 70, 5, manip.n_joints);
 
