@@ -223,6 +223,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           }
         }
 
+        // self collision
         {
 #if BLAST_TRACE_LEVEL >= 3
           ZoneScopedN("Self Constraints");
@@ -235,6 +236,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           }
         }
 
+        // external collision
         {
 #if BLAST_TRACE_LEVEL >= 3
           ZoneScopedN("Ext Constraints");
@@ -286,13 +288,14 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
               count++;
             }
 
-            // --- Dynamic tests ---
+            // --- Dynamic tests --- todo: check & fix gradients
             int  current_point = segment * n_points_per_segment + point_in_segment;
-            int  max_point     = n_segments * n_points_per_segment - 1;                // todo: check -1 ?
-            real current_time  = x.back() * ((real) current_point / (real) max_point); // trajectory time * progression along trajectory
+            int  max_point     = n_segments * n_points_per_segment - 1;                                            // todo: check -1 ?
+            real current_time  = x.back() * ((real) current_point / (real) max_point) + opt.trajectory_start_time; // trajectory time * progression along trajectory
 
+            count = 0;
             for (const auto& box: world.dynamic_boxes) {
-              auto       current_box = box.lookup(opt.trajectory_start_time + current_time);
+              auto       current_box = box.lookup(current_time);
               const auto dist        = distance(capsule, current_box);
               if (dist < dist_min) {
                 dist_min                            = dist;
@@ -303,8 +306,9 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
               count++;
             }
 
+            count = 0;
             for (const auto& caps: world.dynamic_capsules) {
-              auto       current_caps = caps.lookup(opt.trajectory_start_time + current_time);
+              auto       current_caps = caps.lookup(current_time);
               const auto dist         = distance(capsule, current_caps);
               if (dist < dist_min) {
                 dist_min                            = dist;
@@ -315,8 +319,9 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
               count++;
             }
 
+            count = 0;
             for (const auto& sphere: world.dynamic_spheres) {
-              auto       current_sphere = sphere.lookup(opt.trajectory_start_time + current_time);
+              auto       current_sphere = sphere.lookup(current_time);
               const auto dist           = distance(capsule, current_sphere);
               if (dist < dist_min) {
                 dist_min                            = dist;
@@ -327,8 +332,9 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
               count++;
             }
 
+            count = 0;
             for (const auto& door: world.dynamic_doors) {
-              auto       current_door = door.lookup(opt.trajectory_start_time + current_time);
+              auto       current_door = door.lookup(current_time);
               const auto dist         = distance(capsule, current_door);
               if (dist < dist_min) {
                 dist_min                            = dist;
