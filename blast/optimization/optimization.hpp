@@ -361,6 +361,7 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
 
 // ------------------------- Accelerated with segments ---------------------------
 
+// todo: separate task and initialization
 inline void initialize_optimization_with_segments(Optimization* opt) {
   // Constraints
   if (!opt->constraints.external_collisions) {
@@ -370,7 +371,7 @@ inline void initialize_optimization_with_segments(Optimization* opt) {
   // todo: swap INF for large value
 
   opt->lb        = Array(opt->x_len(), -HUGE_VAL);
-  opt->ub        = Array(opt->x_len(), -HUGE_VAL);
+  opt->ub        = Array(opt->x_len(), -HUGE_VAL); // todo: should the ub be -HUGE_VAL ?
   opt->lb.back() = 0.1;
   opt->ub.back() = 60.0;
 
@@ -409,17 +410,23 @@ inline void initialize_optimization_with_segments(Optimization* opt) {
 inline void n_con_with_segments(Optimization* opt) {
   const int n_segments = ((int) opt->bspline.n_ctrl - (int) opt->bspline.p);
 
-  int n_constraints_per_segment = (int) opt->manip.n_joints * 4; // p.v.a.tau
+  if (opt->constraints.position)
+    opt->constraints.n_constraints_per_segment += opt->manip.n_joints;
+  if (opt->constraints.velocity)
+    opt->constraints.n_constraints_per_segment += opt->manip.n_joints;
+  if (opt->constraints.acceleration)
+    opt->constraints.n_constraints_per_segment += opt->manip.n_joints;
+  if (opt->constraints.torque)
+    opt->constraints.n_constraints_per_segment += opt->manip.n_joints;
   if (opt->constraints.tcp_speed)
-    n_constraints_per_segment += 1;
+    opt->constraints.n_constraints_per_segment += 1;
   if (opt->constraints.self_collisions)
-    n_constraints_per_segment += 1;
+    opt->constraints.n_constraints_per_segment += 1;
   if (opt->constraints.external_collisions) {
-    n_constraints_per_segment += opt->manip._n_caps;
+    opt->constraints.n_constraints_per_segment += opt->manip._n_caps;
   }
 
-  opt->constraints.n_constraints             = n_segments * n_constraints_per_segment;
-  opt->constraints.n_constraints_per_segment = n_constraints_per_segment;
+  opt->constraints.n_constraints = n_segments * opt->constraints.n_constraints_per_segment;
 }
 
 inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
