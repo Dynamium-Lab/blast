@@ -16,11 +16,11 @@ inline blast_fn real bound_constraint(const real& value, const real& value_min, 
   ZoneScoped;
 #endif
   // todo: remove INF_REAL from constraints at initialization
-  // if (value_max == INF_REAL || value_min == -INF_REAL) { // todo: fix for one is INF and not the other
-  //   return -1.0;
-  // }
-  const real center = (value_max + value_min) / 2; // todo: this could be done once for all constraints
-  const real range  = value_max - value_min;       // todo: this could be done once for all constraints
+  if (value_max == INF_REAL || value_min == -INF_REAL) { // todo: fix for one is INF and not the other
+    return -1.0;
+  }
+  const real center = (value_max + value_min) / 2;
+  const real range  = value_max - value_min;
 
   auto result = 2 * std::abs(value - center) / range - 1.0;
   // auto result2 = std::abs(2 * value) / range - 1.0; // note: fixed, there was an error here todo: this is not true, unless min = -max
@@ -154,60 +154,55 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 #if BLAST_TRACE_LEVEL >= 2
         ZoneScopedN("All Point Constraints");
 #endif
-        const auto p = opt.bspline.traj.pos.col(start_point_for_segment + point_in_segment);
-        const auto v = opt.bspline.traj.vel.col(start_point_for_segment + point_in_segment);
-        const auto a = opt.bspline.traj.acc.col(start_point_for_segment + point_in_segment);
+        auto p = opt.bspline.traj.pos.col(start_point_for_segment + point_in_segment);
+        auto v = opt.bspline.traj.vel.col(start_point_for_segment + point_in_segment);
+        auto a = opt.bspline.traj.acc.col(start_point_for_segment + point_in_segment);
 
         forward_kinematics(opt.manip, manip_data, p);
         compute_capsules(opt.manip, manip_data);
         dynamics(opt.manip, manip_data, v, a);
 
-        // position
-        if (opt.constraints.position) {
+        for (int j = 0; j < n_joints; j++) {
+          // position
+          if (opt.constraints.position) {
+
 #if BLAST_TRACE_LEVEL >= 3
-          ZoneScopedN("Pos Constraints");
+            ZoneScopedN("Pos Constraints");
 #endif
 
-          for (int j = 0; j < n_joints; j++) {
             if (const auto c = bound_constraint(p[j], pmin[j], pmax[j]);
                 c > max_pos_constraints[j]) {
               max_pos_constraints[j] = c;
               max_pos_indices[j]     = point_in_segment;
             }
           }
-        }
-        // velocity
-        if (opt.constraints.velocity) {
+          // velocity
+          if (opt.constraints.velocity) {
 #if BLAST_TRACE_LEVEL >= 3
-          ZoneScopedN("Vel Constraints");
+            ZoneScopedN("Vel Constraints");
 #endif
-          for (int j = 0; j < n_joints; j++) {
             if (const auto c = std::abs(v[j]) / vmax[j] - 1.0;
                 c > max_vel_constraints[j]) {
               max_vel_constraints[j] = c;
               max_vel_indices[j]     = point_in_segment;
             }
           }
-        }
-        // acceleration
-        if (opt.constraints.acceleration) {
+          // acceleration
+          if (opt.constraints.acceleration) {
 #if BLAST_TRACE_LEVEL >= 3
-          ZoneScopedN("Acc Constraints");
+            ZoneScopedN("Acc Constraints");
 #endif
-          for (int j = 0; j < n_joints; j++) {
             if (const auto c = std::abs(a[j]) / amax[j] - 1.0;
                 c > max_acc_constraints[j]) {
               max_acc_constraints[j] = c;
               max_acc_indices[j]     = point_in_segment;
             }
           }
-        }
-        // torque
-        if (opt.constraints.torque) {
+          // torque
+          if (opt.constraints.torque) {
 #if BLAST_TRACE_LEVEL >= 3
-          ZoneScopedN("Tau Constraints");
+            ZoneScopedN("Tau Constraints");
 #endif
-          for (int j = 0; j < n_joints; j++) {
             if (const auto c = std::abs(manip_data.efforts[j]) / tau_max[j] - 1.0;
                 c > max_tor_constraints[j]) {
               max_tor_constraints[j] = c;
@@ -215,6 +210,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
             }
           }
         }
+
         // tcp speed
         if (opt.constraints.tcp_speed) {
 #if BLAST_TRACE_LEVEL >= 3
@@ -228,6 +224,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
             max_tcp_index             = point_in_segment;
           }
         }
+
         // self collision
         if (opt.constraints.self_collisions) {
 #if BLAST_TRACE_LEVEL >= 3
@@ -240,6 +237,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
             max_internal_collision_index = point_in_segment;
           }
         }
+
         // external collision
         if (opt.constraints.external_collisions) {
 #if BLAST_TRACE_LEVEL >= 3

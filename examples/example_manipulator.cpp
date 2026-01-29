@@ -49,7 +49,7 @@ int main() {
   // for (real i = increment_x; i < max_x; i += increment_x) {
   for (real i = 0; i < max_iter; i++) {
 
-    opt.guess.x0 = guess_random(opt.bspline, opt.task);
+    // opt.guess.x0        = random_array(opt.bspline.x_len(opt.task), 1);
     // opt.guess.x0.back() = 0.5;
     // result = optimize(&opt);
     result = optimize_with_segments(&opt);
