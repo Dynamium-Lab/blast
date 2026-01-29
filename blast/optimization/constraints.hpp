@@ -16,9 +16,9 @@ inline blast_fn real bound_constraint(const real& value, const real& value_min, 
   ZoneScoped;
 #endif
   // todo: remove INF_REAL from constraints at initialization
-  if (value_max == INF_REAL || value_min == -INF_REAL) { // todo: fix for one is INF and not the other
-    return -1.0;
-  }
+  // if (value_max == INF_REAL || value_min == -INF_REAL) { // todo: fix for one is INF and not the other
+  //   return -1.0;
+  // }
   const real center = (value_max + value_min) / 2;
   const real range  = value_max - value_min;
 
