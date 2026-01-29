@@ -11,16 +11,6 @@ set(EXAMPLES
     get_bspline_and_basis_functions get_bspline_and_basis_functions.cpp
     get_start_and_end_pos get_start_and_end_pos.cpp
 
-    # Demo 3
-    demo3_demo2_tasks_gen3_stats Demo3/Statistics/demo2_tasks_gen3.cpp
-    demo3_demo2_tasks_link6_stats Demo3/Statistics/demo2_tasks_link6.cpp
-    demo3_kitchen_tasks_link6_stats Demo3/Statistics/kitchen_tasks_link6.cpp
-    
-    demo3_demo2_tasks_gen3_get_traj Demo3/Trajectories/demo2_tasks_gen3.cpp
-    demo3_demo2_tasks_link6_get_traj Demo3/Trajectories/demo2_tasks_link6.cpp
-    demo3_kitchen_tasks_link6_get_traj Demo3/Trajectories/kitchen_tasks_link6.cpp
-    validate_collisions Demo3/Trajectories/validate_collision.cpp
-
     #        example_demo1 demo1_link6.cpp
     #        example_demo2 demo2.cpp
     #        example_demo2_link6 demo2_link6.cpp
