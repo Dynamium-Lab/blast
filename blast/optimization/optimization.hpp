@@ -371,7 +371,7 @@ inline void initialize_optimization_with_segments(Optimization* opt) {
   // todo: swap INF for large value
 
   opt->lb        = Array(opt->x_len(), -HUGE_VAL);
-  opt->ub        = Array(opt->x_len(), -HUGE_VAL); // todo: should the ub be -HUGE_VAL ?
+  opt->ub        = Array(opt->x_len(), HUGE_VAL);
   opt->lb.back() = 0.1;
   opt->ub.back() = 60.0;
 
