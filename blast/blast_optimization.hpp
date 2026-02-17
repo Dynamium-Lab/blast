@@ -82,10 +82,10 @@ struct ConstraintSelection {
   bool self_collisions     = false;
   bool external_collisions = false;
 
-  u32 n_collision_constraints   = 5; // todo: remove because of new paradigm
-  u32 n_collision_skip          = 2; // todo: remove because of new paradigm
-  u32 n_constraints             = 0;
-  u32 n_constraints_per_segment = 0;
+  int n_collision_constraints   = 5; // todo: remove because of new paradigm
+  int n_collision_skip          = 2; // todo: remove because of new paradigm
+  int n_constraints             = 0;
+  int n_constraints_per_segment = 0;
 
   // Added more info for testing
   bool                show_info = false;

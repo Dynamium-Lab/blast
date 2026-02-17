@@ -4,6 +4,283 @@
 namespace blast {
 
 
+// todo: Add camera capsule
+inline Manipulator get_generic_Link6_fixed() {
+  // Manipulator
+  u32 joints = 6;
+  // limits
+  ManipulatorLimits limits;
+  limits.pmax = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL}; // rad
+  limits.pmin = -limits.pmax;
+
+  limits.vmax = {0.9 * 3.4907f, 0.9 * 3.4907f, 0.9 * 3.4907f, 0.9 * 5.5851f, 0.9 * 5.5851f, 0.9 * 5.5851f};                               // rad/s
+
+  limits.amax = {0.9 * deg2rad(600), 0.9 * deg2rad(600), 0.9 * deg2rad(600), 0.9 * deg2rad(600), 0.9 * deg2rad(600), 0.9 * deg2rad(600)}; // rad/s^2
+
+  limits.tau_max = {210, 210, 210, 100, 100, 100};                                                                                        // Nm
+
+  limits.tcp_max = 2.0;
+
+  // kinematic properties
+  ManipulatorKinematics kinematics; // using default Q_base
+  kinematics.dv = {
+          Vec3{0.11024, -0.06926, -0.1375},
+          {0.0, 0.4850, 0.0},
+          {0.0, -0.15216, -0.0917},
+          {0.0, -0.06296, -0.22275},
+          {0.08703, 0.0860, -0.07692},
+          {0.0, 0.0, -0.0920}}; // vector to next joint
+  kinematics.ev = {
+          Vec3{0, 0, 1},
+          {0, 0, 1},
+          {0, 0, 1},
+          {0, 0, 1},
+          {0, 0, 1},
+          {0, 0, 1}}; // direction vectors of joint
+  kinematics.p_j0   = {0.0, 0.0, 0.0530f};
+  kinematics.p_base = {0.0, 0.0, 0.0};
+  kinematics.Q_base = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  // kinematics.Q_static.resize(7);
+  kinematics.Q_static[0] = {1, 0, 0, 0, -1, 0, 0, 0, -1};
+  kinematics.Q_static[1] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
+  kinematics.Q_static[2] = {1, 0, 0, 0, -1, 0, 0, 0, -1};
+  kinematics.Q_static[3] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
+  kinematics.Q_static[4] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
+  kinematics.Q_static[5] = {0, 0, 1, 0, 1, 0, -1, 0, 0};
+  kinematics.Q_static[6] = {1, 0, 0, 0, -1, 0, 0, 0, -1};
+
+  // dynamic properties
+  ManipulatorDynamics dynamics;
+  dynamics.m = {
+          4.8257f,
+          5.9860f,
+          3.4159f,
+          2.0849f,
+          2.0076f,
+          1.5193f}; // link masses
+  dynamics.I = {
+          Mat3{0.0192746f, -0.00239802f, -0.00896331f, -0.00239802f, 0.03087806f, 0.0016298f, -0.00896331f, 0.0016298f, 0.02134949f},
+          {0.25899206f, -2.89E-05f, -1.23E-06f, -2.89E-05f, 0.01755445f, -0.02128064f, -1.23E-06f, -0.02128064f, 0.25291674f},
+          {0.01742043f, -3.55E-06f, 8.4E-07f, -3.55E-06f, 0.01119175f, 0.00518163f, 8.4E-07f, 0.00518163f, 0.01212876f},
+          {0.02454276f, 2.61E-06f, 1.799E-05f, 2.61E-06f, 0.02385702f, 0.00315758f, 1.799E-05f, 0.00315758f, 0.00294903f},
+          {0.00734684f, 0.00124927f, -0.00090156f, 0.00124927f, 0.00464684f, -0.00236128f, -0.00090156f, -0.00236128f, 0.00589508f},
+          {0.00390762f, -1.13E-06f, 1.16E-06f, -1.13E-06f, 0.00390722f, -2.21E-05f, 1.16E-06f, -2.21E-05f, 0.0013928f}}; // Inertial tensors
+  dynamics.av = {
+          Vec3{0.03930119f, -0.00705889f, -0.08462154f},
+          {2.53E-06f, 0.18829586f, -0.03988382f},
+          {4.64E-06f, -0.02451414f, -0.02997969f},
+          {-0.00010793f, -0.01056422f, -0.08091102f},
+          {0.01243595f, 0.03284165f, -0.04091434f},
+          {0.0f, 0.00050624f, -0.00388589f}}; // centers of mass
+
+  // capsules & internal collision data
+  // Collision model
+  ManipulatorCapsules collisions;
+  Sphere              base;
+  base.c                    = {0, 0, 0.0}; // because this is relative to p_base and p_base is {0, 0, 0.053}
+  base.r                    = 0.2375;
+  collisions.base_sphere    = base;
+  collisions.collision_base = {0, 0, 0, 1, 1, 1};
+  // collisions.collision_base = {0, 0, 0, 1, 1, 1, 1};  // includes camera capsule
+
+  collisions.collision_matrix.resize(6, 6);
+  // collisions.collision_matrix.resize(7, 7); // includes camera capsule
+  collisions.collision_matrix(5, 0) = 1;
+  // collisions.collision_matrix(6, 0) = 1; // includes camera capsule
+  collisions.collision_matrix(4, 1) = 1;
+  collisions.collision_matrix(5, 1) = 1;
+  // collisions.collision_matrix(6, 1) = 1; // includes camera capsule
+
+  // collisions.collision_matrix.resize(6, 6);
+  // collisions.collision_matrix(5, 0) = 1;
+  // collisions.collision_matrix(4, 1) = 1;
+  // collisions.collision_matrix(5, 1) = 1;
+
+  // Collision model
+  CollisionModelCapsule model_caps;
+
+  // Capsule 1
+  model_caps.joint_frame = 1;
+  model_caps.p1          = {0, 0, -0.065};
+  model_caps.p2          = {0, 0, 0.045};
+  model_caps.r           = 0.065;
+  collisions.capsule_list.push_back(model_caps);
+
+  // Capsule 2
+  model_caps.joint_frame = 1;
+  // model_caps.p1 = {0, 0, -0.065};
+  model_caps.p1 = {0, 0, -0.08};
+  // model_caps.p2 = {0, 0.485, -0.065};
+  model_caps.p2 = {0, 0.485, -0.08};
+  model_caps.r  = 0.065;
+  collisions.capsule_list.push_back(model_caps);
+
+  // Capsule 3
+  model_caps.joint_frame = 2;
+  model_caps.p1          = {0, 0, -0.065};
+  model_caps.p2          = {0, 0, 0.085};
+  model_caps.r           = 0.065;
+  collisions.capsule_list.push_back(model_caps);
+
+  // Capsule 4
+  model_caps.joint_frame = 2;
+  model_caps.p1          = {0, 0.00695, -0.0917};
+  model_caps.p2          = {0, -0.36805, -0.0917};
+  model_caps.r           = 0.061;
+  collisions.capsule_list.push_back(model_caps);
+
+  // Capsule 5
+  model_caps.joint_frame = 4;
+  model_caps.p1          = {0, 0, 0};
+  model_caps.p2          = {0, 0, -0.08};
+  model_caps.r           = 0.060;
+  collisions.capsule_list.push_back(model_caps);
+
+  // Capsule 6
+  model_caps.joint_frame = 5;
+  model_caps.p1          = {0, 0, 0.08583};
+  model_caps.p2          = {0, 0, -0.06417};
+  model_caps.r           = 0.060;
+  collisions.capsule_list.push_back(model_caps);
+
+  // // Capsule 7
+  // model_caps.joint_frame = 5;
+  // model_caps.p1 = {0, 0.02125, -0.007};
+  // // model_caps.p2 = {0, 0.02125, -0.013};
+  // model_caps.p2 = {0, 0.02125, 0.143};
+  // model_caps.r = 0.085;
+  // collisions.capsule_list.push_back(model_caps); // todo: change camera capsule
+
+  // create manipulator link6
+  Manipulator link6(joints, limits, kinematics, &dynamics, &collisions);
+
+  return link6;
+}
+
+// note: p_base and Q_base are set in respect to lab's layout (in Link6 frame)
+Manipulator get_generic_gen3_fixed() { // todo: fix capsules, not working
+  // Manipulator
+  u32 joints = 7;
+
+  // limits
+  ManipulatorLimits limits;
+  limits.pmax = {INF_REAL, 2.25, INF_REAL, 2.58f, INF_REAL, 2.1f, INF_REAL}; // rad
+  limits.pmin = -limits.pmax;
+
+  // limits.vmax = {1.745f, 1.745f, 1.745f, 1.745f, 2.443f, 2.443f, 2.443f}; // rad/s (used for demo 2)
+  limits.vmax = {1.39f, 1.39f, 1.39f, 1.39f, 1.22f, 1.22f, 1.22f}; // rad/s (updated for demo 3)
+
+  // limits.amax = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL}; // rad/s^2
+  limits.amax = {5.2, 5.2, 5.2, 5.2, 10.0, 10.0, 10.0}; // rad/s^2
+
+  limits.tau_max = {52, 52, 52, 52, 17, 17, 17};        // Nm
+
+  limits.tcp_max = 1.0;                                 // todo: validate with webapp (Bruno from Kinova said 1.0 could be adequate), webapp says 0.5
+  // limits.tcp_max = 0.5; // todo: validate with webapp (Bruno from Kinova said 1.0 could be adequate), webapp says 0.5
+
+  // kinematic properties
+  ManipulatorKinematics kinematics; // using default Q_base
+  kinematics.dv = {
+          Vec3{0.0, 0.0054, -0.1284},
+          {0.0, -0.2104, -0.0064},
+          {0.0, -0.0064, -0.2104},
+          {0.0, -0.2084, -0.0064},
+          {0.0, 0.0, -0.1059},
+          {0.0, -0.1059, 0.0},
+          {0.0, 0.0, -0.0615 /*- 0.164*/} // todo: why did we subtract this? Ans : We subtracted because we used the gripper
+  }; // vector to next joint
+  kinematics.ev = {
+          Vec3{0, 0, 1},
+          {0, 0, 1},
+          {0, 0, 1},
+          {0, 0, 1},
+          {0, 0, 1},
+          {0, 0, 1},
+          {0, 0, 1}}; // direction vectors of joint
+  // kinematics.Q_static.resize(7);
+  kinematics.Q_static[0] = {1, 0, 0, 0, -1, 0, 0, 0, -1};
+  kinematics.Q_static[1] = {1, 0, 0, 0, 0, 1, 0, -1, 0};
+  kinematics.Q_static[2] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
+  kinematics.Q_static[3] = {1, 0, 0, 0, 0, 1, 0, -1, 0};
+  kinematics.Q_static[4] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
+  kinematics.Q_static[5] = {1, 0, 0, 0, 0, 1, 0, -1, 0};
+  kinematics.Q_static[6] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
+  kinematics.p_j0        = {0, 0, 0.1564f};
+  kinematics.p_base      = {0, 0, 0};
+  kinematics.Q_base      = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+
+  // dynamic properties
+  ManipulatorDynamics dynamics;
+
+  dynamics.m = {
+          1.377f,
+          1.1636f,
+          1.1636f,
+          0.93f,
+          0.678f,
+          0.678f,
+          0.364f}; // link masses
+  dynamics.I = {
+          Mat3{0.004570f, 0.000001f, 0.000002f, 0.000001f, 0.004831f, 0.000448f, 0.000002f, 0.000448f, 0.001409f},
+          {0.011088f, 0.000005f, 0.000000f, 0.000005f, 0.001072f, -0.000691f, 0.000000f, -0.000691f, 0.011255f},
+          {0.010932f, 0.000000f, -0.000007f, 0.000000f, 0.011127f, 0.000606f, -0.000007f, 0.000606f, 0.001043f},
+          {0.008147f, -0.000001f, 0.000000f, -0.000001f, 0.000631f, -0.000500f, 0.000000f, -0.000500f, 0.008316f},
+          {0.001596f, 0.000000f, 0.000000f, 0.000000f, 0.001607f, 0.000256f, 0.000000f, 0.000256f, 0.000399f},
+          {0.001641f, 0.000000f, 0.000000f, 0.000000f, 0.000410f, -0.000278f, 0.000000f, -0.000278f, 0.001641f},
+          {0.000214f, 0.000000f, 0.000001f, 0.000000f, 0.000223f, -0.000002f, 0.000001f, -0.000002f, 0.000240f}}; // Inertial tensors
+  dynamics.av = {
+          Vec3{-0.000023f, -0.010364f, -0.073360f},
+          {-0.000044f, -0.099580f, -0.013278f},
+          {-0.000044f, -0.006641f, -0.117892f},
+          {-0.000018f, -0.075478f, -0.015006f},
+          {0.000001f, -0.009432f, -0.063883f},
+          {0.000001f, -0.045483f, -0.009650f},
+          {-0.000093f, 0.000132f, -0.022905f}}; // centers of mass
+
+  // create manipulator gen3
+  Manipulator generic_manip(joints, limits, kinematics, &dynamics);
+
+  // Collision model
+  ManipulatorCapsules collisions;
+  Sphere              sphere;
+  sphere.c                  = {0, 0, 0.035};
+  sphere.r                  = 0.14;
+  collisions.base_sphere    = sphere;
+  collisions.collision_base = {0, 0, 1};
+
+  collisions.collision_matrix.resize(3, 3);
+  collisions.collision_matrix(2, 0) = 1;
+  collisions.collision_matrix(0, 2) = 1;
+
+  // Collision model
+  CollisionModelCapsule model_caps;
+
+  // Capsule 1
+  model_caps.joint_frame = 1;
+  model_caps.p1          = {0, 0.035, 0};
+  model_caps.p2          = {0, -0.425, 0};
+  model_caps.r           = 0.06;
+  collisions.capsule_list.push_back(model_caps);
+
+  // Capsule 2
+  model_caps.joint_frame = 3;
+  model_caps.p1          = {0, 0, -0.025};
+  model_caps.p2          = {0, -0.3, -0.01};
+  model_caps.r           = 0.06;
+  collisions.capsule_list.push_back(model_caps);
+
+  // Capsule 3
+  model_caps.joint_frame = 5;
+  model_caps.p1          = {0, 0, -0.015};
+  model_caps.p2          = {0.0, -0.15, -0.015};
+  model_caps.r           = 0.055;
+  collisions.capsule_list.push_back(model_caps);
+
+  generic_manip.set_capsules(collisions);
+
+  return generic_manip;
+}
+
 // todo: Change camera capsule
 inline host_fn Manipulator get_generic_Link6() {
   // Manipulator
@@ -409,6 +686,14 @@ inline host_fn Manipulator get_generic_fanuc_crx25ia() {
   return generic_manip;
 }
 
+inline host_fn World get_demo2_world() {
+  World result;
+  result.add_box({0.7, 0, 0.381}, {1.0, 0.75, 0.381}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});       // table 76 cm high
+  result.add_box({0.67, -0.1475, 0.96}, {0.35, 0.025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // vertical plate (no coll)
+  // result.add_box({0.7, 0, -0.55}, {1.0, 0.75, 0.4}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});                 // table 76 cm high
+  // result.add_box({0.67, -0.1475, -0.0562}, {0.35, 0.025, 0.4}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // vertical plate (no coll)
+  return result;
+}
 
 inline host_fn World get_lab_world() {
   World world;
