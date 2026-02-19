@@ -109,7 +109,7 @@ inline host_fn blast::World get_scene_table()
     return table;
 }
 
-inline World get_kitchen_no_doors()
+inline host_fn blast::World get_kitchen_no_doors()
 {
     World world;
     world.add_box({0.427, -1.0847, 1.1974}, {0.36029, 0.06, 0.36242}, {1, 0, 0, 0, 1, 0, 0, 0, 1});
