@@ -111,7 +111,7 @@ inline host_fn blast::World get_scene_table()
 
 inline host_fn blast::World get_kitchen_no_doors()
 {
-    World world;
+    blast::World world;
     world.add_box({0.427, -1.0847, 1.1974}, {0.36029, 0.06, 0.36242}, {1, 0, 0, 0, 1, 0, 0, 0, 1});
     world.add_box({0.427, 0.48791, 1.1974}, {0.36029, 0.06, 0.36242}, {1, 0, 0, 0, 1, 0, 0, 0, 1});
     world.add_box({0.427, -0.29838, 1.5298}, {0.36029, 0.84629, 0.03}, {1, 0, 0, 0, 1, 0, 0, 0, 1});
