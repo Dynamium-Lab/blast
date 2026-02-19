@@ -5,6 +5,17 @@
 namespace blast
 {
   template <typename T>
+  host_fn bool is_close(const T type1, const T type2, real eps = 1e-5)
+  {
+    if (type1 != type2)
+      return false;
+    if (!is_close(type1, type2, eps))
+      return false;
+
+    return true;
+  }
+
+  template <typename T>
   host_fn bool is_close(const std::vector<T>& a1, const std::vector<T>& a2, real eps = 1e-5)
   {
     if (a1.size() != a2.size())
@@ -253,6 +264,35 @@ namespace blast
       return false;
     if (manip1._n_internal_collisions != manip2._n_internal_collisions)
       return false;
+
+    return true;
+  }
+
+  inline host_fn bool is_close(const ManipulatorTempData& manip_data1, const ManipulatorTempData& manip_data2,
+                               const u32 n_joints, const u32 n_caps, real eps = 1e-5)
+  {
+    for (int joint = 0; joint < n_joints; joint++)
+    {
+      // internal variables
+      if (!is_close(manip_data1.efforts[joint], manip_data2.efforts[joint], eps))
+        return false;
+
+      if (!is_close(manip_data1.rotations[joint], manip_data2.rotations[joint], eps))
+        return false; // put the rotation matrices temporarily when computing the constraints
+      if (!is_close(manip_data1.rotations_mult[joint], manip_data2.rotations_mult[joint], eps))
+        return false; // put the rotation matrices multiplications temporarily when computing the constraints
+    }
+    for (int joint = 0; joint < n_joints + 1; joint++)
+    {
+      if (!is_close(manip_data1.p_j[joint], manip_data2.p_j[joint], eps))
+        return false; // put the joint coordinates temporarily when computing the constraints
+    }
+
+    for (int capsule = 0; capsule < n_caps; capsule++)
+    {
+      if (!is_close(manip_data1.capsule_list[capsule], manip_data2.capsule_list[capsule], eps))
+        return false; // put the capsules temporarily when computing the constraints
+    }
 
     return true;
   }
