@@ -4,6 +4,8 @@
 .vscode/
 .vs/
 build/
+cmake*/
+.idea/
 
 
 ### Standard C++ ignores
