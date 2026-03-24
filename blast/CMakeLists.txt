@@ -15,7 +15,11 @@ target_include_directories(blast INTERFACE
 )
 
 target_compile_features(blast INTERFACE cxx_std_17)
-target_link_libraries(blast INTERFACE nlopt TracyClient)
+target_link_libraries(blast INTERFACE nlopt)
+
+if(ENABLE_TRACY)
+  target_link_libraries(blast INTERFACE TracyClient)
+endif()
 
 
 if(MSVC)

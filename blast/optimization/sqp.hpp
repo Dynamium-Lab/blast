@@ -1535,7 +1535,7 @@ inline void lsq_(int* m, int* meq, int* n, int* nl,
 inline void ldl_(int* n, double* a, double* z__,
                  double* sigma, double* w) {
   /* Initialized data */
-  ZoneScoped;
+  PROFILE_FUNCTION;
   const double one    = 1.;
   const double four   = 4.;
   const double epmach = 2.22e-16;
@@ -1921,7 +1921,7 @@ inline void slsqpb_(int* m, int* meq, int* la, int* n, double* x, const double* 
                     double* x0, double* mu, double* s, double* u,
                     double* v, double* w, int* iw,
                     slsqpb_state* state) {
-  ZoneScoped;
+  PROFILE_FUNCTION;
   /* Initialized data */
 
   constexpr double one    = 1.;
@@ -2313,7 +2313,7 @@ inline void slsqp(int* m, int* meq, int* la, int* n,
                   double* x, const double* xl, const double* xu, double* f,
                   double* c__, double* g, double* a, double* acc,
                   int* iter, int* mode, double* w, int* l_w__, int* jw, int* l_jw__, slsqpb_state* state) {
-  ZoneScoped;
+  PROFILE_FUNCTION;
   /* System generated locals */
   int a_dim1   = 0;
   int a_offset = 0;

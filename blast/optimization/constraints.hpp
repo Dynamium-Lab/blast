@@ -13,7 +13,7 @@ inline blast_fn void ConstraintSelection::add_constraint(ConstraintFunction cons
 
 inline blast_fn real bound_constraint(const real& value, const real& value_min, const real& value_max) {
 #if BLAST_TRACE_LEVEL >= 3
-  ZoneScoped;
+  PROFILE_FUNCTION;
 #endif
   // todo: remove INF_REAL from constraints at initialization
   // if (value_max == INF_REAL || value_min == -INF_REAL) { // todo: fix for one is INF and not the other
@@ -128,7 +128,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 
   for (int segment = 0; segment < n_segments; segment++) {
 #if BLAST_TRACE_LEVEL >= 2
-    ZoneScopedN("All Segment Constraints");
+    PROFILE_SCOPE("All Segment Constraints");
 #endif
     const int first_affected_control_point = std::max(3, segment);
     const int last_affected_control_point  = std::min((n_ctrl - 1) - 3, segment + (int) opt.bspline.p);
@@ -152,7 +152,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
     for (int point_in_segment = 0; point_in_segment < n_points_per_segment; point_in_segment++) {
       {
 #if BLAST_TRACE_LEVEL >= 2
-        ZoneScopedN("All Point Constraints");
+        PROFILE_SCOPE("All Point Constraints");
 #endif
         auto p = opt.bspline.traj.pos.col(start_point_for_segment + point_in_segment);
         auto v = opt.bspline.traj.vel.col(start_point_for_segment + point_in_segment);
@@ -167,7 +167,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           if (opt.constraints.position) {
 
 #if BLAST_TRACE_LEVEL >= 3
-            ZoneScopedN("Pos Constraints");
+            PROFILE_SCOPE("Pos Constraints");
 #endif
 
             if (const auto c = bound_constraint(p[j], pmin[j], pmax[j]);
@@ -179,7 +179,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           // velocity
           if (opt.constraints.velocity) {
 #if BLAST_TRACE_LEVEL >= 3
-            ZoneScopedN("Vel Constraints");
+            PROFILE_SCOPE("Vel Constraints");
 #endif
             if (const auto c = std::abs(v[j]) / vmax[j] - 1.0;
                 c > max_vel_constraints[j]) {
@@ -190,7 +190,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           // acceleration
           if (opt.constraints.acceleration) {
 #if BLAST_TRACE_LEVEL >= 3
-            ZoneScopedN("Acc Constraints");
+            PROFILE_SCOPE("Acc Constraints");
 #endif
             if (const auto c = std::abs(a[j]) / amax[j] - 1.0;
                 c > max_acc_constraints[j]) {
@@ -201,7 +201,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           // torque
           if (opt.constraints.torque) {
 #if BLAST_TRACE_LEVEL >= 3
-            ZoneScopedN("Tau Constraints");
+            PROFILE_SCOPE("Tau Constraints");
 #endif
             if (const auto c = std::abs(manip_data.efforts[j]) / tau_max[j] - 1.0;
                 c > max_tor_constraints[j]) {
@@ -214,7 +214,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
         // tcp speed
         if (opt.constraints.tcp_speed) {
 #if BLAST_TRACE_LEVEL >= 3
-          ZoneScopedN("Tcp Constraints");
+          PROFILE_SCOPE("Tcp Constraints");
 #endif
           const auto J_tool    = get_J_tool(&opt, manip_data); // todo: clean up get_J_tool to a get_tcp_speed
           const auto tcp_speed = norm(get_J_tool(&opt, manip_data) * v);
@@ -228,7 +228,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
         // self collision
         if (opt.constraints.self_collisions) {
 #if BLAST_TRACE_LEVEL >= 3
-          ZoneScopedN("Self Constraints");
+          PROFILE_SCOPE("Self Constraints");
 #endif
           // check every internal collision
           if (const auto c = max(-get_internal_collisions(opt.manip, manip_data));
@@ -241,7 +241,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
         // external collision
         if (opt.constraints.external_collisions) {
 #if BLAST_TRACE_LEVEL >= 3
-          ZoneScopedN("Ext Constraints");
+          PROFILE_SCOPE("Ext Constraints");
 #endif
 
           // check every capsule with world
@@ -396,7 +396,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
     // where x is the optimization vector
     if (grad.size) {
 #if BLAST_TRACE_LEVEL >= 2
-      ZoneScopedN("Grad");
+      PROFILE_SCOPE("Grad");
 #endif
       // Matrix (alias) in which we can insert the gradient for the current segment
       Matrix grad_segment(&grad(0, segment * n_constraints_per_segment), x_len, n_constraints_per_segment);
@@ -754,7 +754,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 
 inline blast_fn void nlopt_constraints_with_segments(unsigned m, double* result, unsigned x_len, const double* x, double* grad, void* f_data) {
 #if BLAST_TRACE_LEVEL >= 1
-  ZoneScoped;
+  PROFILE_FUNCTION;
 #endif
   auto* opt = (Optimization*) f_data;
 
@@ -775,7 +775,7 @@ inline blast_fn void nlopt_constraints_with_segments(unsigned m, double* result,
 
 inline blast_fn void compute_constraints(double* result, const Array& x, Optimization* opt) {
 #if BLAST_TRACE_LEVEL >= 2
-  ZoneScoped;
+  PROFILE_FUNCTION;
 #endif
 
   double* moving_result = result;
@@ -785,7 +785,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
   // todo: compute inside loop so that every worker can compute independently??
   {
 #if BLAST_TRACE_LEVEL >= 3
-    ZoneScopedN("ComputeTrajectory");
+    PROFILE_SCOPE("ComputeTrajectory");
 #endif
     opt->bspline.compute_trajectory(x, opt->task);
   }
@@ -797,7 +797,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
 
   for (int i = 0; i < opt->bspline.n_points; i++) {
 #if BLAST_TRACE_LEVEL >= 3
-    ZoneScopedN("ConstraintSinglePoint");
+    PROFILE_SCOPE("ConstraintSinglePoint");
 #endif
 
     // todo: reset frame???
@@ -813,14 +813,14 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
 
     {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("Kinematics");
+      PROFILE_SCOPE("Kinematics");
 #endif
       forward_kinematics(opt->manip, manip_data, pos); // fills _Q, _Q_mult, and _p_j
     }
 
     {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("Capsules");
+      PROFILE_SCOPE("Capsules");
 #endif
       // todo: this cleaner
       // if (opt->constraints.external_collisions || opt->constraints.self_collisions) {
@@ -837,7 +837,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
 
     if (opt->constraints.position) {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("Position");
+      PROFILE_SCOPE("Position");
 #endif
       for (int j = 0; j < opt->manip.n_joints; j++) {
         *moving_result++ = bound_constraint(opt->bspline.traj.pos(j, i), opt->manip.pmin[j], opt->manip.pmax[j]);
@@ -846,7 +846,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
 
     if (opt->constraints.velocity) {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("Velocity");
+      PROFILE_SCOPE("Velocity");
 #endif
       for (int j = 0; j < opt->manip.n_joints; j++) {
         // moving_result[0] = abs_constraint(opt->bspline.traj.vel(j, i), opt->manip.vmax[j]);
@@ -856,7 +856,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
 
     if (opt->constraints.acceleration) {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("Acceleration");
+      PROFILE_SCOPE("Acceleration");
 #endif
       for (int j = 0; j < opt->manip.n_joints; j++) {
         *moving_result++ = std::abs(opt->bspline.traj.acc(j, i)) / opt->manip.amax[j] - 1.0;
@@ -865,7 +865,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
 
     if (opt->constraints.torque) {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("Dynamics");
+      PROFILE_SCOPE("Dynamics");
 #endif
       auto vel = opt->bspline.traj.vel.col(i);
       auto acc = opt->bspline.traj.acc.col(i);
@@ -878,7 +878,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
 
     if (opt->constraints.tcp_speed) {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("TCPSpeed");
+      PROFILE_SCOPE("TCPSpeed");
 #endif
       auto J_tool      = get_J_tool(opt, manip_data);
       real tcp_speed   = norm(J_tool * opt->bspline.traj.vel.col(i));
@@ -887,7 +887,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
 
     if (opt->constraints.self_collisions) {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("SelfCollisions");
+      PROFILE_SCOPE("SelfCollisions");
 #endif
       auto tmp_coll = max(-get_internal_collisions(opt->manip, manip_data));
       // for (u32 j = 0; j < tmp_coll.size; j++)
@@ -896,7 +896,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
 
     if (opt->constraints.external_collisions) {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("ExternalCollisions");
+      PROFILE_SCOPE("ExternalCollisions");
 #endif
       Array max_col_constraints(n_capsules, -INF_REAL);
       for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++) {
@@ -946,7 +946,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
   }
   //   {
   // #if BLAST_TRACE_LEVEL >= 3
-  //     ZoneScopedN("CustomConstraints");
+  //     PROFILE_SCOPE("CustomConstraints");
   // #endif
   //     for (u32 i = 0; i < opt->constraints.extra_constraints.size(); i++) { // todo: split in extra_constraint per point or once
   //       auto extra_constraint = opt->constraints.extra_constraints[i];
@@ -958,7 +958,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
 
 inline blast_fn void nlopt_constraints(unsigned m, double* result, unsigned x_len, const double* x, double* grad, void* f_data) {
 #if BLAST_TRACE_LEVEL >= 1
-  ZoneScoped;
+  PROFILE_FUNCTION;
 #endif
   auto* opt = (Optimization*) f_data;
 
@@ -967,7 +967,7 @@ inline blast_fn void nlopt_constraints(unsigned m, double* result, unsigned x_le
   {
 
 #if BLAST_TRACE_LEVEL >= 3
-    ZoneScopedN("Constraints");
+    PROFILE_SCOPE("Constraints");
 #endif
     compute_constraints(result, xv, opt);
   }
@@ -975,7 +975,7 @@ inline blast_fn void nlopt_constraints(unsigned m, double* result, unsigned x_le
   // gradients calculation
   if (grad) {
 #if BLAST_TRACE_LEVEL >= 3
-    ZoneScopedN("Grad");
+    PROFILE_SCOPE("Grad");
 #endif
     // todo: no construction??
     Array x_plus(x_len);
@@ -1014,7 +1014,7 @@ inline blast_fn void nlopt_constraints(unsigned m, double* result, unsigned x_le
 
 inline blast_fn bool validate_task(Optimization* opt) {
 #if BLAST_TRACE_LEVEL >= 1
-  ZoneScoped;
+  PROFILE_FUNCTION;
 #endif
   auto& manip       = opt->manip;
   auto& constraints = opt->constraints;
@@ -1184,7 +1184,7 @@ blast_fn std::tuple<real, real> bound_constraint_dev(const real& q, const real& 
 template<bool is_grad>
 blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, const Array& x, Optimization* opt) {
 #if BLAST_TRACE_LEVEL >= 2
-  ZoneScoped;
+  PROFILE_FUNCTION;
 #endif
 
   double* moving_result = result;
@@ -1193,7 +1193,7 @@ blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, co
 
   {
 #if BLAST_TRACE_LEVEL >= 3
-    ZoneScopedN("ComputeTrajectory");
+    PROFILE_SCOPE("ComputeTrajectory");
 #endif
     opt->bspline.compute_trajectory(x, opt->task);
   }
@@ -1207,7 +1207,7 @@ blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, co
 
   for (u32 i = 0; i < opt->bspline.n_points; i++) {
 #if BLAST_TRACE_LEVEL >= 3
-    ZoneScopedN("ConstraintSinglePoint");
+    PROFILE_SCOPE("ConstraintSinglePoint");
 #endif
 
     ManipulatorTempData manip_data;
@@ -1217,14 +1217,14 @@ blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, co
 
     {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("Kinematics");
+      PROFILE_SCOPE("Kinematics");
 #endif
       forward_kinematics(opt->manip, manip_data, pos);
     }
 
     if (opt->constraints.position) {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("Position");
+      PROFILE_SCOPE("Position");
 #endif
       for (int j = 0; j < opt->manip.n_joints; j++) {
         auto [constraint, gradient_coeff] = bound_constraint_dev<is_grad>(opt->bspline.traj.pos(j, i), opt->manip.pmin[j], opt->manip.pmax[j]);
@@ -1235,7 +1235,7 @@ blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, co
 
     if (opt->constraints.velocity) {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("Velocity");
+      PROFILE_SCOPE("Velocity");
 #endif
       for (int j = 0; j < opt->manip.n_joints; j++) {
         process_bound(opt->bspline.traj.vel(j, i), opt->manip.vmax[j]);
@@ -1244,7 +1244,7 @@ blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, co
 
     if (opt->constraints.acceleration) {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("Acceleration");
+      PROFILE_SCOPE("Acceleration");
 #endif
       for (int j = 0; j < opt->manip.n_joints; j++) {
         process_bound(opt->bspline.traj.acc(j, i), opt->manip.amax[j]);
@@ -1254,7 +1254,7 @@ blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, co
 
     if (opt->constraints.torque) {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("Dynamics");
+      PROFILE_SCOPE("Dynamics");
 #endif
       auto vel = opt->bspline.traj.vel.col(i);
       auto acc = opt->bspline.traj.acc.col(i);
@@ -1267,7 +1267,7 @@ blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, co
 
     if (opt->constraints.tcp_speed) {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("TCPSpeed");
+      PROFILE_SCOPE("TCPSpeed");
 #endif
       auto J_tool      = get_J_tool(opt, manip_data);
       real tcp_speed   = norm(J_tool * opt->bspline.traj.vel.col(i));
@@ -1277,7 +1277,7 @@ blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, co
 
     {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("Capsules");
+      PROFILE_SCOPE("Capsules");
 #endif
       if (opt->constraints.external_collisions || opt->constraints.self_collisions) {
         compute_capsules(opt->manip, manip_data);
@@ -1286,7 +1286,7 @@ blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, co
 
     if (opt->constraints.self_collisions) {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("SelfCollisions");
+      PROFILE_SCOPE("SelfCollisions");
 #endif
       auto tmp_coll = get_internal_collisions(opt->manip, manip_data);
       for (u32 j = 0; j < tmp_coll.size; j++) {
@@ -1298,7 +1298,7 @@ blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, co
 
     if (opt->constraints.external_collisions) {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("ExternalCollisionsCalculate");
+      PROFILE_SCOPE("ExternalCollisionsCalculate");
 #endif
       external_collisions[i] = test_collisions_per_point(manip_data.capsule_list, &(opt->world));
     }
@@ -1306,7 +1306,7 @@ blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, co
 
   if (opt->constraints.external_collisions) {
 #if BLAST_TRACE_LEVEL >= 3
-    ZoneScopedN("ExternalCollisionsSort");
+    PROFILE_SCOPE("ExternalCollisionsSort");
 #endif
     Array dist_min(opt->constraints.n_collision_constraints, INF_REAL);
     for (u32 i = 0; i < opt->bspline.n_points; i++) {
@@ -1328,7 +1328,7 @@ blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, co
   }
   {
 #if BLAST_TRACE_LEVEL >= 3
-    ZoneScopedN("CustomConstraints");
+    PROFILE_SCOPE("CustomConstraints");
 #endif
     for (u32 i = 0; i < opt->constraints.extra_constraints.size(); i++) {
       auto extra_constraint = opt->constraints.extra_constraints[i];
@@ -1342,7 +1342,7 @@ blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, co
 template<bool is_grad>
 blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs, Matrix& dtau_dp, Matrix& dtau_dv, Matrix& dtau_da, /*Array& gradient_coeffs_collisions,*/ const Array& x, Optimization* opt) {
 #if BLAST_TRACE_LEVEL >= 2
-  ZoneScoped;
+  PROFILE_FUNCTION;
 #endif
 
   double* moving_result   = result;
@@ -1355,7 +1355,7 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
 
   {
 #if BLAST_TRACE_LEVEL >= 3
-    ZoneScopedN("ComputeTrajectory");
+    PROFILE_SCOPE("ComputeTrajectory");
 #endif
     opt->bspline.compute_trajectory(x, opt->task);
   }
@@ -1369,7 +1369,7 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
 
   for (u32 i = 0; i < opt->bspline.n_points; i++) {
 #if BLAST_TRACE_LEVEL >= 3
-    ZoneScopedN("ConstraintSinglePoint");
+    PROFILE_SCOPE("ConstraintSinglePoint");
 #endif
 
     ManipulatorTempData manip_data;
@@ -1382,14 +1382,14 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
 
     {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("Kinematics");
+      PROFILE_SCOPE("Kinematics");
 #endif
       forward_kinematics(opt->manip, manip_data, pos);
     }
 
     if (opt->constraints.position) {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("Position");
+      PROFILE_SCOPE("Position");
 #endif
       for (int j = 0; j < joints; j++) {
         auto [constraint, gradient_coeff] = bound_constraint_dev<is_grad>(opt->bspline.traj.pos(j, i), opt->manip.pmin[j], opt->manip.pmax[j]);
@@ -1400,7 +1400,7 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
 
     if (opt->constraints.velocity) {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("Velocity");
+      PROFILE_SCOPE("Velocity");
 #endif
       for (int j = 0; j < joints; j++) {
         process_bound(opt->bspline.traj.vel(j, i), opt->manip.vmax[j]);
@@ -1409,7 +1409,7 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
 
     if (opt->constraints.acceleration) {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("Acceleration");
+      PROFILE_SCOPE("Acceleration");
 #endif
       for (int j = 0; j < joints; j++) {
         process_bound(opt->bspline.traj.acc(j, i), opt->manip.amax[j]);
@@ -1419,7 +1419,7 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
 
     if (opt->constraints.torque) {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("Dynamics");
+      PROFILE_SCOPE("Dynamics");
 #endif
       auto vel = opt->bspline.traj.vel.col(i);
       auto acc = opt->bspline.traj.acc.col(i);
@@ -1481,7 +1481,7 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
 
     if (opt->constraints.tcp_speed) { // todo: no grad_coeffs yet
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("TCPSpeed");
+      PROFILE_SCOPE("TCPSpeed");
 #endif
       auto J_tool      = get_J_tool(opt, manip_data);
       real tcp_speed   = norm(J_tool * opt->bspline.traj.vel.col(i));
@@ -1491,7 +1491,7 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
 
     {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("Capsules");
+      PROFILE_SCOPE("Capsules");
 #endif
       if (opt->constraints.external_collisions || opt->constraints.self_collisions) {
         compute_capsules(opt->manip, manip_data);
@@ -1500,7 +1500,7 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
 
     if (opt->constraints.self_collisions) {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("SelfCollisions");
+      PROFILE_SCOPE("SelfCollisions");
 #endif
       auto tmp_coll = get_internal_collisions(opt->manip, manip_data);
       for (u32 j = 0; j < tmp_coll.size; j++) {
@@ -1512,7 +1512,7 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
 
     if (opt->constraints.external_collisions) {
 #if BLAST_TRACE_LEVEL >= 3
-      ZoneScopedN("ExternalCollisionsCalculate");
+      PROFILE_SCOPE("ExternalCollisionsCalculate");
 #endif
       external_collisions[i] = test_collisions_per_point(manip_data.capsule_list, &(opt->world));
 
@@ -1527,7 +1527,7 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
 
   //   if (opt->constraints.external_collisions) {
   // #if BLAST_TRACE_LEVEL >= 3
-  //     ZoneScopedN("ExternalCollisionsSort");
+  //     PROFILE_SCOPE("ExternalCollisionsSort");
   // #endif
   //     Array dist_min(opt->constraints.n_collision_constraints, INF_REAL);
   //     Array dist_min_plus(opt->constraints.n_collision_constraints, INF_REAL);
@@ -1556,7 +1556,7 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
   //   }
   {
 #if BLAST_TRACE_LEVEL >= 3
-    ZoneScopedN("CustomConstraints");
+    PROFILE_SCOPE("CustomConstraints");
 #endif
     for (u32 i = 0; i < opt->constraints.extra_constraints.size(); i++) {
       auto extra_constraint = opt->constraints.extra_constraints[i];
@@ -1569,7 +1569,7 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
 
 inline blast_fn void compute_constraints_per_point(double* result, real& external_collisions, const u32 i, Optimization* opt) {
 #if BLAST_TRACE_LEVEL >= 3
-  ZoneScopedN("ConstraintsPerPoint");
+  PROFILE_SCOPE("ConstraintsPerPoint");
 #endif
   double* moving_result = result;
 
@@ -1580,14 +1580,14 @@ inline blast_fn void compute_constraints_per_point(double* result, real& externa
 
   {
 #if BLAST_TRACE_LEVEL >= 3
-    ZoneScopedN("Kinematics");
+    PROFILE_SCOPE("Kinematics");
 #endif
     forward_kinematics(opt->manip, manip_data, pos); // fills _Q, _Q_mult, and _p_j
   }
 
   {
 #if BLAST_TRACE_LEVEL >= 3
-    ZoneScopedN("Capsules");
+    PROFILE_SCOPE("Capsules");
 #endif
     if (opt->constraints.self_collisions || opt->constraints.external_collisions) {
       compute_capsules(opt->manip, manip_data);
@@ -1596,7 +1596,7 @@ inline blast_fn void compute_constraints_per_point(double* result, real& externa
 
   if (opt->constraints.torque) {
 #if BLAST_TRACE_LEVEL >= 3
-    ZoneScopedN("Dynamics");
+    PROFILE_SCOPE("Dynamics");
 #endif
     auto vel = opt->bspline.traj.vel.col(i);
     auto acc = opt->bspline.traj.acc.col(i);
@@ -1610,7 +1610,7 @@ inline blast_fn void compute_constraints_per_point(double* result, real& externa
 
   if (opt->constraints.tcp_speed) {
 #if BLAST_TRACE_LEVEL >= 3
-    ZoneScopedN("TCPSpeed");
+    PROFILE_SCOPE("TCPSpeed");
 #endif
     auto J_tool      = get_J_tool(opt, manip_data);
     real tcp_speed   = norm(J_tool * opt->bspline.traj.vel.col(i));
@@ -1620,7 +1620,7 @@ inline blast_fn void compute_constraints_per_point(double* result, real& externa
 
   if (opt->constraints.self_collisions) {
 #if BLAST_TRACE_LEVEL >= 3
-    ZoneScopedN("SelfCollisions");
+    PROFILE_SCOPE("SelfCollisions");
 #endif
     auto tmp_coll = get_internal_collisions(opt->manip, manip_data);
     for (u32 j = 0; j < tmp_coll.size; j++)
@@ -1630,7 +1630,7 @@ inline blast_fn void compute_constraints_per_point(double* result, real& externa
 
   if (opt->constraints.external_collisions) {
 #if BLAST_TRACE_LEVEL >= 3
-    ZoneScopedN("ExternalCollisionsCalculate");
+    PROFILE_SCOPE("ExternalCollisionsCalculate");
 #endif
     external_collisions = test_collisions_per_point(manip_data.capsule_list, &(opt->world));
   }
@@ -1689,7 +1689,7 @@ inline u32 ncon_extras(const Optimization* opt) {
 
 inline blast_fn void nlopt_constraints_dev(unsigned m, double* result, unsigned xlen, const double* x, double* grad, void* f_data) {
 #if BLAST_TRACE_LEVEL >= 1
-  ZoneScoped;
+  PROFILE_FUNCTION;
 #endif
   auto* opt = (Optimization*) f_data;
 
@@ -1800,7 +1800,7 @@ inline blast_fn void nlopt_constraints_dev(unsigned m, double* result, unsigned 
       // todo: add for non point dependant constraints (extras)
       if (opt->constraints.external_collisions) {
 #if BLAST_TRACE_LEVEL >= 3
-        ZoneScopedN("ExternalCollisionsSort");
+        PROFILE_SCOPE("ExternalCollisionsSort");
 #endif
         // todo: fix
         // Array dist_min(opt->constraints.n_collision_constraints, INF_REAL);
@@ -1859,7 +1859,7 @@ inline blast_fn void nlopt_constraints_dev(unsigned m, double* result, unsigned 
 
 inline blast_fn void nlopt_constraints_dev_new(unsigned m, double* result, unsigned xlen, const double* x, double* grad, void* f_data) {
 #if BLAST_TRACE_LEVEL >= 1
-  ZoneScoped;
+  PROFILE_FUNCTION;
 #endif
   auto* opt = (Optimization*) f_data;
 
@@ -1972,7 +1972,7 @@ inline blast_fn void nlopt_constraints_dev_new(unsigned m, double* result, unsig
       // todo: add for non point dependant constraints (extras)
       if (opt->constraints.external_collisions) {
 #if BLAST_TRACE_LEVEL >= 3
-        ZoneScopedN("ExternalCollisionsSort");
+        PROFILE_SCOPE("ExternalCollisionsSort");
 #endif
         // todo: fix
         // Array dist_min(opt->constraints.n_collision_constraints, INF_REAL);

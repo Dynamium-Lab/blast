@@ -353,7 +353,7 @@ inline blast_fn void Bspline::compute_control(const Array& x, const Matrix& task
  */
 inline blast_fn void Bspline::compute_trajectory(const Array& x, const Matrix& task) {
 #if BLAST_TRACE_LEVEL >= 2
-  ZoneScoped;
+  PROFILE_FUNCTION;
 #endif
 
 
