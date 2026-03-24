@@ -440,9 +440,6 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
   Result result(opt); // todo: this is expensive
   result.opt->task = opt->task;
 
-  Result result(opt); // todo: this is expensive
-  result.opt->task = opt->task;
-
   // Initial validation
   if (!validate_task(opt)) { // todo: support validate_task when there are no capsules...
     print(opt->task);

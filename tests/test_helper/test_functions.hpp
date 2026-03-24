@@ -30,6 +30,7 @@ host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps =
     Assert(false);
     return false;
   }
+}
 
   template <typename T>
   host_fn bool is_close(const std::vector<T>& a1, const std::vector<T>& a2, real eps = 1e-5)
@@ -41,21 +42,6 @@ host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps =
 
     for (u32 i = 0; i < a1.size(); i++)
       if (!is_close(a1[i], a2[i], eps))
-        return false;
-
-    return true;
-  }
-
-  template <typename T>
-  host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps = 1e-5)
-  {
-    if (a1.size != a2.size)
-    {
-      Assert(false);
-      return false;
-    }
-    for (u32 i = 0; i < a1.size; i++)
-      if (!is_close(a1.data[i], a2.data[i], eps))
         return false;
 
     return true;
@@ -263,6 +249,17 @@ host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps =
       if (!is_close(manip1.Q_static[joint], manip2.Q_static[joint]))
         return false; // static rotation matrix
     }
+    
+    // if (!is_close(manip1._capsule_list, manip2._capsule_list, eps))
+    //   return false; // put the capsules temporarily when computing the constraints
+    if (!is_close(manip1._collision_matrix, manip2._collision_matrix, eps))
+      return false;
+    if (!is_close(manip1._collision_base, manip2._collision_base, eps))
+      return false;
+    if (manip1._n_caps != manip2._n_caps)
+      return false;
+    if (manip1._n_internal_collisions != manip2._n_internal_collisions)
+      return false;
 
     for (int capsule = 0; capsule < manip1._n_caps; capsule++)
     {
@@ -318,17 +315,7 @@ host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps =
       if (!is_close(manip_data1.capsule_list[capsule], manip_data2.capsule_list[capsule], eps))
         return false; // put the capsules temporarily when computing the constraints
     }
-
-  // internal variables -- note: This has been moved to manipulator_internal_data, which is not a member of manipulator
-  // if (!is_close(manip1._efforts, manip2._efforts, eps))
-  //   return false;
-
-  // if (!is_close(manip1._rotations, manip2._rotations, eps))
-  //   return false; // put the rotation matrices temporarily when computing the constraints
-  // if (!is_close(manip1._rotations_mult, manip2._rotations_mult, eps))
-  //   return false; // put the rotation matrices multiplications temporarily when computing the constraints
-  // if (!is_close(manip1._p_j, manip2._p_j, eps))
-  //   return false; // put the joint coordinates temporarily when computing the constraints
+  }
 
   // todo: operator==
   // todo: why only test these parameters?
@@ -343,16 +330,6 @@ host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps =
     if (!is_close(spline1.n_ctrl, spline2.n_ctrl, eps))
       return false;
 
-  // if (!is_close(manip1._capsule_list, manip2._capsule_list, eps))
-  //   return false; // put the capsules temporarily when computing the constraints
-  if (!is_close(manip1._collision_matrix, manip2._collision_matrix, eps))
-    return false;
-  if (!is_close(manip1._collision_base, manip2._collision_base, eps))
-    return false;
-  if (manip1._n_caps != manip2._n_caps)
-    return false;
-  if (manip1._n_internal_collisions != manip2._n_internal_collisions)
-    return false;
   return true;
 }
 
@@ -467,21 +444,7 @@ host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps =
       return false;
     if (result1.nlopt_exit_criteria != result2.nlopt_exit_criteria)
       return false;
-
-// todo: operator==
-inline host_fn bool is_close(const Result& result1, Result& result2, real eps = 1e-5) {
-  if (result1.success != result2.success)
-    return false;
-  if (result1.success_false != result2.success_false)
-    return false;
-  if (!is_close(*(result1.opt), *(result2.opt)))
-    return false;
-  if (!is_close(result1.x, result2.x))
-    return false;
-  if (!is_close(result1.x0, result2.x0))
-    return false;
-  if (!is_close(result1.nlopt_exit_criteria, result2.nlopt_exit_criteria))
-    return false;
+  }
 
   // todo: make thread safe?
   inline host_fn u32 random_int(u32 min, u32 max)
