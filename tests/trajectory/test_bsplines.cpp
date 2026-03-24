@@ -153,7 +153,7 @@ TEST_CASE("Bspline velocity and acceleration test", "[bspline]") {
     int n_ctrl = 12;
     int p = 5;
     int n_joints = 1;
-    int n_pts = 1000000;
+    int n_pts = 100000;
     // int n_pts = 2001;
 
     Bspline spline_test(n_ctrl, n_pts, p, n_joints);
@@ -180,6 +180,6 @@ TEST_CASE("Bspline velocity and acceleration test", "[bspline]") {
             acc_approx(j, i) = (0.5 * (spline_test.traj.vel(j, i) - spline_test.traj.vel(j, i-1)) + 0.5 * (spline_test.traj.vel(j, i+1) - spline_test.traj.vel(j, i))) / dt;
         }
     }
-    CHECK(is_close(vel_approx, spline_test.traj.vel, 1e-1));
-    CHECK(is_close(acc_approx, spline_test.traj.acc, 1e-1));
+    CHECK(is_close(vel_approx, spline_test.traj.vel));
+    CHECK(is_close(acc_approx, spline_test.traj.acc));
 }
