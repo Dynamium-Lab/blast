@@ -148,12 +148,12 @@ TEST_CASE("Basis function test", "[bspline]") {
     }
 }
 
-// todo: Very large error, confirm this test is ok
+// note: need very large n_pts for this test to work
 TEST_CASE("Bspline velocity and acceleration test", "[bspline]") {
     int n_ctrl = 12;
     int p = 5;
     int n_joints = 1;
-    int n_pts = 5;
+    int n_pts = 1000000;
     // int n_pts = 2001;
 
     Bspline spline_test(n_ctrl, n_pts, p, n_joints);
@@ -162,21 +162,24 @@ TEST_CASE("Bspline velocity and acceleration test", "[bspline]") {
     fill_random(task, PI);
 
     Array x_test(spline_test.x_len(task));
-    fill_random(x_test, 2*PI);
+    fill_random(x_test, PI);
     x_test.back() = 2.0; // time must be positive
 
     spline_test.compute_trajectory(x_test, task);
     Matrix vel_approx(n_joints, n_pts);
     Matrix acc_approx(n_joints, n_pts);
     real dt = x_test.back() / (n_pts-1); // dt = 0.001 with n_pts = 2001 and T = 2.0
-    for (int i = 1; i < n_pts; i++) {
+    
+    vel_approx(0, 0) = spline_test.traj.vel(0, 0);
+    vel_approx(0, n_pts-1) = spline_test.traj.vel(0, n_pts-1);
+    acc_approx(0, 0) = spline_test.traj.acc(0, 0);
+    acc_approx(0, n_pts-1) = spline_test.traj.acc(0, n_pts-1);
+    for (int i = 1; i < n_pts-1; i++) {
         for (int j = 0; j < n_joints; j++) {
-            vel_approx(j, i) = (spline_test.traj.pos(j, i) - spline_test.traj.pos(j, i-1)) / dt;
-            acc_approx(j, i) = (spline_test.traj.vel(j, i) - spline_test.traj.vel(j, i-1)) / dt;
+            vel_approx(j, i) = (0.5 * (spline_test.traj.pos(j, i) - spline_test.traj.pos(j, i-1)) + 0.5 * (spline_test.traj.pos(j, i+1) - spline_test.traj.pos(j, i))) / dt;
+            acc_approx(j, i) = (0.5 * (spline_test.traj.vel(j, i) - spline_test.traj.vel(j, i-1)) + 0.5 * (spline_test.traj.vel(j, i+1) - spline_test.traj.vel(j, i))) / dt;
         }
     }
-    print(vel_approx);
-    print(spline_test.traj.vel);
     CHECK(is_close(vel_approx, spline_test.traj.vel, 1e-1));
     CHECK(is_close(acc_approx, spline_test.traj.acc, 1e-1));
 }

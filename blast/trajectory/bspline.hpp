@@ -142,6 +142,7 @@ inline blast_fn void Bspline::compute_basis_derivative(int d) {
   for (u32 point = 0; point < n_points; point++) {
     const real u = point * du;
 
+    // note: could save if statements if we hard-coded span calculation since we know u is always within [0, 1]
     const int span  = uniformClampedSpan(u, n_ctrl, p);
     const int first = span - p;
 
