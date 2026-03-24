@@ -46,14 +46,14 @@ inline Optimization::Optimization(const Manipulator& new_manip, const Matrix& ne
     custom_data(nullptr) {
   // Default values
   guess.type   = Guess::random;
-  guess.n_shot = 100;
+  guess.n_random_shots = 100;
 
   constraints.position     = true;
   constraints.velocity     = true;
   constraints.acceleration = true;
   constraints.tcp_speed    = true;
 
-  objective.K_time = 1.0;
+  objective.time_weight = 1.0;
 }
 
 inline Optimization::Optimization(const Manipulator& new_manip, const Matrix& new_task, const Bspline& new_bspline) :
@@ -62,14 +62,14 @@ inline Optimization::Optimization(const Manipulator& new_manip, const Matrix& ne
     task(new_task),
     custom_data(nullptr) {
   guess.type   = Guess::random;
-  guess.n_shot = 100;
+  guess.n_random_shots = 100;
 
   constraints.position     = true;
   constraints.velocity     = true;
   constraints.acceleration = true;
   constraints.tcp_speed    = true;
 
-  objective.K_time = 1.0;
+  objective.time_weight = 1.0;
 }
 
 inline int Optimization::x_len() const {

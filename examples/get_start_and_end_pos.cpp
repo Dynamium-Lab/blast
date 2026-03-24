@@ -11,18 +11,18 @@ inline Manipulator get_generic_ur5e() {
 
   // limits
   blast::ManipulatorLimits limits;
-  limits.pmax = {6.283200, 6.283200, 3.141600, 6.283200, 6.283200, 6.283200};
-  limits.pmin = {-6.283200, -6.283200, -3.141600, -6.283200, -6.283200, -6.283200};
-  limits.vmax = {3.141600, 3.141600, 3.141600, 3.141600, 3.141600, 3.141600};
+  limits.position_max = {6.283200, 6.283200, 3.141600, 6.283200, 6.283200, 6.283200};
+  limits.position_min = {-6.283200, -6.283200, -3.141600, -6.283200, -6.283200, -6.283200};
+  limits.velocity_max = {3.141600, 3.141600, 3.141600, 3.141600, 3.141600, 3.141600};
   // limits.vmin = {-3.141600, -3.141600, -3.141600, -3.141600, -3.141600, -3.141600};
-  limits.amax = {13.96, 13.96, 13.96, 13.96, 13.96, 13.96};
+  limits.acceleration_max = {13.96, 13.96, 13.96, 13.96, 13.96, 13.96};
   // limits.amin = {-13.96, -13.96, -13.96, -13.96, -13.96, -13.96};
-  limits.tau_max = {150.000000, 150.000000, 150.000000, 28.000000, 28.000000, 28.000000};
+  limits.torque_max = {150.000000, 150.000000, 150.000000, 28.000000, 28.000000, 28.000000};
   // limits.tau_min = {-150.000000, -150.000000, -150.000000, -28.000000, -28.000000, -28.000000};
-  limits.tcp_max = 2.0; // todo: verify this value
+  limits.tcp_speed_max = 2.0; // todo: verify this value
 
   blast::ManipulatorKinematics kinematics;
-  kinematics.dv = {
+  kinematics.joint_offsets = {
           Vec3{0, 0, 0},
           {-0.425, 0, 0},
           {-0.3922, 0, 0.1333},
@@ -30,33 +30,33 @@ inline Manipulator get_generic_ur5e() {
           {0, 0.0996, -0},
           {0, 0, 0} // to end effector
   };
-  kinematics.ev = {
+  kinematics.joint_axes = {
           Vec3{0, 0, 1},
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1}};
-  // kinematics.Q_static.resize(6);
-  kinematics.Q_static[0] = {-1.000000, 0.000000, 0.000000, -0.000000, -1.000000, 0.000000, 0.000000, -0.000000, 1.000000}; // modified
-  kinematics.Q_static[1] = {1.000000, 0.000000, 0.000000, -0.000000, -0.000000, 1.000000, 0.000000, -1.000000, -0.000000};
-  kinematics.Q_static[2] = {1.000000, 0.000000, 0.000000, -0.000000, 1.000000, 0.000000, 0.000000, -0.000000, 1.000000};
-  kinematics.Q_static[3] = {1.000000, 0.000000, 0.000000, -0.000000, 1.000000, 0.000000, 0.000000, -0.000000, 1.000000};
-  kinematics.Q_static[4] = {1.000000, 0.000000, 0.000000, -0.000000, -0.000000, 1.000000, 0.000000, -1.000000, -0.000000};
-  kinematics.Q_static[5] = {1.000000, -0.000000, 0.000000, 0.000000, -0.000000, -1.000000, 0.000000, 1.000000, -0.000000};
-  // kinematics.Q_static[6] = {1.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 1.000000};
-  kinematics.p_j0 = {0.000000, 0.000000, 0.162500};
+  // kinematics.static_rotations.resize(6);
+  kinematics.static_rotations[0] = {-1.000000, 0.000000, 0.000000, -0.000000, -1.000000, 0.000000, 0.000000, -0.000000, 1.000000}; // modified
+  kinematics.static_rotations[1] = {1.000000, 0.000000, 0.000000, -0.000000, -0.000000, 1.000000, 0.000000, -1.000000, -0.000000};
+  kinematics.static_rotations[2] = {1.000000, 0.000000, 0.000000, -0.000000, 1.000000, 0.000000, 0.000000, -0.000000, 1.000000};
+  kinematics.static_rotations[3] = {1.000000, 0.000000, 0.000000, -0.000000, 1.000000, 0.000000, 0.000000, -0.000000, 1.000000};
+  kinematics.static_rotations[4] = {1.000000, 0.000000, 0.000000, -0.000000, -0.000000, 1.000000, 0.000000, -1.000000, -0.000000};
+  kinematics.static_rotations[5] = {1.000000, -0.000000, 0.000000, 0.000000, -0.000000, -1.000000, 0.000000, 1.000000, -0.000000};
+  // kinematics.static_rotations[6] = {1.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 1.000000};
+  kinematics.first_joint_position = {0.000000, 0.000000, 0.162500};
 
   blast::ManipulatorDynamics dynamics;
-  dynamics.m = {3.700000, 8.393000, 2.275000, 1.219000, 1.219000, 0.187900};
-  dynamics.I = {
+  dynamics.link_masses = {3.700000, 8.393000, 2.275000, 1.219000, 1.219000, 0.187900};
+  dynamics.inertia_tensors = {
           Mat3{0.0103, 0, 0, 0, 0.0103, 0, 0, 0, 0.0067},
           {0.1339, 0, 0, 0, 0.1339, 0, 0, 0, 0.0151},
           {0.0312, 0, 0, 0, 0.0312, 0, 0, 0, 0.0041},
           {0.0026, 0, 0, 0, 0.0026, 0, 0, 0, 0.0022},
           {0.0026, 0, 0, 0, 0.0026, 0, 0, 0, 0.0022},
           {0.0001, 0, 0, 0, 0.0001, 0, 0, 0, 0.0001}};
-  dynamics.av = {
+  dynamics.cog_offsets = {
           Vec3{0, 0, 0},
           {-0.2125, 0, 0.138},
           {-0.1961, 0, 0.007},
@@ -67,8 +67,8 @@ inline Manipulator get_generic_ur5e() {
   blast::ManipulatorCapsules collisions;
 
   blast::Sphere base;
-  base.c                    = {0, 0, 0.0325};
-  base.r                    = 0.09;
+  base.center                    = {0, 0, 0.0325};
+  base.radius                    = 0.09;
   collisions.base_sphere    = base;
   collisions.collision_base = {0, 0, 0, 1, 1, 1, 1};
 
@@ -100,43 +100,43 @@ inline Manipulator get_generic_ur5e() {
   capsule.joint_frame = 0;
   capsule.p1          = {0, 0, 0};
   capsule.p2          = {0, -0.15, 0};
-  capsule.r           = 0.09;
+  capsule.radius           = 0.09;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 1;
   capsule.p1          = {-0.42, 0, 0.1375};
   capsule.p2          = {0, 0, 0.1375};
-  capsule.r           = 0.06;
+  capsule.radius           = 0.06;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 2;
   capsule.p1          = {0, 0, 0.02};
   capsule.p2          = {0, 0, 0.18};
-  capsule.r           = 0.065;
+  capsule.radius           = 0.065;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 2;
   capsule.p1          = {-0.373156, 0, 0.00850418};
   capsule.p2          = {0.000440611, 0.000121443, 0.00850418};
-  capsule.r           = 0.05;
+  capsule.radius           = 0.05;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 3;
   capsule.p1          = {0, 0, 0};
   capsule.p2          = {0, 0, -0.155};
-  capsule.r           = 0.0425;
+  capsule.radius           = 0.0425;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 3;
   capsule.p1          = {0, 0.03, 0};
   capsule.p2          = {0, -0.1, 0};
-  capsule.r           = 0.0425;
+  capsule.radius           = 0.0425;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 5;
   capsule.p1          = {0, 0, -0.14};
   capsule.p2          = {0, 0, -0.01};
-  capsule.r           = 0.038;
+  capsule.radius           = 0.038;
   collisions.capsule_list.push_back(capsule);
 
   blast::Manipulator generic_manip(joints, limits, kinematics, &dynamics, &collisions);
@@ -145,8 +145,8 @@ inline Manipulator get_generic_ur5e() {
 
 int main() {
   auto manip   = get_generic_ur5e();
-  manip.p_base = {-0.5, -0.3, 0.35};
-  manip.Q_base = {-1, 0, 0, 0, -1, 0, 0, 0, 1};
+  manip.base_position = {-0.5, -0.3, 0.35};
+  manip.base_rotation = {-1, 0, 0, 0, -1, 0, 0, 0, 1};
 
   std::vector<Array> start_pos;
   start_pos.push_back({1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883});

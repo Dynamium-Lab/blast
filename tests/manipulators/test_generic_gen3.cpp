@@ -13,8 +13,8 @@ TEST_CASE("Gen3 forward_kinematics() test", "[Generic]") {
   real epsilon = 1e-6;
   Gen3 expected_manip;
   auto generic_manip    = get_generic_gen3();
-  expected_manip.p_base = generic_manip.p_base;
-  expected_manip.Q_base = generic_manip.Q_base;
+  expected_manip.base_position = generic_manip.base_position;
+  expected_manip.base_rotation = generic_manip.base_rotation;
 
   // todo: remove?
   // setup_manip(&expected_manip);
@@ -37,8 +37,8 @@ TEST_CASE("Gen3 dynamics() test", "[Generic]") {
   real epsilon = 1e-6;
   Gen3 expected_manip;
   auto generic_manip    = get_generic_gen3();
-  expected_manip.p_base = generic_manip.p_base;
-  expected_manip.Q_base = generic_manip.Q_base;
+  expected_manip.base_position = generic_manip.base_position;
+  expected_manip.base_rotation = generic_manip.base_rotation;
 
   // todo: remove?
   // setup_manip(&expected_manip);
@@ -75,8 +75,8 @@ TEST_CASE("Gen3 compute_capsules() test", "[Generic]") {
   int  n_tests = 100;
   Gen3 expected_manip;
   auto generic_manip    = get_generic_gen3();
-  expected_manip.p_base = generic_manip.p_base;
-  expected_manip.Q_base = generic_manip.Q_base;
+  expected_manip.base_position = generic_manip.base_position;
+  expected_manip.base_rotation = generic_manip.base_rotation;
 
   for (int i = 0; i < n_tests; i++) {
     Array test_position(7);
@@ -108,8 +108,8 @@ TEST_CASE("Gen3 compute_constraints() test", "[Generic]") {
 
   auto         opt_gen = get_generic_gen3_opt();
   Optimization opt_hc  = get_gen3_gen3_opt();
-  opt_hc.manip.p_base  = opt_gen.manip.p_base;
-  opt_hc.manip.Q_base  = opt_gen.manip.Q_base;
+  opt_hc.manip.base_position  = opt_gen.manip.base_position;
+  opt_hc.manip.base_rotation  = opt_gen.manip.base_rotation;
 
   opt_gen.constraints.self_collisions     = false;
   opt_gen.constraints.external_collisions = false;
@@ -140,8 +140,8 @@ TEST_CASE("Gen3 nlopt_constraints() test", "[Generic]") {
 
   auto         opt_gen = get_generic_gen3_opt();
   Optimization opt_hc  = get_gen3_gen3_opt();
-  opt_hc.manip.p_base  = opt_gen.manip.p_base;
-  opt_hc.manip.Q_base  = opt_gen.manip.Q_base;
+  opt_hc.manip.base_position  = opt_gen.manip.base_position;
+  opt_hc.manip.base_rotation  = opt_gen.manip.base_rotation;
 
   opt_gen.constraints.self_collisions     = false;
   opt_gen.constraints.external_collisions = false;
@@ -175,8 +175,8 @@ TEST_CASE("Gen3 compute_objective() test", "[objective]") {
 
   auto         opt_gen = get_generic_gen3_opt();
   Optimization opt_hc  = get_gen3_gen3_opt();
-  opt_hc.manip.p_base  = opt_gen.manip.p_base;
-  opt_hc.manip.Q_base  = opt_gen.manip.Q_base;
+  opt_hc.manip.base_position  = opt_gen.manip.base_position;
+  opt_hc.manip.base_rotation  = opt_gen.manip.base_rotation;
 
   for (int i = 0; i < n_tests; i++) {
     Array x(37, 5 * (get_random() + 1));
@@ -194,8 +194,8 @@ TEST_CASE("Gen3 objective_function() test", "[objective]") {
 
   auto         opt_gen = get_generic_gen3_opt();
   Optimization opt_hc  = get_gen3_gen3_opt();
-  opt_hc.manip.p_base  = opt_gen.manip.p_base;
-  opt_hc.manip.Q_base  = opt_gen.manip.Q_base;
+  opt_hc.manip.base_position  = opt_gen.manip.base_position;
+  opt_hc.manip.base_rotation  = opt_gen.manip.base_rotation;
 
   real x_len = opt_gen.bspline.x_len(opt_gen.task);
 
@@ -235,7 +235,7 @@ TEST_CASE("Gen3 optimize() test", "[Optimization][objective]") {
     auto result_gen = optimize(&opt_gen);
 
     opt_hc.guess.type = Guess::custom;
-    opt_hc.guess.x0   = (result_gen.x0);
+    opt_hc.guess.initial_x   = (result_gen.x0);
     auto result_hc    = optimize(&opt_hc);
 
     CHECK(is_close(result_gen.x0, result_hc.x0));

@@ -42,60 +42,61 @@ struct World {
 
   host_fn void add_dynamic_capsule(const DynamicCapsule& capsule);
   host_fn void add_dynamic_capsule(const std::vector<Capsule>& new_capsules, u32 n_points, real start_time, real end_time);
+
 };
 
 struct Box {
-  Vec3 c; // Box center point
-  Vec3 e; // Positive halfwidth extents of Box along each axis
-  Mat3 R; // Local x-, y-, and z-axes (Rotation matrix)
+  Vec3 center;  // Box center point
+  Vec3 extents; // Positive halfwidth extents of Box along each axis
+  Mat3 rotation; // Local x-, y-, and z-axes (Rotation matrix)
 };
 
 struct Capsule {
   Vec3 p1;
   Vec3 p2;
-  real r = 0;
+  real radius = 0;
 };
 
 struct Sphere {
-  Vec3 c;
-  real r = 0;
+  Vec3 center;
+  real radius = 0;
 };
 
 struct DynamicBox {
-  u32              n_pts;
-  real             t0 = 0;
-  real             tf = 0;
-  std::vector<Box> trajectory; // Should be of size n_pts
+  u32              n_points;
+  real             start_time = 0;
+  real             end_time = 0;
+  std::vector<Box> trajectory; // Should be of size n_points
 
   inline blast_fn Box lookup(real time) const;
 };
 
 struct DynamicCapsule {
-  u32                  n_pts;
-  real                 t0 = 0;
-  real                 tf = 0;
-  std::vector<Capsule> trajectory; // Should be of size n_pts
+  u32                  n_points;
+  real                 start_time = 0;
+  real                 end_time = 0;
+  std::vector<Capsule> trajectory; // Should be of size n_points
 
   inline blast_fn Capsule lookup(real time) const;
 };
 
 struct DynamicSphere {
-  u32                 n_pts;
-  real                t0 = 0;
-  real                tf = 0;
-  std::vector<Sphere> trajectory; // Should be of size n_pts
+  u32                 n_points;
+  real                start_time = 0;
+  real                end_time = 0;
+  std::vector<Sphere> trajectory; // Should be of size n_points
 
   inline blast_fn Sphere lookup(real time) const;
 };
 
 struct DynamicDoor {
-  Vec3 e;
+  Vec3 extents;
   Vec3 hinge;
   Vec3 static_c_from_hinge;
   real start_angle = 0;
   real end_angle   = 0;
-  real t0          = 0;
-  real tf          = 0;
+  real start_time  = 0;
+  real end_time    = 0;
   Vec3 axis        = {0, 0, 1};
 
   inline blast_fn Box lookup(real t) const;

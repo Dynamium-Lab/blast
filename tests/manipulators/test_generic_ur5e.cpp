@@ -58,7 +58,7 @@ TEST_CASE("UR5e optimize() trajectory with obstacles", "[Generic]") {
 
     // --- Define Guess ---
     Guess guess; // using default guess
-    guess.n_shot = 1000;
+    guess.n_random_shots = 1000;
 
     // -- Define Constraints ---
     Constraints<GenericManipulator> constraints;
@@ -74,7 +74,7 @@ TEST_CASE("UR5e optimize() trajectory with obstacles", "[Generic]") {
 
     // --- Define Objective ---
     Objective<GenericManipulator> objective;
-    objective.K_time = 1;
+    objective.time_weight = 1;
 
     real start_time = 0.0;
 

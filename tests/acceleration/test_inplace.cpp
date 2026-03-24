@@ -107,7 +107,7 @@ TEST_CASE("Analytic dC/dX per segments tests", "[acceleration]") {
 
     // New implementation
 
-    const int n_segments                = (int) opt.bspline.n_ctrl - (int) opt.bspline.p;
+    const int n_segments                = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
     const int n_points_per_segment      = (int) opt.bspline.n_points / n_segments; // todo: check if fine?
     const int n_ctrl                    = (int) opt.bspline.n_ctrl;
     const int n_constraints_per_segment = (n_joints * 4);                          //  todo: remove hard-coded 4
@@ -125,11 +125,11 @@ TEST_CASE("Analytic dC/dX per segments tests", "[acceleration]") {
     }
 
     // limits
-    Array       pmax    = opt.manip.pmax;
-    Array       pmin    = opt.manip.pmin;
-    const Array vmax    = opt.manip.vmax;
-    const Array amax    = opt.manip.amax;
-    const Array tau_max = opt.manip.tau_max;
+    Array       pmax    = opt.manip.position_max;
+    Array       pmin    = opt.manip.position_min;
+    const Array vmax    = opt.manip.velocity_max;
+    const Array amax    = opt.manip.acceleration_max;
+    const Array tau_max = opt.manip.torque_max;
 
     ManipulatorTempData manip_data;
     std::vector<u8>     max_pos_indices(n_joints);
@@ -150,7 +150,7 @@ TEST_CASE("Analytic dC/dX per segments tests", "[acceleration]") {
       ZoneScopedN("All Segment Constraints");
 #endif
       const int first_affected_control_point = std::max(3, segment);
-      const int last_affected_control_point  = std::min((n_ctrl - 1) - 3, segment + (int) opt.bspline.p);
+      const int last_affected_control_point  = std::min((n_ctrl - 1) - 3, segment + (int) opt.bspline.degree);
       const int n_affected_control_points    = last_affected_control_point - first_affected_control_point + 1; // note: added +1 the bounds are inclusive are inclusive
       Assert(n_affected_control_points >= 3);
       Assert(n_affected_control_points <= 6);
@@ -451,8 +451,8 @@ TEST_CASE("Analytic dv/dT & da/dT tests", "[acceleration]") {
   opt.bspline = bspline;
 
   opt.guess.type = Guess::custom;
-  opt.guess.x0   = Array(opt.bspline.x_len(opt.task), 2.0);
-  // opt.guess.n_shot = 100;
+  opt.guess.initial_x   = Array(opt.bspline.x_len(opt.task), 2.0);
+  // opt.guess.n_random_shots = 100;
 
   opt.constraints.position            = true;
   opt.constraints.velocity            = true;

@@ -204,6 +204,9 @@ struct Array {
 
   // access the value of the last element
   inline blast_fn real back() const;
+
+  // returns true if the array has no elements
+  inline blast_fn bool is_empty() const { return size == 0; }
 };
 
 inline blast_fn Array  random_array(u32 n, real A);
