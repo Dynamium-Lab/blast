@@ -6,6 +6,7 @@
 build/
 cmake*/
 .idea/
+.claude/
 
 
 ### Standard C++ ignores
