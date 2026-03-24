@@ -91,11 +91,11 @@ host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps =
 
   inline host_fn bool is_close(const Box& box1, const Box& box2, real eps = 1e-5)
   {
-    if (!is_close(box1.c, box2.c, eps))
+    if (!is_close(box1.center, box2.c, eps))
       return false;
-    if (!is_close(box1.e, box2.e, eps))
+    if (!is_close(box1.extents, box2.e, eps))
       return false;
-    if (!is_close(box1.R, box2.R, eps))
+    if (!is_close(box1.rotation, box2.R, eps))
       return false;
 
     return true;
@@ -103,11 +103,11 @@ host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps =
 
   inline host_fn bool is_close(const DynamicBox& box1, const DynamicBox& box2, real eps = 1e-5)
   {
-    if (!is_close(box1.n_pts, box2.n_pts))
+    if (!is_close(box1.n_points, box2.n_points))
       return false;
-    if (!is_close(box1.t0, box2.t0, eps))
+    if (!is_close(box1.start_time, box2.start_time, eps))
       return false;
-    if (!is_close(box1.tf, box2.tf, eps))
+    if (!is_close(box1.end_time, box2.end_time, eps))
       return false;
     if (!is_close(box1.trajectory, box2.trajectory, eps))
       return false;
@@ -117,9 +117,9 @@ host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps =
 
   inline host_fn bool is_close(const Sphere& sph1, const Sphere& sph2, real eps = 1e-5)
   {
-    if (!is_close(sph1.c, sph2.c, eps))
+    if (!is_close(sph1.center, sph2.c, eps))
       return false;
-    if (!is_close(sph1.r, sph2.r, eps))
+    if (!is_close(sph1.radius, sph2.r, eps))
       return false;
 
     return true;
@@ -127,11 +127,11 @@ host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps =
 
   inline host_fn bool is_close(const DynamicSphere& sph1, const DynamicSphere& sph2, real eps = 1e-5)
   {
-    if (!is_close(sph1.n_pts, sph2.n_pts))
+    if (!is_close(sph1.n_points, sph2.n_points))
       return false;
-    if (!is_close(sph1.t0, sph2.t0, eps))
+    if (!is_close(sph1.start_time, sph2.start_time, eps))
       return false;
-    if (!is_close(sph1.tf, sph2.tf, eps))
+    if (!is_close(sph1.end_time, sph2.end_time, eps))
       return false;
     if (!is_close(sph1.trajectory, sph2.trajectory, eps))
       return false;
@@ -144,7 +144,7 @@ host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps =
     if (!((is_close(capsule1.p1, capsule2.p1, eps) && is_close(capsule1.p2, capsule2.p2, eps)) ||
       (is_close(capsule1.p1, capsule2.p2, eps) && is_close(capsule1.p2, capsule2.p1, eps))))
       return false;
-    if (!is_close(capsule1.r, capsule2.r, eps))
+    if (!is_close(capsule1.radius, capsule2.r, eps))
       return false;
 
     return true;
@@ -152,11 +152,11 @@ host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps =
 
   inline host_fn bool is_close(const DynamicCapsule& capsule1, const DynamicCapsule& capsule2, real eps = 1e-5)
   {
-    if (!is_close(capsule1.n_pts, capsule2.n_pts))
+    if (!is_close(capsule1.n_points, capsule2.n_points))
       return false;
-    if (!is_close(capsule1.t0, capsule2.t0, eps))
+    if (!is_close(capsule1.start_time, capsule2.start_time, eps))
       return false;
-    if (!is_close(capsule1.tf, capsule2.tf, eps))
+    if (!is_close(capsule1.end_time, capsule2.end_time, eps))
       return false;
     if (!is_close(capsule1.trajectory, capsule2.trajectory, eps))
       return false;
@@ -191,7 +191,7 @@ host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps =
     if (!((is_close(capsule1.p1, capsule2.p1, eps) && is_close(capsule1.p2, capsule2.p2, eps)) ||
       (is_close(capsule1.p1, capsule2.p2, eps) && is_close(capsule1.p2, capsule2.p1, eps))))
       return false;
-    if (!is_close(capsule1.r, capsule2.r, eps))
+    if (!is_close(capsule1.radius, capsule2.r, eps))
       return false;
     return true;
   }
@@ -205,48 +205,48 @@ host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps =
     // manipulator limits
     for (int joint = 0; joint < manip1.n_joints; joint++)
     {
-      if (!is_close(manip1.pmax[joint], manip2.pmax[joint], eps))
+      if (!is_close(manip1.position_max[joint], manip2.position_max[joint], eps))
         return false; // max joint position
-      if (!is_close(manip1.pmin[joint], manip2.pmin[joint], eps))
+      if (!is_close(manip1.position_min[joint], manip2.position_min[joint], eps))
         return false; // min joint position
-      if (!is_close(manip1.vmax[joint], manip2.vmax[joint], eps))
+      if (!is_close(manip1.velocity_max[joint], manip2.velocity_max[joint], eps))
         return false; // max joint velocity
-      if (!is_close(manip1.amax[joint], manip2.amax[joint], eps))
+      if (!is_close(manip1.acceleration_max[joint], manip2.acceleration_max[joint], eps))
         return false; // max joint acceleration
-      if (!is_close(manip1.tau_max[joint], manip2.tau_max[joint], eps))
+      if (!is_close(manip1.torque_max[joint], manip2.torque_max[joint], eps))
         return false; // max joint torque
     }
 
-    if (!is_close(manip1.tcp_max, manip2.tcp_max, eps))
+    if (!is_close(manip1.tcp_speed_max, manip2.tcp_speed_max, eps))
       return false; // max tcp speed
 
-    if (!is_close(manip1.p_base, manip2.p_base, eps))
+    if (!is_close(manip1.base_position, manip2.base_position, eps))
       return false;
-    if (!is_close(manip1.Q_base, manip2.Q_base, eps))
+    if (!is_close(manip1.base_rotation, manip2.base_rotation, eps))
       return false;
 
     // kinematic properties
     for (int joint = 0; joint < manip1.n_joints; joint++)
     {
-      if (!is_close(manip1.dv[joint], manip2.dv[joint], eps))
+      if (!is_close(manip1.joint_offsets[joint], manip2.joint_offsets[joint], eps))
         return false; // vector to next joint
-      if (!is_close(manip1.ev[joint], manip2.ev[joint], eps))
+      if (!is_close(manip1.joint_axes[joint], manip2.joint_axes[joint], eps))
         return false; // direction vectors of joint
 
       // dynamic properties
-      if (!is_close(manip1.m[joint], manip2.m[joint], eps))
+      if (!is_close(manip1.link_masses[joint], manip2.link_masses[joint], eps))
         return false; // link mass
-      if (!is_close(manip1.I[joint], manip2.I[joint], eps))
+      if (!is_close(manip1.inertia_tensors[joint], manip2.inertia_tensors[joint], eps))
         return false; // inertial tensors
-      if (!is_close(manip1.av[joint], manip2.av[joint], eps))
+      if (!is_close(manip1.cog_offsets[joint], manip2.cog_offsets[joint], eps))
         return false; // center of mass
-      if (!is_close(manip1.sv[joint], manip2.sv[joint], eps))
+      if (!is_close(manip1.cog_from_next_joint[joint], manip2.cog_from_next_joint[joint], eps))
         return false; // center of mass from next joint
     }
     // Q_static is size n_joint + 1
     for (int joint = 0; joint < manip1.n_joints + 1; joint++)
     {
-      if (!is_close(manip1.Q_static[joint], manip2.Q_static[joint]))
+      if (!is_close(manip1.static_rotations[joint], manip2.static_rotations[joint]))
         return false; // static rotation matrix
     }
     
@@ -323,7 +323,7 @@ host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps =
   {
     if (!is_close(spline1.n_joints, spline2.n_joints, eps))
       return false;
-    if (!is_close(spline1.p, spline2.p, eps))
+    if (!is_close(spline1.degree, spline2.p, eps))
       return false;
     if (!is_close(spline1.n_points, spline2.n_points, eps))
       return false;
@@ -368,7 +368,7 @@ host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps =
   // todo: operator==
   inline host_fn bool is_close(const Objective& objective1, const Objective& objective2, real eps = 1e-5)
   {
-    if (!is_close(objective1.K_time, objective2.K_time, eps))
+    if (!is_close(objective1.time_weight, objective2.time_weight, eps))
       return false;
     if (!is_close(objective1.k_extra_objectives, objective2.k_extra_objectives, eps))
       return false;
@@ -384,11 +384,11 @@ host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps =
     switch (guess1.type)
     {
     case Guess::custom:
-      if (!is_close(guess1.x0, guess2.x0))
+      if (!is_close(guess1.initial_x, guess2.initial_x))
         return false;
       break;
     case Guess::random:
-      if (is_close(guess1.n_shot, guess2.n_shot))
+      if (is_close(guess1.n_random_shots, guess2.n_random_shots))
         return false;
       break;
     case Guess::rrt_connect:

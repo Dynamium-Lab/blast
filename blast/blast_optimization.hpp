@@ -19,10 +19,10 @@ namespace blast
 
   struct Objective
   {
-    real K_time = 1.0;
-    // real K_energy = 0; // not supported atm
-    // real K_jerk = 0; // not supported atm
-    // real K_obstacle_avoidance = 0; // not supported atm
+    real time_weight = 1.0;
+    // real energy_weight = 0; // not supported atm
+    // real jerk_weight = 0; // not supported atm
+    // real obstacle_avoidance_weight = 0; // not supported atm
 
     // Setup function to return the NLopt-compatible objective function
     std::vector<real> k_extra_objectives{};
@@ -43,16 +43,16 @@ namespace blast
 
     GuessType type = random;
     real parameter = 0;
-    u32 n_shot = 100;
-    Array x0;
+    u32 n_random_shots = 100;
+    Array initial_x;
     Matrix candidates;
 
     Guess() = default;
 
-    // Constructor for Guess::custom, initializing x0
+    // Constructor for Guess::custom, initializing initial_x
     explicit Guess(Array x_0) :
       type(Guess::custom),
-      x0(std::move(x_0))
+      initial_x(std::move(x_0))
     {
     }
 
@@ -63,10 +63,10 @@ namespace blast
     {
     }
 
-    // Constructor for Guess::random, initializing n_shot
+    // Constructor for Guess::random, initializing n_random_shots
     explicit Guess(u32 shots) :
       type(Guess::random),
-      n_shot(shots)
+      n_random_shots(shots)
     {
     }
 

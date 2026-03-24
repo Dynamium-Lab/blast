@@ -57,8 +57,8 @@ TEST_CASE("test gradient upper and lower bounds nctrl = 16 npoints = 200", "[Acc
 
     for (u32 i = 0; i < nctrl; i++) {
         // we do not test the first and last points
-        auto lb = bspline.lb[i];
-        auto ub = bspline.ub[i];
+        auto lb = bspline.lower_bounds[i];
+        auto ub = bspline.upper_bounds[i];
         for (u32 k = lb; k <= ub; k++) {
             if (bspline.basis_p(i, k) == 0.0)
                 std::cout << "i: " << i << " k: " << k << " basis_p: " << bspline.basis_p(i, k) << std::endl;
@@ -96,8 +96,8 @@ TEST_CASE("test gradient upper and lower bounds random nctrl & npoints", "[Accel
         Bspline bspline(nctrl, npoints, 5, joints);
 
         for (u32 i = 0; i < nctrl; i++) {
-            auto lb = bspline.lb[i];
-            auto ub = bspline.ub[i];
+            auto lb = bspline.lower_bounds[i];
+            auto ub = bspline.upper_bounds[i];
             for (u32 k = lb; k <= ub; k++) {
                 // todo: make sure value is max/min
                 bool b_p = bspline.basis_p(i, k) != 0.0 ? true : bspline.basis_p(i-1, k) != 0.0 && bspline.basis_p(i+1, k) != 0.0 ? true : false; // remove outliers
@@ -190,7 +190,7 @@ TEST_CASE("test gradient points with upper & lower bounds", "[Acceleration]") {
 
     // --- Define Objective ---
     Objective<GenericManipulator> objective;
-    objective.K_time = 1;
+    objective.time_weight = 1;
 
     real start_time = 0.0;
     for (u32 t = 0; t < tasks.size(); t++) {
@@ -291,7 +291,7 @@ TEST_CASE("test gradient acceleration accuracy", "[Acceleration]") {
 
     // --- Define Objective ---
     Objective<GenericManipulator> objective;
-    objective.K_time = 1;
+    objective.time_weight = 1;
 
     real start_time = 0.0;
     for (u32 t = 0; t < tasks.size(); t++) {

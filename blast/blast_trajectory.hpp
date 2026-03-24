@@ -33,14 +33,14 @@ struct Bspline {
   u32        n_joints;
   u32        n_points;
   u32        n_ctrl;
-  u32        p;
+  u32        degree;
 
-  std::vector<u32> lb; // nctrl
-  std::vector<u32> ub; // nctrl
+  std::vector<u32> lower_bounds; // nctrl
+  std::vector<u32> upper_bounds; // nctrl
 
   inline blast_fn Bspline() = delete;
 
-  inline blast_fn Bspline(u32 n_control, u32 n_points, u32 p, u32 n_joints);
+  inline blast_fn Bspline(u32 n_control, u32 n_points, u32 degree, u32 n_joints);
 
   inline blast_fn explicit Bspline(u32 n_joints) :
       Bspline(12, 100, 5, n_joints) {}

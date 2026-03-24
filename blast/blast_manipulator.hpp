@@ -29,71 +29,68 @@ inline host_fn void   dynamics(const Manipulator& manip, ManipulatorTempData& te
  * @var p1           First endpoint of the capsule (Vec3).
  * @var joint_frame  Index of the joint frame to which this capsule is attached.
  * @var p2           Second endpoint of the capsule (Vec3).
- * @var r            Radius of the capsule.
+ * @var radius       Radius of the capsule.
  */
 struct CollisionModelCapsule {
   Vec3 p1;
   u32  joint_frame;
   Vec3 p2;
-  real r;
+  real radius;
 };
 
 /**
  * @struct ManipulatorLimits
  * @brief Actuator limits for a manipulator's joints and TCP.
  *
- * @var pmax    Maximum joint positions.
- * @var pmin    Minimum joint positions.
- * @var vmax    Maximum joint velocities.
- * @var vmin    Minimum joint velocities.
- * @var amax    Maximum joint accelerations.
- * @var amin    Minimum joint accelerations.
- * @var tau_max Maximum joint torques.
- * @var tau_min Minimum joint torques.
- * @var tcp_max Maximum tool‐center‐point speed.
+ * @var position_max    Maximum joint positions.
+ * @var position_min    Minimum joint positions.
+ * @var velocity_max    Maximum joint velocities.
+ * @var acceleration_max Maximum joint accelerations.
+ * @var torque_max      Maximum joint torques.
+ * @var tcp_speed_max   Maximum tool‐center‐point speed.
  */
 struct ManipulatorLimits {
-  Array pmax; // max joint position
-  Array pmin; // min joint position
-  Array vmax; // max joint velocity
-  Array amax; // max joint acceleration
-  Array tau_max; // max joint torque
+  Array position_max; // max joint position
+  Array position_min; // min joint position
+  Array velocity_max; // max joint velocity
+  Array acceleration_max; // max joint acceleration
+  Array torque_max; // max joint torque
 
-  real tcp_max; // max tcp speed
+  real tcp_speed_max; // max tcp speed
 };
 
 /**
  * @struct ManipulatorKinematics
  * @brief Geometric configuration of manipulator joints and base.
  *
- * @var dv       Vectors from each joint to the next (in joint frames).
- * @var ev       Unit axis directions for each joint.
- * @var Q_static Static rotation matrices from joint to next (Mat3).
- * @var p_j0     Position of the first joint relative to the base.
- * @var p_base   Position of the manipulator base in the world frame.
- * @var Q_base   Orientation of the manipulator base in the world frame.
+ * @var joint_offsets     Vectors from each joint to the next (in joint frames).
+ * @var joint_axes        Unit axis directions for each joint.
+ * @var static_rotations  Static rotation matrices from joint to next (Mat3).
+ * @var first_joint_position Position of the first joint relative to the base.
+ * @var base_position     Position of the manipulator base in the world frame.
+ * @var base_rotation     Orientation of the manipulator base in the world frame.
  */
 struct ManipulatorKinematics {
-  std::array<Vec3, MAX_JOINTS>     dv;                                   // vector to next joint
-  std::array<Vec3, MAX_JOINTS>     ev;                                   // direction vectors of joint
-  std::array<Mat3, MAX_JOINTS + 1> Q_static;                             // static rotation to next joint
-  Vec3                             p_base = {0.0, 0.0, 0.0};             // base position in workspace
-  Vec3                             p_j0   = {0.0, 0.0, 0.0};             // position of the first joint relative to base
-  Mat3                             Q_base = {1, 0, 0, 0, 1, 0, 0, 0, 1}; // base orientation in workspace
+  std::array<Vec3, MAX_JOINTS>     joint_offsets;                                   // vector to next joint
+  std::array<Vec3, MAX_JOINTS>     joint_axes;                                      // direction vectors of joint
+  std::array<Mat3, MAX_JOINTS + 1> static_rotations;                                // static rotation to next joint
+  Vec3                             base_position = {0.0, 0.0, 0.0};                 // base position in workspace
+  Vec3                             first_joint_position   = {0.0, 0.0, 0.0};        // position of the first joint relative to base
+  Mat3                             base_rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};    // base orientation in workspace
 };
 
 /**
  * @struct ManipulatorDynamics
  * @brief Dynamic properties of each manipulator link.
  *
- * @var m    Mass of each link.
- * @var I    Inertia tensor of each link (Mat3).
- * @var av   Center of mass offset for each link (Vec3).
+ * @var link_masses       Mass of each link.
+ * @var inertia_tensors   Inertia tensor of each link (Mat3).
+ * @var cog_offsets       Center of mass offset for each link (Vec3).
  */
 struct ManipulatorDynamics {
-  std::array<real, MAX_JOINTS> m{}; // link mass
-  std::array<Mat3, MAX_JOINTS> I{}; // inertial tensors
-  std::array<Vec3, MAX_JOINTS> av{};
+  std::array<real, MAX_JOINTS> link_masses{};    // link mass
+  std::array<Mat3, MAX_JOINTS> inertia_tensors{}; // inertial tensors
+  std::array<Vec3, MAX_JOINTS> cog_offsets{};    // center of gravity offset
 };
 
 /**
@@ -116,20 +113,20 @@ struct ManipulatorCapsules {
  * @struct EndEffector
  * @brief Payload and collision properties of an end effector.
  *
- * @var dv_ee         Offset vector from TCP to payload.
- * @var Q_ee          Rotation from TCP to payload.
- * @var m_ee          Payload mass.
- * @var I_ee          Payload inertia tensor.
- * @var av_ee         Payload center of mass offset.
+ * @var tcp_offset    Offset vector from TCP to payload.
+ * @var tcp_rotation  Rotation from TCP to payload.
+ * @var mass          Payload mass.
+ * @var inertia_tensor Payload inertia tensor.
+ * @var cog_offset    Payload center of mass offset.
  * @var capsule_list  Collision capsules for the end effector.
  * @var collision_matrix Collision matrix for payload capsules.
  */
 struct EndEffector {
-  Vec3 dv_ee = {0.0, 0.0, 0.0};
-  Mat3 Q_ee  = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  real m_ee  = 0.0;
-  Mat3 I_ee;
-  Vec3 av_ee = {0.0, 0.0, 0.0};
+  Vec3 tcp_offset   = {0.0, 0.0, 0.0};
+  Mat3 tcp_rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  real mass         = 0.0;
+  Mat3 inertia_tensor;
+  Vec3 cog_offset   = {0.0, 0.0, 0.0}; // center of gravity offset
 
   // Collision for end effector
   std::vector<CollisionModelCapsule> capsule_list;
@@ -157,37 +154,37 @@ struct Manipulator {
   u32 n_joints = 0;
 
   // Manipulator limits
-  std::array<real, MAX_JOINTS> pmax{};
-  std::array<real, MAX_JOINTS> pmin{};
-  std::array<real, MAX_JOINTS> vmax{};
-  std::array<real, MAX_JOINTS> amax{};
-  std::array<real, MAX_JOINTS> tau_max{};
+  std::array<real, MAX_JOINTS> position_max{};
+  std::array<real, MAX_JOINTS> position_min{};
+  std::array<real, MAX_JOINTS> velocity_max{};
+  std::array<real, MAX_JOINTS> acceleration_max{};
+  std::array<real, MAX_JOINTS> torque_max{};
 
-  real tcp_max = 0.0; // max TCP speed
+  real tcp_speed_max = 0.0; // max TCP speed
 
   // World‐frame base pose
-  Vec3 p_base = {0, 0, 0};
-  Mat3 Q_base = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  Vec3 base_position = {0, 0, 0};
+  Mat3 base_rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};
 
   // End effector state
   bool end_effector = false;
-  Vec3 dv_ee        = {0, 0, 0};
-  Mat3 Q_ee         = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  real m_ee         = 0.0;
-  Mat3 I_ee         = eye();
-  Vec3 av_ee        = {0, 0, 0};
+  Vec3 tcp_offset   = {0, 0, 0};
+  Mat3 tcp_rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  real ee_mass      = 0.0;
+  Mat3 ee_inertia_tensor = eye();
+  Vec3 ee_cog_offset     = {0, 0, 0}; // center of gravity offset
 
   // Joint kinematics
-  Vec3                             p_j0 = {0, 0, 0};
-  std::array<Vec3, MAX_JOINTS>     dv{};       // to next joint
-  std::array<Vec3, MAX_JOINTS>     ev{};       // axis dirs
-  std::array<Mat3, MAX_JOINTS + 1> Q_static{}; // static rotations todo: Why not Q_j0 as well instead of random bigger vector?
+  Vec3                             first_joint_position = {0, 0, 0};
+  std::array<Vec3, MAX_JOINTS>     joint_offsets{};       // to next joint
+  std::array<Vec3, MAX_JOINTS>     joint_axes{};          // axis dirs
+  std::array<Mat3, MAX_JOINTS + 1> static_rotations{};    // static rotations
 
   // Link dynamics
-  std::array<real, MAX_JOINTS> m{};
-  std::array<Mat3, MAX_JOINTS> I{};
-  std::array<Vec3, MAX_JOINTS> av{};
-  std::array<Vec3, MAX_JOINTS> sv{}; // COM from next joint
+  std::array<real, MAX_JOINTS> link_masses{};
+  std::array<Mat3, MAX_JOINTS> inertia_tensors{};
+  std::array<Vec3, MAX_JOINTS> cog_offsets{};          // center of gravity offset
+  std::array<Vec3, MAX_JOINTS> cog_from_next_joint{};  // center of gravity offset
 
   // Internal caches and collision
   int                                             _n_caps                = 0;

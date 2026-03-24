@@ -24,18 +24,18 @@ inline Manipulator get_generic_ur5e() {
 
   // limits
   blast::ManipulatorLimits limits;
-  limits.pmax = {6.283200, 6.283200, 3.141600, 6.283200, 6.283200, 6.283200};
-  limits.pmin = {-6.283200, -6.283200, -3.141600, -6.283200, -6.283200, -6.283200};
-  limits.vmax = {3.141600, 3.141600, 3.141600, 3.141600, 3.141600, 3.141600};
+  limits.position_max = {6.283200, 6.283200, 3.141600, 6.283200, 6.283200, 6.283200};
+  limits.position_min = {-6.283200, -6.283200, -3.141600, -6.283200, -6.283200, -6.283200};
+  limits.velocity_max = {3.141600, 3.141600, 3.141600, 3.141600, 3.141600, 3.141600};
   // limits.vmin = {-3.141600, -3.141600, -3.141600, -3.141600, -3.141600, -3.141600};
-  limits.amax = {13.96, 13.96, 13.96, 13.96, 13.96, 13.96};
+  limits.acceleration_max = {13.96, 13.96, 13.96, 13.96, 13.96, 13.96};
   // limits.amin = {-13.96, -13.96, -13.96, -13.96, -13.96, -13.96};
-  limits.tau_max = {150.000000, 150.000000, 150.000000, 28.000000, 28.000000, 28.000000};
+  limits.torque_max = {150.000000, 150.000000, 150.000000, 28.000000, 28.000000, 28.000000};
   // limits.tau_min = {-150.000000, -150.000000, -150.000000, -28.000000, -28.000000, -28.000000};
-  limits.tcp_max = 2.0; // todo: verify this value
+  limits.tcp_speed_max = 2.0; // todo: verify this value
 
   blast::ManipulatorKinematics kinematics;
-  kinematics.dv = {
+  kinematics.joint_offsets = {
           Vec3{0, 0, 0},
           {-0.425, 0, 0},
           {-0.3922, 0, 0.1333},
@@ -43,33 +43,33 @@ inline Manipulator get_generic_ur5e() {
           {0, 0.0996, -0},
           {0, 0, 0} // to end effector
   };
-  kinematics.ev = {
+  kinematics.joint_axes = {
           Vec3{0, 0, 1},
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1}};
-  // kinematics.Q_static.resize(6);
-  kinematics.Q_static[0] = {-1.000000, 0.000000, 0.000000, -0.000000, -1.000000, 0.000000, 0.000000, -0.000000, 1.000000}; // modified
-  kinematics.Q_static[1] = {1.000000, 0.000000, 0.000000, -0.000000, -0.000000, 1.000000, 0.000000, -1.000000, -0.000000};
-  kinematics.Q_static[2] = {1.000000, 0.000000, 0.000000, -0.000000, 1.000000, 0.000000, 0.000000, -0.000000, 1.000000};
-  kinematics.Q_static[3] = {1.000000, 0.000000, 0.000000, -0.000000, 1.000000, 0.000000, 0.000000, -0.000000, 1.000000};
-  kinematics.Q_static[4] = {1.000000, 0.000000, 0.000000, -0.000000, -0.000000, 1.000000, 0.000000, -1.000000, -0.000000};
-  kinematics.Q_static[5] = {1.000000, -0.000000, 0.000000, 0.000000, -0.000000, -1.000000, 0.000000, 1.000000, -0.000000};
-  // kinematics.Q_static[6] = {1.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 1.000000};
-  kinematics.p_j0 = {0.000000, 0.000000, 0.162500};
+  // kinematics.static_rotations.resize(6);
+  kinematics.static_rotations[0] = {-1.000000, 0.000000, 0.000000, -0.000000, -1.000000, 0.000000, 0.000000, -0.000000, 1.000000}; // modified
+  kinematics.static_rotations[1] = {1.000000, 0.000000, 0.000000, -0.000000, -0.000000, 1.000000, 0.000000, -1.000000, -0.000000};
+  kinematics.static_rotations[2] = {1.000000, 0.000000, 0.000000, -0.000000, 1.000000, 0.000000, 0.000000, -0.000000, 1.000000};
+  kinematics.static_rotations[3] = {1.000000, 0.000000, 0.000000, -0.000000, 1.000000, 0.000000, 0.000000, -0.000000, 1.000000};
+  kinematics.static_rotations[4] = {1.000000, 0.000000, 0.000000, -0.000000, -0.000000, 1.000000, 0.000000, -1.000000, -0.000000};
+  kinematics.static_rotations[5] = {1.000000, -0.000000, 0.000000, 0.000000, -0.000000, -1.000000, 0.000000, 1.000000, -0.000000};
+  // kinematics.static_rotations[6] = {1.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 1.000000};
+  kinematics.first_joint_position = {0.000000, 0.000000, 0.162500};
 
   blast::ManipulatorDynamics dynamics;
-  dynamics.m = {3.700000, 8.393000, 2.275000, 1.219000, 1.219000, 0.187900};
-  dynamics.I = {
+  dynamics.link_masses = {3.700000, 8.393000, 2.275000, 1.219000, 1.219000, 0.187900};
+  dynamics.inertia_tensors = {
           Mat3{0.0103, 0, 0, 0, 0.0103, 0, 0, 0, 0.0067},
           {0.1339, 0, 0, 0, 0.1339, 0, 0, 0, 0.0151},
           {0.0312, 0, 0, 0, 0.0312, 0, 0, 0, 0.0041},
           {0.0026, 0, 0, 0, 0.0026, 0, 0, 0, 0.0022},
           {0.0026, 0, 0, 0, 0.0026, 0, 0, 0, 0.0022},
           {0.0001, 0, 0, 0, 0.0001, 0, 0, 0, 0.0001}};
-  dynamics.av = {
+  dynamics.cog_offsets = {
           Vec3{0, 0, 0},
           {-0.2125, 0, 0.138},
           {-0.1961, 0, 0.007},
@@ -80,8 +80,8 @@ inline Manipulator get_generic_ur5e() {
   blast::ManipulatorCapsules collisions;
 
   blast::Sphere base;
-  base.c                    = {0, 0, 0.0325};
-  base.r                    = 0.09;
+  base.center                    = {0, 0, 0.0325};
+  base.radius                    = 0.09;
   collisions.base_sphere    = base;
   collisions.collision_base = {0, 0, 0, 1, 1, 1, 1};
 
@@ -113,43 +113,43 @@ inline Manipulator get_generic_ur5e() {
   capsule.joint_frame = 0;
   capsule.p1          = {0, 0, 0};
   capsule.p2          = {0, -0.15, 0};
-  capsule.r           = 0.09;
+  capsule.radius           = 0.09;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 1;
   capsule.p1          = {-0.42, 0, 0.1375};
   capsule.p2          = {0, 0, 0.1375};
-  capsule.r           = 0.06;
+  capsule.radius           = 0.06;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 2;
   capsule.p1          = {0, 0, 0.02};
   capsule.p2          = {0, 0, 0.18};
-  capsule.r           = 0.065;
+  capsule.radius           = 0.065;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 2;
   capsule.p1          = {-0.373156, 0, 0.00850418};
   capsule.p2          = {0.000440611, 0.000121443, 0.00850418};
-  capsule.r           = 0.05;
+  capsule.radius           = 0.05;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 3;
   capsule.p1          = {0, 0, 0};
   capsule.p2          = {0, 0, -0.155};
-  capsule.r           = 0.0425;
+  capsule.radius           = 0.0425;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 3;
   capsule.p1          = {0, 0.03, 0};
   capsule.p2          = {0, -0.1, 0};
-  capsule.r           = 0.0425;
+  capsule.radius           = 0.0425;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 5;
   capsule.p1          = {0, 0, -0.14};
   capsule.p2          = {0, 0, -0.01};
-  capsule.r           = 0.038;
+  capsule.radius           = 0.038;
   collisions.capsule_list.push_back(capsule);
 
   blast::Manipulator generic_manip(joints, limits, kinematics, &dynamics, &collisions);
@@ -509,7 +509,7 @@ inline void fill_config_list_UR5e(std::array<Config, config_size>& target_config
 
 // acc 1
 inline u32 ncon_acc(const Optimization* opt, const int x_idx) {
-  const u32 n_points            = opt->bspline.ub[x_idx] + 1 - opt->bspline.lb[x_idx]; // + 1 since ub is inclusive
+  const u32 n_points            = opt->bspline.upper_bounds[x_idx] + 1 - opt->bspline.lower_bounds[x_idx]; // + 1 since ub is inclusive
   const u32 n_joints            = opt->manip.n_joints;
   const u32 n_constraints_basic = n_points * n_joints;
   u32       n_constraints       = 0;
@@ -565,8 +565,8 @@ inline void compute_constraints_grad1(ConstraintPerPoint& constraints, const Arr
 
   auto n_joints = opt->manip.n_joints;
 
-  // ObjMatrix<Capsule> capsules(opt->manip._n_caps, (u32) (opt->bspline.ub[x_idx] - opt->bspline.lb[x_idx] + 1) / opt->constraints.n_collision_skip);
-  for (u32 i = opt->bspline.lb[x_idx]; i <= opt->bspline.ub[x_idx]; i++) {
+  // ObjMatrix<Capsule> capsules(opt->manip._n_caps, (u32) (opt->bspline.upper_bounds[x_idx] - opt->bspline.lower_bounds[x_idx] + 1) / opt->constraints.n_collision_skip);
+  for (u32 i = opt->bspline.lower_bounds[x_idx]; i <= opt->bspline.upper_bounds[x_idx]; i++) {
 #if BLAST_TRACE_LEVEL >= 3
     ZoneScopedN("ConstraintSinglePoint");
 #endif
@@ -606,7 +606,7 @@ inline void compute_constraints_grad1(ConstraintPerPoint& constraints, const Arr
       ZoneScopedN("Position");
 #endif
       // for (int j = 0; j < opt->manip.n_joints; j++) {
-      constraints.pos_constraint[i - opt->bspline.lb[x_idx]] = bound_constraint(pos[joint_idx], opt->manip.pmin[joint_idx], opt->manip.pmax[joint_idx]);
+      constraints.pos_constraint[i - opt->bspline.lower_bounds[x_idx]] = bound_constraint(pos[joint_idx], opt->manip.pmin[joint_idx], opt->manip.pmax[joint_idx]);
 
       // }
     }
@@ -616,7 +616,7 @@ inline void compute_constraints_grad1(ConstraintPerPoint& constraints, const Arr
       ZoneScopedN("Velocity");
 #endif
       // for (int j = 0; j < opt->manip.n_joints; j++) {
-      constraints.vel_constraint[i - opt->bspline.lb[x_idx]] = std::abs(vel[joint_idx]) / opt->manip.vmax[joint_idx] - 1.0;
+      constraints.vel_constraint[i - opt->bspline.lower_bounds[x_idx]] = std::abs(vel[joint_idx]) / opt->manip.velocity_max[joint_idx] - 1.0;
       // }
     }
 
@@ -625,7 +625,7 @@ inline void compute_constraints_grad1(ConstraintPerPoint& constraints, const Arr
       ZoneScopedN("Acceleration");
 #endif
       // for (int j = 0; j < opt->manip.n_joints; j++) {
-      constraints.acc_constraint[i - opt->bspline.lb[x_idx]] = std::abs(acc[joint_idx]) / opt->manip.amax[joint_idx] - 1.0;
+      constraints.acc_constraint[i - opt->bspline.lower_bounds[x_idx]] = std::abs(acc[joint_idx]) / opt->manip.acceleration_max[joint_idx] - 1.0;
 
       // }
     }
@@ -637,7 +637,7 @@ inline void compute_constraints_grad1(ConstraintPerPoint& constraints, const Arr
       dynamics(opt->manip, manip_data, vel, acc); // fills _efforts
 
       for (int j = 0; j < opt->manip.n_joints; j++) {
-        constraints.tor_constraint(j, i - opt->bspline.lb[x_idx]) = std::abs(manip_data.efforts[j]) / opt->manip.tau_max[j] - 1.0;
+        constraints.tor_constraint(j, i - opt->bspline.lower_bounds[x_idx]) = std::abs(manip_data.efforts[j]) / opt->manip.torque_max[j] - 1.0;
       }
     }
 
@@ -647,7 +647,7 @@ inline void compute_constraints_grad1(ConstraintPerPoint& constraints, const Arr
 #endif
       auto J_tool                                            = get_J_tool(opt, manip_data);
       real tcp_speed                                         = norm(J_tool * opt->bspline.traj.vel.col(i));
-      constraints.tcp_constraint[i - opt->bspline.lb[x_idx]] = bound_constraint(tcp_speed, 0.0, opt->manip.tcp_max);
+      constraints.tcp_constraint[i - opt->bspline.lower_bounds[x_idx]] = bound_constraint(tcp_speed, 0.0, opt->manip.tcp_speed_max);
     }
 
     if (opt->constraints.self_collisions) {
@@ -656,7 +656,7 @@ inline void compute_constraints_grad1(ConstraintPerPoint& constraints, const Arr
 #endif
       auto tmp_coll = max(-get_internal_collisions(opt->manip, manip_data));
       // for (u32 j = 0; j < tmp_coll.size; j++)
-      constraints.self_collision_constraint[i - opt->bspline.lb[x_idx]] = tmp_coll; //*std::abs(tmp_coll[j]);
+      constraints.self_collision_constraint[i - opt->bspline.lower_bounds[x_idx]] = tmp_coll; //*std::abs(tmp_coll[j]);
     }
 
     if (opt->constraints.external_collisions) {
@@ -707,7 +707,7 @@ inline void compute_constraints_grad1(ConstraintPerPoint& constraints, const Arr
         }
       }
       for (int k = 0; k < opt->manip._n_caps; k++)
-        constraints.collision_constraint(k, i - opt->bspline.lb[x_idx]) = max_col_constraints[k];
+        constraints.collision_constraint(k, i - opt->bspline.lower_bounds[x_idx]) = max_col_constraints[k];
     }
   }
 }
@@ -761,48 +761,48 @@ inline void nlopt_constraints_acc1(unsigned m, double* result, unsigned xlen, co
       x_plus[j] += eps;                                    // todo: add this is for extra constraints (tcp, collisions)
       opt->bspline.compute_trajectory(x_plus, opt->task);
 
-      auto n_con_per_point = ncon_acc(opt, x_idx) / (opt->bspline.ub[x_idx] + 1 - opt->bspline.lb[x_idx]);
+      auto n_con_per_point = ncon_acc(opt, x_idx) / (opt->bspline.upper_bounds[x_idx] + 1 - opt->bspline.lower_bounds[x_idx]);
 
-      auto               n_points = (opt->bspline.ub[x_idx] + 1 - opt->bspline.lb[x_idx]);
+      auto               n_points = (opt->bspline.upper_bounds[x_idx] + 1 - opt->bspline.lower_bounds[x_idx]);
       ConstraintPerPoint constraint(n_joints, n_points, n_capsules);
       compute_constraints_grad1(constraint, x_plus, x_idx, joint, opt);
 
       n_con_lb = ncon_lb_acc(opt, x_idx); // find the amount of constraints before the current point
 
       grad_idx = n_con_lb * xlen + j;     // gradients are stored column-wise xlen * npoints
-      for (u32 i = opt->bspline.lb[x_idx]; i <= opt->bspline.ub[x_idx]; i++) {
+      for (u32 i = opt->bspline.lower_bounds[x_idx]; i <= opt->bspline.upper_bounds[x_idx]; i++) {
         // lb & ub are inclusive
         grad_idx += joint * xlen;
 
         // position
-        grad[grad_idx] = (constraint.pos_constraint[i - opt->bspline.lb[x_idx]] - result[i * n_con_per_point + joint]) / eps;
+        grad[grad_idx] = (constraint.pos_constraint[i - opt->bspline.lower_bounds[x_idx]] - result[i * n_con_per_point + joint]) / eps;
         grad_idx += n_joints * xlen;
 
         // velocity
-        grad[grad_idx] = (constraint.vel_constraint[i - opt->bspline.lb[x_idx]] - result[i * n_con_per_point + n_joints + joint]) / eps;
+        grad[grad_idx] = (constraint.vel_constraint[i - opt->bspline.lower_bounds[x_idx]] - result[i * n_con_per_point + n_joints + joint]) / eps;
         grad_idx += n_joints * xlen;
 
         // acceleration
-        grad[grad_idx] = (constraint.acc_constraint[i - opt->bspline.lb[x_idx]] - result[i * n_con_per_point + 2 * n_joints + joint]) / eps;
+        grad[grad_idx] = (constraint.acc_constraint[i - opt->bspline.lower_bounds[x_idx]] - result[i * n_con_per_point + 2 * n_joints + joint]) / eps;
         grad_idx += (n_joints - joint) * xlen;
 
         // torque
         for (int k = 0; k < n_joints; k++) {
-          grad[grad_idx] = (constraint.tor_constraint(k, i - opt->bspline.lb[x_idx]) - result[i * n_con_per_point + 3 * n_joints + k]) / eps;
+          grad[grad_idx] = (constraint.tor_constraint(k, i - opt->bspline.lower_bounds[x_idx]) - result[i * n_con_per_point + 3 * n_joints + k]) / eps;
           grad_idx += xlen;
         }
 
         // tcp
-        grad[grad_idx] = (constraint.tcp_constraint[i - opt->bspline.lb[x_idx]] - result[i * n_con_per_point + 4 * n_joints]) / eps;
+        grad[grad_idx] = (constraint.tcp_constraint[i - opt->bspline.lower_bounds[x_idx]] - result[i * n_con_per_point + 4 * n_joints]) / eps;
         grad_idx += xlen;
 
         // self col
-        grad[grad_idx] = (constraint.self_collision_constraint[i - opt->bspline.lb[x_idx]] - result[i * n_con_per_point + 4 * n_joints + 1]) / eps;
+        grad[grad_idx] = (constraint.self_collision_constraint[i - opt->bspline.lower_bounds[x_idx]] - result[i * n_con_per_point + 4 * n_joints + 1]) / eps;
         grad_idx += xlen;
 
         // col
         for (int k = 0; k < opt->manip._n_caps; k++) {
-          grad[grad_idx] = (constraint.collision_constraint(k, i - opt->bspline.lb[x_idx]) - result[i * n_con_per_point + 4 * n_joints + 2 + k]) / eps;
+          grad[grad_idx] = (constraint.collision_constraint(k, i - opt->bspline.lower_bounds[x_idx]) - result[i * n_con_per_point + 4 * n_joints + 2 + k]) / eps;
           grad_idx += xlen;
         }
       }
@@ -970,7 +970,7 @@ inline Result optimize_acc1(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
       x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
       int points_more = (int) (steps_ms + 1);
 
-      Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.p, opt->manip.n_joints); // todo: this is expensive
+      Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints); // todo: this is expensive
       bspline_val_more.compute_trajectory(x, opt->task);
       auto opt_val_more(*opt);
       opt_val_more.set_bspline(bspline_val_more);
@@ -1116,7 +1116,7 @@ blast_fn void compute_constraints_acc2(double* result, Array& gradient_coeffs, M
           ZoneScopedN("Velocity");
 #endif
           for (int j = 0; j < joints; j++) {
-            process_bound(opt->bspline.traj.vel(j, i), opt->manip.vmax[j]);
+            process_bound(opt->bspline.traj.vel(j, i), opt->manip.velocity_max[j]);
           }
         }
 
@@ -1125,7 +1125,7 @@ blast_fn void compute_constraints_acc2(double* result, Array& gradient_coeffs, M
           ZoneScopedN("Acceleration");
 #endif
           for (int j = 0; j < joints; j++) {
-            process_bound(opt->bspline.traj.acc(j, i), opt->manip.amax[j]);
+            process_bound(opt->bspline.traj.acc(j, i), opt->manip.acceleration_max[j]);
           }
         }
 
@@ -1148,7 +1148,7 @@ blast_fn void compute_constraints_acc2(double* result, Array& gradient_coeffs, M
 #endif
           auto J_tool      = get_J_tool(opt, manip_data);
           real tcp_speed   = norm(J_tool * vel);
-          tcp_constraint   = bound_constraint(tcp_speed, 0.0, opt->manip.tcp_max);
+          tcp_constraint   = bound_constraint(tcp_speed, 0.0, opt->manip.tcp_speed_max);
           *moving_result++ = tcp_constraint;
         }
 
@@ -1242,7 +1242,7 @@ blast_fn void compute_constraints_acc2(double* result, Array& gradient_coeffs, M
         if (opt->constraints.torque) {
           dynamics(opt->manip, manip_data, vel_plus, acc_plus);
           for (u32 k = 0; k < joints; k++) {
-            auto torque_constraint_plus = abs_constraint(manip_data.efforts[k], opt->manip.tau_max[k]);
+            auto torque_constraint_plus = abs_constraint(manip_data.efforts[k], opt->manip.torque_max[k]);
             dtau_dp(k, j + joints * i)  = (torque_constraint_plus - torque_constraint[k]) / eps;
           }
         }
@@ -1250,7 +1250,7 @@ blast_fn void compute_constraints_acc2(double* result, Array& gradient_coeffs, M
         if (opt->constraints.tcp_speed) {
           auto J_tool_plus         = get_J_tool(opt, manip_data);
           real tcp_speed_plus      = norm(J_tool_plus * vel_plus);
-          auto tcp_constraint_plus = bound_constraint(tcp_speed_plus, 0.0, opt->manip.tcp_max);
+          auto tcp_constraint_plus = bound_constraint(tcp_speed_plus, 0.0, opt->manip.tcp_speed_max);
           dtcp_dp(j, i)            = (tcp_constraint_plus - tcp_constraint) / eps;
         }
 
@@ -1297,7 +1297,7 @@ blast_fn void compute_constraints_acc2(double* result, Array& gradient_coeffs, M
         if (opt->constraints.torque) {
           dynamics(opt->manip, manip_data, vel_plus, acc_plus);
           for (u32 k = 0; k < joints; k++) {
-            auto torque_constraint_plus = abs_constraint(manip_data.efforts[k], opt->manip.tau_max[k]);
+            auto torque_constraint_plus = abs_constraint(manip_data.efforts[k], opt->manip.torque_max[k]);
             dtau_dv(k, j + joints * i)  = (torque_constraint_plus - torque_constraint[k]) / eps;
           }
         }
@@ -1305,7 +1305,7 @@ blast_fn void compute_constraints_acc2(double* result, Array& gradient_coeffs, M
         if (opt->constraints.tcp_speed) {
           auto J_tool_plus         = get_J_tool(opt, manip_data);
           real tcp_speed_plus      = norm(J_tool_plus * vel_plus);
-          auto tcp_constraint_plus = bound_constraint(tcp_speed_plus, 0.0, opt->manip.tcp_max);
+          auto tcp_constraint_plus = bound_constraint(tcp_speed_plus, 0.0, opt->manip.tcp_speed_max);
           dtcp_dv(j, i)            = (tcp_constraint_plus - tcp_constraint) / eps;
         }
 
@@ -1319,7 +1319,7 @@ blast_fn void compute_constraints_acc2(double* result, Array& gradient_coeffs, M
         if (opt->constraints.torque) {
           dynamics(opt->manip, manip_data, vel_plus, acc_plus);
           for (u32 k = 0; k < joints; k++) {
-            auto torque_constraint_plus = abs_constraint(manip_data.efforts[k], opt->manip.tau_max[k]);
+            auto torque_constraint_plus = abs_constraint(manip_data.efforts[k], opt->manip.torque_max[k]);
             dtau_da(k, j + joints * i)  = (torque_constraint_plus - torque_constraint[k]) / eps;
           }
         }
@@ -1403,8 +1403,8 @@ inline blast_fn void nlopt_constraints_acc2(unsigned m, double* result, unsigned
         // todo: create alias matrix that points to grad
         // todo: can we change the order in which we store the gradients ?
         grad_idx       = n_con_lb * xlen + j;                                    // gradients are stored column-wise xlen * npoints
-        constraint_idx = opt->manip.n_joints * n_active_constraints * opt->bspline.lb[x_idx];
-        for (u32 i = opt->bspline.lb[x_idx]; i <= opt->bspline.ub[x_idx]; i++) { // lb & ub are inclusive
+        constraint_idx = opt->manip.n_joints * n_active_constraints * opt->bspline.lower_bounds[x_idx];
+        for (u32 i = opt->bspline.lower_bounds[x_idx]; i <= opt->bspline.upper_bounds[x_idx]; i++) { // lb & ub are inclusive
           grad_idx += joint * xlen;
           constraint_idx += joint;
 
@@ -1665,7 +1665,7 @@ inline Result optimize_acc2(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
       x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
       int points_more = (int) (steps_ms + 1);
 
-      Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.p, opt->manip.n_joints); // todo: this is expensive
+      Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints); // todo: this is expensive
       bspline_val_more.compute_trajectory(x, opt->task);
       auto opt_val_more(*opt);
       opt_val_more.set_bspline(bspline_val_more);
@@ -1730,8 +1730,8 @@ void eval_function_UR5e() {
     auto& task     = config.task;
 
     auto manip   = get_generic_ur5e();
-    manip.p_base = {-0.5, -0.3, 0.35};
-    manip.Q_base = {-1, 0, 0, 0, -1, 0, 0, 0, 1};
+    manip.base_position = {-0.5, -0.3, 0.35};
+    manip.base_rotation = {-1, 0, 0, 0, -1, 0, 0, 0, 1};
 
     Optimization opt(manip, task);
     Bspline      bspline(n_ctrl, n_points, 5, manip.n_joints);
@@ -1765,8 +1765,8 @@ void eval_function_UR5e() {
     tmp_config_id.reserve(n_optim);
 
     for (int iter = 0; iter < n_optim; ++iter) {
-      opt.guess.x0 = guess_random((opt.bspline), opt.task);
-      // opt.guess.x0.back() = 0.5;
+      opt.guess.initial_x = guess_random((opt.bspline), opt.task);
+      // opt.guess.initial_x.back() = 0.5;
       auto result_base = optimize(&opt);
       tmp_result_list.push_back(result_base);
 

@@ -9,7 +9,7 @@ inline double compute_objective(Array& current_x, Optimization* opt) {
   PROFILE_FUNCTION;
 #endif
   double result = 0;
-  if (opt->objective.K_time > 0) {
+  if (opt->objective.time_weight > 0) {
     result += current_x.back();
   }
   for (int i = 0; i < opt->objective.extra_objectives.size(); i++) {

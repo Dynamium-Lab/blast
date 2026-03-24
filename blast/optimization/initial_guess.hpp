@@ -50,7 +50,7 @@ inline Matrix get_random_guesses(const u32 n, const u32 d) {
 inline Array guess_shot_mean_segments(Optimization* opt) { // no collisions
   Array best_x(opt->bspline.x_len(opt->task));
   real  best_val = INF_REAL;
-  for (int idx_nshot = 0; idx_nshot < opt->guess.n_shot; idx_nshot++) {
+  for (int idx_nshot = 0; idx_nshot < opt->guess.n_random_shots; idx_nshot++) {
     auto x = guess_random((opt->bspline), opt->task);
     opt->bspline.compute_trajectory(x, opt->task);
     Array  c1(opt->constraints.n_constraints);
@@ -96,7 +96,7 @@ inline Array init_guess_segments(Optimization* opt) {
       break;
     }
     case Guess::custom: {
-      x = opt->guess.x0;
+      x = opt->guess.initial_x;
       break;
     }
     case Guess::from_list: {
@@ -113,7 +113,7 @@ inline Array init_guess_segments(Optimization* opt) {
 inline Array guess_shot_mean(Optimization* opt) { // no collisions
   Array best_x(opt->bspline.x_len(opt->task));
   real  best_val = INF_REAL;
-  for (int idx_nshot = 0; idx_nshot < opt->guess.n_shot; idx_nshot++) {
+  for (int idx_nshot = 0; idx_nshot < opt->guess.n_random_shots; idx_nshot++) {
     auto x = guess_random((opt->bspline), opt->task);
     opt->bspline.compute_trajectory(x, opt->task);
     Array c1(opt->constraints.n_constraints);
@@ -158,7 +158,7 @@ inline Array init_guess(Optimization* opt) {
       break;
     }
     case Guess::custom: {
-      x = opt->guess.x0;
+      x = opt->guess.initial_x;
       break;
     }
     case Guess::from_list: {

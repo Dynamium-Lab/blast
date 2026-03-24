@@ -65,8 +65,8 @@ TEST_CASE("Benchmark accelerations", "[accelerations]") {
   opt.bspline = bspline;
 
   opt.guess.type = Guess::custom;
-  opt.guess.x0   = Array(opt.bspline.x_len(opt.task), 2.0);
-  // opt.guess.n_shot = 100;
+  opt.guess.initial_x   = Array(opt.bspline.x_len(opt.task), 2.0);
+  // opt.guess.n_random_shots = 100;
 
   opt.constraints.position            = true;
   opt.constraints.velocity            = true;

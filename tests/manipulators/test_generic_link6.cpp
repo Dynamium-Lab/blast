@@ -21,20 +21,20 @@ blast::Matrix jacobian(blast::Link6 manip, const blast::Array& pos) {
   // unit vectors in 1st reference
   blast::Vec3 e[6];
   auto        Q_tmp = Q1;
-  e[0]              = Q_tmp * manip.ev[0];
-  e[1]              = (Q_tmp *= Q2) * manip.ev[1];
-  e[2]              = (Q_tmp *= Q3) * manip.ev[2];
-  e[3]              = (Q_tmp *= Q4) * manip.ev[3];
-  e[4]              = (Q_tmp *= Q5) * manip.ev[4];
-  e[5]              = (Q_tmp *= Q6) * manip.ev[5];
+  e[0]              = Q_tmp * manip.joint_axes[0];
+  e[1]              = (Q_tmp *= Q2) * manip.joint_axes[1];
+  e[2]              = (Q_tmp *= Q3) * manip.joint_axes[2];
+  e[3]              = (Q_tmp *= Q4) * manip.joint_axes[3];
+  e[4]              = (Q_tmp *= Q5) * manip.joint_axes[4];
+  e[5]              = (Q_tmp *= Q6) * manip.joint_axes[5];
 
   blast::Vec3 r[6];
-  r[5] = manip.dv[5];
-  r[4] = manip.dv[4] + Q6 * r[5];
-  r[3] = manip.dv[3] + Q5 * r[4];
-  r[2] = manip.dv[2] + Q4 * r[3];
-  r[1] = manip.dv[1] + Q3 * r[2];
-  r[0] = manip.dv[0] + Q2 * r[1];
+  r[5] = manip.joint_offsets[5];
+  r[4] = manip.joint_offsets[4] + Q6 * r[5];
+  r[3] = manip.joint_offsets[3] + Q5 * r[4];
+  r[2] = manip.joint_offsets[2] + Q4 * r[3];
+  r[1] = manip.joint_offsets[1] + Q3 * r[2];
+  r[0] = manip.joint_offsets[0] + Q2 * r[1];
 
   Q_tmp = Q1;
   r[0]  = (Q_tmp) *r[0];
@@ -305,7 +305,7 @@ TEST_CASE("Link6 optimize() test", "[Optimization]") {
       auto result_gen = optimize(&opt_gen);
 
       opt_hc.guess.type = GuessType::custom;
-      opt_hc.guess.x0   = result_gen.x0;
+      opt_hc.guess.initial_x   = result_gen.x0;
       auto result_hc    = optimize(&opt_hc);
 
       CHECK(is_close(result_gen.x0, result_hc.x0));

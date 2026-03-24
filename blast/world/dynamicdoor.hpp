@@ -5,14 +5,14 @@
 namespace blast {
 
 
-inline blast_fn Box DynamicDoor::lookup(const real t) const {
+inline blast_fn Box DynamicDoor::lookup(const real time) const {
     // progression from 0 to 1
-    real progression = t < t0 ? 0 : (t > tf ? 1 : (t-t0) / (tf-t0));
+    real progression = time < start_time ? 0 : (time > end_time ? 1 : (time-start_time) / (end_time-start_time));
     Box result;
-    result.e = e;
+    result.extents = extents;
     real current_angle = start_angle*(1-progression) + end_angle*progression;
-    result.R = rpy2rotation(current_angle*axis);
-    result.c = hinge + result.R*static_c_from_hinge;
+    result.rotation = rpy2rotation(current_angle*axis);
+    result.center = hinge + result.rotation*static_c_from_hinge;
     return result;
 }
 
