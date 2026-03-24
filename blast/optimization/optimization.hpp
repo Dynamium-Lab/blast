@@ -251,14 +251,14 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   bool is_valid      = false;
   for (; try_count < opt->max_tries; try_count++) { // todo: add nlopt stop criteria to list, add max_time for full loop
 #if BLAST_TRACE_LEVEL >= 1
-    ZoneScopedN("Optimization");
+    PROFILE_SCOPE("Optimization");
 #endif
 
     // initial guess
     Array x;
     {
 #if BLAST_TRACE_LEVEL >= 1
-      ZoneScopedN("Initial guess");
+      PROFILE_SCOPE("Initial guess");
 #endif
       x         = init_guess(opt);
       result.x0 = x;
@@ -267,7 +267,7 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
     // launch optimization
     {
 #if BLAST_TRACE_LEVEL >= 1
-      ZoneScopedN("NLopt optimization");
+      PROFILE_SCOPE("NLopt optimization");
 #endif
 
       double f = HUGE_VAL;
@@ -297,7 +297,7 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
     // validate solution
     {
 #if BLAST_TRACE_LEVEL >= 1
-      ZoneScopedN("Solution validation");
+      PROFILE_SCOPE("Solution validation");
 #endif
       Array constraints_points(opt->constraints.n_constraints);
       compute_constraints(constraints_points.data, x, opt);
@@ -309,7 +309,7 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
 
     {
 #if BLAST_TRACE_LEVEL >= 1
-      ZoneScopedN("Solution validation (more points)");
+      PROFILE_SCOPE("Solution validation (more points)");
 #endif
       u64 steps_ms    = (u64) (std::ceil(x.back() * 1e3 / output_steps_ms));
       x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
@@ -507,14 +507,14 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
   bool is_valid      = false;
   for (; try_count < opt->max_tries; try_count++) { // todo: add nlopt stop criteria to list, add max_time for full loop
 #if BLAST_TRACE_LEVEL >= 1
-    ZoneScopedN("Optimization");
+    PROFILE_SCOPE("Optimization");
 #endif
 
     // initial guess
     Array x;
     {
 #if BLAST_TRACE_LEVEL >= 1
-      ZoneScopedN("Initial guess");
+      PROFILE_SCOPE("Initial guess");
 #endif
       x         = init_guess_segments(opt);
       result.x0 = x;
@@ -523,7 +523,7 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
     // launch optimization
     {
 #if BLAST_TRACE_LEVEL >= 1
-      ZoneScopedN("NLopt optimization");
+      PROFILE_SCOPE("NLopt optimization");
 #endif
 
       double f = HUGE_VAL;
@@ -554,7 +554,7 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
     // validate solution
     {
 #if BLAST_TRACE_LEVEL >= 1
-      ZoneScopedN("Solution validation");
+      PROFILE_SCOPE("Solution validation");
 #endif
       Array  constraints_points(opt->constraints.n_constraints);
       Matrix gradient;
@@ -567,7 +567,7 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
 
     {
 #if BLAST_TRACE_LEVEL >= 1
-      ZoneScopedN("Solution validation (more points)");
+      PROFILE_SCOPE("Solution validation (more points)");
 #endif
       u64 steps_ms    = (u64) (std::ceil(x.back() * 1e3 / output_steps_ms));
       x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
@@ -697,14 +697,14 @@ inline Result optimize_dev(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   bool is_valid      = false;
   for (; try_count < opt->max_tries; try_count++) { // todo: add nlopt stop criteria to list, add max_time for full loop
 #if BLAST_TRACE_LEVEL >= 1
-    ZoneScopedN("Optimization");
+    PROFILE_SCOPE("Optimization");
 #endif
 
     // initial guess
     Array x;
     {
 #if BLAST_TRACE_LEVEL >= 1
-      ZoneScopedN("Initial guess");
+      PROFILE_SCOPE("Initial guess");
 #endif
       x         = init_guess(opt);
       result.x0 = x;
@@ -713,7 +713,7 @@ inline Result optimize_dev(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
     // launch optimization
     {
 #if BLAST_TRACE_LEVEL >= 1
-      ZoneScopedN("NLopt optimization");
+      PROFILE_SCOPE("NLopt optimization");
 #endif
 
       double f = HUGE_VAL;
@@ -743,7 +743,7 @@ inline Result optimize_dev(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
     // validate solution
     {
 #if BLAST_TRACE_LEVEL >= 1
-      ZoneScopedN("Solution validation");
+      PROFILE_SCOPE("Solution validation");
 #endif
       Array constraints_points(opt->constraints.n_constraints);
       compute_constraints(constraints_points.data, x, opt);
@@ -752,7 +752,7 @@ inline Result optimize_dev(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
 
     {
 #if BLAST_TRACE_LEVEL >= 1
-      ZoneScopedN("Solution validation (more points)");
+      PROFILE_SCOPE("Solution validation (more points)");
 #endif
       u64 steps_ms    = (u64) (std::ceil(x.back() * 1e3 / output_steps_ms));
       x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
@@ -875,14 +875,14 @@ inline Result optimize_dev_new(Optimization* opt, u32 output_steps_ms = 1 /*ms*/
   bool is_valid      = false;
   for (; try_count < opt->max_tries; try_count++) { // todo: add nlopt stop criteria to list, add max_time for full loop
 #if BLAST_TRACE_LEVEL >= 1
-    ZoneScopedN("Optimization");
+    PROFILE_SCOPE("Optimization");
 #endif
 
     // initial guess
     Array x;
     {
 #if BLAST_TRACE_LEVEL >= 1
-      ZoneScopedN("Initial guess");
+      PROFILE_SCOPE("Initial guess");
 #endif
       x         = init_guess(opt);
       result.x0 = x;
@@ -891,7 +891,7 @@ inline Result optimize_dev_new(Optimization* opt, u32 output_steps_ms = 1 /*ms*/
     // launch optimization
     {
 #if BLAST_TRACE_LEVEL >= 1
-      ZoneScopedN("NLopt optimization");
+      PROFILE_SCOPE("NLopt optimization");
 #endif
 
       double f = HUGE_VAL;
@@ -921,7 +921,7 @@ inline Result optimize_dev_new(Optimization* opt, u32 output_steps_ms = 1 /*ms*/
     // validate solution
     {
 #if BLAST_TRACE_LEVEL >= 1
-      ZoneScopedN("Solution validation");
+      PROFILE_SCOPE("Solution validation");
 #endif
       Array constraints_points(opt->constraints.n_constraints);
       compute_constraints(constraints_points.data, x, opt);
@@ -930,7 +930,7 @@ inline Result optimize_dev_new(Optimization* opt, u32 output_steps_ms = 1 /*ms*/
 
     {
 #if BLAST_TRACE_LEVEL >= 1
-      ZoneScopedN("Solution validation (more points)");
+      PROFILE_SCOPE("Solution validation (more points)");
 #endif
       u64 steps_ms    = (u64) (std::ceil(x.back() * 1e3 / output_steps_ms));
       x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;

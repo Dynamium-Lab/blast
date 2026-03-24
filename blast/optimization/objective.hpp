@@ -6,7 +6,7 @@ namespace blast {
 
 inline double compute_objective(Array& current_x, Optimization* opt) {
 #if BLAST_TRACE_LEVEL >= 2
-  ZoneScoped;
+  PROFILE_FUNCTION;
 #endif
   double result = 0;
   if (opt->objective.K_time > 0) {
@@ -20,7 +20,7 @@ inline double compute_objective(Array& current_x, Optimization* opt) {
 
 inline double objective_function(unsigned int n, const double* x, double* grad, void* data) {
 #if BLAST_TRACE_LEVEL >= 1
-  ZoneScoped;
+  PROFILE_FUNCTION;
 #endif
 
   Optimization* opt = (Optimization*) data;
