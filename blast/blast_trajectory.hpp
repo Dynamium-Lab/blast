@@ -29,6 +29,7 @@ struct Bspline {
   Matrix     basis_p; // n_ctrl x n_points
   Matrix     basis_v; // n_ctrl x n_points
   Matrix     basis_a; // n_ctrl x n_points
+  std::vector<Matrix> basis; // n_ctrl x n_points, storing for derivatives up to desired "d"
   u32        n_joints;
   u32        n_points;
   u32        n_ctrl;
@@ -58,6 +59,7 @@ struct Bspline {
   inline blast_fn u32  x_len(const Matrix& task) const;
 
   inline blast_fn void compute_basis();
+  inline blast_fn void compute_basis_derivative(int d);
   inline blast_fn void compute_basis_open();
   inline blast_fn void compute_control(const Array& x, const Matrix& task, real* dst) const;
 };
