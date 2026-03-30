@@ -110,6 +110,129 @@ inline blast_fn void Bspline::compute_basis() {
   }
 }
 
+inline int uniformClampedSpan(real u, int n_ctrl, int p) {
+  if (u <= 0.0) {
+    return p;
+  } else if (u >= 1.0) {
+    return n_ctrl - 1;
+  } else {
+    const int n_spans = n_ctrl - p;
+    int       span    = p + int(u * n_spans);
+    return std::min(span, n_ctrl - 1);
+  }
+}
+
+// Computes Basis functions up to d, with d = 0 -> position, d = 1 -> velocity, etc.
+inline blast_fn void Bspline::compute_basis_derivative(int d) {
+  basis.resize(d+1, Matrix(n_ctrl, n_points));
+
+  u32   m = n_ctrl + p;
+  Array knots(m + 1);
+  {
+    for (u32 i = m; i > m - p - 1; i--)
+      knots[i] = 1.0f;
+    const real du = 1.0f / (real) (m + 1 - 2 * (p + 1) + 1);
+    for (u32 i = p + 1; i < m - p; i++)
+      knots[i] = knots[i - 1] + du;
+  }
+
+  Array      N(m * (p + 1)); // triangle basis function
+  const real du = 1.0f / (n_points - 1);
+  
+  for (u32 point = 0; point < n_points; point++) {
+    const real u = point * du;
+
+    // note: could save if statements if we hard-coded span calculation since we know u is always within [0, 1]
+    const int span  = uniformClampedSpan(u, n_ctrl, p);
+    const int first = span - p;
+
+    // --- Algorithm A2.2 (ndu table) ---
+    Matrix ndu(p + 1, p + 1);
+    Array  left(p + 1), right(p + 1);
+
+    ndu(0, 0) = 1.0;
+
+    for (int j = 1; j <= p; ++j) {
+      left[j]  = u - knots[span + 1 - j];
+      right[j] = knots[span + j] - u;
+
+      real saved = 0.0;
+      for (int r = 0; r < j; ++r) {
+        ndu(j, r) = right[r + 1] + left[j - r];
+        real temp = ndu(r, j - 1) / ndu(j, r);
+
+        ndu(r, j) = saved + right[r + 1] * temp;
+        saved     = left[j - r] * temp;
+      }
+      ndu(j, j) = saved;
+    }
+
+    // --- Derivative computation (Algorithm A2.3) ---
+    Matrix ders(d + 1, p + 1);
+    for (int j = 0; j <= p; ++j)
+      ders(0, j) = ndu(j, p);
+
+    // Working array a[2][p+1]
+    Matrix a(2, p + 1);
+
+    for (int r = 0; r <= p; ++r) {
+      int s1 = 0, s2 = 1;
+      a(0, 0) = 1.0;
+
+      for (int k = 1; k <= d; ++k) {
+        real d  = 0.0;
+        int  rk = r - k;
+        int  pk = p - k;
+
+        int j1;
+        int j2;
+
+        if (r >= k) {
+          a(s2, 0) = a(s1, 0) / ndu(pk + 1, rk);
+          d        = a(s2, 0) * ndu(rk, pk);
+        }
+        if (rk >= -1) {
+          j1 = 1;
+        } else {
+          j1 = -rk;
+        }
+
+        if (r - 1 <= pk) {
+          j2 = k - 1;
+        } else {
+          j2 = p - r;
+        }
+
+        for (int j = j1; j <= j2; j++) {
+          a(s2, j) = (a(s1, j) - a(s1, j - 1)) / ndu(pk + 1, rk + j);
+          d += a(s2, j) * ndu(rk + j, pk);
+        }
+
+        if (r <= pk) {
+          a(s2, k) = -a(s1, k - 1) / ndu(pk + 1, r);
+          d += a(s2, k) * ndu(r, pk);
+        }
+
+        ders(k, r) = d;
+        std::swap(s1, s2);
+      }
+    }
+
+    // --- Multiply by factorial terms ---
+    real factor = real(p);
+    for (int k = 1; k <= d; ++k) {
+      for (int j = 0; j <= p; ++j)
+        ders(k, j) *= factor;
+      factor *= real(p - k);
+    }
+
+    // --- Scatter into global result ---
+    for (int k = 0; k <= d; ++k)
+      for (int j = 0; j <= p; ++j)
+        basis[k](first + j, point) = ders(k, j);
+  }
+}
+
 inline blast_fn void Bspline::compute_basis_open() {
   u32 m = n_ctrl + p;
 
@@ -257,6 +380,124 @@ inline blast_fn void Bspline::compute_trajectory(const Array& x, const Matrix& t
       traj.acc(joint, point) = dot(c, ba) * one_over_T2;
     }
   }
+}
+
+// Algorithm A2.3 – Basis Function Derivatives (Piegl & Tiller)
+// Returns the deriv_order-th derivative of all non-zero B-spline basis functions
+// aligned with the control point indices.
+// Input
+// u : Point of evaluation, within [0, 1] (u)
+// i : u is between knot i and knot i+1 (span)
+// p : Bspline degree (p)
+// n : Derivative degree (deriv_order)
+// U : Knot vector (knots)
+// Output
+// ders : Basis functions for derivative (result)
+inline Array BsplineDerivative_book(real u, int n_ctrl, int p, int deriv_order) {
+  ZoneScoped;
+
+  Array result(n_ctrl);
+
+  if (deriv_order > p)
+    return result;
+
+  // --- Uniform clamped knot vector ---
+  Array knots(n_ctrl + p + 1);
+  for (int i = 0; i <= p; ++i)
+    knots[i] = 0.0;
+  for (int i = p + 1; i < n_ctrl; ++i)
+    knots[i] = real(i - p) / real(n_ctrl - p);
+  for (int i = n_ctrl; i <= n_ctrl + p; ++i)
+    knots[i] = 1.0;
+
+  const int span  = uniformClampedSpan(u, n_ctrl, p);
+  const int first = span - p;
+
+  // --- Algorithm A2.2 (ndu table) ---
+  Matrix ndu(p + 1, p + 1);
+  Array  left(p + 1), right(p + 1);
+
+  ndu(0, 0) = 1.0;
+
+  for (int j = 1; j <= p; ++j) {
+    left[j]  = u - knots[span + 1 - j];
+    right[j] = knots[span + j] - u;
+
+    real saved = 0.0;
+    for (int r = 0; r < j; ++r) {
+      ndu(j, r) = right[r + 1] + left[j - r];
+      real temp = ndu(r, j - 1) / ndu(j, r);
+
+      ndu(r, j) = saved + right[r + 1] * temp;
+      saved     = left[j - r] * temp;
+    }
+    ndu(j, j) = saved;
+  }
+
+  // --- Derivative computation (Algorithm A2.3) ---
+  Matrix ders(deriv_order + 1, p + 1);
+  for (int j = 0; j <= p; ++j)
+    ders(0, j) = ndu(j, p);
+
+  // Working array a[2][p+1]
+  Matrix a(2, p + 1);
+
+  for (int r = 0; r <= p; ++r) {
+    int s1 = 0, s2 = 1;
+    a(0, 0) = 1.0;
+
+    for (int k = 1; k <= deriv_order; ++k) {
+      real d  = 0.0;
+      int  rk = r - k;
+      int  pk = p - k;
+
+      int j1;
+      int j2;
+
+      if (r >= k) {
+        a(s2, 0) = a(s1, 0) / ndu(pk + 1, rk);
+        d        = a(s2, 0) * ndu(rk, pk);
+      }
+      if (rk >= -1) {
+        j1 = 1;
+      } else {
+        j1 = -rk;
+      }
+
+      if (r - 1 <= pk) {
+        j2 = k - 1;
+      } else {
+        j2 = p - r;
+      }
+
+      for (int j = j1; j <= j2; j++) {
+        a(s2, j) = (a(s1, j) - a(s1, j - 1)) / ndu(pk + 1, rk + j);
+        d += a(s2, j) * ndu(rk + j, pk);
+      }
+
+      if (r <= pk) {
+        a(s2, k) = -a(s1, k - 1) / ndu(pk + 1, r);
+        d += a(s2, k) * ndu(r, pk);
+      }
+
+      ders(k, r) = d;
+      std::swap(s1, s2);
+    }
+  }
+
+  // --- Multiply by factorial terms ---
+  real factor = real(p);
+  for (int k = 1; k <= deriv_order; ++k) {
+    for (int j = 0; j <= p; ++j)
+      ders(k, j) *= factor;
+    factor *= real(p - k);
+  }
+
+  // --- Scatter into global result ---
+  for (int j = 0; j <= p; ++j)
+    result[first + j] = ders(deriv_order, j);
+
+  return result;
 }
 
 } // namespace blast

@@ -12,8 +12,25 @@ namespace blast
     if (!is_close(type1, type2, eps))
       return false;
 
-    return true;
+  return true;
+}
+
+template<typename T, std::size_t N>
+host_fn bool is_close(const std::array<T, N>& a1, const std::array<T, N>& a2, real eps = 1e-5) {
+  for (u32 i = 0; i < N; i++)
+    if (!is_close(a1[i], a2[i], eps))
+      return false;
+
+  return true;
+}
+
+template<typename T>
+host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps = 1e-5) {
+  if (a1.size != a2.size) {
+    Assert(false);
+    return false;
   }
+}
 
   template <typename T>
   host_fn bool is_close(const std::vector<T>& a1, const std::vector<T>& a2, real eps = 1e-5)
@@ -25,21 +42,6 @@ namespace blast
 
     for (u32 i = 0; i < a1.size(); i++)
       if (!is_close(a1[i], a2[i], eps))
-        return false;
-
-    return true;
-  }
-
-  template <typename T>
-  host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps = 1e-5)
-  {
-    if (a1.size != a2.size)
-    {
-      Assert(false);
-      return false;
-    }
-    for (u32 i = 0; i < a1.size; i++)
-      if (!is_close(a1.data[i], a2.data[i], eps))
         return false;
 
     return true;
@@ -247,6 +249,17 @@ namespace blast
       if (!is_close(manip1.Q_static[joint], manip2.Q_static[joint]))
         return false; // static rotation matrix
     }
+    
+    // if (!is_close(manip1._capsule_list, manip2._capsule_list, eps))
+    //   return false; // put the capsules temporarily when computing the constraints
+    if (!is_close(manip1._collision_matrix, manip2._collision_matrix, eps))
+      return false;
+    if (!is_close(manip1._collision_base, manip2._collision_base, eps))
+      return false;
+    if (manip1._n_caps != manip2._n_caps)
+      return false;
+    if (manip1._n_internal_collisions != manip2._n_internal_collisions)
+      return false;
 
     for (int capsule = 0; capsule < manip1._n_caps; capsule++)
     {
@@ -256,14 +269,23 @@ namespace blast
     if (!is_close(manip1._base_sphere, manip2._base_sphere, eps))
       return false;
 
-    if (!is_close(manip1._collision_matrix, manip2._collision_matrix, eps))
-      return false;
-    if (!is_close(manip1._collision_base, manip2._collision_base, eps))
-      return false;
-    if (manip1._n_caps != manip2._n_caps)
-      return false;
-    if (manip1._n_internal_collisions != manip2._n_internal_collisions)
-      return false;
+  // manipulator limits
+  if (!is_close(manip1.pmax, manip2.pmax, eps))
+    return false; // max joint position
+  if (!is_close(manip1.pmin, manip2.pmin, eps))
+    return false; // min joint position
+  if (!is_close(manip1.vmax, manip2.vmax, eps))
+    return false; // max joint velocity
+  // if (!is_close(manip1.vmin, manip2.vmin, eps))
+  //   return false; // min joint velocity
+  if (!is_close(manip1.amax, manip2.amax, eps))
+    return false; // max joint acceleration
+  // if (!is_close(manip1.amin, manip2.amin, eps))
+  //   return false; // min joint acceleration
+  if (!is_close(manip1.tau_max, manip2.tau_max, eps))
+    return false; // max joint torque
+  // if (!is_close(manip1.tau_min, manip2.tau_min, eps))
+  //   return false; // min joint torque
 
     return true;
   }
@@ -293,33 +315,7 @@ namespace blast
       if (!is_close(manip_data1.capsule_list[capsule], manip_data2.capsule_list[capsule], eps))
         return false; // put the capsules temporarily when computing the constraints
     }
-
-    return true;
   }
-
-  // inline bool is_close(const FloatingCartesianTask& task1, const FloatingCartesianTask& task2, real eps = 1e-5) {
-  //     if (!is_close(task1.task, task2.task, eps))
-  //         return false;
-  //     if (!is_close(task1.acceptable_robots, task2.acceptable_robots, eps))
-  //         return false;
-  //
-  //     return true;
-  // }
-  //
-  // inline bool is_close(const MultiRobotTask& task1, const MultiRobotTask& task2, real eps = 1e-5) {
-  //     if (!is_close(task1.affected_tasks, task2.affected_tasks, eps))
-  //         return false;
-  //     if (!is_close(task1.gripper_toggle, task2.gripper_toggle, eps))
-  //         return false;
-  //     if (!is_close(task1.robots, task2.robots, eps))
-  //         return false;
-  //     if (!is_close(task1.unaffected_tasks, task2.unaffected_tasks, eps))
-  //         return false;
-  //     if (!is_close(task1.world, task2.world, eps))
-  //         return false;
-  //
-  //     return true;
-  // }
 
   // todo: operator==
   // todo: why only test these parameters?
@@ -334,8 +330,8 @@ namespace blast
     if (!is_close(spline1.n_ctrl, spline2.n_ctrl, eps))
       return false;
 
-    return true;
-  }
+  return true;
+}
 
   // todo: operator==
   inline host_fn bool is_close(const ConstraintSelection& constraints1, const ConstraintSelection& constraints2,
@@ -448,8 +444,6 @@ namespace blast
       return false;
     if (result1.nlopt_exit_criteria != result2.nlopt_exit_criteria)
       return false;
-
-    return true;
   }
 
   // todo: make thread safe?

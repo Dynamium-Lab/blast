@@ -11,6 +11,11 @@ set(EXAMPLES
     get_bspline_and_basis_functions get_bspline_and_basis_functions.cpp
     get_start_and_end_pos get_start_and_end_pos.cpp
 
+    # Demo 3
+    # demo3_demo2_tasks_gen3 Demo3/demo2_tasks_gen3.cpp
+    # demo3_demo2_tasks_link6 Demo3/demo2_tasks_link6.cpp
+    # demo3_kitchen_tasks_link6 Demo3/kitchen_tasks_link6.cpp
+
     #        example_demo1 demo1_link6.cpp
     #        example_demo2 demo2.cpp
     #        example_demo2_link6 demo2_link6.cpp

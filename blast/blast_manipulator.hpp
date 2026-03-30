@@ -152,6 +152,7 @@ struct ManipulatorTempData {
  *
  * @note Use the constructor to fully specify at least limits and kinematics.
  */
+// todo: Add templating with number of joints instead of a global MAX_JOINTS
 struct Manipulator {
   u32 n_joints = 0;
 
@@ -180,7 +181,7 @@ struct Manipulator {
   Vec3                             p_j0 = {0, 0, 0};
   std::array<Vec3, MAX_JOINTS>     dv{};       // to next joint
   std::array<Vec3, MAX_JOINTS>     ev{};       // axis dirs
-  std::array<Mat3, MAX_JOINTS + 1> Q_static{}; // static rotations
+  std::array<Mat3, MAX_JOINTS + 1> Q_static{}; // static rotations todo: Why not Q_j0 as well instead of random bigger vector?
 
   // Link dynamics
   std::array<real, MAX_JOINTS> m{};

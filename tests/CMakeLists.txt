@@ -72,7 +72,7 @@ set(TESTS
     # World
     #    test_primitives world/test_primitives.cpp
     # Trajectory
-    #    test_bspline trajectory/test_bsplines.cpp
+    test_bspline trajectory/test_bsplines.cpp
 )
 
 # Loop through and add benchmarks
