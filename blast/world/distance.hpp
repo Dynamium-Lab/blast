@@ -521,7 +521,7 @@ inline blast_fn real distance(const Capsule& capsule1, const Capsule& capsule2) 
   Segment segment1{capsule1.p1, capsule1.p2};
   Segment segment2{capsule2.p1, capsule2.p2};
   real    dist_seg_seg = distance(segment1, segment2);
-  return dist_seg_seg - capsule1.r - capsule2.r;
+  return dist_seg_seg - capsule1.radius - capsule2.radius;
 }
 
 inline blast_fn Array test_collisions(const ObjMatrix<Capsule>& robot_capsules, const World* world, u32 n_lowest_distances, real start_time, real end_time) {

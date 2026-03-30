@@ -151,9 +151,9 @@ struct Gen3 : Manipulator {
 
     Sphere sphere;
     Vec3   sphere_center_relative = {0, 0, -0.075};
-    sphere.c                      = p_base + sphere_center_relative; // todo: Verify this sphere
-    // sphere.c = {0, 0, -0.1564f};
-    sphere.r = 0.15;
+    sphere.center                      = p_base + sphere_center_relative; // todo: Verify this sphere
+    // sphere.center = {0, 0, -0.1564f};
+    sphere.radius = 0.15;
 
     real dist1 = distance(_capsule_list[0], _capsule_list[2]);
     real dist2 = distance(_capsule_list[2], sphere);

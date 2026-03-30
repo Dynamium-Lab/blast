@@ -86,7 +86,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
     Assert(grad.rows == x.size);
     Assert(grad.cols == constraints.size);
   }
-  const int n_segments                = (int) opt.bspline.n_ctrl - (int) opt.bspline.p;
+  const int n_segments                = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
   const int n_points_per_segment      = (int) opt.bspline.n_points / n_segments; // todo: check if fine?
   const int n_joints                  = (int) opt.manip.n_joints;
   const int n_ctrl                    = (int) opt.bspline.n_ctrl;
@@ -131,7 +131,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
     PROFILE_SCOPE("All Segment Constraints");
 #endif
     const int first_affected_control_point = std::max(3, segment);
-    const int last_affected_control_point  = std::min((n_ctrl - 1) - 3, segment + (int) opt.bspline.p);
+    const int last_affected_control_point  = std::min((n_ctrl - 1) - 3, segment + (int) opt.bspline.degree);
     const int n_affected_control_points    = last_affected_control_point - first_affected_control_point + 1; // note: affected_control_points are inclusive, so when we have last = 5, first = 3, we want 3 (5 - 3) + 1
     const int start_point_for_segment      = segment * n_points_per_segment;
     Assert(n_affected_control_points >= 3);
@@ -1066,7 +1066,7 @@ inline blast_fn bool validate_task(Optimization* opt) {
 
     if (constraints.position) {
       for (int j = 0; j < manip.n_joints; j++) {
-        result = bound_constraint(pos(j, i), manip.pmin[j], manip.pmax[j]);
+        result = bound_constraint(pos(j, i), manip.position_min[j], manip.position_max[j]);
         if (result > 0) {
           std::cout << "Position outside bounds." << std::endl;
           return false;
@@ -1076,7 +1076,7 @@ inline blast_fn bool validate_task(Optimization* opt) {
 
     if (constraints.velocity) {
       for (int j = 0; j < manip.n_joints; j++) {
-        result = abs_constraint(vel(j, i), manip.vmax[j]);
+        result = abs_constraint(vel(j, i), manip.velocity_max[j]);
         if (result > 0) {
           std::cout << "Velocity outside bounds." << std::endl;
           return false;
@@ -1086,7 +1086,7 @@ inline blast_fn bool validate_task(Optimization* opt) {
 
     if (constraints.acceleration) {
       for (int j = 0; j < manip.n_joints; j++) {
-        result = abs_constraint(acc(j, i), manip.amax[j]);
+        result = abs_constraint(acc(j, i), manip.acceleration_max[j]);
         if (result > 0) {
           std::cout << "Acceleration outside bounds." << std::endl;
           return false;
@@ -1100,7 +1100,7 @@ inline blast_fn bool validate_task(Optimization* opt) {
       dynamics(manip, manip_data, vel_tmp, acc_tmp); // fills _efforts
 
       for (int j = 0; j < manip.n_joints; j++) {
-        result = abs_constraint(manip_data.efforts[j], manip.tau_max[j]);
+        result = abs_constraint(manip_data.efforts[j], manip.torque_max[j]);
         if (result > 0) {
           std::cout << "Torque outside bounds." << std::endl;
           return false;
@@ -1111,7 +1111,7 @@ inline blast_fn bool validate_task(Optimization* opt) {
     if (constraints.tcp_speed) {
       auto J_tool    = get_J_tool(opt, manip_data);
       real tcp_speed = norm(J_tool * vel.col(i));
-      result         = bound_constraint(tcp_speed, -INF_REAL, manip.tcp_max);
+      result         = bound_constraint(tcp_speed, -INF_REAL, manip.tcp_speed_max);
       if (result > 0) {
         std::cout << "TCP speed outside bounds." << std::endl;
         return false;
@@ -1153,7 +1153,7 @@ inline blast_fn bool validate_task(Optimization* opt) {
 
 // ------------------------- Accelerated functions --------------------------------
 template<bool is_grad>
-inline blast_fn std::tuple<real, real> abs_constraint_dev(const real& q, const real& q_max) {
+inline blast_fn std::tuple<real, real> abs_constraint_analytical(const real& q, const real& q_max) {
   real constraint = (std::abs(q)) / q_max - 1.0;
   real gradient   = 0.0;
   if (is_grad)
@@ -1162,7 +1162,7 @@ inline blast_fn std::tuple<real, real> abs_constraint_dev(const real& q, const r
 }
 
 template<bool is_grad>
-blast_fn std::tuple<real, real> bound_constraint_dev(const real& q, const real& q_min, const real& q_max) {
+blast_fn std::tuple<real, real> bound_constraint_analytical(const real& q, const real& q_min, const real& q_max) {
   // todo: remove INF_REAL from constraints at initialization
   if (q_max == INF_REAL || q_min == -INF_REAL)
     return std::make_tuple(-1.0, 0.0);
@@ -1182,7 +1182,7 @@ blast_fn std::tuple<real, real> bound_constraint_dev(const real& q, const real& 
 }
 
 template<bool is_grad>
-blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, const Array& x, Optimization* opt) {
+blast_fn void compute_constraints_with_analytical_pva(double* result, Array& gradient_coeffs, const Array& x, Optimization* opt) {
 #if BLAST_TRACE_LEVEL >= 2
   PROFILE_FUNCTION;
 #endif
@@ -1200,7 +1200,7 @@ blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, co
 
   // Lambda to process common bound constraint operations
   auto process_bound = [&](real value, real bound_max) {
-    auto [constraint, gradient_coeff] = abs_constraint_dev<is_grad>(value, bound_max);
+    auto [constraint, gradient_coeff] = abs_constraint_analytical<is_grad>(value, bound_max);
     *moving_result++                  = constraint;
     gradient_coeffs[grad_idx++]       = gradient_coeff;
   };
@@ -1227,7 +1227,7 @@ blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, co
       PROFILE_SCOPE("Position");
 #endif
       for (int j = 0; j < opt->manip.n_joints; j++) {
-        auto [constraint, gradient_coeff] = bound_constraint_dev<is_grad>(opt->bspline.traj.pos(j, i), opt->manip.position_min[j], opt->manip.position_max[j]);
+        auto [constraint, gradient_coeff] = bound_constraint_analytical<is_grad>(opt->bspline.traj.pos(j, i), opt->manip.position_min[j], opt->manip.position_max[j]);
         *moving_result++                  = constraint;
         gradient_coeffs[grad_idx++]       = gradient_coeff;
       }
@@ -1288,12 +1288,8 @@ blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, co
 #if BLAST_TRACE_LEVEL >= 3
       PROFILE_SCOPE("SelfCollisions");
 #endif
-      auto tmp_coll = get_internal_collisions(opt->manip, manip_data);
-      for (u32 j = 0; j < tmp_coll.size; j++) {
-        moving_result[j] = -tmp_coll[j] + 0.01;
-      }
-      moving_result += tmp_coll.size;
-      grad_idx += tmp_coll.size; // todo: add analytical gradients
+      *moving_result++ = max(-get_internal_collisions(opt->manip, manip_data)) + 0.01;
+      grad_idx++; // todo: add analytical gradients
     }
 
     if (opt->constraints.external_collisions) {
@@ -1340,7 +1336,7 @@ blast_fn void compute_constraints_dev(double* result, Array& gradient_coeffs, co
 }
 
 template<bool is_grad>
-blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs, Matrix& dtau_dp, Matrix& dtau_dv, Matrix& dtau_da, /*Array& gradient_coeffs_collisions,*/ const Array& x, Optimization* opt) {
+blast_fn void compute_constraints_with_analytical_dynamics(double* result, Array& gradient_coeffs, Matrix& dtau_dp, Matrix& dtau_dv, Matrix& dtau_da, /*Array& gradient_coeffs_collisions,*/ const Array& x, Optimization* opt) {
 #if BLAST_TRACE_LEVEL >= 2
   PROFILE_FUNCTION;
 #endif
@@ -1362,7 +1358,7 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
 
   // Lambda to process common bound constraint operations
   auto process_bound = [&](real value, real bound_max) {
-    auto [constraint, gradient_coeff] = abs_constraint_dev<is_grad>(value, bound_max);
+    auto [constraint, gradient_coeff] = abs_constraint_analytical<is_grad>(value, bound_max);
     *moving_result++                  = constraint;
     gradient_coeffs[grad_idx++]       = gradient_coeff;
   };
@@ -1392,7 +1388,7 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
       PROFILE_SCOPE("Position");
 #endif
       for (int j = 0; j < joints; j++) {
-        auto [constraint, gradient_coeff] = bound_constraint_dev<is_grad>(opt->bspline.traj.pos(j, i), opt->manip.position_min[j], opt->manip.position_max[j]);
+        auto [constraint, gradient_coeff] = bound_constraint_analytical<is_grad>(opt->bspline.traj.pos(j, i), opt->manip.position_min[j], opt->manip.position_max[j]);
         *moving_result++                  = constraint;
         gradient_coeffs[grad_idx++]       = gradient_coeff;
       }
@@ -1502,12 +1498,8 @@ blast_fn void compute_constraints_dev_new(double* result, Array& gradient_coeffs
 #if BLAST_TRACE_LEVEL >= 3
       PROFILE_SCOPE("SelfCollisions");
 #endif
-      auto tmp_coll = get_internal_collisions(opt->manip, manip_data);
-      for (u32 j = 0; j < tmp_coll.size; j++) {
-        moving_result[j] = -tmp_coll[j] + 0.01;
-      }
-      moving_result += tmp_coll.size;
-      grad_idx += tmp_coll.size; // todo: add analytical gradients
+      *moving_result++ = max(-get_internal_collisions(opt->manip, manip_data)) + 0.01;
+      grad_idx++; // todo: add analytical gradients
     }
 
     if (opt->constraints.external_collisions) {
@@ -1687,7 +1679,7 @@ inline u32 ncon_extras(const Optimization* opt) {
   return n_constraints;
 }
 
-inline blast_fn void nlopt_constraints_dev(unsigned m, double* result, unsigned xlen, const double* x, double* grad, void* f_data) {
+inline blast_fn void nlopt_constraints_with_analytical_pva(unsigned m, double* result, unsigned xlen, const double* x, double* grad, void* f_data) {
 #if BLAST_TRACE_LEVEL >= 1
   PROFILE_FUNCTION;
 #endif
@@ -1698,10 +1690,10 @@ inline blast_fn void nlopt_constraints_dev(unsigned m, double* result, unsigned 
 
   Array gradient_coeffs(m); // todo: check performance
   if (!grad) {
-    compute_constraints_dev<false>(result, gradient_coeffs, xv, opt);
+    compute_constraints_with_analytical_pva<false>(result, gradient_coeffs, xv, opt);
   }
   if (grad) {
-    compute_constraints_dev<true>(result, gradient_coeffs, xv, opt);
+    compute_constraints_with_analytical_pva<true>(result, gradient_coeffs, xv, opt);
     memset(grad, 0, m * xlen * sizeof(real)); // note: zeros grad, since grad originally starts with -6e+66 ...
 
     constexpr real eps      = 1e-5;
@@ -1857,7 +1849,7 @@ inline blast_fn void nlopt_constraints_dev(unsigned m, double* result, unsigned 
   }
 }
 
-inline blast_fn void nlopt_constraints_dev_new(unsigned m, double* result, unsigned xlen, const double* x, double* grad, void* f_data) {
+inline blast_fn void nlopt_constraints_with_analytical_dynamics(unsigned m, double* result, unsigned xlen, const double* x, double* grad, void* f_data) {
 #if BLAST_TRACE_LEVEL >= 1
   PROFILE_FUNCTION;
 #endif
@@ -1871,10 +1863,10 @@ inline blast_fn void nlopt_constraints_dev_new(unsigned m, double* result, unsig
   Matrix dtau_dv(opt->manip.n_joints, opt->manip.n_joints * opt->bspline.n_points); // todo: check performance
   Matrix dtau_da(opt->manip.n_joints, opt->manip.n_joints * opt->bspline.n_points); // todo: check performance
   if (!grad) {
-    compute_constraints_dev_new<false>(result, gradient_coeffs, dtau_dp, dtau_dv, dtau_da, xv, opt);
+    compute_constraints_with_analytical_dynamics<false>(result, gradient_coeffs, dtau_dp, dtau_dv, dtau_da, xv, opt);
   }
   if (grad) {
-    compute_constraints_dev_new<true>(result, gradient_coeffs, dtau_dp, dtau_dv, dtau_da, xv, opt);
+    compute_constraints_with_analytical_dynamics<true>(result, gradient_coeffs, dtau_dp, dtau_dv, dtau_da, xv, opt);
     memset(grad, 0, m * xlen * sizeof(real)); // note: zeros grad, since grad originally starts with -6e+66 ...
 
     constexpr real eps      = 1e-5;

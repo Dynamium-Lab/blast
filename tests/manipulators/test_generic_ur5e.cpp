@@ -88,7 +88,7 @@ TEST_CASE("UR5e optimize() trajectory with obstacles", "[Generic]") {
         opt.set_constraints(constraints);
         opt.set_objective(objective);
 
-        auto results = optimize(&opt, 2);
+        auto results = optimize(&opt, OptimizationMethod::baseline, 2);
         start_time += results.x[results.x.size - 1];
         std::cout << "Optimization done in " << results.compute_time / 1000.0 << std::endl;
         CHECK(results.success == true);

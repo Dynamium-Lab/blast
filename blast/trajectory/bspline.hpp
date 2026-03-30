@@ -12,7 +12,7 @@ inline blast_fn Bspline::Bspline(u32 n_control, u32 n_points, u32 P, u32 n_joint
     n_joints(n_joints),
     n_points(n_points),
     n_ctrl(n_control),
-    degree(degree),
+    degree(P),
     lower_bounds(n_control),
     upper_bounds(n_control) {
   compute_basis();

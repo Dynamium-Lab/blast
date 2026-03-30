@@ -606,7 +606,7 @@ inline void compute_constraints_grad1(ConstraintPerPoint& constraints, const Arr
       ZoneScopedN("Position");
 #endif
       // for (int j = 0; j < opt->manip.n_joints; j++) {
-      constraints.pos_constraint[i - opt->bspline.lower_bounds[x_idx]] = bound_constraint(pos[joint_idx], opt->manip.pmin[joint_idx], opt->manip.pmax[joint_idx]);
+      constraints.pos_constraint[i - opt->bspline.lower_bounds[x_idx]] = bound_constraint(pos[joint_idx], opt->manip.position_min[joint_idx], opt->manip.position_max[joint_idx]);
 
       // }
     }
@@ -1105,7 +1105,7 @@ blast_fn void compute_constraints_acc2(double* result, Array& gradient_coeffs, M
           ZoneScopedN("Position");
 #endif
           for (int j = 0; j < joints; j++) {
-            auto [constraint, gradient_coeff] = bound_constraint_dev<is_grad>(opt->bspline.traj.pos(j, i), opt->manip.pmin[j], opt->manip.pmax[j]);
+            auto [constraint, gradient_coeff] = bound_constraint_dev<is_grad>(opt->bspline.traj.pos(j, i), opt->manip.position_min[j], opt->manip.position_max[j]);
             *moving_result++                  = constraint;
             gradient_coeffs[grad_idx++]       = gradient_coeff;
           }
@@ -1137,7 +1137,7 @@ blast_fn void compute_constraints_acc2(double* result, Array& gradient_coeffs, M
 #endif
           dynamics(opt->manip, manip_data, vel, acc);
           for (int j = 0; j < joints; j++) {
-            torque_constraint[j] = abs_constraint(manip_data.efforts[j], opt->manip.tau_max[j]);
+            torque_constraint[j] = abs_constraint(manip_data.efforts[j], opt->manip.torque_max[j]);
             *moving_result++     = torque_constraint[j];
           }
         }
@@ -1767,7 +1767,7 @@ void eval_function_UR5e() {
     for (int iter = 0; iter < n_optim; ++iter) {
       opt.guess.initial_x = guess_random((opt.bspline), opt.task);
       // opt.guess.initial_x.back() = 0.5;
-      auto result_base = optimize(&opt);
+      auto result_base = optimize(&opt, blast::OptimizationMethod::baseline);
       tmp_result_list.push_back(result_base);
 
       auto result_acc1 = optimize_acc1(&opt);
@@ -1776,7 +1776,7 @@ void eval_function_UR5e() {
       auto result_acc2 = optimize_acc2(&opt);
       tmp_result_acc2_list.push_back(result_acc2);
 
-      auto result_acc3 = optimize_with_segments(&opt);
+      auto result_acc3 = optimize(&opt);
       tmp_result_acc3_list.push_back(result_acc3);
 
       tmp_task_id.push_back(config.task_idx);

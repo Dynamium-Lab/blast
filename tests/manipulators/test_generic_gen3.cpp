@@ -232,11 +232,11 @@ TEST_CASE("Gen3 optimize() test", "[Optimization][objective]") {
     opt_gen.set_world(world);
     opt_hc.set_world(world);
 
-    auto result_gen = optimize(&opt_gen);
+    auto result_gen = optimize(&opt_gen, OptimizationMethod::baseline);
 
     opt_hc.guess.type = Guess::custom;
     opt_hc.guess.initial_x   = (result_gen.x0);
-    auto result_hc    = optimize(&opt_hc);
+    auto result_hc    = optimize(&opt_hc, OptimizationMethod::baseline);
 
     CHECK(is_close(result_gen.x0, result_hc.x0));
     CHECK(is_close(result_gen.x, result_hc.x));
