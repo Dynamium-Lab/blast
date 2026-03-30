@@ -86,6 +86,14 @@ namespace blast
     collision = 1 << 3,
   };
 
+  enum class OptimizationMethod : u32
+  {
+    with_segments,           // segment-based constraints (default)
+    baseline,                // point-based constraints, finite-difference gradients
+    with_analytical_pva,     // point-based, analytical gradients for position/velocity/acceleration
+    with_analytical_dynamics, // point-based, analytical gradients for PVA + torque dynamics
+  };
+
   struct ConstraintSelection
   {
     bool position = false;
@@ -124,7 +132,8 @@ namespace blast
     World world;
     real trajectory_start_time = 0.0;
     real success_tolerance = 0.0; // % of constraint violation after optimization that is still considered a success
-    int max_tries = 1; // Maximum number of tries in the optimization loop.
+    int  max_tries         = 1;   // Maximum number of tries in the optimization loop.
+    real max_time          = 30.0; // Maximum time (seconds) for a single NLopt call.
 
     void* custom_data;
 
@@ -160,10 +169,10 @@ namespace blast
   inline double compute_objective(Array& current_x, Optimization* opt);
   inline bool validate_task(Optimization* opt);
 
-  inline void nlopt_constraints_dev(unsigned m, double* result, unsigned xlen, const double* x, double* grad,
-                                    void* f_data);
-  inline void nlopt_constraints_dev_new(unsigned m, double* result, unsigned xlen, const double* x, double* grad,
-                                        void* f_data);
+  inline void nlopt_constraints_with_analytical_pva(unsigned m, double* result, unsigned xlen, const double* x, double* grad,
+                                                    void* f_data);
+  inline void nlopt_constraints_with_analytical_dynamics(unsigned m, double* result, unsigned xlen, const double* x, double* grad,
+                                                         void* f_data);
 
 
   // inline real   bound_constraint(const real& value, const real& value_min, const real& value_max);

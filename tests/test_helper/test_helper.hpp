@@ -1243,7 +1243,7 @@ inline host_fn std::vector<Matrix> get_Link6_demo1_tasks() {
 //
 //     // Objective
 //     Objective<Manipulator> objective;
-//     objective.K_time = 1;
+//     objective.time_weight = 1;
 //
 //     std::vector<Objective<Manipulator>> robot_objective;
 //     robot_objective.push_back(objective);
@@ -1282,7 +1282,7 @@ inline host_fn Optimization get_generic_link6_opt() {
 
   // Objective
   Objective objective;
-  objective.K_time = 1;
+  objective.time_weight = 1;
   opt.set_objective(objective);
 
   // B-spline
@@ -1323,7 +1323,7 @@ inline host_fn Optimization get_generic_link6_opt() {
 //
 //     // Objective
 //     Objective<Link6> objective;
-//     objective.K_time = 1;
+//     objective.time_weight = 1;
 //     opt.set_objective(objective);
 //
 //     // B-spline
@@ -1364,7 +1364,7 @@ inline host_fn Optimization get_generic_gen3_opt() {
 
   // Objective
   Objective objective;
-  objective.K_time = 1;
+  objective.time_weight = 1;
   opt.set_objective(objective);
 
   // B-spline
@@ -1407,7 +1407,7 @@ inline host_fn Optimization get_generic_gen3_opt() {
 //
 //     // Objective
 //     Objective objective;
-//     objective.K_time = 1;
+//     objective.time_weight = 1;
 //     opt.set_objective(objective);
 //
 //     // B-spline

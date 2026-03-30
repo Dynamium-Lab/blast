@@ -113,7 +113,7 @@ TEST_CASE("benchmark phase 1 gradient acceleration  (P,V,A,Tau)", "[Acceleration
             // set null
             cout.rdbuf(NULL);
             BENCHMARK("Optimize") {
-                auto results = optimize(&opt);
+                auto results = optimize(&opt, OptimizationMethod::baseline);
                 traj_time[t] += results.x[results.x.size - 1];
                 comp_time[t] += results.compute_time;
                 bench_counter++;

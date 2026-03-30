@@ -154,7 +154,7 @@ inline void initialize_optimization(Optimization* opt) {
       } else {
         tmp_value -= 2 * PI;
       }
-      if (tmp_value > opt->manip.pmin[i] && tmp_value < opt->manip.pmax[i]) {
+      if (tmp_value > opt->manip.position_min[i] && tmp_value < opt->manip.position_max[i]) {
         task(i, 0) = tmp_value;
       } else {
         // Try updating end value
@@ -164,7 +164,7 @@ inline void initialize_optimization(Optimization* opt) {
         } else {
           tmp_value -= 2 * PI;
         }
-        if (tmp_value > opt->manip.pmin[i] && tmp_value < opt->manip.pmax[i]) {
+        if (tmp_value > opt->manip.position_min[i] && tmp_value < opt->manip.position_max[i]) {
           task(i, 0) = tmp_value;
         } else {
           break; // Nothing to be done
@@ -175,7 +175,7 @@ inline void initialize_optimization(Optimization* opt) {
   opt->task = task;
 }
 
-inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
+inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   auto   T1 = get_tick_us();
   Result result(opt); // todo: this is expensive
 
@@ -206,7 +206,7 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   stop.x_weights  = nullptr;
   stop.nevals_p   = 0;
   stop.maxeval    = 100000;
-  stop.maxtime    = 30;
+  stop.maxtime    = opt->max_time;
   stop.start      = nlopt_seconds();
   stop.force_stop = false;
   stop.stop_msg   = nullptr;
@@ -238,7 +238,7 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_xtol_abs(o, x_tol.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_maxtime(o, 5000);
+  nlopt_res = nlopt_set_maxtime(o, opt->max_time);
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_maxeval(o, 100000);
   Assert(nlopt_res == NLOPT_SUCCESS);
@@ -315,7 +315,7 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
       x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
       int points_more = (int) (steps_ms + 1);
 
-      Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.p, opt->manip.n_joints); // todo: this is expensive
+      Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints); // todo: this is expensive
       bspline_val_more.compute_trajectory(x, opt->task);
       auto opt_val_more(*opt);
       opt_val_more.set_bspline(bspline_val_more);
@@ -386,7 +386,7 @@ inline void initialize_optimization_with_segments(Optimization* opt) {
       } else {
         tmp_value -= 2 * PI;
       }
-      if (tmp_value > opt->manip.pmin[i] && tmp_value < opt->manip.pmax[i]) {
+      if (tmp_value > opt->manip.position_min[i] && tmp_value < opt->manip.position_max[i]) {
         task(i, 0) = tmp_value;
       } else {
         // Try updating end value
@@ -396,7 +396,7 @@ inline void initialize_optimization_with_segments(Optimization* opt) {
         } else {
           tmp_value -= 2 * PI;
         }
-        if (tmp_value > opt->manip.pmin[i] && tmp_value < opt->manip.pmax[i]) {
+        if (tmp_value > opt->manip.position_min[i] && tmp_value < opt->manip.position_max[i]) {
           task(i, 0) = tmp_value;
         } else {
           break; // Nothing to be done
@@ -408,8 +408,9 @@ inline void initialize_optimization_with_segments(Optimization* opt) {
 }
 
 inline void n_con_with_segments(Optimization* opt) {
-  const int n_segments = ((int) opt->bspline.n_ctrl - (int) opt->bspline.p);
+  const int n_segments = ((int) opt->bspline.n_ctrl - (int) opt->bspline.degree);
 
+  opt->constraints.n_constraints_per_segment = 0;
   if (opt->constraints.position)
     opt->constraints.n_constraints_per_segment += opt->manip.n_joints;
   if (opt->constraints.velocity)
@@ -429,9 +430,9 @@ inline void n_con_with_segments(Optimization* opt) {
   opt->constraints.n_constraints = n_segments * opt->constraints.n_constraints_per_segment;
 }
 
-inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
-  auto   T1 = get_tick_us();
-  
+inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
+  auto T1 = get_tick_us();
+
   // Initialization
   // configure_internal_data(opt); // todo: Ensure we can remove
   initialize_optimization_with_segments(opt);
@@ -462,7 +463,7 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
   stop.x_weights  = nullptr;
   stop.nevals_p   = 0;
   stop.maxeval    = 1000;
-  stop.maxtime    = 30;
+  stop.maxtime    = opt->max_time;
   stop.start      = nlopt_seconds();
   stop.force_stop = false;
   stop.stop_msg   = nullptr;
@@ -494,7 +495,7 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_xtol_abs(o, x_tol.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_maxtime(o, 30);
+  nlopt_res = nlopt_set_maxtime(o, opt->max_time);
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_maxeval(o, 1000);
   Assert(nlopt_res == NLOPT_SUCCESS);
@@ -573,7 +574,7 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
       x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
       int points_more = (int) (steps_ms + 1);
 
-      Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.p, opt->manip.n_joints); // todo: this is expensive
+      Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints); // todo: this is expensive
       bspline_val_more.compute_trajectory(x, opt->task);
       auto opt_val_more(*opt);
       opt_val_more.set_bspline(bspline_val_more);
@@ -621,7 +622,7 @@ inline Result optimize_with_segments(Optimization* opt, u32 output_steps_ms = 1 
 
 // ------------------------- Accelerated functions --------------------------------
 
-inline Result optimize_dev(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
+inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   auto   T1 = get_tick_us();
   Result result(opt); // todo: this is expensive
 
@@ -652,7 +653,7 @@ inline Result optimize_dev(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   stop.x_weights  = nullptr;
   stop.nevals_p   = 0;
   stop.maxeval    = 100000;
-  stop.maxtime    = 5000;
+  stop.maxtime    = opt->max_time;
   stop.start      = nlopt_seconds();
   stop.force_stop = false;
   stop.stop_msg   = nullptr;
@@ -665,14 +666,14 @@ inline Result optimize_dev(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   nlopt_constraint fc{};
   fc.m      = opt->constraints.n_constraints;
   fc.f      = nullptr;
-  fc.mf     = nlopt_constraints_dev;
+  fc.mf     = nlopt_constraints_with_analytical_pva;
   fc.pre    = nullptr;
   fc.f_data = opt;
   fc.tol    = con_tol.data;
 #else
   nlopt_opt    o = nlopt_create(NLOPT_LD_SLSQP, n);
   nlopt_result nlopt_res;
-  nlopt_res = nlopt_add_inequality_mconstraint(o, opt->constraints.n_constraints, nlopt_constraints_dev, opt, con_tol.data);
+  nlopt_res = nlopt_add_inequality_mconstraint(o, opt->constraints.n_constraints, nlopt_constraints_with_analytical_pva, opt, con_tol.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_min_objective(o, objective_function, opt);
   Assert(nlopt_res == NLOPT_SUCCESS);
@@ -684,7 +685,7 @@ inline Result optimize_dev(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_xtol_abs(o, x_tol.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_maxtime(o, 5000);
+  nlopt_res = nlopt_set_maxtime(o, opt->max_time);
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_maxeval(o, 100000);
   Assert(nlopt_res == NLOPT_SUCCESS);
@@ -758,7 +759,7 @@ inline Result optimize_dev(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
       x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
       int points_more = (int) (steps_ms + 1);
 
-      Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.p, opt->manip.n_joints); // todo: this is expensive
+      Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints); // todo: this is expensive
       bspline_val_more.compute_trajectory(x, opt->task);
       auto opt_val_more(*opt);
       opt_val_more.set_bspline(bspline_val_more);
@@ -799,7 +800,7 @@ inline Result optimize_dev(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   return result;
 }
 
-inline Result optimize_dev_new(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
+inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   auto   T1 = get_tick_us();
   Result result(opt); // todo: this is expensive
 
@@ -830,7 +831,7 @@ inline Result optimize_dev_new(Optimization* opt, u32 output_steps_ms = 1 /*ms*/
   stop.x_weights  = nullptr;
   stop.nevals_p   = 0;
   stop.maxeval    = 100000;
-  stop.maxtime    = 5000;
+  stop.maxtime    = opt->max_time;
   stop.start      = nlopt_seconds();
   stop.force_stop = false;
   stop.stop_msg   = nullptr;
@@ -843,14 +844,14 @@ inline Result optimize_dev_new(Optimization* opt, u32 output_steps_ms = 1 /*ms*/
   nlopt_constraint fc{};
   fc.m      = opt->constraints.n_constraints;
   fc.f      = nullptr;
-  fc.mf     = nlopt_constraints_dev_new;
+  fc.mf     = nlopt_constraints_with_analytical_dynamics;
   fc.pre    = nullptr;
   fc.f_data = opt;
   fc.tol    = con_tol.data;
 #else
   nlopt_opt    o = nlopt_create(NLOPT_LD_SLSQP, n);
   nlopt_result nlopt_res;
-  nlopt_res = nlopt_add_inequality_mconstraint(o, opt->constraints.n_constraints, nlopt_constraints_dev_new, opt, con_tol.data);
+  nlopt_res = nlopt_add_inequality_mconstraint(o, opt->constraints.n_constraints, nlopt_constraints_with_analytical_dynamics, opt, con_tol.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_min_objective(o, objective_function, opt);
   Assert(nlopt_res == NLOPT_SUCCESS);
@@ -862,7 +863,7 @@ inline Result optimize_dev_new(Optimization* opt, u32 output_steps_ms = 1 /*ms*/
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_xtol_abs(o, x_tol.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_maxtime(o, 5000);
+  nlopt_res = nlopt_set_maxtime(o, opt->max_time);
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_maxeval(o, 100000);
   Assert(nlopt_res == NLOPT_SUCCESS);
@@ -936,7 +937,7 @@ inline Result optimize_dev_new(Optimization* opt, u32 output_steps_ms = 1 /*ms*/
       x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
       int points_more = (int) (steps_ms + 1);
 
-      Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.p, opt->manip.n_joints); // todo: this is expensive
+      Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints); // todo: this is expensive
       bspline_val_more.compute_trajectory(x, opt->task);
       auto opt_val_more(*opt);
       opt_val_more.set_bspline(bspline_val_more);
@@ -977,5 +978,15 @@ inline Result optimize_dev_new(Optimization* opt, u32 output_steps_ms = 1 /*ms*/
   return result;
 }
 
+
+inline Result optimize(Optimization* opt, OptimizationMethod method = OptimizationMethod::with_segments, u32 output_steps_ms = 1 /*ms*/) {
+  switch (method) {
+    case OptimizationMethod::baseline:                  return optimize_baseline_impl(opt, output_steps_ms);
+    case OptimizationMethod::with_analytical_pva:       return optimize_with_analytical_pva_impl(opt, output_steps_ms);
+    case OptimizationMethod::with_analytical_dynamics:  return optimize_with_analytical_dynamics_impl(opt, output_steps_ms);
+    case OptimizationMethod::with_segments:             return optimize_with_segments_impl(opt, output_steps_ms);
+  }
+  return optimize_with_segments_impl(opt, output_steps_ms); // unreachable
+}
 
 } // namespace blast

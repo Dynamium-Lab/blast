@@ -90,7 +90,7 @@ TEST_CASE("Test gradient", "[accelerations]") {
   opt.success_tolerance = 0.01;
 
 
-  auto results = optimize(&opt);
+  auto results = optimize(&opt, OptimizationMethod::baseline);
 
   Optimization opt_acc(get_generic_Link6(), get_link6_task());
   opt_acc.set_bspline(bspline);
@@ -117,7 +117,7 @@ TEST_CASE("Test gradient", "[accelerations]") {
   opt_acc.max_tries         = 1;
   opt_acc.success_tolerance = 0.01;
 
-  auto result_acc = optimize_dev(&opt_acc);
+  auto result_acc = optimize(&opt_acc, OptimizationMethod::with_analytical_pva);
 
   // ------------- Constraint function -------------------------
   auto joints = opt_acc.manip.n_joints;
@@ -293,7 +293,7 @@ TEST_CASE("Test gradient accuracy", "[accelerations]") {
   opt.success_tolerance = 0.01;
 
 
-  auto results = optimize(&opt);
+  auto results = optimize(&opt, OptimizationMethod::baseline);
 
   Optimization opt_acc(get_generic_Link6(), get_link6_task());
   opt_acc.set_bspline(bspline);
@@ -320,7 +320,7 @@ TEST_CASE("Test gradient accuracy", "[accelerations]") {
   opt_acc.max_tries         = 1;
   opt_acc.success_tolerance = 0.01;
 
-  auto result_acc = optimize_dev(&opt_acc);
+  auto result_acc = optimize(&opt_acc, OptimizationMethod::with_analytical_pva);
 
   //   Optimization opt_acc_2(get_generic_Link6(), get_link6_task());
   //   opt_acc_2.set_bspline(bspline);
@@ -347,7 +347,7 @@ TEST_CASE("Test gradient accuracy", "[accelerations]") {
   //   opt_acc_2.max_tries         = 1;
   //   opt_acc_2.success_tolerance = 0.01;
 
-  //   auto result_acc_2 = optimize_dev_new(&opt_acc_2);
+  //   auto result_acc_2 = optimize(&opt_acc_2, OptimizationMethod::with_analytical_dynamics);
 
   CHECK(std::abs(results.x.back() - result_acc.x.back()) < 1e-5);
 

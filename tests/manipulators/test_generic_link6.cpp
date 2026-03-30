@@ -302,11 +302,11 @@ TEST_CASE("Link6 optimize() test", "[Optimization]") {
     for (int i = 0; i < tasks.size(); i++) {
       opt_gen.set_task(tasks[i]);
       opt_hc.set_task(tasks[i]);
-      auto result_gen = optimize(&opt_gen);
+      auto result_gen = optimize(&opt_gen, OptimizationMethod::baseline);
 
       opt_hc.guess.type = GuessType::custom;
       opt_hc.guess.initial_x   = result_gen.x0;
-      auto result_hc    = optimize(&opt_hc);
+      auto result_hc    = optimize(&opt_hc, OptimizationMethod::baseline);
 
       CHECK(is_close(result_gen.x0, result_hc.x0));
       CHECK(is_close(result_gen.x, result_hc.x));

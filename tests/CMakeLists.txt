@@ -75,6 +75,10 @@ set(TESTS
     test_bspline trajectory/test_bsplines.cpp
 )
 
+add_executable(bench_optimization_methods benchmarks/bench_optimization_methods.cpp)
+target_compile_features(bench_optimization_methods PUBLIC cxx_std_17)
+target_link_libraries(bench_optimization_methods PUBLIC blast)
+
 # Loop through and add benchmarks
 while (BENCHMARKS)
   list(POP_FRONT BENCHMARKS target_name)

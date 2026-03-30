@@ -163,8 +163,8 @@ inline real distance_with_directions(const Capsule &capsule, const Vec3 &point, 
 
 // Returns distance between a sphere and a point and displacement vector
 inline real distance_with_directions(const Sphere &sph_test, const Vec3 &point, Vec3* d) {
-    (*d) = sph_test.c - point;
-    return norm((*d)) - sph_test.r;
+    (*d) = sph_test.center - point;
+    return norm((*d)) - sph_test.radius;
 }
 
 // Calls get_point and tests this point against the full world

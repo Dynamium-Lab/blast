@@ -1339,7 +1339,7 @@ TEST_CASE("Acceleration tests", "[Paper2]") {
       {
         {
           IOSilencer _;
-          result = optimize(&opt);
+          result = optimize(&opt, OptimizationMethod::baseline);
         }
 
         {
@@ -1354,7 +1354,7 @@ TEST_CASE("Acceleration tests", "[Paper2]") {
 
         {
           IOSilencer _;
-          result_acc3 = optimize_with_segments(&opt);
+          result_acc3 = optimize(&opt);
         }
         CHECK(result_acc1.success == result.success);
         CHECK(result_acc2.success == result.success);

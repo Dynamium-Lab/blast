@@ -51,8 +51,8 @@ int main() {
 
     opt.guess.initial_x = guess_random(opt.bspline, opt.task);
     // opt.guess.initial_x.back() = 0.5;
-    // result = optimize(&opt);
-    result = optimize_with_segments(&opt);
+    // result = optimize(&opt, OptimizationMethod::baseline);
+    result = optimize(&opt);
 
     cout << "Compute time:        " << result.compute_time << endl;
     cout << "Function evaluations:" << result.num_eval << endl;

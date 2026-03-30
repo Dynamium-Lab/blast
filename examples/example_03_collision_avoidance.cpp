@@ -3,9 +3,11 @@
 // This example shows how to:
 //   1. Add obstacle geometry to a World
 //   2. Enable self-collision and external-collision constraints
-//   3. Use optimize_with_segments() which is better suited for collision-
-//      constrained problems (it breaks the trajectory into segments and
-//      solves each one, helping the optimizer escape infeasible regions)
+//   3. Use optimize() (default: with_segments method) which is better suited
+//      for collision-constrained problems (it evaluates constraints at all
+//      points within each B-spline segment and reduces them to a single
+//      worst-case violation per segment, giving the optimizer fewer but
+//      representative constraints over the full trajectory)
 //   4. Handle the case where the optimizer does not find a solution and
 //      retry with a fresh random guess
 //
@@ -82,10 +84,10 @@ int main() {
     opt.guess.type = Guess::random;
     opt.guess.n_random_shots = 30;
 
-    // optimize_with_segments() splits the trajectory into smaller pieces,
-    // solves each, then concatenates. This makes it easier to satisfy
-    // collision constraints compared to optimizing the full trajectory at once.
-    result = optimize_with_segments(&opt);
+    // optimize() with with_segments (the default) reduces collision constraints
+    // to one worst-case value per B-spline segment, keeping the problem tractable
+    // while still covering the full trajectory.
+    result = optimize(&opt);
 
     std::cout << (result.success ? "success" : "failed")
               << " (time: " << result.compute_time << " ms)\n";

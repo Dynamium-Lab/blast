@@ -150,7 +150,7 @@ TEST_CASE("Optimization with compute_constraints vs constraints_and_gradients_wi
   Result result(&opt);
   Result result_with_segments(&opt);
 
-  // result_with_segments = optimize_with_segments(&opt);
+  // result_with_segments = optimize(&opt);
 
   // cout << "Compute time:        " << result_with_segments.compute_time << endl;
   // cout << "Function evaluations:" << result_with_segments.num_eval << endl;
@@ -166,7 +166,7 @@ TEST_CASE("Optimization with compute_constraints vs constraints_and_gradients_wi
   BENCHMARK_ADVANCED("OG")(Catch::Benchmark::Chronometer meter) {
     meter.measure([&] {
       IOSilencer _;
-      result = optimize(&opt);
+      result = optimize(&opt, OptimizationMethod::baseline);
       return result;
     });
   };
@@ -177,7 +177,7 @@ TEST_CASE("Optimization with compute_constraints vs constraints_and_gradients_wi
   BENCHMARK_ADVANCED("New OG")(Catch::Benchmark::Chronometer meter) {
     meter.measure([&] {
       IOSilencer _;
-      result_with_segments = optimize_with_segments(&opt);
+      result_with_segments = optimize(&opt);
       return result;
     });
   };

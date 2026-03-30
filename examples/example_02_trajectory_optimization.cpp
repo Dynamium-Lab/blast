@@ -71,7 +71,7 @@ int main() {
   // Step 6 — Run the optimizer.
   // -----------------------------------------------------------------------
   std::cout << "Running trajectory optimization...\n";
-  Result result = optimize(&opt);
+  Result result = optimize(&opt, OptimizationMethod::baseline);
 
   // -----------------------------------------------------------------------
   // Step 7 — Inspect the result.
