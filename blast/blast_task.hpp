@@ -1,3 +1,4 @@
+#pragma once
 #include <blast>
 
 namespace blast {
@@ -13,7 +14,7 @@ struct Task {
   TaskBoundary start;
   TaskBoundary goal;
 
-  Task();
+  Task() = default;
 
   explicit Task(u32 n_joints) :
       start{Array(n_joints), Array(n_joints), Array(n_joints)},
