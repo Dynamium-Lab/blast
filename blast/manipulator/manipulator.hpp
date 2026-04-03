@@ -3,6 +3,7 @@
 #include <blast>
 #include <optional>
 #include <utility>
+#include <algorithm>
 // #include "nlopt.h"
 
 namespace blast {
