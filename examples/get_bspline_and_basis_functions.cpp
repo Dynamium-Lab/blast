@@ -13,17 +13,13 @@ int main() {
 
   Bspline spline(n_ctrl, points, p, joints);
 
-  int    task_id = 32;
-  Matrix task(6, 6);
-  Array  x(spline.x_len(task)); // note: only works this way if task has no NaN values later on
+  int  task_id = 32;
+  Task task(joints);
+  Array  x(spline.x_len(task.to_matrix())); // note: only works this way if task has no NaN values later on
   if (task_id == 4) {
     // Task 5
-    Array start_pos = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883}; // 0
-    Array end_pos   = {-2.6558, -0.6703, 0.0599, -2.5311, -2.0486, -0.0127};          // 4
-    for (int i = 0; i < 6; i++) {
-      task(i, 0) = start_pos[i];
-      task(i, 3) = end_pos[i];
-    }
+    task.start.position = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883}; // 0
+    task.goal.position  = {-2.6558, -0.6703, 0.0599, -2.5311, -2.0486, -0.0127};          // 4
     x = {
             1.816791803469461,
             1.4301664715707456,
@@ -89,12 +85,8 @@ int main() {
   }
 
   if (task_id == 5) {
-    Array start_pos = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883}; // 0
-    Array end_pos   = {3.12394, -0.553571, -0.509807, 1.06314, 1.52902, -3.10058};
-    for (int i = 0; i < 6; i++) {
-      task(i, 0) = start_pos[i];
-      task(i, 3) = end_pos[i];
-    }
+    task.start.position = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883}; // 0
+    task.goal.position  = {3.12394, -0.553571, -0.509807, 1.06314, 1.52902, -3.10058};
     x = {1.898439507269065,
          1.7674519136369835,
          1.7663759982701652,
@@ -160,12 +152,8 @@ int main() {
 
   if (task_id == 32) {
     // Task 35
-    Array start_pos = {2.04549, 0.675615, 0.137326, -0.814844, 0.449157, -3.08683}; // 4
-    Array end_pos   = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.17328};          // 0
-    for (int i = 0; i < 6; i++) {
-      task(i, 0) = start_pos[i];
-      task(i, 3) = end_pos[i];
-    }
+    task.start.position = {2.04549, 0.675615, 0.137326, -0.814844, 0.449157, -3.08683}; // 4
+    task.goal.position  = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.17328};          // 0
     x = {2.012367432705342,
          1.9183101026572604,
          1.7497289098956235,
@@ -233,7 +221,7 @@ int main() {
   print_to_csv(transpose(spline.basis_v), "../../../examples/bsplines_task32/basis_function_v.csv");
   print_to_csv(transpose(spline.basis_a), "../../../examples/bsplines_task32/basis_function_a.csv");
 
-  spline.compute_trajectory(x, task);
+  spline.compute_trajectory(x, task.to_matrix());
   print_to_csv(transpose(spline.traj.pos), "../../../examples/bsplines_task32/bspline_p.csv");
   print_to_csv(transpose(spline.traj.vel), "../../../examples/bsplines_task32/bspline_v.csv");
   print_to_csv(transpose(spline.traj.acc), "../../../examples/bsplines_task32/bspline_a.csv");

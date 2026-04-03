@@ -39,10 +39,10 @@ struct Result {
   }
 };
 
-inline Optimization::Optimization(const Manipulator& new_manip, const Matrix& new_task) :
+inline Optimization::Optimization(const Manipulator& new_manip, const Task& new_task) :
     manip(new_manip),
     bspline(new_manip.n_joints),
-    task(new_task),
+    task(new_task.to_matrix()),
     custom_data(nullptr) {
   // Default values
   guess.type   = Guess::random;
@@ -56,10 +56,10 @@ inline Optimization::Optimization(const Manipulator& new_manip, const Matrix& ne
   objective.time_weight = 1.0;
 }
 
-inline Optimization::Optimization(const Manipulator& new_manip, const Matrix& new_task, const Bspline& new_bspline) :
+inline Optimization::Optimization(const Manipulator& new_manip, const Task& new_task, const Bspline& new_bspline) :
     manip(new_manip),
     bspline(new_bspline),
-    task(new_task),
+    task(new_task.to_matrix()),
     custom_data(nullptr) {
   guess.type   = Guess::random;
   guess.n_random_shots = 100;
@@ -96,8 +96,8 @@ inline void Optimization::set_objective(Objective new_objective) {
   objective = std::move(new_objective);
 }
 
-inline void Optimization::set_task(Matrix new_task) {
-  task = std::move(new_task);
+inline void Optimization::set_task(const Task& new_task) {
+  task = new_task.to_matrix();
 }
 
 inline void Optimization::set_world(World new_world) {

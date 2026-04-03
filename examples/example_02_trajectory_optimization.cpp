@@ -22,13 +22,12 @@ int main() {
 
   // -----------------------------------------------------------------------
   // Step 1 — Build the robot model and define the task.
-  // A task is a (n_joints x 6) matrix encoding boundary conditions:
-  //   column 0 → start joint positions  (rad)
-  //   column 3 → goal  joint positions  (rad)
-  //   columns 1,2,4,5 → boundary velocities/accelerations (zero = stop-to-stop)
+  // A Task specifies start and goal boundary conditions (position, velocity,
+  // acceleration). Task::stop_to_stop() is the common factory for
+  // zero-velocity-at-boundaries motions.
   // -----------------------------------------------------------------------
   Manipulator ur5e = make_ur5e();
-  Matrix      task = make_ur5e_task();
+  Task        task = make_ur5e_task();
 
   // -----------------------------------------------------------------------
   // Step 2 — Create the Optimization problem.
@@ -71,7 +70,7 @@ int main() {
   // Step 6 — Run the optimizer.
   // -----------------------------------------------------------------------
   std::cout << "Running trajectory optimization...\n";
-  Result result = optimize(&opt, OptimizationMethod::baseline);
+  Result result = optimize(&opt, OptimizationMethod::with_segments);
 
   // -----------------------------------------------------------------------
   // Step 7 — Inspect the result.

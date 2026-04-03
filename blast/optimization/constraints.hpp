@@ -34,6 +34,30 @@ inline blast_fn real abs_constraint(const real& value, const real& value_max) {
   return std::abs(value) / value_max - 1.0;
 }
 
+// Derivative variants — return {constraint_value, d_constraint/d_value}.
+// When is_grad==false the gradient coefficient is 0 (unused).
+template<bool is_grad>
+inline blast_fn std::pair<real, real> abs_constraint_dev(const real& value, const real& value_max) {
+  const real constraint = std::abs(value) / value_max - 1.0f;
+  if constexpr (is_grad) {
+    return {constraint, (value >= 0.0f ? 1.0f : -1.0f) / value_max};
+  } else {
+    return {constraint, 0.0f};
+  }
+}
+
+template<bool is_grad>
+inline blast_fn std::pair<real, real> bound_constraint_dev(const real& value, const real& value_min, const real& value_max) {
+  const real center     = (value_max + value_min) / 2.0f;
+  const real range      = value_max - value_min;
+  const real constraint = 2.0f * std::abs(value - center) / range - 1.0f;
+  if constexpr (is_grad) {
+    return {constraint, 2.0f * (value >= center ? 1.0f : -1.0f) / range};
+  } else {
+    return {constraint, 0.0f};
+  }
+}
+
 inline blast_fn Matrix get_J_tool(const Optimization* opt, const ManipulatorTempData& temp) {
   std::vector<Vec3> r_tool(opt->manip.n_joints);
   r_tool[opt->manip.n_joints - 1] = opt->manip.joint_offsets[opt->manip.n_joints - 1];

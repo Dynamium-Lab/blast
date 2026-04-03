@@ -296,7 +296,7 @@ TEST_CASE("Link6 optimize() test", "[Optimization]") {
   opt_gen.set_world(world);
   opt_hc.set_world(world);
 
-  std::vector<blast::Matrix> tasks = get_Link6_demo1_tasks();
+  std::vector<blast::Task> tasks = get_Link6_demo1_tasks();
 
   for (int j = 0; j < n_tests; j++) {
     for (int i = 0; i < tasks.size(); i++) {

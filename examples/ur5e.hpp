@@ -95,23 +95,11 @@ inline Manipulator make_ur5e() {
   return Manipulator(joints, limits, kinematics, &dynamics, &collisions);
 }
 
-// Returns a representative point-to-point task for the UR5e.
-// The task is a (n_joints x 6) Matrix where column 0 holds the start joint
-// positions and column 3 holds the goal joint positions.
-// All other columns (velocities / accelerations at boundaries) are zero.
-inline Matrix make_ur5e_task() {
-  constexpr int n_joints = 6;
-
+// Returns a representative stop-to-stop task for the UR5e.
+inline Task make_ur5e_task() {
   Array start = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
   Array end   = {2.5825,  0.0700,   -0.3892,     0.3196,   0.9927,   -3.17328};
-
-  Matrix task(n_joints, 6); // 6 columns: [pos, vel, acc] x [start, end]
-  for (int k = 0; k < n_joints; ++k) {
-    task(k, 0) = start[k]; // start position
-    task(k, 3) = end[k];   // goal  position
-    // columns 1, 2, 4, 5 remain zero (zero velocity/acceleration at boundaries)
-  }
-  return task;
+  return Task::stop_to_stop(start, end);
 }
 
 } // namespace blast

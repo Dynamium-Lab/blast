@@ -726,9 +726,7 @@ inline host_fn World get_lab_world() {
   return world;
 }
 
-inline host_fn Matrix get_link6_task() {
-  // Array pi = {-1.787, -0.370, -1.391, -1.766, 0.120, -0.569, 1.944};
-  // Array pf = {-0.574, 0.421, 2.293, -2.161, 0.482, -0.740, -0.176};
+inline host_fn Task get_link6_task() {
   Array pi = deg2rad({-40.445762634277344,
                       -26.876392364501953,
                       83.60868835449219,
@@ -741,46 +739,16 @@ inline host_fn Matrix get_link6_task() {
                       3.6194305419921875,
                       33.133209228515625,
                       51.21833801269531}); // wb1
-  Array vi(6);
-  Array vf(6);
-  Array ai(6);
-  Array af(6);
-
-  Matrix task(6, 6);
-  for (int i = 0; i < 6; i++) {
-    task(i, 0) = pi[i];
-    task(i, 1) = vi[i];
-    task(i, 2) = ai[i];
-    task(i, 3) = pf[i];
-    task(i, 4) = vf[i];
-    task(i, 5) = af[i];
-  }
-
-  return task;
+  return Task::stop_to_stop(pi, pf);
 }
 
-inline host_fn Matrix get_gen3_task() {
+inline host_fn Task get_gen3_task() {
   Array pi = wrap2pi(deg2rad({215.6, 282.3, 337.6, 325.2, 159.0, 21.7, 323.0}));
   Array pf = wrap2pi(deg2rad({114.3, 319.8, 29.1, 266.1, 243.0, 25.3, 164.3}));
-  Array vi(7);
-  Array vf(7);
-  Array ai(7);
-  Array af(7);
-
-  Matrix task(7, 6);
-  for (int i = 0; i < 7; i++) {
-    task(i, 0) = pi[i];
-    task(i, 1) = vi[i];
-    task(i, 2) = ai[i];
-    task(i, 3) = pf[i];
-    task(i, 4) = vf[i];
-    task(i, 5) = af[i];
-  }
-
-  return task;
+  return Task::stop_to_stop(pi, pf);
 }
 
-inline host_fn std::vector<Matrix> get_Link6_demo1_tasks() {
+inline host_fn std::vector<Task> get_Link6_demo1_tasks() {
   // Read tasks Demo 1 (13 tasks)
   // Array pos_zero = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
   Array pos_home = deg2rad({0.00177001953125,
@@ -908,170 +876,22 @@ inline host_fn std::vector<Matrix> get_Link6_demo1_tasks() {
 
   // For every bloc, the sequence is  +10cm -> bloc -> +10cm -> dbox -> next bloc's +10cm
 
-  std::vector<Matrix> tasks;
+  std::vector<Task> tasks;
 
-  // home to w1_10cm
-  Matrix task_home_start(6, 6);
-
-  // w1_10cm to w1 & w1 to w1_10cm & w1_10cm to wb1
-  // Matrix task_w1_0(6, 6);
-  // Matrix task_w1_1(6, 6);
-  Matrix task_w1_wb1(6, 6);
-
-  // wb1 to b2_10cm
-  Matrix task_wb1_b2(6, 6);
-  // b2_10cm to b2 & b2 to b2_10cm & b2_10cm to bb2
-  // Matrix task_b2_0(6, 6);
-  // Matrix task_b2_1(6, 6);
-  Matrix task_b2_bb2(6, 6);
-
-  // bb2 to w3_10cm
-  Matrix task_bb2_w3(6, 6);
-  // w3_10cm to w3 & w3 to w3_10cm & w3_10cm to wb3
-  // Matrix task_w3_0(6, 6);
-  // Matrix task_w3_1(6, 6);
-  Matrix task_w3_wb3(6, 6);
-
-  // wb3 to w4_10cm
-  Matrix task_wb3_w4(6, 6);
-  // w4_10cm to w4 & w4 to w4_10cm & w4_10cm to wb4
-  // Matrix task_w4_0(6, 6);
-  // Matrix task_w4_1(6, 6);
-  Matrix task_w4_wb4(6, 6);
-
-  // wb4 to b5_10cm
-  Matrix task_wb4_b5(6, 6);
-  // b5_10cm to b5 & b5 to b5_10cm & b5_10cm to bb5
-  // Matrix task_b5_0(6, 6);
-  // Matrix task_b5_1(6, 6);
-  Matrix task_b5_bb5(6, 6);
-
-  // bb5 to b6_10cm
-  Matrix task_bb5_b6(6, 6);
-  // b6_10cm to b6 & b6 to b6_10cm & b6_10cm to bb6
-  // Matrix task_b6_0(6, 6);
-  // Matrix task_b6_1(6, 6);
-  Matrix task_b6_bb6(6, 6);
-
-  // bb6 to home
-  Matrix task_home_finish(6, 6);
-
-  for (u32 i = 0; i < 6; i++) {
-    // Home to start
-    task_home_start(i, 0) = pos_home[i];
-    task_home_start(i, 3) = pos_w1_10cm[i];
-
-    // Bloc 1
-    // task_w1_0(i, 0) = pos_w1_10cm[i];
-    // task_w1_0(i, 3) = pos_w1[i];
-    // task_w1_1(i, 0) = pos_w1[i];
-    // task_w1_1(i, 3) = pos_w1_10cm[i];
-
-    task_w1_wb1(i, 0) = pos_w1_10cm[i];
-    task_w1_wb1(i, 3) = pos_wb1[i];
-
-    // Bloc 2
-    task_wb1_b2(i, 0) = pos_wb1[i];
-    task_wb1_b2(i, 3) = pos_b2_10cm[i];
-
-    // task_b2_0(i, 0) = pos_b2_10cm[i];
-    // task_b2_0(i, 3) = pos_b2[i];
-    // task_b2_1(i, 0) = pos_b2[i];
-    // task_b2_1(i, 3) = pos_b2_10cm[i];
-
-    task_b2_bb2(i, 0) = pos_b2_10cm[i];
-    task_b2_bb2(i, 3) = pos_bb2[i];
-
-    // Bloc 3
-    task_bb2_w3(i, 0) = pos_bb2[i];
-    task_bb2_w3(i, 3) = pos_w3_10cm[i];
-
-    // task_w3_0(i, 0) = pos_w3_10cm[i];
-    // task_w3_0(i, 3) = pos_w3[i];
-    // task_w3_1(i, 0) = pos_w3[i];
-    // task_w3_1(i, 3) = pos_w3_10cm[i];
-
-    task_w3_wb3(i, 0) = pos_w3_10cm[i];
-    task_w3_wb3(i, 3) = pos_wb3[i];
-
-    // Bloc 4
-    task_wb3_w4(i, 0) = pos_wb3[i];
-    task_wb3_w4(i, 3) = pos_w4_10cm[i];
-
-    // task_w4_0(i, 0) = pos_w4_10cm[i];
-    // task_w4_0(i, 3) = pos_w4[i];
-    // task_w4_1(i, 0) = pos_w4[i];
-    // task_w4_1(i, 3) = pos_w4_10cm[i];
-
-    task_w4_wb4(i, 0) = pos_w4_10cm[i];
-    task_w4_wb4(i, 3) = pos_wb4[i];
-
-    // Bloc 5
-    task_wb4_b5(i, 0) = pos_wb4[i];
-    task_wb4_b5(i, 3) = pos_b5_10cm[i];
-
-    // task_b5_0(i, 0) = pos_b5_10cm[i];
-    // task_b5_0(i, 3) = pos_b5[i];
-    // task_b5_1(i, 0) = pos_b5[i];
-    // task_b5_1(i, 3) = pos_b5_10cm[i];
-
-    task_b5_bb5(i, 0) = pos_b5_10cm[i];
-    task_b5_bb5(i, 3) = pos_bb5[i];
-
-    // Bloc 6
-    task_bb5_b6(i, 0) = pos_bb5[i];
-    task_bb5_b6(i, 3) = pos_b6_10cm[i];
-
-    // task_b6_0(i, 0) = pos_b6_10cm[i];
-    // task_b6_0(i, 3) = pos_b6[i];
-    // task_b6_1(i, 0) = pos_b6[i];
-    // task_b6_1(i, 3) = pos_b6_10cm[i];
-
-    task_b6_bb6(i, 0) = pos_b6_10cm[i];
-    task_b6_bb6(i, 3) = pos_bb6[i];
-
-    // Home to finish
-    task_home_finish(i, 0) = pos_bb6[i];
-    task_home_finish(i, 3) = pos_home[i];
-  }
   // Sequence tasks (13 tasks)
-  tasks.push_back(task_home_start); // 0
-  // Bloc 1
-  // tasks.push_back(task_w1_0);   // 1
-  // tasks.push_back(task_w1_1);   // 2
-  tasks.push_back(task_w1_wb1); // 3
-
-  tasks.push_back(task_wb1_b2); // 4
-  // Bloc 2
-  // tasks.push_back(task_b2_0);   // 5
-  // tasks.push_back(task_b2_1);   // 6
-  tasks.push_back(task_b2_bb2); // 7
-
-  tasks.push_back(task_bb2_w3); // 8
-  // Bloc 3
-  // tasks.push_back(task_w3_0);   // 9
-  // tasks.push_back(task_w3_1);   // 10
-  tasks.push_back(task_w3_wb3); // 11
-
-  tasks.push_back(task_wb3_w4); // 12
-  // Bloc 4
-  // tasks.push_back(task_w4_0);   // 13
-  // tasks.push_back(task_w4_1);   // 14
-  tasks.push_back(task_w4_wb4); // 15
-
-  tasks.push_back(task_wb4_b5); // 16
-  // Bloc 5
-  // tasks.push_back(task_b5_0);   // 17
-  // tasks.push_back(task_b5_1);   // 18
-  tasks.push_back(task_b5_bb5); // 19
-
-  tasks.push_back(task_bb5_b6); // 20
-  // Bloc 6
-  // tasks.push_back(task_b6_0);        // 21
-  // tasks.push_back(task_b6_1);        // 22
-  tasks.push_back(task_b6_bb6);      // 23
-
-  tasks.push_back(task_home_finish); // 24
+  tasks.push_back(Task::stop_to_stop(pos_home,     pos_w1_10cm)); // 0: home to start
+  tasks.push_back(Task::stop_to_stop(pos_w1_10cm,  pos_wb1));     // 3: bloc 1
+  tasks.push_back(Task::stop_to_stop(pos_wb1,      pos_b2_10cm)); // 4: bloc 2 approach
+  tasks.push_back(Task::stop_to_stop(pos_b2_10cm,  pos_bb2));     // 7: bloc 2
+  tasks.push_back(Task::stop_to_stop(pos_bb2,      pos_w3_10cm)); // 8: bloc 3 approach
+  tasks.push_back(Task::stop_to_stop(pos_w3_10cm,  pos_wb3));     // 11: bloc 3
+  tasks.push_back(Task::stop_to_stop(pos_wb3,      pos_w4_10cm)); // 12: bloc 4 approach
+  tasks.push_back(Task::stop_to_stop(pos_w4_10cm,  pos_wb4));     // 15: bloc 4
+  tasks.push_back(Task::stop_to_stop(pos_wb4,      pos_b5_10cm)); // 16: bloc 5 approach
+  tasks.push_back(Task::stop_to_stop(pos_b5_10cm,  pos_bb5));     // 19: bloc 5
+  tasks.push_back(Task::stop_to_stop(pos_bb5,      pos_b6_10cm)); // 20: bloc 6 approach
+  tasks.push_back(Task::stop_to_stop(pos_b6_10cm,  pos_bb6));     // 23: bloc 6
+  tasks.push_back(Task::stop_to_stop(pos_bb6,      pos_home));    // 24: home to finish
 
   return tasks;
 }

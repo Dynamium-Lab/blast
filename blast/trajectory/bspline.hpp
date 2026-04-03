@@ -126,33 +126,33 @@ inline int uniformClampedSpan(real u, int n_ctrl, int p) {
 inline blast_fn void Bspline::compute_basis_derivative(int d) {
   basis.resize(d+1, Matrix(n_ctrl, n_points));
 
-  u32   m = n_ctrl + p;
+  u32   m = n_ctrl + degree;
   Array knots(m + 1);
   {
-    for (u32 i = m; i > m - p - 1; i--)
+    for (u32 i = m; i > m - degree - 1; i--)
       knots[i] = 1.0f;
-    const real du = 1.0f / (real) (m + 1 - 2 * (p + 1) + 1);
-    for (u32 i = p + 1; i < m - p; i++)
+    const real du = 1.0f / (real) (m + 1 - 2 * (degree + 1) + 1);
+    for (u32 i = degree + 1; i < m - degree; i++)
       knots[i] = knots[i - 1] + du;
   }
 
-  Array      N(m * (p + 1)); // triangle basis function
+  Array      N(m * (degree + 1)); // triangle basis function
   const real du = 1.0f / (n_points - 1);
-  
+
   for (u32 point = 0; point < n_points; point++) {
     const real u = point * du;
 
-    // note: could save if statements if we hard-coded span calculation since we know u is always within [0, 1]
-    const int span  = uniformClampedSpan(u, n_ctrl, p);
-    const int first = span - p;
+    // note: could save if-statements if we hard-coded span calculation since we know u is always within [0, 1]
+    const int span  = uniformClampedSpan(u, n_ctrl, degree);
+    const int first = span - degree;
 
     // --- Algorithm A2.2 (ndu table) ---
-    Matrix ndu(p + 1, p + 1);
-    Array  left(p + 1), right(p + 1);
+    Matrix ndu(degree + 1, degree + 1);
+    Array  left(degree + 1), right(degree + 1);
 
     ndu(0, 0) = 1.0;
 
-    for (int j = 1; j <= p; ++j) {
+    for (int j = 1; j <= degree; ++j) {
       left[j]  = u - knots[span + 1 - j];
       right[j] = knots[span + j] - u;
 
@@ -168,21 +168,21 @@ inline blast_fn void Bspline::compute_basis_derivative(int d) {
     }
 
     // --- Derivative computation (Algorithm A2.3) ---
-    Matrix ders(d + 1, p + 1);
-    for (int j = 0; j <= p; ++j)
-      ders(0, j) = ndu(j, p);
+    Matrix ders(d + 1, degree + 1);
+    for (int j = 0; j <= degree; ++j)
+      ders(0, j) = ndu(j, degree);
 
-    // Working array a[2][p+1]
-    Matrix a(2, p + 1);
+    // Working array a[2][degree+1]
+    Matrix a(2, degree + 1);
 
-    for (int r = 0; r <= p; ++r) {
+    for (int r = 0; r <= degree; ++r) {
       int s1 = 0, s2 = 1;
       a(0, 0) = 1.0;
 
       for (int k = 1; k <= d; ++k) {
         real d  = 0.0;
         int  rk = r - k;
-        int  pk = p - k;
+        int  pk = degree - k;
 
         int j1;
         int j2;
@@ -200,7 +200,7 @@ inline blast_fn void Bspline::compute_basis_derivative(int d) {
         if (r - 1 <= pk) {
           j2 = k - 1;
         } else {
-          j2 = p - r;
+          j2 = degree - r;
         }
 
         for (int j = j1; j <= j2; j++) {
@@ -219,16 +219,16 @@ inline blast_fn void Bspline::compute_basis_derivative(int d) {
     }
 
     // --- Multiply by factorial terms ---
-    real factor = real(p);
+    real factor = real(degree);
     for (int k = 1; k <= d; ++k) {
-      for (int j = 0; j <= p; ++j)
+      for (int j = 0; j <= degree; ++j)
         ders(k, j) *= factor;
-      factor *= real(p - k);
+      factor *= real(degree - k);
     }
 
     // --- Scatter into global result ---
     for (int k = 0; k <= d; ++k)
-      for (int j = 0; j <= p; ++j)
+      for (int j = 0; j <= degree; ++j)
         basis[k](first + j, point) = ders(k, j);
   }
 }
@@ -394,7 +394,9 @@ inline blast_fn void Bspline::compute_trajectory(const Array& x, const Matrix& t
 // Output
 // ders : Basis functions for derivative (result)
 inline Array BsplineDerivative_book(real u, int n_ctrl, int p, int deriv_order) {
-  ZoneScoped;
+#if BLAST_TRACE_LEVEL >= 2
+  PROFILE_FUNCTION;
+#endif
 
   Array result(n_ctrl);
 

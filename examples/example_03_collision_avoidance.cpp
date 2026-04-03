@@ -29,7 +29,7 @@ int main() {
   // Step 1 — Robot and task (same as example_02).
   // -----------------------------------------------------------------------
   Manipulator ur5e = make_ur5e();
-  Matrix      task = make_ur5e_task();
+  Task        task = make_ur5e_task();
 
   // -----------------------------------------------------------------------
   // Step 2 — Build a collision World.

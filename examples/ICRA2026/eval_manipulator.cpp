@@ -6,6 +6,7 @@
 
 #include <blast>
 #include <iostream>
+#include <mutex>
 
 #include "../../tests/test_helper/test_helper.hpp"
 
@@ -156,8 +157,7 @@ inline Manipulator get_generic_ur5e() {
   return generic_manip;
 }
 
-inline std::vector<Matrix> get_UR5e_tasks() {
-  int                n_joints = 6;
+inline std::vector<Task> get_UR5e_tasks() {
   std::vector<Array> start_pos;
   start_pos.push_back({1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883});
   start_pos.push_back({2.4316, 0.0965, 1.1824, 1.8626, -0.8567, 0.0250});
@@ -178,18 +178,11 @@ inline std::vector<Matrix> get_UR5e_tasks() {
   end_pos.push_back({2.4552, -0.1792, -1.0268, -1.9354, -0.8723, -0.0198});
   end_pos.push_back({2.14686, -0.283198, -0.264971, -2.59327, -0.566506, -0.0169222});
 
-  std::vector<Matrix> task_list(64);
-  int                 task_idx = 0;
-  for (auto& s: start_pos) {
-    for (auto& e: end_pos) {
-      task_list[task_idx].resize(n_joints, 6);
-      for (int k = 0; k < n_joints; k++) {
-        task_list[task_idx](k, 0) = s[k];
-        task_list[task_idx](k, 3) = e[k];
-      }
-      task_idx++;
-    }
-  }
+  std::vector<Task> task_list;
+  task_list.reserve(64);
+  for (auto& s: start_pos)
+    for (auto& e: end_pos)
+      task_list.push_back(Task::stop_to_stop(s, e));
   return task_list;
 }
 
@@ -379,7 +372,7 @@ struct Config {
   int    n_optim    = 0;
   int    task_idx   = 0;
   int    config_idx = 0;
-  Matrix task;
+  Task task;
 };
 constexpr int                   config_size = 64; // for UR5e 64 tasks
 std::array<Config, config_size> config_list;
@@ -484,7 +477,7 @@ inline void fill_config_list_UR5e(std::array<Config, config_size>& target_config
   //                                                            std::make_tuple(16, 10), // 10 points per segments
   //                                                            std::make_tuple(20, 10)};
   std::array<std::tuple<int, int>, 1> bspline_config_list = {std::make_tuple(16, 10)};
-  std::vector<Matrix>                 tasks               = get_UR5e_tasks();
+  std::vector<Task>                   tasks               = get_UR5e_tasks();
 
   int config_idx = 0;
   int task_idx   = 0;

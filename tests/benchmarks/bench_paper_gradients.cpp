@@ -61,14 +61,14 @@ struct Config {
   int    n_points = 0;
   int    task_idx = 0;
   int    n_optim  = 0;
-  Matrix task;
+  Task task;
 };
 
 // We create a config list that will be used for all benchmarks
 inline void fill_config_list(std::array<Config, 13>& config_list) {
 
   std::array<std::tuple<int, int>, 1> bspline_config_list = {std::make_tuple(16, 110)}; // These give rounded number of n_points_per_segment
-  std::vector<Matrix>                 tasks               = get_Link6_demo1_tasks();    // 13 tasks
+  std::vector<Task>                   tasks               = get_Link6_demo1_tasks();    // 13 tasks
 
   int config_idx = 0;
   int task_id    = 0;

@@ -6,6 +6,7 @@ namespace blast {
 
 struct Trajectory;
 struct Bspline;
+struct Task;
 
 struct Trajectory {
   Matrix pos; // n_joints x n_points

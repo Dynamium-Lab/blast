@@ -142,9 +142,9 @@ namespace blast
 
     Optimization() = delete;
 
-    Optimization(const Manipulator& new_manip, const Matrix& new_task);
+    Optimization(const Manipulator& new_manip, const Task& new_task);
 
-    Optimization(const Manipulator& new_manip, const Matrix& new_task, const Bspline& new_bspline);
+    Optimization(const Manipulator& new_manip, const Task& new_task, const Bspline& new_bspline);
 
     int x_len() const;
 
@@ -153,7 +153,7 @@ namespace blast
     void set_guess(Guess new_guess);
     void set_constraints(ConstraintSelection new_constraints);
     void set_objective(Objective new_objective);
-    void set_task(Matrix new_task);
+    void set_task(const Task& new_task);
     void set_world(World new_world);
   };
 
