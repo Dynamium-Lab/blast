@@ -184,7 +184,7 @@ TEST_CASE("test gradient points with upper & lower bounds", "[Acceleration]") {
   constraints.acceleration = true;
   constraints.torque       = true;
 
-  constraints.tcp_speed               = false;
+  constraints.tool_speed              = false;
   constraints.self_collisions         = false;
   constraints.external_collisions     = false;
   constraints.n_collision_constraints = 100;
@@ -285,7 +285,7 @@ TEST_CASE("test gradient acceleration accuracy", "[Acceleration]") {
   constraints.acceleration = true;
   constraints.torque       = true;
 
-  constraints.tcp_speed               = false;
+  constraints.tool_speed              = false;
   constraints.self_collisions         = false;
   constraints.external_collisions     = false;
   constraints.n_collision_constraints = 100;

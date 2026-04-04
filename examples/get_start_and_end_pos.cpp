@@ -19,7 +19,7 @@ inline Manipulator get_generic_ur5e() {
   // limits.amin = {-13.96, -13.96, -13.96, -13.96, -13.96, -13.96};
   limits.torque_max = {150.000000, 150.000000, 150.000000, 28.000000, 28.000000, 28.000000};
   // limits.tau_min = {-150.000000, -150.000000, -150.000000, -28.000000, -28.000000, -28.000000};
-  limits.tcp_speed_max = 2.0; // todo: verify this value
+  limits.tool_speed_max = 2.0; // todo: verify this value
 
   blast::ManipulatorKinematics kinematics;
   kinematics.joint_offsets = {
@@ -48,7 +48,7 @@ inline Manipulator get_generic_ur5e() {
   kinematics.first_joint_position = {0.000000, 0.000000, 0.162500};
 
   blast::ManipulatorDynamics dynamics;
-  dynamics.link_masses = {3.700000, 8.393000, 2.275000, 1.219000, 1.219000, 0.187900};
+  dynamics.link_masses     = {3.700000, 8.393000, 2.275000, 1.219000, 1.219000, 0.187900};
   dynamics.inertia_tensors = {
           Mat3{0.0103, 0, 0, 0, 0.0103, 0, 0, 0, 0.0067},
           {0.1339, 0, 0, 0, 0.1339, 0, 0, 0, 0.0151},
@@ -67,8 +67,8 @@ inline Manipulator get_generic_ur5e() {
   blast::ManipulatorCapsules collisions;
 
   blast::Sphere base;
-  base.center                    = {0, 0, 0.0325};
-  base.radius                    = 0.09;
+  base.center               = {0, 0, 0.0325};
+  base.radius               = 0.09;
   collisions.base_sphere    = base;
   collisions.collision_base = {0, 0, 0, 1, 1, 1, 1};
 
@@ -100,43 +100,43 @@ inline Manipulator get_generic_ur5e() {
   capsule.joint_frame = 0;
   capsule.p1          = {0, 0, 0};
   capsule.p2          = {0, -0.15, 0};
-  capsule.radius           = 0.09;
+  capsule.radius      = 0.09;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 1;
   capsule.p1          = {-0.42, 0, 0.1375};
   capsule.p2          = {0, 0, 0.1375};
-  capsule.radius           = 0.06;
+  capsule.radius      = 0.06;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 2;
   capsule.p1          = {0, 0, 0.02};
   capsule.p2          = {0, 0, 0.18};
-  capsule.radius           = 0.065;
+  capsule.radius      = 0.065;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 2;
   capsule.p1          = {-0.373156, 0, 0.00850418};
   capsule.p2          = {0.000440611, 0.000121443, 0.00850418};
-  capsule.radius           = 0.05;
+  capsule.radius      = 0.05;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 3;
   capsule.p1          = {0, 0, 0};
   capsule.p2          = {0, 0, -0.155};
-  capsule.radius           = 0.0425;
+  capsule.radius      = 0.0425;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 3;
   capsule.p1          = {0, 0.03, 0};
   capsule.p2          = {0, -0.1, 0};
-  capsule.radius           = 0.0425;
+  capsule.radius      = 0.0425;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 5;
   capsule.p1          = {0, 0, -0.14};
   capsule.p2          = {0, 0, -0.01};
-  capsule.radius           = 0.038;
+  capsule.radius      = 0.038;
   collisions.capsule_list.push_back(capsule);
 
   blast::Manipulator generic_manip(joints, limits, kinematics, &dynamics, &collisions);
@@ -144,7 +144,7 @@ inline Manipulator get_generic_ur5e() {
 }
 
 int main() {
-  auto manip   = get_generic_ur5e();
+  auto manip          = get_generic_ur5e();
   manip.base_position = {-0.5, -0.3, 0.35};
   manip.base_rotation = {-1, 0, 0, 0, -1, 0, 0, 0, 1};
 

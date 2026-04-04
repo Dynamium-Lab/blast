@@ -122,12 +122,12 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
   const auto& world = opt.world;
 
   // limits
-  auto pmax    = opt.manip.position_max;
-  auto pmin    = opt.manip.position_min;
-  auto vmax    = opt.manip.velocity_max;
-  auto amax    = opt.manip.acceleration_max;
-  auto tau_max = opt.manip.torque_max;
-  auto tcp_max = opt.manip.tcp_speed_max;
+  auto pmax           = opt.manip.position_max;
+  auto pmin           = opt.manip.position_min;
+  auto vmax           = opt.manip.velocity_max;
+  auto amax           = opt.manip.acceleration_max;
+  auto tau_max        = opt.manip.torque_max;
+  auto tool_speed_max = opt.manip.tool_speed_max;
 
   for (int j = 0; j < n_joints; j++) {
     // todo: document the current behaviour in the API
@@ -145,7 +145,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
   std::array<u8, MAX_JOINTS>                  max_tor_indices{};
   std::array<CollisionEntities, MAX_CAPSULES> max_collision_entities{};
   u8                                          max_internal_collision_index = 0;
-  u8                                          max_tcp_index                = 0;
+  u8                                          max_tool_index               = 0;
 
   opt.bspline.compute_trajectory(x, opt.task);
 
@@ -169,7 +169,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
     Array max_vel_constraints(n_joints, -INF_REAL);
     Array max_acc_constraints(n_joints, -INF_REAL);
     Array max_tor_constraints(n_joints, -INF_REAL);
-    real  max_tcp_speed_constraints    = -INF_REAL;
+    real  max_tool_speed_constraints   = -INF_REAL;
     real  max_internal_col_constraints = -INF_REAL; // todo: worst or worst per capsule ?
     Array max_col_constraints(n_capsules, -INF_REAL);
 
@@ -235,17 +235,17 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           }
         }
 
-        // tcp speed
-        if (opt.constraints.tcp_speed) {
+        // Tool speed
+        if (opt.constraints.tool_speed) {
 #if BLAST_TRACE_LEVEL >= 3
-          PROFILE_SCOPE("Tcp Constraints");
+          PROFILE_SCOPE("Tool Constraints");
 #endif
-          const auto J_tool    = get_J_tool(&opt, manip_data); // todo: clean up get_J_tool to a get_tcp_speed
-          const auto tcp_speed = norm(get_J_tool(&opt, manip_data) * v);
-          if (const auto c = bound_constraint(tcp_speed, 0.0, tcp_max);
-              c > max_tcp_speed_constraints) {
-            max_tcp_speed_constraints = c;
-            max_tcp_index             = point_in_segment;
+          const auto J_tool     = get_J_tool(&opt, manip_data); // todo: clean up get_J_tool to a get_tool_speed
+          const auto tool_speed = norm(get_J_tool(&opt, manip_data) * v);
+          if (const auto c = bound_constraint(tool_speed, 0.0, tool_speed_max);
+              c > max_tool_speed_constraints) {
+            max_tool_speed_constraints = c;
+            max_tool_index             = point_in_segment;
           }
         }
 
@@ -396,8 +396,8 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
       std::copy_n(max_acc_constraints.data, n_joints, &constraints[fill_idx]), fill_idx += n_joints;
     if (opt.constraints.torque)
       std::copy_n(max_tor_constraints.data, n_joints, &constraints[fill_idx]), fill_idx += n_joints;
-    if (opt.constraints.tcp_speed)
-      constraints[fill_idx++] = max_tcp_speed_constraints;
+    if (opt.constraints.tool_speed)
+      constraints[fill_idx++] = max_tool_speed_constraints;
     if (opt.constraints.self_collisions)
       constraints[fill_idx++] = max_internal_col_constraints;
     if (opt.constraints.external_collisions)
@@ -611,10 +611,10 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
         con_idx += n_joints;
       }
 
-      // tcp speed
-      if (opt.constraints.tcp_speed) {
+      // tool speed
+      if (opt.constraints.tool_speed) {
         constexpr real eps    = 1e-5;
-        const auto     point  = max_tcp_index;
+        const auto     point  = max_tool_index;
         const auto     p      = opt.bspline.traj.pos.col(start_point_for_segment + point);
         const auto     v      = opt.bspline.traj.vel.col(start_point_for_segment + point);
         auto           p_plus = p;
@@ -637,31 +637,31 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           // todo: check if the joint can actually move the current capsule
           p_plus[j] += eps;
 
-          // recompute tcp_speed
+          // recompute tool_speed
           forward_kinematics(opt.manip, manip_data, p_plus);
           const auto J_tool_p         = get_J_tool(&opt, manip_data);
-          const auto tcp_speed_p      = norm(J_tool_p * v_plus);
-          const auto new_constraint_p = bound_constraint(tcp_speed_p, 0.0, tcp_max);
-          // partial difference d(tcp_speed)/dp
-          const real dtcp_speed_dp = (new_constraint_p - max_tcp_speed_constraints) / eps;
-          p_plus[j]                = p[j]; // reset finite difference
+          const auto tool_speed_p     = norm(J_tool_p * v_plus);
+          const auto new_constraint_p = bound_constraint(tool_speed_p, 0.0, tool_speed_max);
+          // partial difference d(tool_speed)/dp
+          const real dtool_speed_dp = (new_constraint_p - max_tool_speed_constraints) / eps;
+          p_plus[j]                 = p[j]; // reset finite difference
 
           forward_kinematics(opt.manip, manip_data, p_plus);
           v_plus[j] += eps;
           const auto J_tool_v         = get_J_tool(&opt, manip_data);
-          const auto tcp_speed_v      = norm(J_tool_v * v_plus);
-          const auto new_constraint_v = bound_constraint(tcp_speed_v, 0.0, tcp_max);
-          const real dtcp_speed_dv    = (new_constraint_v - max_tcp_speed_constraints) / eps;
+          const auto tool_speed_v     = norm(J_tool_v * v_plus);
+          const auto new_constraint_v = bound_constraint(tool_speed_v, 0.0, tool_speed_max);
+          const real dtool_speed_dv   = (new_constraint_v - max_tool_speed_constraints) / eps;
           v_plus[j]                   = v[j];
 
           // fill the gradient for the control points that affect current joint 'j' d(collision)/dp * dp/d(control point)
           for (int i = 0; i < n_affected_control_points; i++) {
-            fill_column[x_idx + i] = bp_to_use[i] * dtcp_speed_dp +
-                                     bv_to_use[i] * dtcp_speed_dv * one_over_T;
+            fill_column[x_idx + i] = bp_to_use[i] * dtool_speed_dp +
+                                     bv_to_use[i] * dtool_speed_dv * one_over_T;
           }
           x_idx += x_idx_skip;
           // gradient w.r.t. T
-          fill_column.back() += dtcp_speed_dv * (-v[j] * one_over_T); // todo: check this !!
+          fill_column.back() += dtool_speed_dv * (-v[j] * one_over_T); // todo: check this !!
         }
         con++;
         con_idx++;
@@ -900,13 +900,13 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
       }
     }
 
-    if (opt->constraints.tcp_speed) {
+    if (opt->constraints.tool_speed) {
 #if BLAST_TRACE_LEVEL >= 3
-      PROFILE_SCOPE("TCPSpeed");
+      PROFILE_SCOPE("ToolSpeed");
 #endif
       auto J_tool      = get_J_tool(opt, manip_data);
-      real tcp_speed   = norm(J_tool * opt->bspline.traj.vel.col(i));
-      *moving_result++ = bound_constraint(tcp_speed, 0.0, opt->manip.tcp_speed_max);
+      real tool_speed  = norm(J_tool * opt->bspline.traj.vel.col(i));
+      *moving_result++ = bound_constraint(tool_speed, 0.0, opt->manip.tool_speed_max);
     }
 
     if (opt->constraints.self_collisions) {
@@ -1132,12 +1132,12 @@ inline blast_fn bool validate_task(Optimization* opt) {
       }
     }
 
-    if (constraints.tcp_speed) {
-      auto J_tool    = get_J_tool(opt, manip_data);
-      real tcp_speed = norm(J_tool * vel.col(i));
-      result         = bound_constraint(tcp_speed, -INF_REAL, manip.tcp_speed_max);
+    if (constraints.tool_speed) {
+      auto J_tool     = get_J_tool(opt, manip_data);
+      real tool_speed = norm(J_tool * vel.col(i));
+      result          = bound_constraint(tool_speed, -INF_REAL, manip.tool_speed_max);
       if (result > 0) {
-        std::cout << "TCP speed outside bounds." << std::endl;
+        std::cout << "Tool speed outside bounds." << std::endl;
         return false;
       }
     }
@@ -1289,13 +1289,13 @@ blast_fn void compute_constraints_with_analytical_pva(double* result, Array& gra
       }
     }
 
-    if (opt->constraints.tcp_speed) {
+    if (opt->constraints.tool_speed) {
 #if BLAST_TRACE_LEVEL >= 3
-      PROFILE_SCOPE("TCPSpeed");
+      PROFILE_SCOPE("ToolSpeed");
 #endif
       auto J_tool      = get_J_tool(opt, manip_data);
-      real tcp_speed   = norm(J_tool * opt->bspline.traj.vel.col(i));
-      *moving_result++ = bound_constraint(tcp_speed, 0.0, opt->manip.tcp_speed_max);
+      real tool_speed  = norm(J_tool * opt->bspline.traj.vel.col(i));
+      *moving_result++ = bound_constraint(tool_speed, 0.0, opt->manip.tool_speed_max);
       grad_idx++; // todo: add analytical gradients
     }
 
@@ -1499,13 +1499,13 @@ blast_fn void compute_constraints_with_analytical_dynamics(double* result, Array
       }
     }
 
-    if (opt->constraints.tcp_speed) { // todo: no grad_coeffs yet
+    if (opt->constraints.tool_speed) { // todo: no grad_coeffs yet
 #if BLAST_TRACE_LEVEL >= 3
-      PROFILE_SCOPE("TCPSpeed");
+      PROFILE_SCOPE("ToolSpeed");
 #endif
       auto J_tool      = get_J_tool(opt, manip_data);
-      real tcp_speed   = norm(J_tool * opt->bspline.traj.vel.col(i));
-      *moving_result++ = bound_constraint(tcp_speed, 0.0, opt->manip.tcp_speed_max);
+      real tool_speed  = norm(J_tool * opt->bspline.traj.vel.col(i));
+      *moving_result++ = bound_constraint(tool_speed, 0.0, opt->manip.tool_speed_max);
       grad_idx++; // todo: add analytical gradients
     }
 
@@ -1624,13 +1624,13 @@ inline blast_fn void compute_constraints_per_point(double* result, real& externa
     }
   }
 
-  if (opt->constraints.tcp_speed) {
+  if (opt->constraints.tool_speed) {
 #if BLAST_TRACE_LEVEL >= 3
-    PROFILE_SCOPE("TCPSpeed");
+    PROFILE_SCOPE("ToolSpeed");
 #endif
     auto J_tool      = get_J_tool(opt, manip_data);
-    real tcp_speed   = norm(J_tool * opt->bspline.traj.vel.col(i));
-    moving_result[0] = bound_constraint(tcp_speed, 0.0, opt->manip.tcp_speed_max);
+    real tool_speed  = norm(J_tool * opt->bspline.traj.vel.col(i));
+    moving_result[0] = bound_constraint(tool_speed, 0.0, opt->manip.tool_speed_max);
     moving_result++;
   }
 
@@ -1666,7 +1666,7 @@ inline blast_fn u32 ncon_lb_acc(const Optimization* opt, const u32 x_idx) {
   if (opt->constraints.torque)
     n_constraints += n_constraints_basic;
 
-  if (opt->constraints.tcp_speed)
+  if (opt->constraints.tool_speed)
     n_constraints += n_points;
 
   if (opt->constraints.self_collisions) {
@@ -1688,7 +1688,7 @@ inline u32 ncon_extras(const Optimization* opt) {
   if (opt->constraints.torque)
     n_constraints += n_joints;
 
-  if (opt->constraints.tcp_speed)
+  if (opt->constraints.tool_speed)
     n_constraints += 1;
 
   if (opt->constraints.external_collisions)
@@ -1735,7 +1735,7 @@ inline blast_fn void nlopt_constraints_with_analytical_pva(unsigned m, double* r
     u32 x_idx          = 0;
 
     u32 n_torque         = 0;
-    u32 n_tcp_speed      = 0;
+    u32 n_tool_speed     = 0;
     u32 n_self_collision = 0;
 
     memcpy(x_plus.data, x, xlen * sizeof(real)); // todo: is this necessary ? done once, and x_plus is modified to original at the end of each iteration
@@ -1756,7 +1756,7 @@ inline blast_fn void nlopt_constraints_with_analytical_pva(unsigned m, double* r
       Array external_collisions(opt->bspline.upper_bounds[x_idx] - opt->bspline.lower_bounds[x_idx] + 1);
       // todo: create alias matrix that points to grad
       // todo: can we change the order in which we store the gradients ?
-      grad_idx       = n_con_lb * xlen + j;                                    // gradients are stored column-wise xlen * npoints
+      grad_idx       = n_con_lb * xlen + j;                                                        // gradients are stored column-wise xlen * npoints
       constraint_idx = n_con_lb;
       for (u32 i = opt->bspline.lower_bounds[x_idx]; i <= opt->bspline.upper_bounds[x_idx]; i++) { // lb & ub are inclusive
         grad_idx += joint * xlen;
@@ -1780,10 +1780,10 @@ inline blast_fn void nlopt_constraints_with_analytical_pva(unsigned m, double* r
           constraint_idx += (opt->manip.n_joints - joint);  // note: eventhough this gradient is not done analytically, we still need to increase the constraint index
         }
 
-        if (opt->constraints.torque || opt->constraints.tcp_speed || opt->constraints.self_collisions || opt->constraints.external_collisions) {
+        if (opt->constraints.torque || opt->constraints.tool_speed || opt->constraints.self_collisions || opt->constraints.external_collisions) {
           compute_constraints_per_point(r_plus.data, external_collisions[i - opt->bspline.lower_bounds[x_idx]], i, opt);
           n_torque         = 0;
-          n_tcp_speed      = 0;
+          n_tool_speed     = 0;
           n_self_collision = 0;
           if (opt->constraints.torque) { // todo: add analytical gradients for torque
             n_torque = opt->manip.n_joints;
@@ -1795,8 +1795,8 @@ inline blast_fn void nlopt_constraints_with_analytical_pva(unsigned m, double* r
             }
           }
 
-          if (opt->constraints.tcp_speed) {
-            n_tcp_speed = 1;
+          if (opt->constraints.tool_speed) {
+            n_tool_speed = 1;
 
             grad[grad_idx] = (r_plus.data[n_torque] - result[constraint_idx]) / eps;
             grad_idx += xlen;
@@ -1805,7 +1805,7 @@ inline blast_fn void nlopt_constraints_with_analytical_pva(unsigned m, double* r
 
           if (opt->constraints.self_collisions) {
             n_self_collision = opt->manip._n_internal_collisions;
-            for (u32 k = n_torque + n_tcp_speed; k < n_torque + n_tcp_speed + n_self_collision; k++) {
+            for (u32 k = n_torque + n_tool_speed; k < n_torque + n_tool_speed + n_self_collision; k++) {
               grad[grad_idx] = (r_plus.data[k] - result[constraint_idx]) / eps;
               grad_idx += xlen;
               constraint_idx++; // note: eventhough this gradient is not done analytically, we still need to increase the constraint index
@@ -1908,7 +1908,7 @@ inline blast_fn void nlopt_constraints_with_analytical_dynamics(unsigned m, doub
     u32 x_idx          = 0;
 
     u32 n_torque         = 0;
-    u32 n_tcp_speed      = 0;
+    u32 n_tool_speed     = 0;
     u32 n_self_collision = 0;
 
     memcpy(x_plus.data, x, xlen * sizeof(real)); // todo: is this necessary ? done once, and x_plus is modified to original at the end of each iteration
@@ -1918,7 +1918,7 @@ inline blast_fn void nlopt_constraints_with_analytical_dynamics(unsigned m, doub
       joint = j / x_per_joint > joint ? joint + 1 : joint; // increase joint by 1 everytime we reach its ctrl points
       x_idx = j - joint * x_per_joint + 3;                 // todo: fix for NaN in PVA of task
 
-      // x_plus[j] += eps;                                    // todo: add this is for extra constraints (tcp, collisions)
+      // x_plus[j] += eps;                                    // todo: add this is for extra constraints (tool, collisions)
       // opt->bspline.compute_trajectory(x_plus, opt->task);
 
       n_con_lb = ncon_lb_acc(opt, x_idx); // find the amount of constraints before the current point
@@ -1926,7 +1926,7 @@ inline blast_fn void nlopt_constraints_with_analytical_dynamics(unsigned m, doub
       Array external_collisions(opt->bspline.upper_bounds[x_idx] - opt->bspline.lower_bounds[x_idx]);
       // todo: create alias matrix that points to grad
       // todo: can we change the order in which we store the gradients ?
-      grad_idx       = n_con_lb * xlen + j;                                    // gradients are stored column-wise xlen * npoints
+      grad_idx       = n_con_lb * xlen + j;                                                        // gradients are stored column-wise xlen * npoints
       constraint_idx = n_con_lb;
       for (u32 i = opt->bspline.lower_bounds[x_idx]; i <= opt->bspline.upper_bounds[x_idx]; i++) { // lb & ub are inclusive
         grad_idx += joint * xlen;
@@ -1961,14 +1961,14 @@ inline blast_fn void nlopt_constraints_with_analytical_dynamics(unsigned m, doub
           }
         }
 
-        if (opt->constraints.tcp_speed || opt->constraints.self_collisions || opt->constraints.external_collisions) {
+        if (opt->constraints.tool_speed || opt->constraints.self_collisions || opt->constraints.external_collisions) {
           compute_constraints_per_point(r_plus.data, external_collisions[i], i, opt); // todo: not working ...
           // n_torque         = 0;
-          n_tcp_speed      = 0;
+          n_tool_speed     = 0;
           n_self_collision = 0;
 
-          if (opt->constraints.tcp_speed) { // todo: not working
-            n_tcp_speed = 1;
+          if (opt->constraints.tool_speed) { // todo: not working
+            n_tool_speed = 1;
 
             grad[grad_idx] = (r_plus.data[0] - result[constraint_idx]) / eps;
             grad_idx += xlen;
@@ -1977,7 +1977,7 @@ inline blast_fn void nlopt_constraints_with_analytical_dynamics(unsigned m, doub
 
           if (opt->constraints.self_collisions) { // todo: not working
             n_self_collision = opt->manip._n_internal_collisions;
-            for (u32 k = n_tcp_speed; k < n_tcp_speed + n_self_collision; k++) {
+            for (u32 k = n_tool_speed; k < n_tool_speed + n_self_collision; k++) {
               grad[grad_idx] = (r_plus.data[k] - result[constraint_idx]) / eps;
               grad_idx += xlen;
               constraint_idx++; // note: eventhough this gradient is not done analytically, we still need to increase the constraint index

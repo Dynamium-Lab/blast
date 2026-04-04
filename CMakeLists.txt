@@ -32,6 +32,7 @@ if(ENABLE_TRACY)
   # Optional: Add a preprocessor macro to your project so your code
   # knows whether to include Tracy headers or not.
   add_compile_definitions(BLAST_TRACY_ENABLE)
+  message(STATUS "Building with tracy enabled - make sure the server is launched when executing.")
 endif()
 
 

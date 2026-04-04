@@ -201,8 +201,8 @@ inline host_fn bool is_close(const Manipulator& manip1, const Manipulator& manip
       return false; // max joint torque
   }
 
-  if (!is_close(manip1.tcp_speed_max, manip2.tcp_speed_max, eps))
-    return false; // max tcp speed
+  if (!is_close(manip1.tool_speed_max, manip2.tool_speed_max, eps))
+    return false; // max tool speed
 
   if (!is_close(manip1.base_position, manip2.base_position, eps))
     return false;
@@ -317,7 +317,7 @@ inline host_fn bool is_close(const ConstraintSelection& constraints1, const Cons
     return false;
   if (constraints1.torque != constraints2.torque)
     return false;
-  if (constraints1.tcp_speed != constraints2.tcp_speed)
+  if (constraints1.tool_speed != constraints2.tool_speed)
     return false;
   if (constraints1.self_collisions != constraints2.self_collisions)
     return false;

@@ -70,7 +70,7 @@ TEST_CASE("compute_constraints vs constraints_with_segments", "[acceleration]") 
   opt.constraints.velocity            = true;
   opt.constraints.acceleration        = true;
   opt.constraints.torque              = true;
-  opt.constraints.tcp_speed           = false;
+  opt.constraints.tool_speed          = false;
   opt.constraints.self_collisions     = false;
   opt.constraints.external_collisions = false;
 
@@ -124,7 +124,7 @@ TEST_CASE("Optimization with compute_constraints vs constraints_and_gradients_wi
   opt.constraints.velocity            = true;
   opt.constraints.acceleration        = true;
   opt.constraints.torque              = true;
-  opt.constraints.tcp_speed           = false;
+  opt.constraints.tool_speed          = false;
   opt.constraints.self_collisions     = false;
   opt.constraints.external_collisions = false;
 
@@ -134,8 +134,8 @@ TEST_CASE("Optimization with compute_constraints vs constraints_and_gradients_wi
   // initialize_optimization(&opt);
   // n_con(&opt);
   // note: use the same initial guess
-  opt.guess.type = Guess::custom;
-  opt.guess.initial_x   = Array(x_len, 2.0);
+  opt.guess.type      = Guess::custom;
+  opt.guess.initial_x = Array(x_len, 2.0);
   // note: this only works with 16 n_ctrl
   // opt.guess.initial_x   = Array{0.152355, -0.597958, -0.756348, 0.558375, -0.946557, -0.10268, 0.901938, -0.145201, -0.436917, -0.827993,
   //                      -0.210473, -0.0664338, 0.370776, -0.29955, -0.139142, 0.757138, -0.157328, 0.909626, -0.214084, 0.745555,

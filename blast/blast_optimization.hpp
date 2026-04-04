@@ -101,7 +101,7 @@ namespace blast
     bool acceleration = false;
     bool torque = false;
     bool jerk = false; // not supported atm
-    bool tcp_speed = false;
+    bool tool_speed = false;
     bool self_collisions = false;
     bool external_collisions = false;
 

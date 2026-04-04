@@ -64,14 +64,14 @@ TEST_CASE("Test gradient", "[accelerations]") {
   Bspline bspline(16, 100, 5, 6);
   opt.bspline = bspline;
 
-  opt.guess.type = Guess::custom;
-  opt.guess.initial_x   = Array{0.152355, -0.597958, -0.756348, 0.558375, -0.946557, -0.10268, 0.901938, -0.145201, -0.436917, -0.827993,
-                       -0.210473, -0.0664338, 0.370776, -0.29955, -0.139142, 0.757138, -0.157328, 0.909626, -0.214084, 0.745555,
-                       -0.0416009, 0.375275, 0.126153, 0.402337, 0.723458, -0.070362, -0.444889, 0.784517, 0.655188, 0.216073,
-                       0.889643, -0.969162, -0.0279569, 0.496376, -0.891977, 0.0247388, -0.332795, -0.239096, -0.418835, 0.922935,
-                       0.124817, 0.34831, -0.00905602, -0.157159, 0.492551, 0.0325292, -0.299891, 0.828649, -0.909505, -0.294613,
-                       -0.768063, -0.489629, 0.0918699, -0.603901, -0.391773, -0.919239, 0.472415, 0.591886, -0.494069, 0.0488416,
-                       4.81184};
+  opt.guess.type      = Guess::custom;
+  opt.guess.initial_x = Array{0.152355, -0.597958, -0.756348, 0.558375, -0.946557, -0.10268, 0.901938, -0.145201, -0.436917, -0.827993,
+                              -0.210473, -0.0664338, 0.370776, -0.29955, -0.139142, 0.757138, -0.157328, 0.909626, -0.214084, 0.745555,
+                              -0.0416009, 0.375275, 0.126153, 0.402337, 0.723458, -0.070362, -0.444889, 0.784517, 0.655188, 0.216073,
+                              0.889643, -0.969162, -0.0279569, 0.496376, -0.891977, 0.0247388, -0.332795, -0.239096, -0.418835, 0.922935,
+                              0.124817, 0.34831, -0.00905602, -0.157159, 0.492551, 0.0325292, -0.299891, 0.828649, -0.909505, -0.294613,
+                              -0.768063, -0.489629, 0.0918699, -0.603901, -0.391773, -0.919239, 0.472415, 0.591886, -0.494069, 0.0488416,
+                              4.81184};
   //   opt.guess.initial_x   = Array(opt.bspline.x_len(opt.task), 2.0);
   // opt.guess.n_random_shots = 100;
 
@@ -82,7 +82,7 @@ TEST_CASE("Test gradient", "[accelerations]") {
   opt.constraints.acceleration = true;
   opt.constraints.torque       = true;
 
-  opt.constraints.tcp_speed           = false;
+  opt.constraints.tool_speed          = false;
   opt.constraints.self_collisions     = false;
   opt.constraints.external_collisions = false;
 
@@ -94,14 +94,14 @@ TEST_CASE("Test gradient", "[accelerations]") {
 
   Optimization opt_acc(get_generic_Link6(), get_link6_task());
   opt_acc.set_bspline(bspline);
-  opt_acc.guess.type = Guess::custom;
-  opt_acc.guess.initial_x   = Array{0.152355, -0.597958, -0.756348, 0.558375, -0.946557, -0.10268, 0.901938, -0.145201, -0.436917, -0.827993,
-                           -0.210473, -0.0664338, 0.370776, -0.29955, -0.139142, 0.757138, -0.157328, 0.909626, -0.214084, 0.745555,
-                           -0.0416009, 0.375275, 0.126153, 0.402337, 0.723458, -0.070362, -0.444889, 0.784517, 0.655188, 0.216073,
-                           0.889643, -0.969162, -0.0279569, 0.496376, -0.891977, 0.0247388, -0.332795, -0.239096, -0.418835, 0.922935,
-                           0.124817, 0.34831, -0.00905602, -0.157159, 0.492551, 0.0325292, -0.299891, 0.828649, -0.909505, -0.294613,
-                           -0.768063, -0.489629, 0.0918699, -0.603901, -0.391773, -0.919239, 0.472415, 0.591886, -0.494069, 0.0488416,
-                           4.81184};
+  opt_acc.guess.type      = Guess::custom;
+  opt_acc.guess.initial_x = Array{0.152355, -0.597958, -0.756348, 0.558375, -0.946557, -0.10268, 0.901938, -0.145201, -0.436917, -0.827993,
+                                  -0.210473, -0.0664338, 0.370776, -0.29955, -0.139142, 0.757138, -0.157328, 0.909626, -0.214084, 0.745555,
+                                  -0.0416009, 0.375275, 0.126153, 0.402337, 0.723458, -0.070362, -0.444889, 0.784517, 0.655188, 0.216073,
+                                  0.889643, -0.969162, -0.0279569, 0.496376, -0.891977, 0.0247388, -0.332795, -0.239096, -0.418835, 0.922935,
+                                  0.124817, 0.34831, -0.00905602, -0.157159, 0.492551, 0.0325292, -0.299891, 0.828649, -0.909505, -0.294613,
+                                  -0.768063, -0.489629, 0.0918699, -0.603901, -0.391773, -0.919239, 0.472415, 0.591886, -0.494069, 0.0488416,
+                                  4.81184};
 
   opt_acc.constraints.show_info = true;
 
@@ -110,7 +110,7 @@ TEST_CASE("Test gradient", "[accelerations]") {
   opt_acc.constraints.acceleration = true;
   opt_acc.constraints.torque       = true;
 
-  opt_acc.constraints.tcp_speed           = false;
+  opt_acc.constraints.tool_speed          = false;
   opt_acc.constraints.self_collisions     = false;
   opt_acc.constraints.external_collisions = false;
 
@@ -206,7 +206,7 @@ TEST_CASE("Test gradient", "[accelerations]") {
   u32 x_idx          = 0;
 
   u32 n_torque         = 0;
-  u32 n_tcp_speed      = 0;
+  u32 n_tool_speed     = 0;
   u32 n_self_collision = 0;
 
   u32   n_con = opt_acc.constraints.n_constraints;
@@ -230,13 +230,13 @@ TEST_CASE("Test gradient", "[accelerations]") {
     Array external_collisions(opt_acc.bspline.upper_bounds[x_idx] - opt_acc.bspline.lower_bounds[x_idx]);
     // todo: create alias matrix that points to grad
     // todo: can we change the order in which we store the gradients ?
-    grad_idx       = n_con_lb * xlen + j;                                          // gradients are stored column-wise xlen * npoints
+    grad_idx       = n_con_lb * xlen + j;                                                              // gradients are stored column-wise xlen * npoints
     constraint_idx = n_con_lb;
     for (u32 i = opt_acc.bspline.lower_bounds[x_idx]; i <= opt_acc.bspline.upper_bounds[x_idx]; i++) { // lb & ub are inclusive
       grad_idx += joint * xlen;
       constraint_idx += joint;
       n_torque         = 0;
-      n_tcp_speed      = 0;
+      n_tool_speed     = 0;
       n_self_collision = 0;
       if (opt_acc.constraints.torque) { // todo: add analytical gradients for torque
         n_torque = opt_acc.manip.n_joints;
@@ -267,14 +267,14 @@ TEST_CASE("Test gradient accuracy", "[accelerations]") {
   Bspline bspline(16, 100, 5, 6);
   opt.bspline = bspline;
 
-  opt.guess.type = Guess::custom;
-  opt.guess.initial_x   = Array{0.152355, -0.597958, -0.756348, 0.558375, -0.946557, -0.10268, 0.901938, -0.145201, -0.436917, -0.827993,
-                       -0.210473, -0.0664338, 0.370776, -0.29955, -0.139142, 0.757138, -0.157328, 0.909626, -0.214084, 0.745555,
-                       -0.0416009, 0.375275, 0.126153, 0.402337, 0.723458, -0.070362, -0.444889, 0.784517, 0.655188, 0.216073,
-                       0.889643, -0.969162, -0.0279569, 0.496376, -0.891977, 0.0247388, -0.332795, -0.239096, -0.418835, 0.922935,
-                       0.124817, 0.34831, -0.00905602, -0.157159, 0.492551, 0.0325292, -0.299891, 0.828649, -0.909505, -0.294613,
-                       -0.768063, -0.489629, 0.0918699, -0.603901, -0.391773, -0.919239, 0.472415, 0.591886, -0.494069, 0.0488416,
-                       4.81184};
+  opt.guess.type      = Guess::custom;
+  opt.guess.initial_x = Array{0.152355, -0.597958, -0.756348, 0.558375, -0.946557, -0.10268, 0.901938, -0.145201, -0.436917, -0.827993,
+                              -0.210473, -0.0664338, 0.370776, -0.29955, -0.139142, 0.757138, -0.157328, 0.909626, -0.214084, 0.745555,
+                              -0.0416009, 0.375275, 0.126153, 0.402337, 0.723458, -0.070362, -0.444889, 0.784517, 0.655188, 0.216073,
+                              0.889643, -0.969162, -0.0279569, 0.496376, -0.891977, 0.0247388, -0.332795, -0.239096, -0.418835, 0.922935,
+                              0.124817, 0.34831, -0.00905602, -0.157159, 0.492551, 0.0325292, -0.299891, 0.828649, -0.909505, -0.294613,
+                              -0.768063, -0.489629, 0.0918699, -0.603901, -0.391773, -0.919239, 0.472415, 0.591886, -0.494069, 0.0488416,
+                              4.81184};
   //   opt.guess.initial_x   = Array(opt.bspline.x_len(opt.task), 2.0);
   // opt.guess.n_random_shots = 100;
 
@@ -285,7 +285,7 @@ TEST_CASE("Test gradient accuracy", "[accelerations]") {
   opt.constraints.acceleration = true;
   opt.constraints.torque       = true;
 
-  opt.constraints.tcp_speed           = false;
+  opt.constraints.tool_speed          = false;
   opt.constraints.self_collisions     = false;
   opt.constraints.external_collisions = false;
 
@@ -297,14 +297,14 @@ TEST_CASE("Test gradient accuracy", "[accelerations]") {
 
   Optimization opt_acc(get_generic_Link6(), get_link6_task());
   opt_acc.set_bspline(bspline);
-  opt_acc.guess.type = Guess::custom;
-  opt_acc.guess.initial_x   = Array{0.152355, -0.597958, -0.756348, 0.558375, -0.946557, -0.10268, 0.901938, -0.145201, -0.436917, -0.827993,
-                           -0.210473, -0.0664338, 0.370776, -0.29955, -0.139142, 0.757138, -0.157328, 0.909626, -0.214084, 0.745555,
-                           -0.0416009, 0.375275, 0.126153, 0.402337, 0.723458, -0.070362, -0.444889, 0.784517, 0.655188, 0.216073,
-                           0.889643, -0.969162, -0.0279569, 0.496376, -0.891977, 0.0247388, -0.332795, -0.239096, -0.418835, 0.922935,
-                           0.124817, 0.34831, -0.00905602, -0.157159, 0.492551, 0.0325292, -0.299891, 0.828649, -0.909505, -0.294613,
-                           -0.768063, -0.489629, 0.0918699, -0.603901, -0.391773, -0.919239, 0.472415, 0.591886, -0.494069, 0.0488416,
-                           4.81184};
+  opt_acc.guess.type      = Guess::custom;
+  opt_acc.guess.initial_x = Array{0.152355, -0.597958, -0.756348, 0.558375, -0.946557, -0.10268, 0.901938, -0.145201, -0.436917, -0.827993,
+                                  -0.210473, -0.0664338, 0.370776, -0.29955, -0.139142, 0.757138, -0.157328, 0.909626, -0.214084, 0.745555,
+                                  -0.0416009, 0.375275, 0.126153, 0.402337, 0.723458, -0.070362, -0.444889, 0.784517, 0.655188, 0.216073,
+                                  0.889643, -0.969162, -0.0279569, 0.496376, -0.891977, 0.0247388, -0.332795, -0.239096, -0.418835, 0.922935,
+                                  0.124817, 0.34831, -0.00905602, -0.157159, 0.492551, 0.0325292, -0.299891, 0.828649, -0.909505, -0.294613,
+                                  -0.768063, -0.489629, 0.0918699, -0.603901, -0.391773, -0.919239, 0.472415, 0.591886, -0.494069, 0.0488416,
+                                  4.81184};
 
   opt_acc.constraints.show_info = true;
 
@@ -313,7 +313,7 @@ TEST_CASE("Test gradient accuracy", "[accelerations]") {
   opt_acc.constraints.acceleration = true;
   opt_acc.constraints.torque       = true;
 
-  opt_acc.constraints.tcp_speed           = false;
+  opt_acc.constraints.tool_speed          = false;
   opt_acc.constraints.self_collisions     = false;
   opt_acc.constraints.external_collisions = false;
 
@@ -340,7 +340,7 @@ TEST_CASE("Test gradient accuracy", "[accelerations]") {
   //   opt_acc_2.constraints.acceleration = true;
   //   opt_acc_2.constraints.torque       = true;
 
-  //   opt_acc_2.constraints.tcp_speed           = false;
+  //   opt_acc_2.constraints.tool_speed           = false;
   //   opt_acc_2.constraints.self_collisions     = false;
   //   opt_acc_2.constraints.external_collisions = false;
 

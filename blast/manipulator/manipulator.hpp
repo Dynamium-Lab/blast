@@ -233,8 +233,8 @@ inline host_fn void Manipulator::set_limits(const ManipulatorLimits& limits) {
     Assert(limits.torque_max.size == n_joints);
     std::copy_n(limits.torque_max.data, n_joints, torque_max.data());
   }
-  if (limits.tcp_speed_max != 0.0) {
-    tcp_speed_max = limits.tcp_speed_max;
+  if (limits.tool_speed_max != 0.0) {
+    tool_speed_max = limits.tool_speed_max;
   }
 }
 
@@ -320,24 +320,24 @@ inline Array get_internal_collisions(const Manipulator& manip, const Manipulator
 //           current_rpy.x, current_rpy.y, current_rpy.z};
 // }
 
-inline host_fn void Manipulator::add_end_effector(const EndEffector& ee) {
-  tcp_offset        = ee.tcp_offset;
-  tcp_rotation      = ee.tcp_rotation;
-  ee_mass           = ee.mass;
-  ee_inertia_tensor = ee.inertia_tensor;
-  ee_cog_offset     = ee.cog_offset;
-  end_effector      = true;
+inline host_fn void Manipulator::add_tool(const Tool& tool) {
+  tool_offset        = tool.tool_offset;
+  tool_rotation      = tool.tool_rotation;
+  tool_mass           = tool.mass;
+  tool_inertia_tensor = tool.inertia_tensor;
+  tool_cog_offset     = tool.cog_offset;
+  has_tool      = true;
 
-  joint_offsets.back() += tcp_rotation * ee.tcp_offset;
-  static_rotations.back() *= tcp_rotation;
-  real m_new    = link_masses.back() + ee.mass;
-  Vec3 av_new   = (link_masses.back() * cog_offsets.back() + ee.mass * ee.cog_offset) / m_new;
+  joint_offsets.back() += tool_rotation * tool.tool_offset;
+  static_rotations.back() *= tool_rotation;
+  real m_new    = link_masses.back() + tool.mass;
+  Vec3 av_new   = (link_masses.back() * cog_offsets.back() + tool.mass * tool.cog_offset) / m_new;
   Vec3 delta_av = av_new - cog_offsets.back();
 
-  inertia_tensors.back()(0, 0) += link_masses.back() * delta_av.x * delta_av.x + ee.mass * ee.cog_offset.x * ee.cog_offset.x;
-  inertia_tensors.back()(1, 1) += link_masses.back() * delta_av.y * delta_av.y + ee.mass * ee.cog_offset.y * ee.cog_offset.y;
-  inertia_tensors.back()(2, 2) += link_masses.back() * delta_av.z * delta_av.z + ee.mass * ee.cog_offset.z * ee.cog_offset.z;
-  inertia_tensors.back() += ee.inertia_tensor;
+  inertia_tensors.back()(0, 0) += link_masses.back() * delta_av.x * delta_av.x + tool.mass * tool.cog_offset.x * tool.cog_offset.x;
+  inertia_tensors.back()(1, 1) += link_masses.back() * delta_av.y * delta_av.y + tool.mass * tool.cog_offset.y * tool.cog_offset.y;
+  inertia_tensors.back()(2, 2) += link_masses.back() * delta_av.z * delta_av.z + tool.mass * tool.cog_offset.z * tool.cog_offset.z;
+  inertia_tensors.back() += tool.inertia_tensor;
 
   link_masses.back()  = m_new;
   cog_offsets.back()  = av_new;

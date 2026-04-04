@@ -51,7 +51,7 @@ inline Optimization::Optimization(const Manipulator& new_manip, const Task& new_
   constraints.position     = true;
   constraints.velocity     = true;
   constraints.acceleration = true;
-  constraints.tcp_speed    = true;
+  constraints.tool_speed    = true;
 
   objective.time_weight = 1.0;
 }
@@ -67,7 +67,7 @@ inline Optimization::Optimization(const Manipulator& new_manip, const Task& new_
   constraints.position     = true;
   constraints.velocity     = true;
   constraints.acceleration = true;
-  constraints.tcp_speed    = true;
+  constraints.tool_speed    = true;
 
   objective.time_weight = 1.0;
 }
@@ -118,7 +118,7 @@ inline void n_con(Optimization* opt) {
   if (opt->constraints.torque)
     opt->constraints.n_constraints += n_constraints_basic;
 
-  if (opt->constraints.tcp_speed)
+  if (opt->constraints.tool_speed)
     opt->constraints.n_constraints += n_points;
   if (opt->constraints.self_collisions)
     opt->constraints.n_constraints += n_points;
@@ -419,7 +419,7 @@ inline void n_con_with_segments(Optimization* opt) {
     opt->constraints.n_constraints_per_segment += opt->manip.n_joints;
   if (opt->constraints.torque)
     opt->constraints.n_constraints_per_segment += opt->manip.n_joints;
-  if (opt->constraints.tcp_speed)
+  if (opt->constraints.tool_speed)
     opt->constraints.n_constraints_per_segment += 1;
   if (opt->constraints.self_collisions)
     opt->constraints.n_constraints_per_segment += 1;

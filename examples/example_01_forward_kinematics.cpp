@@ -3,7 +3,7 @@
 // This example shows how to:
 //   1. Construct a UR5e Manipulator
 //   2. Run forward kinematics for a given joint configuration
-//   3. Read the resulting joint frame positions (including the TCP)
+//   3. Read the resulting joint frame positions (including the Tool)
 //
 // Build:
 //   cmake -B build && cmake --build build --config Release --target example_01_forward_kinematics
@@ -25,8 +25,8 @@ int main() {
   Manipulator ur5e = make_ur5e();
 
   // Optionally reposition the robot in the world (metres, rotation matrix).
-  ur5e.base_position = {0.0, 0.0, 0.0};  // world-frame origin
-  ur5e.base_rotation = {1, 0, 0,          // identity rotation (robot upright)
+  ur5e.base_position = {0.0, 0.0, 0.0}; // world-frame origin
+  ur5e.base_rotation = {1, 0, 0,        // identity rotation (robot upright)
                         0, 1, 0,
                         0, 0, 1};
 
@@ -42,27 +42,27 @@ int main() {
   // -----------------------------------------------------------------------
   // Step 3 — Run forward kinematics.
   // After this call, temp.p_j[i] holds the world-frame position of frame i.
-  // Frame 0 is the base; frame n_joints is the TCP (tool centre point).
+  // Frame 0 is the base; frame n_joints is the Tool (tool centre point).
   // -----------------------------------------------------------------------
   forward_kinematics(ur5e, temp, config_home);
 
   // -----------------------------------------------------------------------
   // Step 4 — Print results.
   // -----------------------------------------------------------------------
-  int tcp_frame = ur5e.n_joints; // index of the TCP frame
+  int tool_frame = ur5e.n_joints; // index of the Tool frame
   std::cout << "--- Forward kinematics: home configuration ---\n";
   std::cout << "Joint positions (rad): ";
   for (int i = 0; i < ur5e.n_joints; ++i)
     std::cout << config_home[i] << (i + 1 < ur5e.n_joints ? ", " : "\n");
 
-  std::cout << "TCP position (m):\n";
-  std::cout << "  x = " << temp.p_j[tcp_frame].x << "\n";
-  std::cout << "  y = " << temp.p_j[tcp_frame].y << "\n";
-  std::cout << "  z = " << temp.p_j[tcp_frame].z << "\n";
+  std::cout << "Tool position (m):\n";
+  std::cout << "  x = " << temp.p_j[tool_frame].x << "\n";
+  std::cout << "  y = " << temp.p_j[tool_frame].y << "\n";
+  std::cout << "  z = " << temp.p_j[tool_frame].z << "\n";
 
   // Print all intermediate frame positions for inspection.
   std::cout << "\nAll frame positions:\n";
-  for (int i = 0; i <= tcp_frame; ++i) {
+  for (int i = 0; i <= tool_frame; ++i) {
     std::cout << "  frame[" << i << "]: ("
               << temp.p_j[i].x << ", "
               << temp.p_j[i].y << ", "
@@ -74,10 +74,10 @@ int main() {
   forward_kinematics(ur5e, temp, config_stretched);
 
   std::cout << "\n--- Forward kinematics: all-zeros configuration ---\n";
-  std::cout << "TCP position (m):\n";
-  std::cout << "  x = " << temp.p_j[tcp_frame].x << "\n";
-  std::cout << "  y = " << temp.p_j[tcp_frame].y << "\n";
-  std::cout << "  z = " << temp.p_j[tcp_frame].z << "\n";
+  std::cout << "Tool position (m):\n";
+  std::cout << "  x = " << temp.p_j[tool_frame].x << "\n";
+  std::cout << "  y = " << temp.p_j[tool_frame].y << "\n";
+  std::cout << "  z = " << temp.p_j[tool_frame].z << "\n";
 
   return 0;
 }

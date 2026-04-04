@@ -11,7 +11,7 @@ struct ManipulatorKinematics;
 struct ManipulatorDynamics;
 struct ManipulatorCapsules;
 struct CollisionModelCapsule;
-struct EndEffector;
+struct Tool;
 struct ManipulatorTempData;
 
 // todo: which of these need to be exposed to the user?
@@ -40,14 +40,14 @@ struct CollisionModelCapsule {
 
 /**
  * @struct ManipulatorLimits
- * @brief Actuator limits for a manipulator's joints and TCP.
+ * @brief Actuator limits for a manipulator's joints and Tool.
  *
  * @var position_max    Maximum joint positions.
  * @var position_min    Minimum joint positions.
  * @var velocity_max    Maximum joint velocities.
  * @var acceleration_max Maximum joint accelerations.
  * @var torque_max      Maximum joint torques.
- * @var tcp_speed_max   Maximum tool‐center‐point speed.
+ * @var tool_speed_max   Maximum tool‐center‐point speed.
  */
 struct ManipulatorLimits {
   Array position_max; // max joint position
@@ -56,7 +56,7 @@ struct ManipulatorLimits {
   Array acceleration_max; // max joint acceleration
   Array torque_max; // max joint torque
 
-  real tcp_speed_max; // max tcp speed
+  real tool_speed_max; // max tool speed
 };
 
 /**
@@ -110,25 +110,25 @@ struct ManipulatorCapsules {
 };
 
 /**
- * @struct EndEffector
- * @brief Payload and collision properties of an end effector.
+ * @struct Tool
+ * @brief Payload and collision properties of a tool.
  *
- * @var tcp_offset    Offset vector from TCP to payload.
- * @var tcp_rotation  Rotation from TCP to payload.
+ * @var tool_offset    Offset vector from Tool to payload.
+ * @var tool_rotation  Rotation from Tool to payload.
  * @var mass          Payload mass.
  * @var inertia_tensor Payload inertia tensor.
  * @var cog_offset    Payload center of mass offset.
- * @var capsule_list  Collision capsules for the end effector.
+ * @var capsule_list  Collision capsules for the tool.
  * @var collision_matrix Collision matrix for payload capsules.
  */
-struct EndEffector {
-  Vec3 tcp_offset   = {0.0, 0.0, 0.0};
-  Mat3 tcp_rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+struct Tool {
+  Vec3 tool_offset   = {0.0, 0.0, 0.0};
+  Mat3 tool_rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};
   real mass         = 0.0;
   Mat3 inertia_tensor;
   Vec3 cog_offset   = {0.0, 0.0, 0.0}; // center of gravity offset
 
-  // Collision for end effector
+  // Collision for the tool
   std::vector<CollisionModelCapsule> capsule_list;
   ObjMatrix<u8>                      collision_matrix = {};
 };
@@ -160,19 +160,19 @@ struct Manipulator {
   std::array<real, MAX_JOINTS> acceleration_max{};
   std::array<real, MAX_JOINTS> torque_max{};
 
-  real tcp_speed_max = 0.0; // max TCP speed
+  real tool_speed_max = 0.0; // max Tool speed
 
   // World‐frame base pose
   Vec3 base_position = {0, 0, 0};
   Mat3 base_rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};
 
-  // End effector state
-  bool end_effector = false;
-  Vec3 tcp_offset   = {0, 0, 0};
-  Mat3 tcp_rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  real ee_mass      = 0.0;
-  Mat3 ee_inertia_tensor = eye();
-  Vec3 ee_cog_offset     = {0, 0, 0}; // center of gravity offset
+  // Tool state
+  bool has_tool = false;
+  Vec3 tool_offset   = {0, 0, 0};
+  Mat3 tool_rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  real tool_mass      = 0.0;
+  Mat3 tool_inertia_tensor = eye();
+  Vec3 tool_cog_offset     = {0, 0, 0}; // center of gravity offset
 
   // Joint kinematics
   Vec3                             first_joint_position = {0, 0, 0};
@@ -231,10 +231,10 @@ struct Manipulator {
   host_fn void set_capsules(const ManipulatorCapsules& capsules);
 
   /**
-   * @brief Attach an end effector to this manipulator.
-   * @param ee  EndEffector structure with payload and geometry.
+   * @brief Attach a tool to this manipulator.
+   * @param tool  Tool structure with payload and geometry.
    */
-  host_fn void add_end_effector(const EndEffector& ee);
+  host_fn void add_tool(const Tool& tool);
 
   /**
    * @brief Add a payload to the last link, adjusting mass and inertia.
@@ -265,6 +265,3 @@ struct Manipulator {
 } // namespace blast
 
 #include "manipulator/manipulator.hpp"
-// #include "manipulator/Gen3.hpp"
-// #include "manipulator/Link6.hpp"
-// #include "manipulator/R2.hpp"

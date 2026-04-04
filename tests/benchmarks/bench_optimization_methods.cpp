@@ -39,7 +39,7 @@ inline MethodStats run_trials(OptimizationMethod method, int n_trials) {
   opt.constraints.velocity            = true;
   opt.constraints.acceleration        = true;
   opt.constraints.torque              = true;
-  opt.constraints.tcp_speed           = true;
+  opt.constraints.tool_speed          = true;
   opt.constraints.self_collisions     = true;
   opt.constraints.external_collisions = true;
 
