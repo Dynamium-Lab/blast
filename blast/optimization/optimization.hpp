@@ -205,7 +205,7 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
   stop.xtol_abs   = x_tol.data;
   stop.x_weights  = nullptr;
   stop.nevals_p   = 0;
-  stop.maxeval    = 100000;
+  stop.maxeval    = opt->max_eval;
   stop.maxtime    = opt->max_time;
   stop.start      = nlopt_seconds();
   stop.force_stop = false;
@@ -240,7 +240,7 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_maxtime(o, opt->max_time);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_maxeval(o, 100000);
+  nlopt_res = nlopt_set_maxeval(o, opt->max_eval);
   Assert(nlopt_res == NLOPT_SUCCESS);
 #endif
 
@@ -462,7 +462,7 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
   stop.xtol_abs   = x_tol.data;
   stop.x_weights  = nullptr;
   stop.nevals_p   = 0;
-  stop.maxeval    = 1000;
+  stop.maxeval    = opt->max_eval;
   stop.maxtime    = opt->max_time;
   stop.start      = nlopt_seconds();
   stop.force_stop = false;
@@ -497,7 +497,7 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_maxtime(o, opt->max_time);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_maxeval(o, 1000);
+  nlopt_res = nlopt_set_maxeval(o, opt->max_eval);
   Assert(nlopt_res == NLOPT_SUCCESS);
 #endif
 
@@ -652,7 +652,7 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
   stop.xtol_abs   = x_tol.data;
   stop.x_weights  = nullptr;
   stop.nevals_p   = 0;
-  stop.maxeval    = 100000;
+  stop.maxeval    = opt->max_eval;
   stop.maxtime    = opt->max_time;
   stop.start      = nlopt_seconds();
   stop.force_stop = false;
@@ -687,7 +687,7 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_maxtime(o, opt->max_time);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_maxeval(o, 100000);
+  nlopt_res = nlopt_set_maxeval(o, opt->max_eval);
   Assert(nlopt_res == NLOPT_SUCCESS);
 #endif
 
@@ -830,7 +830,7 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
   stop.xtol_abs   = x_tol.data;
   stop.x_weights  = nullptr;
   stop.nevals_p   = 0;
-  stop.maxeval    = 100000;
+  stop.maxeval    = opt->max_eval;
   stop.maxtime    = opt->max_time;
   stop.start      = nlopt_seconds();
   stop.force_stop = false;
@@ -865,7 +865,7 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_maxtime(o, opt->max_time);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_maxeval(o, 100000);
+  nlopt_res = nlopt_set_maxeval(o, opt->max_eval);
   Assert(nlopt_res == NLOPT_SUCCESS);
 #endif
 
