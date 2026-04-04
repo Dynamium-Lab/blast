@@ -7,6 +7,7 @@
 #include <blast>
 #include <iostream>
 #include <mutex>
+#include <thread>
 
 #include "../../tests/test_helper/test_helper.hpp"
 
@@ -62,7 +63,7 @@ inline Manipulator get_generic_ur5e() {
   kinematics.first_joint_position = {0.000000, 0.000000, 0.162500};
 
   blast::ManipulatorDynamics dynamics;
-  dynamics.link_masses = {3.700000, 8.393000, 2.275000, 1.219000, 1.219000, 0.187900};
+  dynamics.link_masses     = {3.700000, 8.393000, 2.275000, 1.219000, 1.219000, 0.187900};
   dynamics.inertia_tensors = {
           Mat3{0.0103, 0, 0, 0, 0.0103, 0, 0, 0, 0.0067},
           {0.1339, 0, 0, 0, 0.1339, 0, 0, 0, 0.0151},
@@ -81,8 +82,8 @@ inline Manipulator get_generic_ur5e() {
   blast::ManipulatorCapsules collisions;
 
   blast::Sphere base;
-  base.center                    = {0, 0, 0.0325};
-  base.radius                    = 0.09;
+  base.center               = {0, 0, 0.0325};
+  base.radius               = 0.09;
   collisions.base_sphere    = base;
   collisions.collision_base = {0, 0, 0, 1, 1, 1, 1};
 
@@ -114,43 +115,43 @@ inline Manipulator get_generic_ur5e() {
   capsule.joint_frame = 0;
   capsule.p1          = {0, 0, 0};
   capsule.p2          = {0, -0.15, 0};
-  capsule.radius           = 0.09;
+  capsule.radius      = 0.09;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 1;
   capsule.p1          = {-0.42, 0, 0.1375};
   capsule.p2          = {0, 0, 0.1375};
-  capsule.radius           = 0.06;
+  capsule.radius      = 0.06;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 2;
   capsule.p1          = {0, 0, 0.02};
   capsule.p2          = {0, 0, 0.18};
-  capsule.radius           = 0.065;
+  capsule.radius      = 0.065;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 2;
   capsule.p1          = {-0.373156, 0, 0.00850418};
   capsule.p2          = {0.000440611, 0.000121443, 0.00850418};
-  capsule.radius           = 0.05;
+  capsule.radius      = 0.05;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 3;
   capsule.p1          = {0, 0, 0};
   capsule.p2          = {0, 0, -0.155};
-  capsule.radius           = 0.0425;
+  capsule.radius      = 0.0425;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 3;
   capsule.p1          = {0, 0.03, 0};
   capsule.p2          = {0, -0.1, 0};
-  capsule.radius           = 0.0425;
+  capsule.radius      = 0.0425;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 5;
   capsule.p1          = {0, 0, -0.14};
   capsule.p2          = {0, 0, -0.01};
-  capsule.radius           = 0.038;
+  capsule.radius      = 0.038;
   collisions.capsule_list.push_back(capsule);
 
   blast::Manipulator generic_manip(joints, limits, kinematics, &dynamics, &collisions);
@@ -367,13 +368,14 @@ inline void configure_current_thread_for_performance() {
 // ===== End helpers =====
 
 struct Config {
-  int    n_ctrl     = 0;
-  int    n_points   = 0;
-  int    n_optim    = 0;
-  int    task_idx   = 0;
-  int    config_idx = 0;
+  int  n_ctrl     = 0;
+  int  n_points   = 0;
+  int  n_optim    = 0;
+  int  task_idx   = 0;
+  int  config_idx = 0;
   Task task;
 };
+
 constexpr int                   config_size = 64; // for UR5e 64 tasks
 std::array<Config, config_size> config_list;
 constexpr int                   _n_optim     = 1;
@@ -412,6 +414,7 @@ static inline json result_to_json(const Result& r) {
 
   return j;
 }
+
 struct VariantGroup {
   const char*                label; // "base" | "acc1" | "acc3" | "segments"
   const std::vector<Result>* list;  // pointer to results (same N and task_id alignment)
@@ -549,6 +552,7 @@ struct ConstraintPerPoint {
     self_collision_constraint.resize(points);
     collision_constraint.resize(n_capsules, points);
   }
+
   ~ConstraintPerPoint() = default;
 };
 
@@ -638,8 +642,8 @@ inline void compute_constraints_grad1(ConstraintPerPoint& constraints, const Arr
 #if BLAST_TRACE_LEVEL >= 3
       ZoneScopedN("TCPSpeed");
 #endif
-      auto J_tool                                            = get_J_tool(opt, manip_data);
-      real tcp_speed                                         = norm(J_tool * opt->bspline.traj.vel.col(i));
+      auto J_tool                                                      = get_J_tool(opt, manip_data);
+      real tcp_speed                                                   = norm(J_tool * opt->bspline.traj.vel.col(i));
       constraints.tcp_constraint[i - opt->bspline.lower_bounds[x_idx]] = bound_constraint(tcp_speed, 0.0, opt->manip.tcp_speed_max);
     }
 
@@ -714,7 +718,6 @@ inline void nlopt_constraints_acc1(unsigned m, double* result, unsigned xlen, co
   Array xv;
   xv.alias(x, xlen);
   {
-
 #if BLAST_TRACE_LEVEL >= 3
     ZoneScopedN("Constraints");
 #endif
@@ -1022,6 +1025,7 @@ blast_fn void compute_constraints_acc2(double* result, Array& gradient_coeffs, M
   struct CollisionEntities {
     // object in the world
     CollisionObjectType other_object_type = CollisionObjectType::box;
+
     union {
       Box     box{};
       Sphere  sphere;
@@ -1363,7 +1367,6 @@ inline blast_fn void nlopt_constraints_acc2(unsigned m, double* result, unsigned
   dcol_dp.resize(opt->bspline.n_points);
   // (opt->manip.n_joints, opt->bspline.n_points);
   if (!grad) {
-
     compute_constraints_acc2<false>(result, gradient_coeffs, dtau_dp, dtau_dv, dtau_da, dtcp_dp, dtcp_dv, dselfcol_dp, dcol_dp, xv, opt);
   }
   if (grad) {
@@ -1395,7 +1398,7 @@ inline blast_fn void nlopt_constraints_acc2(unsigned m, double* result, unsigned
 
         // todo: create alias matrix that points to grad
         // todo: can we change the order in which we store the gradients ?
-        grad_idx       = n_con_lb * xlen + j;                                    // gradients are stored column-wise xlen * npoints
+        grad_idx       = n_con_lb * xlen + j;                                                        // gradients are stored column-wise xlen * npoints
         constraint_idx = opt->manip.n_joints * n_active_constraints * opt->bspline.lower_bounds[x_idx];
         for (u32 i = opt->bspline.lower_bounds[x_idx]; i <= opt->bspline.upper_bounds[x_idx]; i++) { // lb & ub are inclusive
           grad_idx += joint * xlen;
@@ -1420,7 +1423,6 @@ inline blast_fn void nlopt_constraints_acc2(unsigned m, double* result, unsigned
           }
 
           if (opt->constraints.torque) {
-
             for (u32 k = 0; k < opt->manip.n_joints; k++) {
               grad[grad_idx] = opt->bspline.basis_p(x_idx, i) * dtau_dp(k, joint + opt->manip.n_joints * i) +
                                opt->bspline.basis_v(x_idx, i) / opt->bspline.traj.t.back() * dtau_dv(k, joint + opt->manip.n_joints * i) +
@@ -1722,7 +1724,7 @@ void eval_function_UR5e() {
     auto  n_optim  = config.n_optim;
     auto& task     = config.task;
 
-    auto manip   = get_generic_ur5e();
+    auto manip          = get_generic_ur5e();
     manip.base_position = {-0.5, -0.3, 0.35};
     manip.base_rotation = {-1, 0, 0, 0, -1, 0, 0, 0, 1};
 
