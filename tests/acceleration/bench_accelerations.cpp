@@ -83,7 +83,8 @@ TEST_CASE("Benchmark accelerations", "[accelerations]") {
   Result result_dev(&opt);
   Result result_dev_new(&opt);
 
-  BENCHMARK_ADVANCED("optimize")(Catch::Benchmark::Chronometer meter) {
+  BENCHMARK_ADVANCED("optimize")
+  (Catch::Benchmark::Chronometer meter) {
     meter.measure([&] {
       IOSilencer _;
       result = optimize(&opt, OptimizationMethod::baseline);
@@ -91,7 +92,8 @@ TEST_CASE("Benchmark accelerations", "[accelerations]") {
     });
   };
 
-  BENCHMARK_ADVANCED("optimize with_analytical_pva")(Catch::Benchmark::Chronometer meter) {
+  BENCHMARK_ADVANCED("optimize with_analytical_pva")
+  (Catch::Benchmark::Chronometer meter) {
     meter.measure([&] {
       IOSilencer _;
       result_dev = optimize(&opt, OptimizationMethod::with_analytical_pva);

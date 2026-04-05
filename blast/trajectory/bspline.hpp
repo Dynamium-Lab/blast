@@ -124,7 +124,7 @@ inline int uniformClampedSpan(real u, int n_ctrl, int p) {
 
 // Computes Basis functions up to d, with d = 0 -> position, d = 1 -> velocity, etc.
 inline blast_fn void Bspline::compute_basis_derivative(int d) {
-  basis.resize(d+1, Matrix(n_ctrl, n_points));
+  basis.resize(d + 1, Matrix(n_ctrl, n_points));
 
   u32   m = n_ctrl + degree;
   Array knots(m + 1);

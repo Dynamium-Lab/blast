@@ -87,7 +87,8 @@ TEST_CASE("compute_constraints vs constraints_with_segments", "[acceleration]") 
   auto x = init_guess(&opt);
   bspline.compute_trajectory(x, opt.task);
 
-  BENCHMARK_ADVANCED("Original nlopt_constraints function")(Catch::Benchmark::Chronometer meter) {
+  BENCHMARK_ADVANCED("Original nlopt_constraints function")
+  (Catch::Benchmark::Chronometer meter) {
     Array result(n_constraints);
     Array grad(x_len * n_constraints);
     meter.measure([&] {
@@ -96,7 +97,8 @@ TEST_CASE("compute_constraints vs constraints_with_segments", "[acceleration]") 
     });
   };
 
-  BENCHMARK_ADVANCED("New nlopt_constraints_with_segments function")(Catch::Benchmark::Chronometer meter) {
+  BENCHMARK_ADVANCED("New nlopt_constraints_with_segments function")
+  (Catch::Benchmark::Chronometer meter) {
     auto  n_constraints_with_segments = (n_joints * 4) * ((int) opt.bspline.n_ctrl - (int) opt.bspline.degree);
     Array result(n_constraints_with_segments);
     Array grad(x_len * n_constraints_with_segments);
@@ -163,7 +165,8 @@ TEST_CASE("Optimization with compute_constraints vs constraints_and_gradients_wi
   // CHECK(result_with_segments.x.size > 0);
 
   // nlopt_result sqp(blast::Array& x, blast::Optimization& opt, nlopt_stopping* stop);
-  BENCHMARK_ADVANCED("OG")(Catch::Benchmark::Chronometer meter) {
+  BENCHMARK_ADVANCED("OG")
+  (Catch::Benchmark::Chronometer meter) {
     meter.measure([&] {
       IOSilencer _;
       result = optimize(&opt, OptimizationMethod::baseline);
@@ -174,7 +177,8 @@ TEST_CASE("Optimization with compute_constraints vs constraints_and_gradients_wi
   // opt.guess.type = Guess::custom;
   opt.guess.initial_x = x_orig;
 
-  BENCHMARK_ADVANCED("New OG")(Catch::Benchmark::Chronometer meter) {
+  BENCHMARK_ADVANCED("New OG")
+  (Catch::Benchmark::Chronometer meter) {
     meter.measure([&] {
       IOSilencer _;
       result_with_segments = optimize(&opt);

@@ -25,16 +25,16 @@ struct Trajectory {
 Trajectory compute_5order_trajectory(real T, Matrix& task);
 
 struct Bspline {
-  Trajectory traj;
-  Matrix     control; // n_ctrl x n_joints
-  Matrix     basis_p; // n_ctrl x n_points
-  Matrix     basis_v; // n_ctrl x n_points
-  Matrix     basis_a; // n_ctrl x n_points
-  std::vector<Matrix> basis; // n_ctrl x n_points, storing for derivatives up to desired "d"
-  u32        n_joints;
-  u32        n_points;
-  u32        n_ctrl;
-  u32        degree;
+  Trajectory          traj;
+  Matrix              control; // n_ctrl x n_joints
+  Matrix              basis_p; // n_ctrl x n_points
+  Matrix              basis_v; // n_ctrl x n_points
+  Matrix              basis_a; // n_ctrl x n_points
+  std::vector<Matrix> basis;   // n_ctrl x n_points, storing for derivatives up to desired "d"
+  u32                 n_joints;
+  u32                 n_points;
+  u32                 n_ctrl;
+  u32                 degree;
 
   std::vector<u32> lower_bounds; // nctrl
   std::vector<u32> upper_bounds; // nctrl

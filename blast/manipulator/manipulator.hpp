@@ -1,9 +1,9 @@
 #pragma once
 
+#include <algorithm>
 #include <blast>
 #include <optional>
 #include <utility>
-#include <algorithm>
 // #include "nlopt.h"
 
 namespace blast {
@@ -253,9 +253,9 @@ inline host_fn void Manipulator::set_dynamics(const ManipulatorDynamics& dynamic
   Assert(dynamics.link_masses.size() >= n_joints);
   Assert(dynamics.inertia_tensors.size() >= n_joints);
   Assert(dynamics.cog_offsets.size() >= n_joints);
-  link_masses      = dynamics.link_masses;
-  inertia_tensors  = dynamics.inertia_tensors;
-  cog_offsets      = dynamics.cog_offsets;
+  link_masses     = dynamics.link_masses;
+  inertia_tensors = dynamics.inertia_tensors;
+  cog_offsets     = dynamics.cog_offsets;
   for (u32 j = 0; j < n_joints; j++) {
     cog_from_next_joint[j] = {-joint_offsets[j] + cog_offsets[j]};
   }
@@ -321,12 +321,12 @@ inline Array get_internal_collisions(const Manipulator& manip, const Manipulator
 // }
 
 inline host_fn void Manipulator::add_tool(const Tool& tool) {
-  tool_offset        = tool.tool_offset;
-  tool_rotation      = tool.tool_rotation;
+  tool_offset         = tool.tool_offset;
+  tool_rotation       = tool.tool_rotation;
   tool_mass           = tool.mass;
   tool_inertia_tensor = tool.inertia_tensor;
   tool_cog_offset     = tool.cog_offset;
-  has_tool      = true;
+  has_tool            = true;
 
   joint_offsets.back() += tool_rotation * tool.tool_offset;
   static_rotations.back() *= tool_rotation;
@@ -339,8 +339,8 @@ inline host_fn void Manipulator::add_tool(const Tool& tool) {
   inertia_tensors.back()(2, 2) += link_masses.back() * delta_av.z * delta_av.z + tool.mass * tool.cog_offset.z * tool.cog_offset.z;
   inertia_tensors.back() += tool.inertia_tensor;
 
-  link_masses.back()  = m_new;
-  cog_offsets.back()  = av_new;
+  link_masses.back()         = m_new;
+  cog_offsets.back()         = av_new;
   cog_from_next_joint.back() = {-joint_offsets.back() + cog_offsets.back()};
 }
 
@@ -356,8 +356,8 @@ inline host_fn void Manipulator::set_payload(real m_payload, Vec3 cg_payload, Ma
   inertia_tensors.back()(2, 2) += link_masses.back() * delta_av.z * delta_av.z + m_payload * av_to_mass.z * av_to_mass.z;
   inertia_tensors.back() += I_payload;
 
-  link_masses.back()  = m_new;
-  cog_offsets.back()  = av_new;
+  link_masses.back()         = m_new;
+  cog_offsets.back()         = av_new;
   cog_from_next_joint.back() = {-joint_offsets.back() + cog_offsets.back()};
 }
 

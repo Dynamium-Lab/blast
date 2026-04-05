@@ -11,7 +11,7 @@
 // Run:
 //   ./build/examples/example_02_trajectory_optimization
 
-#define BLAST_USE_NATIVE_SQP  // use the built-in SQP solver (no extra install required)
+#define BLAST_USE_NATIVE_SQP // use the built-in SQP solver (no extra install required)
 
 #include <blast>
 #include <iostream>
@@ -50,9 +50,9 @@ int main() {
   // Start with the three kinematic constraints; collision is added in
   // example_03.
   // -----------------------------------------------------------------------
-  opt.constraints.position     = true;  // enforce start and goal positions
-  opt.constraints.velocity     = true;  // stay within joint velocity limits
-  opt.constraints.acceleration = true;  // stay within joint acceleration limits
+  opt.constraints.position     = true; // enforce start and goal positions
+  opt.constraints.velocity     = true; // stay within joint velocity limits
+  opt.constraints.acceleration = true; // stay within joint acceleration limits
 
   // Allow up to a small relative violation before declaring failure
   // (0.01 = 1 % of the constraint bound).
@@ -63,7 +63,7 @@ int main() {
   // Guess::random tries n_shot random starting points and picks the best
   // one as the initial solution for the optimizer.
   // -----------------------------------------------------------------------
-  opt.guess.type   = Guess::random;
+  opt.guess.type           = Guess::random;
   opt.guess.n_random_shots = 50;
 
   // -----------------------------------------------------------------------

@@ -1,8 +1,15 @@
 # Define a function to automate adding benchmarks
 function(automate_add_examples target_name source_file)
   add_executable(${target_name} ${source_file})
-  target_compile_features(${target_name} PUBLIC cxx_std_17)
-  target_link_libraries(${target_name} PRIVATE blast nlopt)
+  target_compile_features(${target_name} PRIVATE cxx_std_17)
+  target_link_libraries(${target_name} PRIVATE blast)
+  # PRIVATE: machine-specific tuning for dev targets only, never leaks to
+  # downstream consumers of the blast library.
+  if(MSVC)
+    target_compile_options(${target_name} PRIVATE /arch:AVX2)
+  else()
+    target_compile_options(${target_name} PRIVATE -march=native)
+  endif()
 endfunction()
 
 set(EXAMPLES

@@ -50,13 +50,13 @@ struct CollisionModelCapsule {
  * @var tool_speed_max   Maximum tool‐center‐point speed.
  */
 struct ManipulatorLimits {
-  Array position_max; // max joint position
-  Array position_min; // min joint position
-  Array velocity_max; // max joint velocity
+  Array position_max;     // max joint position
+  Array position_min;     // min joint position
+  Array velocity_max;     // max joint velocity
   Array acceleration_max; // max joint acceleration
-  Array torque_max; // max joint torque
+  Array torque_max;       // max joint torque
 
-  real tool_speed_max; // max tool speed
+  real tool_speed_max;    // max tool speed
 };
 
 /**
@@ -71,12 +71,12 @@ struct ManipulatorLimits {
  * @var base_rotation     Orientation of the manipulator base in the world frame.
  */
 struct ManipulatorKinematics {
-  std::array<Vec3, MAX_JOINTS>     joint_offsets;                                   // vector to next joint
-  std::array<Vec3, MAX_JOINTS>     joint_axes;                                      // direction vectors of joint
-  std::array<Mat3, MAX_JOINTS + 1> static_rotations;                                // static rotation to next joint
-  Vec3                             base_position = {0.0, 0.0, 0.0};                 // base position in workspace
-  Vec3                             first_joint_position   = {0.0, 0.0, 0.0};        // position of the first joint relative to base
-  Mat3                             base_rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};    // base orientation in workspace
+  std::array<Vec3, MAX_JOINTS>     joint_offsets;                                      // vector to next joint
+  std::array<Vec3, MAX_JOINTS>     joint_axes;                                         // direction vectors of joint
+  std::array<Mat3, MAX_JOINTS + 1> static_rotations;                                   // static rotation to next joint
+  Vec3                             base_position        = {0.0, 0.0, 0.0};             // base position in workspace
+  Vec3                             first_joint_position = {0.0, 0.0, 0.0};             // position of the first joint relative to base
+  Mat3                             base_rotation        = {1, 0, 0, 0, 1, 0, 0, 0, 1}; // base orientation in workspace
 };
 
 /**
@@ -88,9 +88,9 @@ struct ManipulatorKinematics {
  * @var cog_offsets       Center of mass offset for each link (Vec3).
  */
 struct ManipulatorDynamics {
-  std::array<real, MAX_JOINTS> link_masses{};    // link mass
+  std::array<real, MAX_JOINTS> link_masses{};     // link mass
   std::array<Mat3, MAX_JOINTS> inertia_tensors{}; // inertial tensors
-  std::array<Vec3, MAX_JOINTS> cog_offsets{};    // center of gravity offset
+  std::array<Vec3, MAX_JOINTS> cog_offsets{};     // center of gravity offset
 };
 
 /**
@@ -124,9 +124,9 @@ struct ManipulatorCapsules {
 struct Tool {
   Vec3 tool_offset   = {0.0, 0.0, 0.0};
   Mat3 tool_rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  real mass         = 0.0;
+  real mass          = 0.0;
   Mat3 inertia_tensor;
-  Vec3 cog_offset   = {0.0, 0.0, 0.0}; // center of gravity offset
+  Vec3 cog_offset = {0.0, 0.0, 0.0}; // center of gravity offset
 
   // Collision for the tool
   std::vector<CollisionModelCapsule> capsule_list;
@@ -167,24 +167,24 @@ struct Manipulator {
   Mat3 base_rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};
 
   // Tool state
-  bool has_tool = false;
-  Vec3 tool_offset   = {0, 0, 0};
-  Mat3 tool_rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  real tool_mass      = 0.0;
+  bool has_tool            = false;
+  Vec3 tool_offset         = {0, 0, 0};
+  Mat3 tool_rotation       = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  real tool_mass           = 0.0;
   Mat3 tool_inertia_tensor = eye();
   Vec3 tool_cog_offset     = {0, 0, 0}; // center of gravity offset
 
   // Joint kinematics
   Vec3                             first_joint_position = {0, 0, 0};
-  std::array<Vec3, MAX_JOINTS>     joint_offsets{};       // to next joint
-  std::array<Vec3, MAX_JOINTS>     joint_axes{};          // axis dirs
-  std::array<Mat3, MAX_JOINTS + 1> static_rotations{};    // static rotations
+  std::array<Vec3, MAX_JOINTS>     joint_offsets{};    // to next joint
+  std::array<Vec3, MAX_JOINTS>     joint_axes{};       // axis dirs
+  std::array<Mat3, MAX_JOINTS + 1> static_rotations{}; // static rotations
 
   // Link dynamics
   std::array<real, MAX_JOINTS> link_masses{};
   std::array<Mat3, MAX_JOINTS> inertia_tensors{};
-  std::array<Vec3, MAX_JOINTS> cog_offsets{};          // center of gravity offset
-  std::array<Vec3, MAX_JOINTS> cog_from_next_joint{};  // center of gravity offset
+  std::array<Vec3, MAX_JOINTS> cog_offsets{};         // center of gravity offset
+  std::array<Vec3, MAX_JOINTS> cog_from_next_joint{}; // center of gravity offset
 
   // Internal caches and collision
   int                                             _n_caps                = 0;
