@@ -1,0 +1,40 @@
+name: clang-format
+
+on:
+  pull_request:
+    paths:
+      - '**.cpp'
+      - '**.cc'
+      - '**.cxx'
+      - '**.h'
+      - '**.hpp'
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install clang-format
+        run: sudo apt-get install -y clang-format-17
+
+      - name: Run clang-format
+        run: |
+          find . \( -name '*.cpp' -o -name '*.cc' -o -name '*.cxx' \
+                    -o -name '*.h' -o -name '*.hpp' \) \
+            -not -path './blast/extern/*' \
+            -not -path './build/*' \
+            -print0 | xargs -0 clang-format -i --style=file
+
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "style: apply clang-format"
+          commit_user_name: "github-actions[bot]"
+          commit_user_email: "github-actions[bot]@users.noreply.github.com"
