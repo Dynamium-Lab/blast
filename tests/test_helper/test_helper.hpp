@@ -10,62 +10,62 @@ inline Manipulator get_generic_Link6_fixed() {
   u32 joints = 6;
   // limits
   ManipulatorLimits limits;
-  limits.pmax = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL}; // rad
-  limits.pmin = -limits.pmax;
+  limits.position_max = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL}; // rad
+  limits.position_min = -limits.position_max;
 
-  limits.vmax = {0.9 * 3.4907f, 0.9 * 3.4907f, 0.9 * 3.4907f, 0.9 * 5.5851f, 0.9 * 5.5851f, 0.9 * 5.5851f};                               // rad/s
+  limits.velocity_max = {0.9 * 3.4907f, 0.9 * 3.4907f, 0.9 * 3.4907f, 0.9 * 5.5851f, 0.9 * 5.5851f, 0.9 * 5.5851f};                                   // rad/s
 
-  limits.amax = {0.9 * deg2rad(600), 0.9 * deg2rad(600), 0.9 * deg2rad(600), 0.9 * deg2rad(600), 0.9 * deg2rad(600), 0.9 * deg2rad(600)}; // rad/s^2
+  limits.acceleration_max = {0.9 * deg2rad(600), 0.9 * deg2rad(600), 0.9 * deg2rad(600), 0.9 * deg2rad(600), 0.9 * deg2rad(600), 0.9 * deg2rad(600)}; // rad/s^2
 
-  limits.tau_max = {210, 210, 210, 100, 100, 100};                                                                                        // Nm
+  limits.torque_max = {210, 210, 210, 100, 100, 100};                                                                                                 // Nm
 
-  limits.tcp_max = 2.0;
+  limits.tool_speed_max = 2.0;
 
   // kinematic properties
   ManipulatorKinematics kinematics; // using default Q_base
-  kinematics.dv = {
+  kinematics.joint_offsets = {
           Vec3{0.11024, -0.06926, -0.1375},
           {0.0, 0.4850, 0.0},
           {0.0, -0.15216, -0.0917},
           {0.0, -0.06296, -0.22275},
           {0.08703, 0.0860, -0.07692},
           {0.0, 0.0, -0.0920}}; // vector to next joint
-  kinematics.ev = {
+  kinematics.joint_axes = {
           Vec3{0, 0, 1},
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1}}; // direction vectors of joint
-  kinematics.p_j0   = {0.0, 0.0, 0.0530f};
-  kinematics.p_base = {0.0, 0.0, 0.0};
-  kinematics.Q_base = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  // kinematics.Q_static.resize(7);
-  kinematics.Q_static[0] = {1, 0, 0, 0, -1, 0, 0, 0, -1};
-  kinematics.Q_static[1] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
-  kinematics.Q_static[2] = {1, 0, 0, 0, -1, 0, 0, 0, -1};
-  kinematics.Q_static[3] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
-  kinematics.Q_static[4] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
-  kinematics.Q_static[5] = {0, 0, 1, 0, 1, 0, -1, 0, 0};
-  kinematics.Q_static[6] = {1, 0, 0, 0, -1, 0, 0, 0, -1};
+  kinematics.first_joint_position = {0.0, 0.0, 0.0530f};
+  kinematics.base_position        = {0.0, 0.0, 0.0};
+  kinematics.base_rotation        = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  // kinematics.static_rotations.resize(7);
+  kinematics.static_rotations[0] = {1, 0, 0, 0, -1, 0, 0, 0, -1};
+  kinematics.static_rotations[1] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
+  kinematics.static_rotations[2] = {1, 0, 0, 0, -1, 0, 0, 0, -1};
+  kinematics.static_rotations[3] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
+  kinematics.static_rotations[4] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
+  kinematics.static_rotations[5] = {0, 0, 1, 0, 1, 0, -1, 0, 0};
+  kinematics.static_rotations[6] = {1, 0, 0, 0, -1, 0, 0, 0, -1};
 
   // dynamic properties
   ManipulatorDynamics dynamics;
-  dynamics.m = {
+  dynamics.link_masses = {
           4.8257f,
           5.9860f,
           3.4159f,
           2.0849f,
           2.0076f,
           1.5193f}; // link masses
-  dynamics.I = {
+  dynamics.inertia_tensors = {
           Mat3{0.0192746f, -0.00239802f, -0.00896331f, -0.00239802f, 0.03087806f, 0.0016298f, -0.00896331f, 0.0016298f, 0.02134949f},
           {0.25899206f, -2.89E-05f, -1.23E-06f, -2.89E-05f, 0.01755445f, -0.02128064f, -1.23E-06f, -0.02128064f, 0.25291674f},
           {0.01742043f, -3.55E-06f, 8.4E-07f, -3.55E-06f, 0.01119175f, 0.00518163f, 8.4E-07f, 0.00518163f, 0.01212876f},
           {0.02454276f, 2.61E-06f, 1.799E-05f, 2.61E-06f, 0.02385702f, 0.00315758f, 1.799E-05f, 0.00315758f, 0.00294903f},
           {0.00734684f, 0.00124927f, -0.00090156f, 0.00124927f, 0.00464684f, -0.00236128f, -0.00090156f, -0.00236128f, 0.00589508f},
           {0.00390762f, -1.13E-06f, 1.16E-06f, -1.13E-06f, 0.00390722f, -2.21E-05f, 1.16E-06f, -2.21E-05f, 0.0013928f}}; // Inertial tensors
-  dynamics.av = {
+  dynamics.cog_offsets = {
           Vec3{0.03930119f, -0.00705889f, -0.08462154f},
           {2.53E-06f, 0.18829586f, -0.03988382f},
           {4.64E-06f, -0.02451414f, -0.02997969f},
@@ -77,8 +77,8 @@ inline Manipulator get_generic_Link6_fixed() {
   // Collision model
   ManipulatorCapsules collisions;
   Sphere              base;
-  base.c                    = {0, 0, 0.0}; // because this is relative to p_base and p_base is {0, 0, 0.053}
-  base.r                    = 0.2375;
+  base.center               = {0, 0, 0.0}; // because this is relative to p_base and p_base is {0, 0, 0.053}
+  base.radius               = 0.2375;
   collisions.base_sphere    = base;
   collisions.collision_base = {0, 0, 0, 1, 1, 1};
   // collisions.collision_base = {0, 0, 0, 1, 1, 1, 1};  // includes camera capsule
@@ -103,7 +103,7 @@ inline Manipulator get_generic_Link6_fixed() {
   model_caps.joint_frame = 1;
   model_caps.p1          = {0, 0, -0.065};
   model_caps.p2          = {0, 0, 0.045};
-  model_caps.r           = 0.065;
+  model_caps.radius      = 0.065;
   collisions.capsule_list.push_back(model_caps);
 
   // Capsule 2
@@ -111,36 +111,36 @@ inline Manipulator get_generic_Link6_fixed() {
   // model_caps.p1 = {0, 0, -0.065};
   model_caps.p1 = {0, 0, -0.08};
   // model_caps.p2 = {0, 0.485, -0.065};
-  model_caps.p2 = {0, 0.485, -0.08};
-  model_caps.r  = 0.065;
+  model_caps.p2     = {0, 0.485, -0.08};
+  model_caps.radius = 0.065;
   collisions.capsule_list.push_back(model_caps);
 
   // Capsule 3
   model_caps.joint_frame = 2;
   model_caps.p1          = {0, 0, -0.065};
   model_caps.p2          = {0, 0, 0.085};
-  model_caps.r           = 0.065;
+  model_caps.radius      = 0.065;
   collisions.capsule_list.push_back(model_caps);
 
   // Capsule 4
   model_caps.joint_frame = 2;
   model_caps.p1          = {0, 0.00695, -0.0917};
   model_caps.p2          = {0, -0.36805, -0.0917};
-  model_caps.r           = 0.061;
+  model_caps.radius      = 0.061;
   collisions.capsule_list.push_back(model_caps);
 
   // Capsule 5
   model_caps.joint_frame = 4;
   model_caps.p1          = {0, 0, 0};
   model_caps.p2          = {0, 0, -0.08};
-  model_caps.r           = 0.060;
+  model_caps.radius      = 0.060;
   collisions.capsule_list.push_back(model_caps);
 
   // Capsule 6
   model_caps.joint_frame = 5;
   model_caps.p1          = {0, 0, 0.08583};
   model_caps.p2          = {0, 0, -0.06417};
-  model_caps.r           = 0.060;
+  model_caps.radius      = 0.060;
   collisions.capsule_list.push_back(model_caps);
 
   // // Capsule 7
@@ -148,7 +148,7 @@ inline Manipulator get_generic_Link6_fixed() {
   // model_caps.p1 = {0, 0.02125, -0.007};
   // // model_caps.p2 = {0, 0.02125, -0.013};
   // model_caps.p2 = {0, 0.02125, 0.143};
-  // model_caps.r = 0.085;
+  // model_caps.radius = 0.085;
   // collisions.capsule_list.push_back(model_caps); // todo: change camera capsule
 
   // create manipulator link6
@@ -164,23 +164,23 @@ Manipulator get_generic_gen3_fixed() { // todo: fix capsules, not working
 
   // limits
   ManipulatorLimits limits;
-  limits.pmax = {INF_REAL, 2.25, INF_REAL, 2.58f, INF_REAL, 2.1f, INF_REAL}; // rad
-  limits.pmin = -limits.pmax;
+  limits.position_max = {INF_REAL, 2.25, INF_REAL, 2.58f, INF_REAL, 2.1f, INF_REAL}; // rad
+  limits.position_min = -limits.position_max;
 
-  // limits.vmax = {1.745f, 1.745f, 1.745f, 1.745f, 2.443f, 2.443f, 2.443f}; // rad/s (used for demo 2)
-  limits.vmax = {1.39f, 1.39f, 1.39f, 1.39f, 1.22f, 1.22f, 1.22f}; // rad/s (updated for demo 3)
+  // limits.velocity_max = {1.745f, 1.745f, 1.745f, 1.745f, 2.443f, 2.443f, 2.443f}; // rad/s (used for demo 2)
+  limits.velocity_max = {1.39f, 1.39f, 1.39f, 1.39f, 1.22f, 1.22f, 1.22f}; // rad/s (updated for demo 3)
 
-  // limits.amax = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL}; // rad/s^2
-  limits.amax = {5.2, 5.2, 5.2, 5.2, 10.0, 10.0, 10.0}; // rad/s^2
+  // limits.acceleration_max = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL}; // rad/s^2
+  limits.acceleration_max = {5.2, 5.2, 5.2, 5.2, 10.0, 10.0, 10.0}; // rad/s^2
 
-  limits.tau_max = {52, 52, 52, 52, 17, 17, 17};        // Nm
+  limits.torque_max = {52, 52, 52, 52, 17, 17, 17};                 // Nm
 
-  limits.tcp_max = 1.0;                                 // todo: validate with webapp (Bruno from Kinova said 1.0 could be adequate), webapp says 0.5
-  // limits.tcp_max = 0.5; // todo: validate with webapp (Bruno from Kinova said 1.0 could be adequate), webapp says 0.5
+  limits.tool_speed_max = 1.0;                                      // todo: validate with webapp (Bruno from Kinova said 1.0 could be adequate), webapp says 0.5
+  // limits.tool_speed_max = 0.5; // todo: validate with webapp (Bruno from Kinova said 1.0 could be adequate), webapp says 0.5
 
   // kinematic properties
   ManipulatorKinematics kinematics; // using default Q_base
-  kinematics.dv = {
+  kinematics.joint_offsets = {
           Vec3{0.0, 0.0054, -0.1284},
           {0.0, -0.2104, -0.0064},
           {0.0, -0.0064, -0.2104},
@@ -189,7 +189,7 @@ Manipulator get_generic_gen3_fixed() { // todo: fix capsules, not working
           {0.0, -0.1059, 0.0},
           {0.0, 0.0, -0.0615 /*- 0.164*/} // todo: why did we subtract this? Ans : We subtracted because we used the gripper
   }; // vector to next joint
-  kinematics.ev = {
+  kinematics.joint_axes = {
           Vec3{0, 0, 1},
           {0, 0, 1},
           {0, 0, 1},
@@ -197,22 +197,22 @@ Manipulator get_generic_gen3_fixed() { // todo: fix capsules, not working
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1}}; // direction vectors of joint
-  // kinematics.Q_static.resize(7);
-  kinematics.Q_static[0] = {1, 0, 0, 0, -1, 0, 0, 0, -1};
-  kinematics.Q_static[1] = {1, 0, 0, 0, 0, 1, 0, -1, 0};
-  kinematics.Q_static[2] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
-  kinematics.Q_static[3] = {1, 0, 0, 0, 0, 1, 0, -1, 0};
-  kinematics.Q_static[4] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
-  kinematics.Q_static[5] = {1, 0, 0, 0, 0, 1, 0, -1, 0};
-  kinematics.Q_static[6] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
-  kinematics.p_j0        = {0, 0, 0.1564f};
-  kinematics.p_base      = {0, 0, 0};
-  kinematics.Q_base      = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  // kinematics.static_rotations.resize(7);
+  kinematics.static_rotations[0]  = {1, 0, 0, 0, -1, 0, 0, 0, -1};
+  kinematics.static_rotations[1]  = {1, 0, 0, 0, 0, 1, 0, -1, 0};
+  kinematics.static_rotations[2]  = {1, 0, 0, 0, 0, -1, 0, 1, 0};
+  kinematics.static_rotations[3]  = {1, 0, 0, 0, 0, 1, 0, -1, 0};
+  kinematics.static_rotations[4]  = {1, 0, 0, 0, 0, -1, 0, 1, 0};
+  kinematics.static_rotations[5]  = {1, 0, 0, 0, 0, 1, 0, -1, 0};
+  kinematics.static_rotations[6]  = {1, 0, 0, 0, 0, -1, 0, 1, 0};
+  kinematics.first_joint_position = {0, 0, 0.1564f};
+  kinematics.base_position        = {0, 0, 0};
+  kinematics.base_rotation        = {1, 0, 0, 0, 1, 0, 0, 0, 1};
 
   // dynamic properties
   ManipulatorDynamics dynamics;
 
-  dynamics.m = {
+  dynamics.link_masses = {
           1.377f,
           1.1636f,
           1.1636f,
@@ -220,7 +220,7 @@ Manipulator get_generic_gen3_fixed() { // todo: fix capsules, not working
           0.678f,
           0.678f,
           0.364f}; // link masses
-  dynamics.I = {
+  dynamics.inertia_tensors = {
           Mat3{0.004570f, 0.000001f, 0.000002f, 0.000001f, 0.004831f, 0.000448f, 0.000002f, 0.000448f, 0.001409f},
           {0.011088f, 0.000005f, 0.000000f, 0.000005f, 0.001072f, -0.000691f, 0.000000f, -0.000691f, 0.011255f},
           {0.010932f, 0.000000f, -0.000007f, 0.000000f, 0.011127f, 0.000606f, -0.000007f, 0.000606f, 0.001043f},
@@ -228,7 +228,7 @@ Manipulator get_generic_gen3_fixed() { // todo: fix capsules, not working
           {0.001596f, 0.000000f, 0.000000f, 0.000000f, 0.001607f, 0.000256f, 0.000000f, 0.000256f, 0.000399f},
           {0.001641f, 0.000000f, 0.000000f, 0.000000f, 0.000410f, -0.000278f, 0.000000f, -0.000278f, 0.001641f},
           {0.000214f, 0.000000f, 0.000001f, 0.000000f, 0.000223f, -0.000002f, 0.000001f, -0.000002f, 0.000240f}}; // Inertial tensors
-  dynamics.av = {
+  dynamics.cog_offsets = {
           Vec3{-0.000023f, -0.010364f, -0.073360f},
           {-0.000044f, -0.099580f, -0.013278f},
           {-0.000044f, -0.006641f, -0.117892f},
@@ -243,8 +243,8 @@ Manipulator get_generic_gen3_fixed() { // todo: fix capsules, not working
   // Collision model
   ManipulatorCapsules collisions;
   Sphere              sphere;
-  sphere.c                  = {0, 0, 0.035};
-  sphere.r                  = 0.14;
+  sphere.center             = {0, 0, 0.035};
+  sphere.radius             = 0.14;
   collisions.base_sphere    = sphere;
   collisions.collision_base = {0, 0, 1};
 
@@ -259,21 +259,21 @@ Manipulator get_generic_gen3_fixed() { // todo: fix capsules, not working
   model_caps.joint_frame = 1;
   model_caps.p1          = {0, 0.035, 0};
   model_caps.p2          = {0, -0.425, 0};
-  model_caps.r           = 0.06;
+  model_caps.radius      = 0.06;
   collisions.capsule_list.push_back(model_caps);
 
   // Capsule 2
   model_caps.joint_frame = 3;
   model_caps.p1          = {0, 0, -0.025};
   model_caps.p2          = {0, -0.3, -0.01};
-  model_caps.r           = 0.06;
+  model_caps.radius      = 0.06;
   collisions.capsule_list.push_back(model_caps);
 
   // Capsule 3
   model_caps.joint_frame = 5;
   model_caps.p1          = {0, 0, -0.015};
   model_caps.p2          = {0.0, -0.15, -0.015};
-  model_caps.r           = 0.055;
+  model_caps.radius      = 0.055;
   collisions.capsule_list.push_back(model_caps);
 
   generic_manip.set_capsules(collisions);
@@ -287,64 +287,64 @@ inline host_fn Manipulator get_generic_Link6() {
   constexpr u32 joints = 6;
   // limits
   ManipulatorLimits limits;
-  limits.pmax = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL}; // rad
-  limits.pmin = -limits.pmax;
+  limits.position_max = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL}; // rad
+  limits.position_min = -limits.position_max;
 
-  limits.vmax = {3.4907f, 3.4907f, 3.4907f, 5.5851f, 5.5851f, 5.5851f};                               // rad/s
-                                                                                                      //   limits.vmin = -limits.vmax;
+  limits.velocity_max = {3.4907f, 3.4907f, 3.4907f, 5.5851f, 5.5851f, 5.5851f};                                   // rad/s
+                                                                                                                  //   limits.vmin = -limits.velocity_max;
 
-  limits.amax = {deg2rad(600), deg2rad(600), deg2rad(600), deg2rad(600), deg2rad(600), deg2rad(600)}; // rad/s^2
-                                                                                                      //   limits.amin = -limits.amax;
+  limits.acceleration_max = {deg2rad(600), deg2rad(600), deg2rad(600), deg2rad(600), deg2rad(600), deg2rad(600)}; // rad/s^2
+                                                                                                                  //   limits.amin = -limits.acceleration_max;
 
-  limits.tau_max = {210, 210, 210, 100, 100, 100};                                                    // Nm
-                                                                                                      //   limits.tau_min = -limits.tau_max;
+  limits.torque_max = {210, 210, 210, 100, 100, 100};                                                             // Nm
+                                                                                                                  //   limits.tau_min = -limits.torque_max;
 
-  limits.tcp_max = 2.0;
+  limits.tool_speed_max = 2.0;
 
   // kinematic properties
   ManipulatorKinematics kinematics; // using default Q_base
-  kinematics.dv = {
+  kinematics.joint_offsets = {
           Vec3{0.11024, -0.06926, -0.1375},
           Vec3{0.0, 0.4850, 0.0},
           Vec3{0.0, -0.15216, -0.0917},
           Vec3{0.0, -0.06296, -0.22275},
           Vec3{0.08703, 0.0860, -0.07692},
           Vec3{0.0, 0.0, -0.0920}}; // vector to next joint
-  kinematics.ev = {
+  kinematics.joint_axes = {
           Vec3{0, 0, 1},
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1}}; // direction vectors of joint
-  kinematics.p_j0        = {0.0, 0.0, 0.0530f};
-  kinematics.p_base      = {0.0, 0.0, 0.0};
-  kinematics.Q_base      = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  kinematics.Q_static[0] = {1, 0, 0, 0, -1, 0, 0, 0, -1};
-  kinematics.Q_static[1] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
-  kinematics.Q_static[2] = {1, 0, 0, 0, -1, 0, 0, 0, -1};
-  kinematics.Q_static[3] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
-  kinematics.Q_static[4] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
-  kinematics.Q_static[5] = {0, 0, 1, 0, 1, 0, -1, 0, 0};
-  kinematics.Q_static[6] = {1, 0, 0, 0, -1, 0, 0, 0, -1};
+  kinematics.first_joint_position = {0.0, 0.0, 0.0530f};
+  kinematics.base_position        = {0.0, 0.0, 0.0};
+  kinematics.base_rotation        = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  kinematics.static_rotations[0]  = {1, 0, 0, 0, -1, 0, 0, 0, -1};
+  kinematics.static_rotations[1]  = {1, 0, 0, 0, 0, -1, 0, 1, 0};
+  kinematics.static_rotations[2]  = {1, 0, 0, 0, -1, 0, 0, 0, -1};
+  kinematics.static_rotations[3]  = {1, 0, 0, 0, 0, -1, 0, 1, 0};
+  kinematics.static_rotations[4]  = {1, 0, 0, 0, 0, -1, 0, 1, 0};
+  kinematics.static_rotations[5]  = {0, 0, 1, 0, 1, 0, -1, 0, 0};
+  kinematics.static_rotations[6]  = {1, 0, 0, 0, -1, 0, 0, 0, -1};
 
   // dynamic properties
   ManipulatorDynamics dynamics;
-  dynamics.m = {
+  dynamics.link_masses = {
           4.8257f,
           5.9860f,
           3.4159f,
           2.0849f,
           2.0076f,
           1.5193f}; // link masses
-  dynamics.I = {
+  dynamics.inertia_tensors = {
           Mat3{0.0192746f, -0.00239802f, -0.00896331f, -0.00239802f, 0.03087806f, 0.0016298f, -0.00896331f, 0.0016298f, 0.02134949f},
           {0.25899206f, -2.89E-05f, -1.23E-06f, -2.89E-05f, 0.01755445f, -0.02128064f, -1.23E-06f, -0.02128064f, 0.25291674f},
           {0.01742043f, -3.55E-06f, 8.4E-07f, -3.55E-06f, 0.01119175f, 0.00518163f, 8.4E-07f, 0.00518163f, 0.01212876f},
           {0.02454276f, 2.61E-06f, 1.799E-05f, 2.61E-06f, 0.02385702f, 0.00315758f, 1.799E-05f, 0.00315758f, 0.00294903f},
           {0.00734684f, 0.00124927f, -0.00090156f, 0.00124927f, 0.00464684f, -0.00236128f, -0.00090156f, -0.00236128f, 0.00589508f},
           {0.00390762f, -1.13E-06f, 1.16E-06f, -1.13E-06f, 0.00390722f, -2.21E-05f, 1.16E-06f, -2.21E-05f, 0.0013928f}}; // Inertial tensors
-  dynamics.av = {
+  dynamics.cog_offsets = {
           Vec3{0.03930119f, -0.00705889f, -0.08462154f},
           {2.53E-06f, 0.18829586f, -0.03988382f},
           {4.64E-06f, -0.02451414f, -0.02997969f},
@@ -356,8 +356,8 @@ inline host_fn Manipulator get_generic_Link6() {
   // Collision model
   ManipulatorCapsules collisions;
   Sphere              base;
-  base.c                    = {0, 0, 0.0}; // because this is relative to p_base and p_base is {0, 0, 0.053}
-  base.r                    = 0.2375;
+  base.center               = {0, 0, 0.0}; // because this is relative to p_base and p_base is {0, 0, 0.053}
+  base.radius               = 0.2375;
   collisions.base_sphere    = base;
   collisions.collision_base = {0, 0, 0, 1, 1, 1, 1};
 
@@ -380,7 +380,7 @@ inline host_fn Manipulator get_generic_Link6() {
   model_caps.joint_frame = 1;
   model_caps.p1          = {0, 0, -0.065};
   model_caps.p2          = {0, 0, 0.045};
-  model_caps.r           = 0.065;
+  model_caps.radius      = 0.065;
   collisions.capsule_list.push_back(model_caps);
 
   // Capsule 2
@@ -388,44 +388,44 @@ inline host_fn Manipulator get_generic_Link6() {
   // model_caps.p1 = {0, 0, -0.065};
   model_caps.p1 = {0, 0, -0.08};
   // model_caps.p2 = {0, 0.485, -0.065};
-  model_caps.p2 = {0, 0.485, -0.08};
-  model_caps.r  = 0.065;
+  model_caps.p2     = {0, 0.485, -0.08};
+  model_caps.radius = 0.065;
   collisions.capsule_list.push_back(model_caps);
 
   // Capsule 3
   model_caps.joint_frame = 2;
   model_caps.p1          = {0, 0, -0.065};
   model_caps.p2          = {0, 0, 0.085};
-  model_caps.r           = 0.065;
+  model_caps.radius      = 0.065;
   collisions.capsule_list.push_back(model_caps);
 
   // Capsule 4
   model_caps.joint_frame = 2;
   model_caps.p1          = {0, 0.00695, -0.0917};
   model_caps.p2          = {0, -0.36805, -0.0917};
-  model_caps.r           = 0.061;
+  model_caps.radius      = 0.061;
   collisions.capsule_list.push_back(model_caps);
 
   // Capsule 5
   model_caps.joint_frame = 4;
   model_caps.p1          = {0, 0, 0};
   model_caps.p2          = {0, 0, -0.08};
-  model_caps.r           = 0.060;
+  model_caps.radius      = 0.060;
   collisions.capsule_list.push_back(model_caps);
 
   // Capsule 6
   model_caps.joint_frame = 5;
   model_caps.p1          = {0, 0, 0.08583};
   model_caps.p2          = {0, 0, -0.06417};
-  model_caps.r           = 0.060;
+  model_caps.radius      = 0.060;
   collisions.capsule_list.push_back(model_caps);
 
   // Capsule 7
   model_caps.joint_frame = 5;
   model_caps.p1          = {0, 0.02125, -0.007};
   // model_caps.p2 = {0, 0.02125, -0.013};
-  model_caps.p2 = {0, 0.02125, 0.143};
-  model_caps.r  = 0.085;
+  model_caps.p2     = {0, 0.02125, 0.143};
+  model_caps.radius = 0.085;
   collisions.capsule_list.push_back(model_caps); // todo: change camera capsule
 
   // create manipulator link6
@@ -441,25 +441,25 @@ inline host_fn Manipulator get_generic_gen3() { // todo: fix capsules, not worki
 
   // limits
   ManipulatorLimits limits;
-  limits.pmax = {INF_REAL, 2.25, INF_REAL, 2.58f, INF_REAL, 2.1f, INF_REAL}; // rad
-  // limits.pmax = {INF_REAL, 4.5, INF_REAL, 5.16, INF_REAL, 4.2, INF_REAL}; // rad
-  // limits.pmin = {-INF_REAL, 0, -INF_REAL, 0, -INF_REAL, 0, -INF_REAL}; // rad
-  limits.pmin = -limits.pmax;
+  limits.position_max = {INF_REAL, 2.25, INF_REAL, 2.58f, INF_REAL, 2.1f, INF_REAL}; // rad
+  // limits.position_max = {INF_REAL, 4.5, INF_REAL, 5.16, INF_REAL, 4.2, INF_REAL}; // rad
+  // limits.position_min = {-INF_REAL, 0, -INF_REAL, 0, -INF_REAL, 0, -INF_REAL}; // rad
+  limits.position_min = -limits.position_max;
 
-  limits.vmax = {1.745f, 1.745f, 1.745f, 1.745f, 2.443f, 2.443f, 2.443f};               // rad/s
-                                                                                        //   limits.vmin = -limits.vmax;
+  limits.velocity_max = {1.745f, 1.745f, 1.745f, 1.745f, 2.443f, 2.443f, 2.443f};                   // rad/s
+                                                                                                    //   limits.vmin = -limits.velocity_max;
 
-  limits.amax = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL}; // rad/s^2
-                                                                                        //   limits.amin = -limits.amax;
+  limits.acceleration_max = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL}; // rad/s^2
+                                                                                                    //   limits.amin = -limits.acceleration_max;
 
-  limits.tau_max = {52, 52, 52, 52, 17, 17, 17};                                        // Nm
-                                                                                        //   limits.tau_min = -limits.tau_max;
+  limits.torque_max = {52, 52, 52, 52, 17, 17, 17};                                                 // Nm
+                                                                                                    //   limits.tau_min = -limits.torque_max;
 
-  limits.tcp_max = 0.5;                                                                 // todo: validate with webapp (Bruno from Kinova said 1.0 could be adequate), webapp says 0.5
+  limits.tool_speed_max = 0.5;                                                                      // todo: validate with webapp (Bruno from Kinova said 1.0 could be adequate), webapp says 0.5
 
   // kinematic properties
   ManipulatorKinematics kinematics; // using default Q_base
-  kinematics.dv = {
+  kinematics.joint_offsets = {
           Vec3{0.0, 0.0054, -0.1284},
           {0.0, -0.2104, -0.0064},
           {0.0, -0.0064, -0.2104},
@@ -468,7 +468,7 @@ inline host_fn Manipulator get_generic_gen3() { // todo: fix capsules, not worki
           {0.0, -0.1059, 0.0},
           {0.0, 0.0, -0.0615 /*- 0.164*/} // todo: why did we subtract this? Ans : We subtracted because we used the gripper
   }; // vector to next joint
-  kinematics.ev = {
+  kinematics.joint_axes = {
           Vec3{0, 0, 1},
           {0, 0, 1},
           {0, 0, 1},
@@ -476,21 +476,21 @@ inline host_fn Manipulator get_generic_gen3() { // todo: fix capsules, not worki
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1}}; // direction vectors of joint
-  kinematics.Q_static[0] = {1, 0, 0, 0, -1, 0, 0, 0, -1};
-  kinematics.Q_static[1] = {1, 0, 0, 0, 0, 1, 0, -1, 0};
-  kinematics.Q_static[2] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
-  kinematics.Q_static[3] = {1, 0, 0, 0, 0, 1, 0, -1, 0};
-  kinematics.Q_static[4] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
-  kinematics.Q_static[5] = {1, 0, 0, 0, 0, 1, 0, -1, 0};
-  kinematics.Q_static[6] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
-  kinematics.p_j0        = {0, 0, 0.1564f};
-  kinematics.p_base      = {1.4, 0, 0};
-  kinematics.Q_base      = {-1, 0, 0, 0, -1, 0, 0, 0, 1};
+  kinematics.static_rotations[0]  = {1, 0, 0, 0, -1, 0, 0, 0, -1};
+  kinematics.static_rotations[1]  = {1, 0, 0, 0, 0, 1, 0, -1, 0};
+  kinematics.static_rotations[2]  = {1, 0, 0, 0, 0, -1, 0, 1, 0};
+  kinematics.static_rotations[3]  = {1, 0, 0, 0, 0, 1, 0, -1, 0};
+  kinematics.static_rotations[4]  = {1, 0, 0, 0, 0, -1, 0, 1, 0};
+  kinematics.static_rotations[5]  = {1, 0, 0, 0, 0, 1, 0, -1, 0};
+  kinematics.static_rotations[6]  = {1, 0, 0, 0, 0, -1, 0, 1, 0};
+  kinematics.first_joint_position = {0, 0, 0.1564f};
+  kinematics.base_position        = {1.4, 0, 0};
+  kinematics.base_rotation        = {-1, 0, 0, 0, -1, 0, 0, 0, 1};
 
   // dynamic properties
   ManipulatorDynamics dynamics;
 
-  dynamics.m = {
+  dynamics.link_masses = {
           1.377f,
           1.1636f,
           1.1636f,
@@ -498,7 +498,7 @@ inline host_fn Manipulator get_generic_gen3() { // todo: fix capsules, not worki
           0.678f,
           0.678f,
           0.364f}; // link masses
-  dynamics.I = {
+  dynamics.inertia_tensors = {
           Mat3{0.004570f, 0.000001f, 0.000002f, 0.000001f, 0.004831f, 0.000448f, 0.000002f, 0.000448f, 0.001409f},
           {0.011088f, 0.000005f, 0.000000f, 0.000005f, 0.001072f, -0.000691f, 0.000000f, -0.000691f, 0.011255f},
           {0.010932f, 0.000000f, -0.000007f, 0.000000f, 0.011127f, 0.000606f, -0.000007f, 0.000606f, 0.001043f},
@@ -506,7 +506,7 @@ inline host_fn Manipulator get_generic_gen3() { // todo: fix capsules, not worki
           {0.001596f, 0.000000f, 0.000000f, 0.000000f, 0.001607f, 0.000256f, 0.000000f, 0.000256f, 0.000399f},
           {0.001641f, 0.000000f, 0.000000f, 0.000000f, 0.000410f, -0.000278f, 0.000000f, -0.000278f, 0.001641f},
           {0.000214f, 0.000000f, 0.000001f, 0.000000f, 0.000223f, -0.000002f, 0.000001f, -0.000002f, 0.000240f}}; // Inertial tensors
-  dynamics.av = {
+  dynamics.cog_offsets = {
           Vec3{-0.000023f, -0.010364f, -0.073360f},
           {-0.000044f, -0.099580f, -0.013278f},
           {-0.000044f, -0.006641f, -0.117892f},
@@ -521,9 +521,9 @@ inline host_fn Manipulator get_generic_gen3() { // todo: fix capsules, not worki
   // Collision model
   ManipulatorCapsules collisions;
   Sphere              sphere;
-  sphere.c = {0, 0, -0.075}; // todo: Verify this sphere
-  // sphere.c = {0, 0, -0.1564f};
-  sphere.r                  = 0.15;
+  sphere.center = {0, 0, -0.075}; // todo: Verify this sphere
+  // sphere.center = {0, 0, -0.1564f};
+  sphere.radius             = 0.15;
   collisions.base_sphere    = sphere;
   collisions.collision_base = {0, 0, 1};
 
@@ -537,21 +537,21 @@ inline host_fn Manipulator get_generic_gen3() { // todo: fix capsules, not worki
   model_caps.joint_frame = 1;
   model_caps.p1          = {0, 0.035, 0};
   model_caps.p2          = {0, -0.425, 0};
-  model_caps.r           = 0.06;
+  model_caps.radius      = 0.06;
   collisions.capsule_list.push_back(model_caps);
 
   // Capsule 2
   model_caps.joint_frame = 3;
   model_caps.p1          = {0, 0, -0.025};
   model_caps.p2          = {0, -0.3, -0.01};
-  model_caps.r           = 0.06;
+  model_caps.radius      = 0.06;
   collisions.capsule_list.push_back(model_caps);
 
   // Capsule 3
   model_caps.joint_frame = 5;
   model_caps.p1          = {0, 0, -0.015};
   model_caps.p2          = {0.0, -0.15, -0.015};
-  model_caps.r           = 0.055;
+  model_caps.radius      = 0.055;
   collisions.capsule_list.push_back(model_caps);
 
   generic_manip.set_capsules(collisions);
@@ -564,48 +564,48 @@ inline host_fn Manipulator get_generic_fanuc_crx25ia() {
   u32 joints = 6;
 
   ManipulatorLimits limits;
-  limits.pmax = {3.1241, 3.1241, 4.6949, 3.2987, 3.1241, 3.9095};
-  limits.pmin = {-3.1241, -3.1241, -4.6949, -3.2987, -3.1241, -3.9095};
-  limits.vmax = {2.0944, 2.0944, 3.1416, 3.1416, 3.1416, 3.1416};
+  limits.position_max = {3.1241, 3.1241, 4.6949, 3.2987, 3.1241, 3.9095};
+  limits.position_min = {-3.1241, -3.1241, -4.6949, -3.2987, -3.1241, -3.9095};
+  limits.velocity_max = {2.0944, 2.0944, 3.1416, 3.1416, 3.1416, 3.1416};
   //   limits.vmin    = {-2.0944, -2.0944, -3.1416, -3.1416, -3.1416, -3.1416};
-  limits.tau_max = {0, 0, 0, 0, 0, 0};
+  limits.torque_max = {0, 0, 0, 0, 0, 0};
   //   limits.tau_min = {-0, -0, -0, -0, -0, -0};
-  limits.tcp_max = 0;
+  limits.tool_speed_max = 0;
 
   ManipulatorKinematics kinematics;
-  kinematics.dv = {
+  kinematics.joint_offsets = {
           Vec3{0, 0, 0},
           {0, -0.95, 0},
           {0, 0, 0},
           {-0.185, 0, -0.75},
           {-0.18, 0, 0},
           {0, 0, 0}};
-  kinematics.ev = {
+  kinematics.joint_axes = {
           Vec3{0, 0, 1},
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1}};
-  kinematics.Q_static[0] = {1, 0, 0, 0, 1, 0, -0, 0, 1};
-  kinematics.Q_static[1] = {1, 0, -0, 0, -3.67321e-06, -1, -0, 1, -3.67321e-06};
-  kinematics.Q_static[2] = {-1, 0, 2.65359e-06, -0, 1, 0, -2.65359e-06, -0, -1};
-  kinematics.Q_static[3] = {-3.67321e-06, 0, -1, -0, 1, 0, 1, -0, -3.67321e-06};
-  kinematics.Q_static[4] = {-3.67321e-06, -0, 1, -0, 1, -0, -1, -0, -3.67321e-06};
-  kinematics.Q_static[5] = {-3.67321e-06, 0, -1, -0, 1, 0, 1, -0, -3.67321e-06};
-  kinematics.p_j0        = {0, 0, 0};
-  kinematics.p_base      = {0, 0, 0};
+  kinematics.static_rotations[0]  = {1, 0, 0, 0, 1, 0, -0, 0, 1};
+  kinematics.static_rotations[1]  = {1, 0, -0, 0, -3.67321e-06, -1, -0, 1, -3.67321e-06};
+  kinematics.static_rotations[2]  = {-1, 0, 2.65359e-06, -0, 1, 0, -2.65359e-06, -0, -1};
+  kinematics.static_rotations[3]  = {-3.67321e-06, 0, -1, -0, 1, 0, 1, -0, -3.67321e-06};
+  kinematics.static_rotations[4]  = {-3.67321e-06, -0, 1, -0, 1, -0, -1, -0, -3.67321e-06};
+  kinematics.static_rotations[5]  = {-3.67321e-06, 0, -1, -0, 1, 0, 1, -0, -3.67321e-06};
+  kinematics.first_joint_position = {0, 0, 0};
+  kinematics.base_position        = {0, 0, 0};
 
   ManipulatorDynamics dynamics;
-  dynamics.m = {0, 0, 0, 0, 0, 0};
-  dynamics.I = {
+  dynamics.link_masses     = {0, 0, 0, 0, 0, 0};
+  dynamics.inertia_tensors = {
           Mat3{0, 0, 0, 0, 0, 0, 0, 0, 0},
           {0, 0, 0, 0, 0, 0, 0, 0, 0},
           {0, 0, 0, 0, 0, 0, 0, 0, 0},
           {0, 0, 0, 0, 0, 0, 0, 0, 0},
           {0, 0, 0, 0, 0, 0, 0, 0, 0},
           {0, 0, 0, 0, 0, 0, 0, 0, 0}};
-  dynamics.av = {
+  dynamics.cog_offsets = {
           Vec3{0, 0, 0},
           {0, 0, 0},
           {0, 0, 0},
@@ -622,42 +622,42 @@ inline host_fn Manipulator get_generic_fanuc_crx25ia() {
   capsule.p1          = {-1.93343e-06, -0.0256679, -0.0423751};
   capsule.joint_frame = 0;
   capsule.p2          = {-1.93343e-06, -0.0256679, -0.0253869};
-  capsule.r           = 0.15152;
+  capsule.radius      = 0.15152;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 1;
   capsule.p1          = {-0.000221565, -0.897957, -0.264728};
   capsule.joint_frame = 1;
   capsule.p2          = {-0.000221565, -0.0264647, -0.264728};
-  capsule.r           = 0.164111;
+  capsule.radius      = 0.164111;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 2;
   capsule.p1          = {-0.0821085, 2.98396e-06, 0.00941996};
   capsule.joint_frame = 2;
   capsule.p2          = {-0.00950472, 2.98396e-06, 0.00941996};
-  capsule.r           = 0.106481;
+  capsule.radius      = 0.106481;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 3;
   capsule.p1          = {-0.00857209, 0, -0.717588};
   capsule.joint_frame = 3;
   capsule.p2          = {-0.00857209, 0, -0.280478};
-  capsule.r           = 0.103252;
+  capsule.radius      = 0.103252;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 4;
   capsule.p1          = {-0.0348868, 4.9632e-05, -0.00215328};
   capsule.joint_frame = 4;
   capsule.p2          = {0.00902324, 4.9632e-05, -0.00215328};
-  capsule.r           = 0.0836233;
+  capsule.radius      = 0.0836233;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 5;
   capsule.p1          = {-0.0097164, 0.000276191, 0.0315251};
   capsule.joint_frame = 5;
   capsule.p2          = {0.0172386, 0.000276191, 0.0315251};
-  capsule.r           = 0.0562761;
+  capsule.radius      = 0.0562761;
   collisions.capsule_list.push_back(capsule);
 
   ObjMatrix<u8> collision_matrix(collisions.capsule_list.size(), collisions.capsule_list.size());
@@ -677,11 +677,11 @@ inline host_fn Manipulator get_generic_fanuc_crx25ia() {
   generic_manip.set_capsules(collisions);
 
   // add end effector properties
-  EndEffector ee;
-  ee.dv_ee = {0, 0, 0.3};
-  ee.Q_ee  = {0, 1, 0, 1, 0, 0, 0, 0, -1};
+  Tool tool;
+  tool.tool_offset   = {0, 0, 0.3};
+  tool.tool_rotation = {0, 1, 0, 1, 0, 0, 0, 0, -1};
 
-  generic_manip.add_end_effector(ee);
+  generic_manip.add_tool(tool);
 
   return generic_manip;
 }
@@ -726,9 +726,7 @@ inline host_fn World get_lab_world() {
   return world;
 }
 
-inline host_fn Matrix get_link6_task() {
-  // Array pi = {-1.787, -0.370, -1.391, -1.766, 0.120, -0.569, 1.944};
-  // Array pf = {-0.574, 0.421, 2.293, -2.161, 0.482, -0.740, -0.176};
+inline host_fn Task get_link6_task() {
   Array pi = deg2rad({-40.445762634277344,
                       -26.876392364501953,
                       83.60868835449219,
@@ -741,46 +739,16 @@ inline host_fn Matrix get_link6_task() {
                       3.6194305419921875,
                       33.133209228515625,
                       51.21833801269531}); // wb1
-  Array vi(6);
-  Array vf(6);
-  Array ai(6);
-  Array af(6);
-
-  Matrix task(6, 6);
-  for (int i = 0; i < 6; i++) {
-    task(i, 0) = pi[i];
-    task(i, 1) = vi[i];
-    task(i, 2) = ai[i];
-    task(i, 3) = pf[i];
-    task(i, 4) = vf[i];
-    task(i, 5) = af[i];
-  }
-
-  return task;
+  return Task::stop_to_stop(pi, pf);
 }
 
-inline host_fn Matrix get_gen3_task() {
+inline host_fn Task get_gen3_task() {
   Array pi = wrap2pi(deg2rad({215.6, 282.3, 337.6, 325.2, 159.0, 21.7, 323.0}));
   Array pf = wrap2pi(deg2rad({114.3, 319.8, 29.1, 266.1, 243.0, 25.3, 164.3}));
-  Array vi(7);
-  Array vf(7);
-  Array ai(7);
-  Array af(7);
-
-  Matrix task(7, 6);
-  for (int i = 0; i < 7; i++) {
-    task(i, 0) = pi[i];
-    task(i, 1) = vi[i];
-    task(i, 2) = ai[i];
-    task(i, 3) = pf[i];
-    task(i, 4) = vf[i];
-    task(i, 5) = af[i];
-  }
-
-  return task;
+  return Task::stop_to_stop(pi, pf);
 }
 
-inline host_fn std::vector<Matrix> get_Link6_demo1_tasks() {
+inline host_fn std::vector<Task> get_Link6_demo1_tasks() {
   // Read tasks Demo 1 (13 tasks)
   // Array pos_zero = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
   Array pos_home = deg2rad({0.00177001953125,
@@ -908,170 +876,22 @@ inline host_fn std::vector<Matrix> get_Link6_demo1_tasks() {
 
   // For every bloc, the sequence is  +10cm -> bloc -> +10cm -> dbox -> next bloc's +10cm
 
-  std::vector<Matrix> tasks;
+  std::vector<Task> tasks;
 
-  // home to w1_10cm
-  Matrix task_home_start(6, 6);
-
-  // w1_10cm to w1 & w1 to w1_10cm & w1_10cm to wb1
-  // Matrix task_w1_0(6, 6);
-  // Matrix task_w1_1(6, 6);
-  Matrix task_w1_wb1(6, 6);
-
-  // wb1 to b2_10cm
-  Matrix task_wb1_b2(6, 6);
-  // b2_10cm to b2 & b2 to b2_10cm & b2_10cm to bb2
-  // Matrix task_b2_0(6, 6);
-  // Matrix task_b2_1(6, 6);
-  Matrix task_b2_bb2(6, 6);
-
-  // bb2 to w3_10cm
-  Matrix task_bb2_w3(6, 6);
-  // w3_10cm to w3 & w3 to w3_10cm & w3_10cm to wb3
-  // Matrix task_w3_0(6, 6);
-  // Matrix task_w3_1(6, 6);
-  Matrix task_w3_wb3(6, 6);
-
-  // wb3 to w4_10cm
-  Matrix task_wb3_w4(6, 6);
-  // w4_10cm to w4 & w4 to w4_10cm & w4_10cm to wb4
-  // Matrix task_w4_0(6, 6);
-  // Matrix task_w4_1(6, 6);
-  Matrix task_w4_wb4(6, 6);
-
-  // wb4 to b5_10cm
-  Matrix task_wb4_b5(6, 6);
-  // b5_10cm to b5 & b5 to b5_10cm & b5_10cm to bb5
-  // Matrix task_b5_0(6, 6);
-  // Matrix task_b5_1(6, 6);
-  Matrix task_b5_bb5(6, 6);
-
-  // bb5 to b6_10cm
-  Matrix task_bb5_b6(6, 6);
-  // b6_10cm to b6 & b6 to b6_10cm & b6_10cm to bb6
-  // Matrix task_b6_0(6, 6);
-  // Matrix task_b6_1(6, 6);
-  Matrix task_b6_bb6(6, 6);
-
-  // bb6 to home
-  Matrix task_home_finish(6, 6);
-
-  for (u32 i = 0; i < 6; i++) {
-    // Home to start
-    task_home_start(i, 0) = pos_home[i];
-    task_home_start(i, 3) = pos_w1_10cm[i];
-
-    // Bloc 1
-    // task_w1_0(i, 0) = pos_w1_10cm[i];
-    // task_w1_0(i, 3) = pos_w1[i];
-    // task_w1_1(i, 0) = pos_w1[i];
-    // task_w1_1(i, 3) = pos_w1_10cm[i];
-
-    task_w1_wb1(i, 0) = pos_w1_10cm[i];
-    task_w1_wb1(i, 3) = pos_wb1[i];
-
-    // Bloc 2
-    task_wb1_b2(i, 0) = pos_wb1[i];
-    task_wb1_b2(i, 3) = pos_b2_10cm[i];
-
-    // task_b2_0(i, 0) = pos_b2_10cm[i];
-    // task_b2_0(i, 3) = pos_b2[i];
-    // task_b2_1(i, 0) = pos_b2[i];
-    // task_b2_1(i, 3) = pos_b2_10cm[i];
-
-    task_b2_bb2(i, 0) = pos_b2_10cm[i];
-    task_b2_bb2(i, 3) = pos_bb2[i];
-
-    // Bloc 3
-    task_bb2_w3(i, 0) = pos_bb2[i];
-    task_bb2_w3(i, 3) = pos_w3_10cm[i];
-
-    // task_w3_0(i, 0) = pos_w3_10cm[i];
-    // task_w3_0(i, 3) = pos_w3[i];
-    // task_w3_1(i, 0) = pos_w3[i];
-    // task_w3_1(i, 3) = pos_w3_10cm[i];
-
-    task_w3_wb3(i, 0) = pos_w3_10cm[i];
-    task_w3_wb3(i, 3) = pos_wb3[i];
-
-    // Bloc 4
-    task_wb3_w4(i, 0) = pos_wb3[i];
-    task_wb3_w4(i, 3) = pos_w4_10cm[i];
-
-    // task_w4_0(i, 0) = pos_w4_10cm[i];
-    // task_w4_0(i, 3) = pos_w4[i];
-    // task_w4_1(i, 0) = pos_w4[i];
-    // task_w4_1(i, 3) = pos_w4_10cm[i];
-
-    task_w4_wb4(i, 0) = pos_w4_10cm[i];
-    task_w4_wb4(i, 3) = pos_wb4[i];
-
-    // Bloc 5
-    task_wb4_b5(i, 0) = pos_wb4[i];
-    task_wb4_b5(i, 3) = pos_b5_10cm[i];
-
-    // task_b5_0(i, 0) = pos_b5_10cm[i];
-    // task_b5_0(i, 3) = pos_b5[i];
-    // task_b5_1(i, 0) = pos_b5[i];
-    // task_b5_1(i, 3) = pos_b5_10cm[i];
-
-    task_b5_bb5(i, 0) = pos_b5_10cm[i];
-    task_b5_bb5(i, 3) = pos_bb5[i];
-
-    // Bloc 6
-    task_bb5_b6(i, 0) = pos_bb5[i];
-    task_bb5_b6(i, 3) = pos_b6_10cm[i];
-
-    // task_b6_0(i, 0) = pos_b6_10cm[i];
-    // task_b6_0(i, 3) = pos_b6[i];
-    // task_b6_1(i, 0) = pos_b6[i];
-    // task_b6_1(i, 3) = pos_b6_10cm[i];
-
-    task_b6_bb6(i, 0) = pos_b6_10cm[i];
-    task_b6_bb6(i, 3) = pos_bb6[i];
-
-    // Home to finish
-    task_home_finish(i, 0) = pos_bb6[i];
-    task_home_finish(i, 3) = pos_home[i];
-  }
   // Sequence tasks (13 tasks)
-  tasks.push_back(task_home_start); // 0
-  // Bloc 1
-  // tasks.push_back(task_w1_0);   // 1
-  // tasks.push_back(task_w1_1);   // 2
-  tasks.push_back(task_w1_wb1); // 3
-
-  tasks.push_back(task_wb1_b2); // 4
-  // Bloc 2
-  // tasks.push_back(task_b2_0);   // 5
-  // tasks.push_back(task_b2_1);   // 6
-  tasks.push_back(task_b2_bb2); // 7
-
-  tasks.push_back(task_bb2_w3); // 8
-  // Bloc 3
-  // tasks.push_back(task_w3_0);   // 9
-  // tasks.push_back(task_w3_1);   // 10
-  tasks.push_back(task_w3_wb3); // 11
-
-  tasks.push_back(task_wb3_w4); // 12
-  // Bloc 4
-  // tasks.push_back(task_w4_0);   // 13
-  // tasks.push_back(task_w4_1);   // 14
-  tasks.push_back(task_w4_wb4); // 15
-
-  tasks.push_back(task_wb4_b5); // 16
-  // Bloc 5
-  // tasks.push_back(task_b5_0);   // 17
-  // tasks.push_back(task_b5_1);   // 18
-  tasks.push_back(task_b5_bb5); // 19
-
-  tasks.push_back(task_bb5_b6); // 20
-  // Bloc 6
-  // tasks.push_back(task_b6_0);        // 21
-  // tasks.push_back(task_b6_1);        // 22
-  tasks.push_back(task_b6_bb6);      // 23
-
-  tasks.push_back(task_home_finish); // 24
+  tasks.push_back(Task::stop_to_stop(pos_home, pos_w1_10cm)); // 0: home to start
+  tasks.push_back(Task::stop_to_stop(pos_w1_10cm, pos_wb1));  // 3: bloc 1
+  tasks.push_back(Task::stop_to_stop(pos_wb1, pos_b2_10cm));  // 4: bloc 2 approach
+  tasks.push_back(Task::stop_to_stop(pos_b2_10cm, pos_bb2));  // 7: bloc 2
+  tasks.push_back(Task::stop_to_stop(pos_bb2, pos_w3_10cm));  // 8: bloc 3 approach
+  tasks.push_back(Task::stop_to_stop(pos_w3_10cm, pos_wb3));  // 11: bloc 3
+  tasks.push_back(Task::stop_to_stop(pos_wb3, pos_w4_10cm));  // 12: bloc 4 approach
+  tasks.push_back(Task::stop_to_stop(pos_w4_10cm, pos_wb4));  // 15: bloc 4
+  tasks.push_back(Task::stop_to_stop(pos_wb4, pos_b5_10cm));  // 16: bloc 5 approach
+  tasks.push_back(Task::stop_to_stop(pos_b5_10cm, pos_bb5));  // 19: bloc 5
+  tasks.push_back(Task::stop_to_stop(pos_bb5, pos_b6_10cm));  // 20: bloc 6 approach
+  tasks.push_back(Task::stop_to_stop(pos_b6_10cm, pos_bb6));  // 23: bloc 6
+  tasks.push_back(Task::stop_to_stop(pos_bb6, pos_home));     // 24: home to finish
 
   return tasks;
 }
@@ -1231,7 +1051,7 @@ inline host_fn std::vector<Matrix> get_Link6_demo1_tasks() {
 //     constraints.velocity = true;
 //     constraints.acceleration = true;
 //     constraints.torque = true;
-//     constraints.tcp_speed = true;
+//     constraints.tool_speed = true;
 //     constraints.self_collisions = true;
 //     constraints.external_collisions = true;
 //     constraints.n_collision_constraints = 100;
@@ -1243,7 +1063,7 @@ inline host_fn std::vector<Matrix> get_Link6_demo1_tasks() {
 //
 //     // Objective
 //     Objective<Manipulator> objective;
-//     objective.K_time = 1;
+//     objective.time_weight = 1;
 //
 //     std::vector<Objective<Manipulator>> robot_objective;
 //     robot_objective.push_back(objective);
@@ -1275,14 +1095,14 @@ inline host_fn Optimization get_generic_link6_opt() {
   constraints.velocity            = true;
   constraints.acceleration        = true;
   constraints.torque              = true;
-  constraints.tcp_speed           = true;
+  constraints.tool_speed          = true;
   constraints.self_collisions     = true;
   constraints.external_collisions = true;
   opt.set_constraints(constraints);
 
   // Objective
   Objective objective;
-  objective.K_time = 1;
+  objective.time_weight = 1;
   opt.set_objective(objective);
 
   // B-spline
@@ -1290,8 +1110,8 @@ inline host_fn Optimization get_generic_link6_opt() {
   opt.set_bspline(bspline);
 
   // Guess
-  opt.guess.type   = Guess::random;
-  opt.guess.n_shot = 100;
+  opt.guess.type           = Guess::random;
+  opt.guess.n_random_shots = 100;
 
   return opt;
 }
@@ -1316,14 +1136,14 @@ inline host_fn Optimization get_generic_link6_opt() {
 //     constraints.velocity = true;
 //     constraints.acceleration = true;
 //     constraints.torque = true;
-//     constraints.tcp_speed = true;
+//     constraints.tool_speed = true;
 //     constraints.self_collisions = true;
 //     constraints.external_collisions = true;
 //     opt.set_constraints(constraints);
 //
 //     // Objective
 //     Objective<Link6> objective;
-//     objective.K_time = 1;
+//     objective.time_weight = 1;
 //     opt.set_objective(objective);
 //
 //     // B-spline
@@ -1332,7 +1152,7 @@ inline host_fn Optimization get_generic_link6_opt() {
 //
 //     // Guess
 //     opt.guess.type = Guess::random;
-//     opt.guess.n_shot = 100;
+//     opt.guess.n_random_shots = 100;
 //
 //     return opt;
 // }
@@ -1357,14 +1177,14 @@ inline host_fn Optimization get_generic_gen3_opt() {
   constraints.velocity            = true;
   constraints.acceleration        = true;
   constraints.torque              = true;
-  constraints.tcp_speed           = true;
+  constraints.tool_speed          = true;
   constraints.self_collisions     = true;
   constraints.external_collisions = true;
   opt.set_constraints(constraints);
 
   // Objective
   Objective objective;
-  objective.K_time = 1;
+  objective.time_weight = 1;
   opt.set_objective(objective);
 
   // B-spline
@@ -1372,8 +1192,8 @@ inline host_fn Optimization get_generic_gen3_opt() {
   opt.set_bspline(bspline);
 
   // Guess
-  opt.guess.type   = Guess::random;
-  opt.guess.n_shot = 100;
+  opt.guess.type           = Guess::random;
+  opt.guess.n_random_shots = 100;
 
   return opt;
 }
@@ -1400,14 +1220,14 @@ inline host_fn Optimization get_generic_gen3_opt() {
 //     constraints.velocity = true;
 //     constraints.acceleration = true;
 //     constraints.torque = true;
-//     constraints.tcp_speed = true;
+//     constraints.tool_speed = true;
 //     constraints.self_collisions = true;
 //     constraints.external_collisions = true;
 //     opt.set_constraints(constraints);
 //
 //     // Objective
 //     Objective objective;
-//     objective.K_time = 1;
+//     objective.time_weight = 1;
 //     opt.set_objective(objective);
 //
 //     // B-spline
@@ -1416,7 +1236,7 @@ inline host_fn Optimization get_generic_gen3_opt() {
 //
 //     // Guess
 //     opt.guess.type = Guess::random;
-//     opt.guess.n_shot = 100;
+//     opt.guess.n_random_shots = 100;
 //
 //     return opt;
 // }

@@ -25,7 +25,7 @@ TEST_CASE("Test manipulator benchmark", "[blast]") {
     auto opt_gen = get_generic_link6_opt();
     // opt_gen.guess.change_to_custom(x0);
     auto t1 = get_tick_us();
-    auto result_gen = blast::optimize(&opt_gen);
+    auto result_gen = blast::optimize(&opt_gen, blast::OptimizationMethod::baseline);
     auto t2 = get_tick_us();
     // gen_compute_time.push_back(result_gen.compute_time);
     gen_compute_time.push_back((t2 - t1)/1000);
@@ -45,7 +45,7 @@ TEST_CASE("Test manipulator benchmark", "[blast]") {
     auto opt_hc = get_hardcoded_link6_opt();
     // opt_gen.guess.change_to_custom(x0);
     t1 = get_tick_us();
-    auto result_hc = blast::optimize(&opt_hc);
+    auto result_hc = blast::optimize(&opt_hc, blast::OptimizationMethod::baseline);
     t2 = get_tick_us();
     // hc_compute_time.push_back(result_hc.compute_time);
     hc_compute_time.push_back((t2 - t1)/1000);

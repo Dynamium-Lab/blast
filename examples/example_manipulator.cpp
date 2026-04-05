@@ -21,15 +21,15 @@ int main() {
   opt.bspline = bspline;
 
   // opt.guess.type = Guess::custom;
-  // opt.guess.x0   = Array(opt.bspline.x_len(opt.task), 1.5);
+  // opt.guess.initial_x   = Array(opt.bspline.x_len(opt.task), 1.5);
   // opt.guess.type = Guess::random;
-  // opt.guess.n_shot = 100;
+  // opt.guess.n_random_shots = 100;
 
   opt.constraints.position            = true;
   opt.constraints.velocity            = true;
   opt.constraints.acceleration        = true;
   opt.constraints.torque              = true;
-  opt.constraints.tcp_speed           = true;
+  opt.constraints.tool_speed          = true;
   opt.constraints.self_collisions     = true;
   opt.constraints.external_collisions = true;
 
@@ -49,10 +49,10 @@ int main() {
   // for (real i = increment_x; i < max_x; i += increment_x) {
   for (real i = 0; i < max_iter; i++) {
 
-    opt.guess.x0 = guess_random(opt.bspline, opt.task);
-    // opt.guess.x0.back() = 0.5;
-    // result = optimize(&opt);
-    result = optimize_with_segments(&opt);
+    opt.guess.initial_x = guess_random(opt.bspline, opt.task);
+    // opt.guess.initial_x.back() = 0.5;
+    // result = optimize(&opt, OptimizationMethod::baseline);
+    result = optimize(&opt);
 
     cout << "Compute time:        " << result.compute_time << endl;
     cout << "Function evaluations:" << result.num_eval << endl;

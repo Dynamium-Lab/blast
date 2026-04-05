@@ -39,7 +39,7 @@ TEST_CASE("Benchmark of .at() vs [] for std::vector", "[general]") {
   BENCHMARK("range based for loop performance") {
     result = 0;
     for (auto& capsule: capsules) {
-      result += capsule.r;
+      result += capsule.radius;
     }
     return result;
   };

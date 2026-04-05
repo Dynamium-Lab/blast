@@ -257,39 +257,39 @@ inline blast_fn real distance(Segment segment, Vec3 point) {
 
 inline blast_fn real distance(const Capsule& capsule, const Box& box) {
   // Transferring points to OBB frame
-  Mat3 R_trans = transpose(box.R);
+  Mat3 R_trans = transpose(box.rotation);
 
-  Vec3 p1 = R_trans * (capsule.p1 - box.c);
-  Vec3 p2 = R_trans * (capsule.p2 - box.c);
+  Vec3 p1 = R_trans * (capsule.p1 - box.center);
+  Vec3 p2 = R_trans * (capsule.p2 - box.center);
 
   Vec3 vec   = p2 - p1;
   Vec3 point = vec.z < 0 ? p1 : p2; // take point of highest z value
   vec        = vec.z < 0 ? -vec : vec;
 
   // A
-  // real x_min = - box.e.x;
-  // real x_max =   box.e.x;
-  // real y_min = - box.e.y;
-  // real y_max =   box.e.y;
-  // real z_min = - box.e.z;
-  // real z_max =   box.e.z;
+  // real x_min = - box.extents.x;
+  // real x_max =   box.extents.x;
+  // real y_min = - box.extents.y;
+  // real y_max =   box.extents.y;
+  // real z_min = - box.extents.z;
+  // real z_max =   box.extents.z;
 
   // Creating the eight original vertices
   OriginVertices origin_vertices;
-  origin_vertices.vert[0] = {-box.e.x, -box.e.y, -box.e.z};
-  origin_vertices.vert[1] = {-box.e.x, box.e.y, -box.e.z};
-  origin_vertices.vert[2] = {box.e.x, -box.e.y, -box.e.z};
-  origin_vertices.vert[3] = {box.e.x, box.e.y, -box.e.z};
-  origin_vertices.vert[4] = {-box.e.x, -box.e.y, box.e.z};
-  origin_vertices.vert[5] = {-box.e.x, box.e.y, box.e.z};
-  origin_vertices.vert[6] = {box.e.x, -box.e.y, box.e.z};
-  origin_vertices.vert[7] = {box.e.x, box.e.y, box.e.z};
+  origin_vertices.vert[0] = {-box.extents.x, -box.extents.y, -box.extents.z};
+  origin_vertices.vert[1] = {-box.extents.x, box.extents.y, -box.extents.z};
+  origin_vertices.vert[2] = {box.extents.x, -box.extents.y, -box.extents.z};
+  origin_vertices.vert[3] = {box.extents.x, box.extents.y, -box.extents.z};
+  origin_vertices.vert[4] = {-box.extents.x, -box.extents.y, box.extents.z};
+  origin_vertices.vert[5] = {-box.extents.x, box.extents.y, box.extents.z};
+  origin_vertices.vert[6] = {box.extents.x, -box.extents.y, box.extents.z};
+  origin_vertices.vert[7] = {box.extents.x, box.extents.y, box.extents.z};
 
   // Thus, we get the three main directions
   Directions directions;
-  directions.dir[0] = {2 * box.e.x, 0, 0};
-  directions.dir[1] = {0, 2 * box.e.y, 0};
-  directions.dir[2] = {0, 0, 2 * box.e.z};
+  directions.dir[0] = {2 * box.extents.x, 0, 0};
+  directions.dir[1] = {0, 2 * box.extents.y, 0};
+  directions.dir[2] = {0, 0, 2 * box.extents.z};
 
   // some faces depend only on the direction of vec in x
   Faces face;
@@ -469,7 +469,7 @@ inline blast_fn real distance(const Capsule& capsule, const Box& box) {
 
     if (normal_distance[i] >= 0) {
       if (point_in_surface(face.surface[i].d1, face.surface[i].d2, face.surface[i].p, point))
-        return normal_distance[i] - capsule.r;
+        return normal_distance[i] - capsule.radius;
 
       seg_face.segments[0].p1 = face.surface[i].p;
       seg_face.segments[0].p2 = face.surface[i].p + face.surface[i].d1;
@@ -498,7 +498,7 @@ inline blast_fn real distance(const Capsule& capsule, const Box& box) {
 
   // If point is inside
   if (n_active_edges == 0) {
-    return max_normal_dist - capsule.r;
+    return max_normal_dist - capsule.radius;
   }
 
   real dist_min = INF_REAL;
@@ -506,22 +506,22 @@ inline blast_fn real distance(const Capsule& capsule, const Box& box) {
     const real current_distance = distance(active_edges.segments[i], point);
     dist_min                    = current_distance < dist_min ? current_distance : dist_min;
   }
-  return dist_min - capsule.r;
+  return dist_min - capsule.radius;
 }
 
 inline blast_fn real distance(const Capsule& capsule, const Sphere& sphere) {
   Segment segment;
   segment.p1       = capsule.p1;
   segment.p2       = capsule.p2;
-  real dist_seg_pt = distance(segment, sphere.c);
-  return dist_seg_pt - capsule.r - sphere.r;
+  real dist_seg_pt = distance(segment, sphere.center);
+  return dist_seg_pt - capsule.radius - sphere.radius;
 }
 
 inline blast_fn real distance(const Capsule& capsule1, const Capsule& capsule2) {
   Segment segment1{capsule1.p1, capsule1.p2};
   Segment segment2{capsule2.p1, capsule2.p2};
   real    dist_seg_seg = distance(segment1, segment2);
-  return dist_seg_seg - capsule1.r - capsule2.r;
+  return dist_seg_seg - capsule1.radius - capsule2.radius;
 }
 
 inline blast_fn Array test_collisions(const ObjMatrix<Capsule>& robot_capsules, const World* world, u32 n_lowest_distances, real start_time, real end_time) {
@@ -661,39 +661,39 @@ struct CapsuleData {
 
 inline blast_fn real distance_per_point(const Capsule& capsule, CapsuleData& capsule_data, const Box& box) {
   // Transferring points to OBB frame
-  Mat3 R_trans = transpose(box.R);
+  Mat3 R_trans = transpose(box.rotation);
 
-  Vec3 p1 = R_trans * (capsule.p1 - box.c);
-  Vec3 p2 = R_trans * (capsule.p2 - box.c);
+  Vec3 p1 = R_trans * (capsule.p1 - box.center);
+  Vec3 p2 = R_trans * (capsule.p2 - box.center);
 
   Vec3 vec   = p2 - p1;
   Vec3 point = vec.z < 0 ? p1 : p2; // take point of highest z value
   vec        = vec.z < 0 ? -vec : vec;
 
   // A
-  // real x_min = - box.e.x;
-  // real x_max =   box.e.x;
-  // real y_min = - box.e.y;
-  // real y_max =   box.e.y;
-  // real z_min = - box.e.z;
-  // real z_max =   box.e.z;
+  // real x_min = - box.extents.x;
+  // real x_max =   box.extents.x;
+  // real y_min = - box.extents.y;
+  // real y_max =   box.extents.y;
+  // real z_min = - box.extents.z;
+  // real z_max =   box.extents.z;
 
   // Creating the eight original vertices
   OriginVertices origin_vertices;
-  origin_vertices.vert[0] = {-box.e.x, -box.e.y, -box.e.z};
-  origin_vertices.vert[1] = {-box.e.x, box.e.y, -box.e.z};
-  origin_vertices.vert[2] = {box.e.x, -box.e.y, -box.e.z};
-  origin_vertices.vert[3] = {box.e.x, box.e.y, -box.e.z};
-  origin_vertices.vert[4] = {-box.e.x, -box.e.y, box.e.z};
-  origin_vertices.vert[5] = {-box.e.x, box.e.y, box.e.z};
-  origin_vertices.vert[6] = {box.e.x, -box.e.y, box.e.z};
-  origin_vertices.vert[7] = {box.e.x, box.e.y, box.e.z};
+  origin_vertices.vert[0] = {-box.extents.x, -box.extents.y, -box.extents.z};
+  origin_vertices.vert[1] = {-box.extents.x, box.extents.y, -box.extents.z};
+  origin_vertices.vert[2] = {box.extents.x, -box.extents.y, -box.extents.z};
+  origin_vertices.vert[3] = {box.extents.x, box.extents.y, -box.extents.z};
+  origin_vertices.vert[4] = {-box.extents.x, -box.extents.y, box.extents.z};
+  origin_vertices.vert[5] = {-box.extents.x, box.extents.y, box.extents.z};
+  origin_vertices.vert[6] = {box.extents.x, -box.extents.y, box.extents.z};
+  origin_vertices.vert[7] = {box.extents.x, box.extents.y, box.extents.z};
 
   // Thus, we get the three main directions
   Directions directions;
-  directions.dir[0] = {2 * box.e.x, 0, 0};
-  directions.dir[1] = {0, 2 * box.e.y, 0};
-  directions.dir[2] = {0, 0, 2 * box.e.z};
+  directions.dir[0] = {2 * box.extents.x, 0, 0};
+  directions.dir[1] = {0, 2 * box.extents.y, 0};
+  directions.dir[2] = {0, 0, 2 * box.extents.z};
 
   // some faces depend only on the direction of vec in x
   Faces face;
@@ -877,7 +877,7 @@ inline blast_fn real distance_per_point(const Capsule& capsule, CapsuleData& cap
     if (normal_distance[i] >= 0) {
       if (point_in_surface(face.surface[i].d1, face.surface[i].d2, face.surface[i].p, point)) {
         capsule_data.direction = n_current;
-        return normal_distance[i] - capsule.r;
+        return normal_distance[i] - capsule.radius;
       }
 
       seg_face.segments[0].p1 = face.surface[i].p;
@@ -908,7 +908,7 @@ inline blast_fn real distance_per_point(const Capsule& capsule, CapsuleData& cap
   // If point is inside
   if (n_active_edges == 0) {
     capsule_data.direction = -n_max_normal_dist;
-    return max_normal_dist - capsule.r;
+    return max_normal_dist - capsule.radius;
   }
 
   real dist_min = INF_REAL;
@@ -921,7 +921,7 @@ inline blast_fn real distance_per_point(const Capsule& capsule, CapsuleData& cap
     dist_min              = current_distance < dist_min ? current_distance : dist_min;
   }
   capsule_data.direction = current_direction;
-  return sqrt(dist_min) - capsule.r;
+  return sqrt(dist_min) - capsule.radius;
 }
 
 inline blast_fn real test_collisions_per_point(const std::array<Capsule, MAX_CAPSULES>& robot_capsules, const World* world) { // todo: FIX THIS... when MAX_CAPSULE is higher than number of capsules, this returns 0 breaking the optimization

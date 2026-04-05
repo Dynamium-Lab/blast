@@ -5,23 +5,28 @@ FetchContent_Declare(
     GIT_TAG v2.13.10
 )
 FetchContent_MakeAvailable(catch)
+
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH};${CMAKE_SOURCE_DIR}/tests/CMake/Modules/)
 include(ParseAndAddCatchTests)
 
-# Define a function to automate adding benchamrks
-function(automate_add_benchmarks target_name source_file)
+# Usage: add_blast_target(target_name source_file [TEST | BENCH])
+function(add_blast_target target_name source_file type)
   add_executable(${target_name} ${source_file})
   target_compile_features(${target_name} PUBLIC cxx_std_17)
-  target_link_libraries(${target_name} PUBLIC Catch2::Catch2 blast TracyClient)
-  target_compile_definitions(${target_name} PUBLIC TRACY_ENABLE TRACY_NO_EXIT)
-endfunction()
 
-# Define a function to automate adding tests
-function(automate_add_tests target_name source_file)
-  add_executable(${target_name} ${source_file})
-  target_compile_features(${target_name} PUBLIC cxx_std_17)
-  target_link_libraries(${target_name} PRIVATE Catch2::Catch2 blast TracyClient)
-  add_test(NAME ${target_name}_test COMMAND ${target_name})
+  # Base dependencies
+  target_link_libraries(${target_name} PRIVATE Catch2::Catch2 blast)
+
+  # Conditional Tracy logic
+  if (ENABLE_TRACY)
+    target_link_libraries(${target_name} PRIVATE TracyClient)
+    target_compile_definitions(${target_name} PRIVATE TRACY_ENABLE TRACY_NO_EXIT)
+  endif ()
+
+  # If marked as a TEST, register it with CTest
+  if ("${type}" STREQUAL "TEST")
+    add_test(NAME ${target_name}_test COMMAND ${target_name})
+  endif ()
 endfunction()
 
 # note: Add new benchmark files as follows :
@@ -38,6 +43,8 @@ set(BENCHMARKS
     #    bench_paper_gradients benchmarks/bench_paper_gradients.cpp
     #    bench_constraints benchmarks/bench_constraints.cpp
     #    bench_functions benchmarks/bench_functions.cpp
+
+    bench_optimization_methods benchmarks/bench_optimization_methods.cpp
 )
 
 # note: Add new tests files as follows :
@@ -79,12 +86,12 @@ set(TESTS
 while (BENCHMARKS)
   list(POP_FRONT BENCHMARKS target_name)
   list(POP_FRONT BENCHMARKS source_file)
-  automate_add_benchmarks(${target_name} ${source_file})
+  add_blast_target(${target_name} ${source_file} "BENCH")
 endwhile ()
 
 # Loop through and add tests
 while (TESTS)
   list(POP_FRONT TESTS target_name)
   list(POP_FRONT TESTS source_file)
-  automate_add_tests(${target_name} ${source_file})
+  add_blast_target(${target_name} ${source_file} "TEST")
 endwhile ()

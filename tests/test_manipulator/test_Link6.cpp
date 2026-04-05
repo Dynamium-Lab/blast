@@ -9,10 +9,10 @@ Link6 manip;
 auto joints = manip.joints;
 
 TEST_CASE("Link6 Initializer") {
-    CHECK(manip.pmax.size == joints);
-    CHECK(manip.vmax.size == joints);
-    CHECK(manip.amax.size == joints);
-    CHECK(manip.tau_max.size == joints);
+    CHECK(manip.position_max.size == joints);
+    CHECK(manip.velocity_max.size == joints);
+    CHECK(manip.acceleration_max.size == joints);
+    CHECK(manip.torque_max.size == joints);
 
 }
 
@@ -28,7 +28,7 @@ TEST_CASE("Link6 Internal Constraints") {
     manip.dynamics(traj);
     Array torque_const_zero(joints);
     for (u32 i = 0; i < joints; i++)
-        torque_const_zero[i] = (abs(manip._efforts(i, 0)) - manip.tau_max[i]) / manip.tau_max[i];
+        torque_const_zero[i] = (abs(manip._efforts(i, 0)) - manip.torque_max[i]) / manip.torque_max[i];
 
     manip.internal_constraints(traj, constraints.data);
 

@@ -6,15 +6,15 @@ namespace blast {
 
 // Returns distance between an box and a point
 inline real distance(const Box &box, const Vec3 &point) {
-    Mat3 Rtrans = transpose(box.R);
+    Mat3 Rtrans = transpose(box.rotation);
 
-    Vec3 point_box = Rtrans * (point - box.c);
+    Vec3 point_box = Rtrans * (point - box.center);
 
-    Vec3 proj = {clamp(point_box.x, -box.e.x, box.e.x), clamp(point_box.y, -box.e.y, box.e.y), clamp(point_box.z, -box.e.z, box.e.z)};
+    Vec3 proj = {clamp(point_box.x, -box.extents.x, box.extents.x), clamp(point_box.y, -box.extents.y, box.extents.y), clamp(point_box.z, -box.extents.z, box.extents.z)};
     Array dist_in(3);
-    dist_in[0] = std::abs(point_box.x) - box.e.x;
-    dist_in[1] = std::abs(point_box.y) - box.e.y;
-    dist_in[2] = std::abs(point_box.z) - box.e.z;
+    dist_in[0] = std::abs(point_box.x) - box.extents.x;
+    dist_in[1] = std::abs(point_box.y) - box.extents.y;
+    dist_in[2] = std::abs(point_box.z) - box.extents.z;
     real result_if_inside = max(dist_in);
     if (max(dist_in) == 0.29048075959276026) {
         int stop = 0;
@@ -27,12 +27,12 @@ inline real distance(const Capsule &capsule, const Vec3 &point) {
     Segment segment;
     segment.p1 = capsule.p1;
     segment.p2 = capsule.p2;
-    return distance(segment, point) - capsule.r;
+    return distance(segment, point) - capsule.radius;
 }
 
 // Returns distance between a sphere and a point
 inline real distance(const Sphere &sphere, const Vec3 &point) {
-    return norm(point - sphere.c) - sphere.r;
+    return norm(point - sphere.center) - sphere.radius;
 }
 
 // Gets the point by linear interpolation from caps_list according to values of x
@@ -128,15 +128,15 @@ inline Vec3 get_point_with_directions(const Array& x, const Matrix &capsule_list
 
 // Returns distance between an box and a point and displacement vector
 inline real distance_with_directions(const Box &box, const Vec3 &point, Vec3* d) {
-    Mat3 Rtrans = transpose(box.R);
+    Mat3 Rtrans = transpose(box.rotation);
 
-    Vec3 point_box = Rtrans * (point - box.c);
+    Vec3 point_box = Rtrans * (point - box.center);
 
-    Vec3 proj = {clamp(point_box.x, -box.e.x, box.e.x), clamp(point_box.y, -box.e.y, box.e.y), clamp(point_box.z, -box.e.z, box.e.z)};
+    Vec3 proj = {clamp(point_box.x, -box.extents.x, box.extents.x), clamp(point_box.y, -box.extents.y, box.extents.y), clamp(point_box.z, -box.extents.z, box.extents.z)};
     Array dist_in(3);
-    dist_in[0] = std::abs(point.x) - box.e.x;
-    dist_in[1] = std::abs(point.y) - box.e.y;
-    dist_in[2] = std::abs(point.z) - box.e.z;
+    dist_in[0] = std::abs(point.x) - box.extents.x;
+    dist_in[1] = std::abs(point.y) - box.extents.y;
+    dist_in[2] = std::abs(point.z) - box.extents.z;
     real result_if_inside = max(dist_in);
     u32 idx = argmax(dist_in);
     Vec3 dir_inside;
@@ -158,13 +158,13 @@ inline real distance_with_directions(const Capsule &capsule, const Vec3 &point, 
 
     (*d) = p_capsule - point;
 
-    return norm((*d)) - capsule.r;
+    return norm((*d)) - capsule.radius;
 }
 
 // Returns distance between a sphere and a point and displacement vector
 inline real distance_with_directions(const Sphere &sph_test, const Vec3 &point, Vec3* d) {
-    (*d) = sph_test.c - point;
-    return norm((*d)) - sph_test.r;
+    (*d) = sph_test.center - point;
+    return norm((*d)) - sph_test.radius;
 }
 
 // Calls get_point and tests this point against the full world
