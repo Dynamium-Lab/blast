@@ -19,7 +19,7 @@ struct Result {
   bool          success       = false;
   bool          success_false = false;
   real          compute_time  = 0;
-  Optimization* opt; //todo: fix this (pointer becomes out of bounds fast)
+  Optimization* opt; // todo: fix this (pointer becomes out of bounds fast)
   Array         x;
   Array         x0;
   nlopt_result  nlopt_exit_criteria = NLOPT_SUCCESS;
@@ -45,13 +45,13 @@ inline Optimization::Optimization(const Manipulator& new_manip, const Task& new_
     task(new_task.to_matrix()),
     custom_data(nullptr) {
   // Default values
-  guess.type   = Guess::random;
+  guess.type           = Guess::random;
   guess.n_random_shots = 100;
 
   constraints.position     = true;
   constraints.velocity     = true;
   constraints.acceleration = true;
-  constraints.tool_speed    = true;
+  constraints.tool_speed   = true;
 
   objective.time_weight = 1.0;
 }
@@ -61,13 +61,13 @@ inline Optimization::Optimization(const Manipulator& new_manip, const Task& new_
     bspline(new_bspline),
     task(new_task.to_matrix()),
     custom_data(nullptr) {
-  guess.type   = Guess::random;
+  guess.type           = Guess::random;
   guess.n_random_shots = 100;
 
   constraints.position     = true;
   constraints.velocity     = true;
   constraints.acceleration = true;
-  constraints.tool_speed    = true;
+  constraints.tool_speed   = true;
 
   objective.time_weight = 1.0;
 }
@@ -437,7 +437,7 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
   // configure_internal_data(opt); // todo: Ensure we can remove
   initialize_optimization_with_segments(opt);
   n_con_with_segments(opt);
-  
+
   Result result(opt); // todo: this is expensive
   result.opt->task = opt->task;
 
@@ -981,10 +981,14 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
 
 inline Result optimize(Optimization* opt, OptimizationMethod method = OptimizationMethod::with_segments, u32 output_steps_ms = 1 /*ms*/) {
   switch (method) {
-    case OptimizationMethod::baseline:                  return optimize_baseline_impl(opt, output_steps_ms);
-    case OptimizationMethod::with_analytical_pva:       return optimize_with_analytical_pva_impl(opt, output_steps_ms);
-    case OptimizationMethod::with_analytical_dynamics:  return optimize_with_analytical_dynamics_impl(opt, output_steps_ms);
-    case OptimizationMethod::with_segments:             return optimize_with_segments_impl(opt, output_steps_ms);
+    case OptimizationMethod::baseline:
+      return optimize_baseline_impl(opt, output_steps_ms);
+    case OptimizationMethod::with_analytical_pva:
+      return optimize_with_analytical_pva_impl(opt, output_steps_ms);
+    case OptimizationMethod::with_analytical_dynamics:
+      return optimize_with_analytical_dynamics_impl(opt, output_steps_ms);
+    case OptimizationMethod::with_segments:
+      return optimize_with_segments_impl(opt, output_steps_ms);
   }
   return optimize_with_segments_impl(opt, output_steps_ms); // unreachable
 }

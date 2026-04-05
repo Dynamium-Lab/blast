@@ -29,7 +29,8 @@ TEST_CASE("Bound constraint function benchmark", "[constraint]") {
 
   Array expected_result = {-1.0, -1.0, -1.0, -1.0, -1.0, -1.0};
 
-  BENCHMARK_ADVANCED("Written position function")(Catch::Benchmark::Chronometer meter) {
+  BENCHMARK_ADVANCED("Written position function")
+  (Catch::Benchmark::Chronometer meter) {
     meter.measure([&] {
       for (int j = 0; j < manip.joints; j++) {
         real denom = manip.position_max[j] - manip.position_min[j];
@@ -46,7 +47,8 @@ TEST_CASE("Bound constraint function benchmark", "[constraint]") {
   };
 
 
-  BENCHMARK_ADVANCED("Bounds constraint position function with pointer")(Catch::Benchmark::Chronometer meter) {
+  BENCHMARK_ADVANCED("Bounds constraint position function with pointer")
+  (Catch::Benchmark::Chronometer meter) {
     meter.measure([&] {
       for (int j = 0; j < manip.joints; j++) {
         bound_constraint(&(result[j]), pos[j], manip.position_min[j], manip.position_max[j]);
@@ -57,7 +59,8 @@ TEST_CASE("Bound constraint function benchmark", "[constraint]") {
     CHECK(is_close(result, expected_result));
   };
 
-  BENCHMARK_ADVANCED("Bounds constraint position function")(Catch::Benchmark::Chronometer meter) {
+  BENCHMARK_ADVANCED("Bounds constraint position function")
+  (Catch::Benchmark::Chronometer meter) {
     meter.measure([&] {
       for (int j = 0; j < manip.joints; j++) {
         // bound_constraint(result.data[j], pos[j], manip.position_min[j], manip.position_max[j]);

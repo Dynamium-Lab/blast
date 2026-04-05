@@ -21,7 +21,7 @@ struct Task {
       goal{Array(n_joints), Array(n_joints), Array(n_joints)} {
     for (u32 i = 0; i < n_joints; i++) {
       start.position[i] = start.velocity[i] = start.acceleration[i] = 0.0f;
-      goal.position[i]  = goal.velocity[i]  = goal.acceleration[i]  = 0.0f;
+      goal.position[i] = goal.velocity[i] = goal.acceleration[i] = 0.0f;
     }
   }
 
@@ -33,7 +33,7 @@ struct Task {
   }
 
   Matrix to_matrix() const {
-    u32 n = start.position.size;
+    u32    n = start.position.size;
     Matrix m(n, 6);
     for (u32 i = 0; i < n; i++) {
       m(i, 0) = start.position[i];
@@ -48,4 +48,4 @@ struct Task {
 };
 
 
-}
+} // namespace blast

@@ -16,7 +16,7 @@
 // Run:
 //   ./build/examples/example_03_collision_avoidance
 
-#define BLAST_USE_NATIVE_SQP  // use the built-in SQP solver
+#define BLAST_USE_NATIVE_SQP // use the built-in SQP solver
 
 #include <blast>
 #include <iostream>
@@ -44,9 +44,9 @@ int main() {
   // -----------------------------------------------------------------------
   World world;
   world.add_box(
-    Vec3{0.4,  0.0, 0.6},           // centre: 40 cm in front, 60 cm high
-    Vec3{0.05, 0.3, 0.3},           // half-extents: thin vertical slab
-    Mat3{1, 0, 0,  0, 1, 0,  0, 0, 1} // upright, axis-aligned
+          Vec3{0.4, 0.0, 0.6},            // centre: 40 cm in front, 60 cm high
+          Vec3{0.05, 0.3, 0.3},           // half-extents: thin vertical slab
+          Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1} // upright, axis-aligned
   );
 
   // -----------------------------------------------------------------------
@@ -62,8 +62,8 @@ int main() {
   opt.constraints.position            = true;
   opt.constraints.velocity            = true;
   opt.constraints.acceleration        = true;
-  opt.constraints.self_collisions     = true;  // avoid self-contact
-  opt.constraints.external_collisions = true;  // avoid world obstacles
+  opt.constraints.self_collisions     = true; // avoid self-contact
+  opt.constraints.external_collisions = true; // avoid world obstacles
 
   opt.success_tolerance = 0.01;
 
@@ -81,7 +81,7 @@ int main() {
     std::cout << "Attempt " << attempt << "/" << max_attempts << "... ";
 
     // Draw a fresh random initial guess for each attempt.
-    opt.guess.type = Guess::random;
+    opt.guess.type           = Guess::random;
     opt.guess.n_random_shots = 30;
 
     // optimize() with with_segments (the default) reduces collision constraints

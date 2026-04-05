@@ -38,7 +38,7 @@ collision_test_caps test_caps[] = {
 struct collision_test_box {
   Box     box;
   Capsule capsule;
-  real    expected_dist=0;
+  real    expected_dist = 0;
 };
 collision_test_box test_obb[] = {
         /*Test1*/ {{{5, 0, 9}, {0.1, 5, 3}, {0, -1, 0, 1, 0, 0, 0, 0, 1}}, {{-1.21, -5.18, 18.05}, {-3.89, 8.59, 6.3}, 1}, 1.63659624},
@@ -151,7 +151,6 @@ TEST_CASE("Collision method benchmarks", "[World]") {
   //     return dist;
   // };
 }
-
 
 
 // todo: remove?
