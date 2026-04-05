@@ -6,13 +6,24 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(catch)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH};${CMAKE_SOURCE_DIR}/tests/CMake/Modules/)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/tests/CMake/Modules/")
 include(ParseAndAddCatchTests)
 
 # Usage: add_blast_target(target_name source_file [TEST | BENCH])
 function(add_blast_target target_name source_file type)
   add_executable(${target_name} ${source_file})
-  target_compile_features(${target_name} PUBLIC cxx_std_17)
+  target_compile_features(${target_name} PRIVATE cxx_std_17)
+
+  # PRIVATE: machine-specific tuning for dev targets only, never leaks to
+  # downstream consumers of the blast library.
+  if(MSVC)
+    target_compile_options(${target_name} PRIVATE /arch:AVX2)
+  else()
+    target_compile_options(${target_name} PRIVATE -march=native)
+  endif()
+
+  # tests/ is the include root for test_helper/, etc.
+  target_include_directories(${target_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
   # Base dependencies
   target_link_libraries(${target_name} PRIVATE Catch2::Catch2 blast)
