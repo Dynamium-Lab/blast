@@ -8,6 +8,10 @@ cmake-build*/
 cmake-*/
 .idea/
 .claude/
+.venv/
+*.deb
+__pycache__/
+*.pyc
 
 
 ### Standard C++ ignores
