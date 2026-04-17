@@ -54,6 +54,7 @@ struct ManipulatorLimits {
   Array position_min;     // min joint position
   Array velocity_max;     // max joint velocity
   Array acceleration_max; // max joint acceleration
+  Array jerk_max; // max joint jerk
   Array torque_max;       // max joint torque
 
   real tool_speed_max;    // max tool speed
@@ -158,6 +159,7 @@ struct Manipulator {
   std::array<real, MAX_JOINTS> position_min{};
   std::array<real, MAX_JOINTS> velocity_max{};
   std::array<real, MAX_JOINTS> acceleration_max{};
+  std::array<real, MAX_JOINTS> jerk_max{};
   std::array<real, MAX_JOINTS> torque_max{};
 
   real tool_speed_max = 0.0; // max Tool speed

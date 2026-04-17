@@ -229,6 +229,10 @@ inline host_fn void Manipulator::set_limits(const ManipulatorLimits& limits) {
     Assert(limits.acceleration_max.size == n_joints);
     std::copy_n(limits.acceleration_max.data, n_joints, acceleration_max.data());
   }
+  if (limits.jerk_max.size != 0) {
+    Assert(limits.jerk_max.size == n_joints);
+    std::copy_n(limits.jerk_max.data, n_joints, jerk_max.data());
+  }
   if (limits.torque_max.size != 0) {
     Assert(limits.torque_max.size == n_joints);
     std::copy_n(limits.torque_max.data, n_joints, torque_max.data());
