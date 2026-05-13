@@ -1503,17 +1503,7 @@ inline blast_fn void nlopt_constraints_acc2(unsigned m, double* result, unsigned
         }
       }
 
-      if (opt->constraints.show_info) { // when more info is needed per iteration
-        Matrix gradients(xlen, m);
-        Array  constraints(m);
-        for (u32 j = 0; j < xlen; j++) {
-          for (u32 i = 0; i < m; i++) {
-            gradients(j, i) = grad[i * xlen + j];
-            constraints[i]  = result[i];
-          }
-        }
-        opt->constraints.grad_list.push_back(gradients);
-        opt->constraints.constr_list.push_back(constraints);
+      if (opt->constraints.keep_x) { // when more info is needed per iteration
         opt->constraints.x_list.push_back(xv);
       }
     }
