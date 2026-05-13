@@ -796,7 +796,7 @@ inline blast_fn void nlopt_constraints_with_segments(unsigned m, double* result,
 
   constraints_and_gradients_with_segments(xv, *opt, constraints, gradients);
 
-  if (opt->constraints.keep_x) {
+  if (opt->constraints.record_iterates) {
     opt->constraints.x_list.push_back(xv);
   }
 }
@@ -1024,7 +1024,7 @@ inline blast_fn void nlopt_constraints(unsigned m, double* result, unsigned x_le
       for (u32 i = 0; i < m; i++)
         grad[i * x_len + j] = (r_plus[i] - result[i]) / eps;
     }
-    if (opt->constraints.keep_x) {
+    if (opt->constraints.record_iterates) {
       opt->constraints.x_list.push_back(xv);
     }
   }
@@ -1851,7 +1851,7 @@ inline blast_fn void nlopt_constraints_with_analytical_pva(unsigned m, double* r
         grad[i * xlen + j] = (r_plus_T[i] - result[i]) / eps;
     }
 
-    if (opt->constraints.keep_x) {
+    if (opt->constraints.record_iterates) {
       opt->constraints.x_list.push_back(xv);
     }
   }
@@ -2013,7 +2013,7 @@ inline blast_fn void nlopt_constraints_with_analytical_dynamics(unsigned m, doub
         grad[i * xlen + j] = (r_plus_T[i] - result[i]) / eps;
     }
 
-    if (opt->constraints.keep_x) {
+    if (opt->constraints.record_iterates) {
       opt->constraints.x_list.push_back(xv);
     }
   }
