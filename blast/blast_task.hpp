@@ -2,8 +2,6 @@
 #include <blast>
 
 namespace blast {
-
-
 struct TaskBoundary {
   Array position;
   Array velocity;
@@ -47,5 +45,15 @@ struct Task {
   }
 };
 
+inline Task to_task(const Matrix& m) {
+  Task task(m.rows);
+  task.start.position     = m.col(0);
+  task.start.velocity     = m.col(1);
+  task.start.acceleration = m.col(2);
 
+  task.goal.position     = m.col(3);
+  task.goal.velocity     = m.col(4);
+  task.goal.acceleration = m.col(5);
+  return task;
+}
 } // namespace blast
