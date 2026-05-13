@@ -16,7 +16,8 @@ namespace blast {
 TEST_CASE("Manipulator benchmarks", "[manipulator]") {
 
   ManipulatorTempData manip_data;
-  BENCHMARK_ADVANCED("Kinematics & Dynamics on a Gen3")(Catch::Benchmark::Chronometer meter) {
+  BENCHMARK_ADVANCED("Kinematics & Dynamics on a Gen3")
+  (Catch::Benchmark::Chronometer meter) {
 
     const u32 n_points = 256;
     const u32 n_joints = 7;

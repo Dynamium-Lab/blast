@@ -64,15 +64,15 @@ TEST_CASE("Benchmark accelerations", "[accelerations]") {
   Bspline bspline(16, 100, 5, 6);
   opt.bspline = bspline;
 
-  opt.guess.type = Guess::custom;
-  opt.guess.x0   = Array(opt.bspline.x_len(opt.task), 2.0);
-  // opt.guess.n_shot = 100;
+  opt.guess.type      = Guess::custom;
+  opt.guess.initial_x = Array(opt.bspline.x_len(opt.task), 2.0);
+  // opt.guess.n_random_shots = 100;
 
   opt.constraints.position            = true;
   opt.constraints.velocity            = true;
   opt.constraints.acceleration        = true;
   opt.constraints.torque              = true;
-  opt.constraints.tcp_speed           = false;
+  opt.constraints.tool_speed          = false;
   opt.constraints.self_collisions     = false;
   opt.constraints.external_collisions = false;
 
@@ -83,26 +83,28 @@ TEST_CASE("Benchmark accelerations", "[accelerations]") {
   Result result_dev(&opt);
   Result result_dev_new(&opt);
 
-  BENCHMARK_ADVANCED("optimize")(Catch::Benchmark::Chronometer meter) {
+  BENCHMARK_ADVANCED("optimize")
+  (Catch::Benchmark::Chronometer meter) {
     meter.measure([&] {
       IOSilencer _;
-      result = optimize(&opt);
+      result = optimize(&opt, OptimizationMethod::baseline);
       return result;
     });
   };
 
-  BENCHMARK_ADVANCED("optimize_dev")(Catch::Benchmark::Chronometer meter) {
+  BENCHMARK_ADVANCED("optimize with_analytical_pva")
+  (Catch::Benchmark::Chronometer meter) {
     meter.measure([&] {
       IOSilencer _;
-      result_dev = optimize_dev(&opt);
+      result_dev = optimize(&opt, OptimizationMethod::with_analytical_pva);
       return result_dev;
     });
   };
 
-  // BENCHMARK_ADVANCED("optimize_dev_new")(Catch::Benchmark::Chronometer meter) {
+  // BENCHMARK_ADVANCED("optimize with_analytical_dynamics")(Catch::Benchmark::Chronometer meter) {
   //   meter.measure([&] {
   //     IOSilencer _;
-  //     result_dev_new = optimize_dev_new(&opt);
+  //     result_dev_new = optimize(&opt, OptimizationMethod::with_analytical_dynamics);
   //     return result_dev_new;
   //   });
   // };

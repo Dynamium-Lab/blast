@@ -131,6 +131,13 @@ inline blast_fn Vec3& operator*=(Vec3& v, real a) {
   return v;
 }
 
+inline blast_fn Vec3& operator*=(Vec3& v, real a) {
+  v.x *= a;
+  v.y *= a;
+  v.z *= a;
+  return v;
+}
+
 inline blast_fn Vec3& operator/=(Vec3& v, real a) {
   v.x /= a;
   v.y /= a;

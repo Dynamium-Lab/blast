@@ -107,7 +107,6 @@ inline blast_fn Mat3  operator-(Mat3 m1, Mat3 m2);
 inline blast_fn Mat3& zero(Mat3&);
 inline blast_fn Mat3& transpose_inplace(Mat3& m);
 inline blast_fn Mat3  transpose(Mat3 m);
-inline blast_fn void  transpose(const Mat3& in, Mat3& out);
 inline blast_fn Mat3  eye();
 inline blast_fn Mat3& constant(Mat3&, real val);
 inline blast_fn bool  is_close(const Mat3&, const Mat3&, real eps = 1e-05);
@@ -207,6 +206,9 @@ struct Array {
 
   // access the value of the last element
   inline blast_fn real back() const;
+
+  // returns true if the array has no elements
+  inline blast_fn bool is_empty() const { return size == 0; }
 };
 
 inline blast_fn Array  random_array(u32 n, real A);

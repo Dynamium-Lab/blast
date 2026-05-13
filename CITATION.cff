@@ -1,0 +1,44 @@
+cff-version: 1.2.0
+title: Blast
+message: "If you use this software, please cite it using the metadata from this file."
+type: software
+license: MIT
+repository-code: https://github.com/Dynamium-Lab/blast
+authors:
+  - family-names: Doiron
+    given-names: Nikos
+    affiliation: "Université de Moncton"
+  - family-names: Duquette
+    given-names: Thomas
+    affiliation: "Université de Moncton"
+    orcid: "https://orcid.org/0009-0005-2544-2037"
+  - family-names: Tchane Djogdom
+    given-names: Gilde Vanel
+    affiliation: "Université de Moncton"
+    orcid: "https://orcid.org/0000-0003-1602-0682"
+  - family-names: Gallant
+    given-names: André
+    affiliation: "Université de Moncton"
+    orcid: "https://orcid.org/0000-0003-3733-4234"
+preferred-citation:
+  type: conference-paper
+  title: "Accelerating Trajectory Optimization by Exploiting B-Spline Gradient Structure"
+  authors:
+    - family-names: Doiron
+      given-names: Nikos
+      affiliation: "Université de Moncton"
+    - family-names: Duquette
+      given-names: Thomas
+      affiliation: "Université de Moncton"
+      orcid: "https://orcid.org/0009-0005-2544-2037"
+    - family-names: Tchane Djogdom
+      given-names: Gilde Vanel
+      affiliation: "Université de Moncton"
+      orcid: "https://orcid.org/0000-0003-1602-0682"
+    - family-names: Gallant
+      given-names: André
+      affiliation: "Université de Moncton"
+      orcid: "https://orcid.org/0000-0003-3733-4234"
+  collection-title: "IEEE International Conference on Robotics and Automation (ICRA)"
+  year: 2026
+  status: advance-online

@@ -1,10 +1,12 @@
 #pragma once
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
 #include <vector>
+#include <tuple>
 
 namespace blast {
 
@@ -47,8 +49,18 @@ using i64 = int64_t;
 #include "vectorclass.h"
 #include "vectormath_trig.h"
 
+#ifdef TRACY_ENABLE
+// This code only exists if ENABLE_TRACY was ON in CMake
 #include "tracy/Tracy.hpp"
 #include "tracy/TracyC.h"
+#define PROFILE_SCOPE(name) ZoneScopedN(name)
+#define PROFILE_FUNCTION ZoneScoped
+
+#else
+// This code is used if Tracy is OFF
+#define PROFILE_SCOPE(name) // Becomes a "no-op" (does nothing)
+#define PROFILE_FUNCTION
+#endif
 
 #include "blast_error.hpp"
 #include "blast_math.hpp"
@@ -57,6 +69,7 @@ using i64 = int64_t;
 #include "blast_containers.hpp"
 #include "blast_utilities.hpp"
 
+#include "blast_task.hpp"
 #include "blast_world.hpp"
 #include "blast_manipulator.hpp"
 #include "blast_optimization.hpp"
