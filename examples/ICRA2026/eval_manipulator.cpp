@@ -1503,7 +1503,7 @@ inline blast_fn void nlopt_constraints_acc2(unsigned m, double* result, unsigned
         }
       }
 
-      if (opt->constraints.record_iterates) { // when more info is needed per iteration
+      if (opt->constraints.collect_x_each_iteration) { // when more info is needed per iteration
         opt->constraints.x_list.push_back(xv);
       }
     }

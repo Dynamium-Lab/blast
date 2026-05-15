@@ -99,7 +99,7 @@ struct ConstraintSelection {
   int n_constraints             = 0;
   int n_constraints_per_segment = 0;
 
-  bool               record_iterates = false; // set to true to record optimization vector for all iterations
+  bool               collect_x_each_iteration = false; // set to true to record optimization vector for all iterations
   std::vector<Array> x_list;
 
   ConstraintFunctionVector extra_constraints   = {};
