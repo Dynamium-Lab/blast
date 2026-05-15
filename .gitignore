@@ -4,6 +4,7 @@
 .vscode/
 .vs/
 build/
+_deps/
 cmake-build*/
 cmake-*/
 .idea/
