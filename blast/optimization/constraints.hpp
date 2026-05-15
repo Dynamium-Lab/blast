@@ -795,6 +795,10 @@ inline blast_fn void nlopt_constraints_with_segments(unsigned m, double* result,
   }
 
   constraints_and_gradients_with_segments(xv, *opt, constraints, gradients);
+
+  if (opt->constraints.collect_x_each_iteration) {
+    opt->constraints.x_list.push_back(xv);
+  }
 }
 
 inline blast_fn void compute_constraints(double* result, const Array& x, Optimization* opt) {
@@ -1020,17 +1024,7 @@ inline blast_fn void nlopt_constraints(unsigned m, double* result, unsigned x_le
       for (u32 i = 0; i < m; i++)
         grad[i * x_len + j] = (r_plus[i] - result[i]) / eps;
     }
-    if (opt->constraints.show_info) { // when more info is needed per iteration
-      Matrix gradients(x_len, m);
-      Array  constraints(m);
-      for (u32 j = 0; j < x_len; j++) {
-        for (u32 i = 0; i < m; i++) {
-          gradients(j, i) = grad[i * x_len + j];
-          constraints[i]  = result[i];
-        }
-      }
-      opt->constraints.grad_list.push_back(gradients);
-      opt->constraints.constr_list.push_back(constraints);
+    if (opt->constraints.collect_x_each_iteration) {
       opt->constraints.x_list.push_back(xv);
     }
   }
@@ -1857,17 +1851,7 @@ inline blast_fn void nlopt_constraints_with_analytical_pva(unsigned m, double* r
         grad[i * xlen + j] = (r_plus_T[i] - result[i]) / eps;
     }
 
-    if (opt->constraints.show_info) { // when more info is needed per iteration
-      Matrix gradients(xlen, m);
-      Array  constraints(m);
-      for (u32 j = 0; j < xlen; j++) {
-        for (u32 i = 0; i < m; i++) {
-          gradients(j, i) = grad[i * xlen + j];
-          constraints[i]  = result[i];
-        }
-      }
-      opt->constraints.grad_list.push_back(gradients);
-      opt->constraints.constr_list.push_back(constraints);
+    if (opt->constraints.collect_x_each_iteration) {
       opt->constraints.x_list.push_back(xv);
     }
   }
@@ -2029,20 +2013,9 @@ inline blast_fn void nlopt_constraints_with_analytical_dynamics(unsigned m, doub
         grad[i * xlen + j] = (r_plus_T[i] - result[i]) / eps;
     }
 
-    if (opt->constraints.show_info) { // when more info is needed per iteration
-      Matrix gradients(xlen, m);
-      Array  constraints(m);
-      for (u32 j = 0; j < xlen; j++) {
-        for (u32 i = 0; i < m; i++) {
-          gradients(j, i) = grad[i * xlen + j];
-          constraints[i]  = result[i];
-        }
-      }
-      opt->constraints.grad_list.push_back(gradients);
-      opt->constraints.constr_list.push_back(constraints);
+    if (opt->constraints.collect_x_each_iteration) {
       opt->constraints.x_list.push_back(xv);
     }
   }
 }
-
 } // namespace blast
