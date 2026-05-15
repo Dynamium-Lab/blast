@@ -3,9 +3,14 @@
   "configurePresets": [
     {
       "name": "dev",
-      "displayName": "Developer build (local machine)",
+      "displayName": "Developer build (Linux/macOS)",
       "description": "RelWithDebInfo, native tuning, compile-commands for tooling",
-      "binaryDir": "${sourceDir}/build/dev",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "condition": {
+        "type": "notEquals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "CMAKE_CXX_FLAGS": "-march=native",
@@ -14,16 +19,15 @@
     },
     {
       "name": "dev-msvc",
-      "displayName": "Developer build (MSVC)",
+      "displayName": "Developer build (Windows/MSVC)",
       "description": "RelWithDebInfo with AVX2, compile-commands for tooling",
-      "binaryDir": "${sourceDir}/build/dev",
+      "binaryDir": "${sourceDir}/build/${presetName}",
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
       },
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "CMAKE_CXX_FLAGS": "/arch:AVX2",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
@@ -32,9 +36,10 @@
       "name": "ci",
       "displayName": "CI build",
       "description": "Release build without machine-specific tuning",
-      "binaryDir": "${sourceDir}/build/ci",
+      "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     }
   ],
@@ -50,7 +55,8 @@
     },
     {
       "name": "ci",
-      "configurePreset": "ci"
+      "configurePreset": "ci",
+      "configuration": "Release"
     }
   ]
 }
