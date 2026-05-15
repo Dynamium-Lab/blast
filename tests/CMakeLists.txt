@@ -55,14 +55,13 @@ set(BENCHMARKS
     #    bench_constraints benchmarks/bench_constraints.cpp
     #    bench_functions benchmarks/bench_functions.cpp
 
-    bench_optimization_methods benchmarks/bench_optimization_methods.cpp
+    # bench_optimization_methods benchmarks/bench_optimization_methods.cpp
 )
 
 # note: Add new tests files as follows :
 # NAME_OF_TEST TEST_TARGET_LOCATION
 # List of tests with their source files
 set(TESTS
-    #    test_link6 test_manipulator/test_Link6.cpp
     # Acceleration
     # test_gradients_acceleration acceleration/test_gradients_acceleration.cpp
     # test_constraints_acceleration acceleration/test_constraints_acceleration.cpp
@@ -71,24 +70,26 @@ set(TESTS
 
     # Container
     test_objmatrix container/test_objmatrix.cpp
+
     # Manipulator
     test_functions manipulators/test_functions.cpp #note: empty test
-    # test_generic_gen3 manipulators/test_generic_gen3.cpp
-    # test_generic_link6 manipulators/test_generic_link6.cpp
-    # test_generic_crx25 manipulators/test_generic_crx25.cpp
+    test_generic_gen3 manipulators/test_generic_gen3.cpp
     # test_generic_ur5e manipulators/test_generic_ur5e.cpp
+
     # Optimization
     # test_optimization optimization/test_optimization.cpp
     # test_optimization_guess optimization/test_initial_guess.cpp
     # test_optimization_objective optimization/test_objective.cpp
     # test_optimization_constraints optimization/test_constraints.cpp
     # test_optimization_tasks optimization/test_task.cpp
-    # test_optimization_hierarchical optimization/test_hierarchical_optimization.cpp
+
     # Math
     # test_math_matrix math/test_matrix.cpp
     test_misc math/test_misc.cpp
+
     # World
     test_primitives world/test_primitives.cpp
+
     # Trajectory
     test_bspline trajectory/test_bsplines.cpp
 )

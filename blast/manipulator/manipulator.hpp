@@ -316,14 +316,6 @@ inline Array get_internal_collisions(const Manipulator& manip, const Manipulator
   return distances;
 }
 
-// inline host_fn Array Manipulator::get_tool_pose() const {
-//   Mat3 tmp             = _rotations_mult.back();
-//   Vec3 current_rpy     = rotation2rpy(tmp);
-//   Vec3 current_cartpos = _p_j.back();
-//   return {current_cartpos.x, current_cartpos.y, current_cartpos.z,
-//           current_rpy.x, current_rpy.y, current_rpy.z};
-// }
-
 inline host_fn void Manipulator::add_tool(const Tool& tool) {
   tool_offset         = tool.tool_offset;
   tool_rotation       = tool.tool_rotation;

@@ -5,7 +5,6 @@
 
 #include <iomanip>
 
-using blast::get_generic_link6_opt;
 using blast::Optimization;
 using blast::OptimizationMethod;
 using blast::optimize;

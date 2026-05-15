@@ -1,8 +1,8 @@
 #define CATCH_CONFIG_MAIN
 
-#include "../../examples/files/manipulators/get_generic_ur5e_auto.hpp"
 #include "blast_rush.h"
 #include "catch2/catch.hpp"
+#include "manipulator/UR5e.hpp"
 #include "test_helper/test_functions.hpp"
 #include "test_helper/test_helper.hpp"
 
@@ -10,7 +10,7 @@ using namespace blast;
 
 TEST_CASE("UR5e forward_kinematics() test", "[Generic]") {
 
-  GenericManipulator generic_manip = get_generic_ur5e_robot();
+  GenericManipulator generic_manip = make_UR5e();
 
   //  @ home position
   Vec3  expected_tool_position = {0.0, -0.233, 1.08};
@@ -28,7 +28,7 @@ TEST_CASE("UR5e forward_kinematics() test", "[Generic]") {
 TEST_CASE("UR5e optimize() trajectory with obstacles", "[Generic]") {
   using namespace blast;
 
-  GenericManipulator generic_ur5e = get_generic_ur5e_robot();
+  GenericManipulator generic_ur5e = make_UR5e();
 
   // --- Define Tasks ---
   std::vector<Array> positions(2);

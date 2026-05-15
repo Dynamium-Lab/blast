@@ -16,7 +16,7 @@ set(EXAMPLES
     example_01_forward_kinematics       example_01_forward_kinematics.cpp
     example_02_trajectory_optimization  example_02_trajectory_optimization.cpp
     example_03_collision_avoidance      example_03_collision_avoidance.cpp
-    example_manipulator example_manipulator.cpp
+    # example_manipulator example_manipulator.cpp
     eval_manipulator ICRA2026/eval_manipulator.cpp
     get_bspline_and_basis_functions get_bspline_and_basis_functions.cpp
     get_start_and_end_pos get_start_and_end_pos.cpp

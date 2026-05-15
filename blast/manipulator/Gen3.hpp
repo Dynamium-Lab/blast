@@ -12,14 +12,14 @@ Manipulator make_kinova_gen3() {
   limits.position_max = {INF_REAL, 2.25, INF_REAL, 2.58f, INF_REAL, 2.1f, INF_REAL}; // rad
   limits.position_min = -limits.position_max;
 
-  limits.velocity_max = {1.745f, 1.745f, 1.745f, 1.745f, 2.443f, 2.443f, 2.443f};                   // rad/s
-                                                                                                    //   limits.vmin = -limits.velocity_max;
+  limits.velocity_max = {1.745f, 1.745f, 1.745f, 1.745f, 2.443f, 2.443f, 2.443f}; // rad/s
+                                                                                  //   limits.vmin = -limits.velocity_max;
 
-  limits.acceleration_max = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL}; // rad/s^2
-                                                                                                    //   limits.amin = -limits.acceleration_max;
+  limits.acceleration_max = {5.2, 5.2, 5.2, 5.2, 10.0, 10.0, 10.0};               // rad/s^2
+                                                                                  //   limits.amin = -limits.acceleration_max;
 
-  limits.torque_max = {52, 52, 52, 52, 17, 17, 17};                                                 // Nm
-                                                                                                    //   limits.tau_min = -limits.torque_max;
+  limits.torque_max = {52, 52, 52, 52, 17, 17, 17};                               // Nm
+                                                                                  //   limits.tau_min = -limits.torque_max;
 
   // kinematic properties
   ManipulatorKinematics kinematics; // using default Q_base
@@ -92,6 +92,9 @@ Manipulator make_kinova_gen3() {
   collisions.collision_matrix.resize(3, 3);
   collisions.collision_matrix(2, 0) = 1;
 
+  // mirrored just for consistency, technically not used
+  collisions.collision_matrix(0, 2) = 1;
+
   // Collision model
   CollisionModelCapsule model_caps;
 
@@ -120,4 +123,9 @@ Manipulator make_kinova_gen3() {
 
   return generic_manip;
 }
+
+inline host_fn Array get_gen3_home() {
+  return wrap2pi(deg2rad(Array({0, 15, 180, -130, 0, 55, 90})));
+}
+
 } // namespace blast
