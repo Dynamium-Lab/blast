@@ -44,6 +44,11 @@
       "configurePreset": "dev"
     },
     {
+      "name": "dev-msvc",
+      "configurePreset": "dev-msvc",
+      "configuration": "RelWithDebInfo"
+    },
+    {
       "name": "ci",
       "configurePreset": "ci"
     }
