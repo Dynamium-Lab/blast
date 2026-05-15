@@ -3,7 +3,7 @@
 
 namespace blast {
 
-Manipulator make_Gen3() {
+Manipulator make_kinova_gen3() {
   // Manipulator
   u32 joints = 7;
 
