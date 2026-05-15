@@ -15,11 +15,11 @@ struct Task {
   Task() = default;
 
   explicit Task(u32 n_joints) :
-    start{Array(n_joints), Array(n_joints), Array(n_joints)},
-    goal{Array(n_joints), Array(n_joints), Array(n_joints)} {
+      start{Array(n_joints), Array(n_joints), Array(n_joints)},
+      goal{Array(n_joints), Array(n_joints), Array(n_joints)} {
     for (u32 i = 0; i < n_joints; i++) {
       start.position[i] = start.velocity[i] = start.acceleration[i] = 0.0f;
-      goal.position[i]  = goal.velocity[i]  = goal.acceleration[i]  = 0.0f;
+      goal.position[i] = goal.velocity[i] = goal.acceleration[i] = 0.0f;
     }
   }
 
