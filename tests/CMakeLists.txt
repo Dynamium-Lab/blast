@@ -86,7 +86,7 @@ set(TESTS
     # test_optimization_tasks optimization/test_task.cpp
     # test_optimization_hierarchical optimization/test_hierarchical_optimization.cpp
     # Math
-    # test_math_matrix math/test_matrix.cpp
+    test_math_vec3 math/test_vec3.cpp
     # World
     #    test_primitives world/test_primitives.cpp
     # Trajectory

@@ -5,11 +5,14 @@
 namespace blast {
 
 //------ Vec3 ---------------------
+
+// NOTE: Unsafe operator[]. Use only when i ∈ [0,2]. No runtime check in release builds.
 inline blast_fn real& Vec3::operator[](int i) {
   Assert(i < 3);
   return *(&x + i); // note: Don't try this at home
 }
 
+// NOTE: Unsafe operator[]. Use only when i ∈ [0,2]. No runtime check in release builds.
 inline blast_fn real Vec3::operator[](int i) const {
   Assert(i < 3);
   return *(&x + i); // note: Don't try this at home
@@ -114,10 +117,25 @@ inline blast_fn Vec3& operator+=(Vec3& v1, const Vec3& v2) {
   return v1;
 }
 
+inline blast_fn Vec3& operator-=(Vec3& v1, const Vec3& v2) {
+  v1.x -= v2.x;
+  v1.y -= v2.y;
+  v1.z -= v2.z;
+  return v1;
+}
+
 inline blast_fn Vec3& operator*=(Vec3& v, real a) {
   v.x *= a;
   v.y *= a;
   v.z *= a;
+  return v;
+}
+
+
+inline blast_fn Vec3& operator/=(Vec3& v, real a) {
+  v.x /= a;
+  v.y /= a;
+  v.z /= a;
   return v;
 }
 } // namespace blast
