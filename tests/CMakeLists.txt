@@ -72,9 +72,9 @@ set(TESTS
     test_objmatrix container/test_objmatrix.cpp
 
     # Manipulator
-    test_functions manipulators/test_functions.cpp #note: empty test
+    test_functions manipulators/test_functions.cpp # note: empty test
     test_generic_gen3 manipulators/test_generic_gen3.cpp
-    # test_generic_ur5e manipulators/test_generic_ur5e.cpp
+    test_generic_ur5e manipulators/test_generic_ur5e.cpp
 
     # Optimization
     # test_optimization optimization/test_optimization.cpp

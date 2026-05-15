@@ -12,11 +12,11 @@ Manipulator make_UR5e() {
   limits.position_max = {6.283200, 6.283200, 3.141600, 6.283200, 6.283200, 6.283200};
   limits.position_min = {-6.283200, -6.283200, -3.141600, -6.283200, -6.283200, -6.283200};
   limits.velocity_max = {3.141600, 3.141600, 3.141600, 3.141600, 3.141600, 3.141600};
-  // limits.vmin = {-3.141600, -3.141600, -3.141600, -3.141600, -3.141600, -3.141600};
+
   limits.acceleration_max = {13.96, 13.96, 13.96, 13.96, 13.96, 13.96};
-  // limits.amin = {-13.96, -13.96, -13.96, -13.96, -13.96, -13.96};
+
   limits.torque_max = {150.000000, 150.000000, 150.000000, 28.000000, 28.000000, 28.000000};
-  // limits.tau_min = {-150.000000, -150.000000, -150.000000, -28.000000, -28.000000, -28.000000};
+
   limits.tool_speed_max = 2.0; // todo: verify this value
 
   blast::ManipulatorKinematics kinematics;
@@ -36,7 +36,7 @@ Manipulator make_UR5e() {
           {0, 0, 1},
           {0, 0, 1}};
   // kinematics.static_rotations.resize(6);
-  kinematics.static_rotations[0] = {-1.000000, 0.000000, 0.000000, -0.000000, -1.000000, 0.000000, 0.000000, -0.000000, 1.000000}; // modified
+  kinematics.static_rotations[0] = {1.000000, 0.000000, 0.000000, -0.000000, 1.000000, 0.000000, 0.000000, -0.000000, 1.000000}; // modified (todo: why??? - if known, capsules should be inverted for x, y. Meanwhile this will go back to -1 -1 x, y)
   kinematics.static_rotations[1] = {1.000000, 0.000000, 0.000000, -0.000000, -0.000000, 1.000000, 0.000000, -1.000000, -0.000000};
   kinematics.static_rotations[2] = {1.000000, 0.000000, 0.000000, -0.000000, 1.000000, 0.000000, 0.000000, -0.000000, 1.000000};
   kinematics.static_rotations[3] = {1.000000, 0.000000, 0.000000, -0.000000, 1.000000, 0.000000, 0.000000, -0.000000, 1.000000};

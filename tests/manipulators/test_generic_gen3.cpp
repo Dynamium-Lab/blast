@@ -3,8 +3,6 @@
 
 #include <blast>
 #include "manipulator/Gen3.hpp"
-#include "test_helper/test_functions.hpp"
-#include "test_helper/test_helper.hpp"
 
 using namespace blast;
 
@@ -119,7 +117,7 @@ TEST_CASE("Gen3 compute_rotation_matrices() test", "[Generic]") {
   int  n_tests = 100;
   real epsilon = 1e-6;
   Gen3 expected_manip;
-  auto generic_manip           = make_kinova_gen3();
+  auto generic_manip          = make_kinova_gen3();
   generic_manip.base_position = {0.0, 0.0, 0.0};
   generic_manip.base_rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};
 
