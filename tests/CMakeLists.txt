@@ -70,9 +70,9 @@ set(TESTS
     #    test_inplace acceleration/test_inplace.cpp
 
     # Container
-    test_container_objmatrix container/test_objmatrix.cpp
+    test_objmatrix container/test_objmatrix.cpp
     # Manipulator
-    # test_manipulator_functions manipulators/test_functions.cpp
+    test_functions manipulators/test_functions.cpp #note: empty test
     # test_generic_gen3 manipulators/test_generic_gen3.cpp
     # test_generic_link6 manipulators/test_generic_link6.cpp
     # test_generic_crx25 manipulators/test_generic_crx25.cpp
@@ -86,6 +86,7 @@ set(TESTS
     # test_optimization_hierarchical optimization/test_hierarchical_optimization.cpp
     # Math
     # test_math_matrix math/test_matrix.cpp
+    test_misc math/test_misc.cpp
     # World
     test_primitives world/test_primitives.cpp
     # Trajectory

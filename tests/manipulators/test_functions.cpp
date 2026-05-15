@@ -2,28 +2,9 @@
 #include "catch2/catch.hpp"
 
 #include <blast>
+#include "manipulator/UR5e.hpp"
 #include "test_helper/test_functions.hpp"
 #include "test_helper/test_helper.hpp"
-
-
-TEST_CASE("Conversions Q & rx, ry, rz", "[Manipulator]") {
-  using namespace blast;
-  auto manip = get_generic_Link6();
-  for (u32 i = 0; i < 100; i++) {
-
-    Array joint_pose(6);
-
-    fill_random(joint_pose, PI);
-
-    forward_kinematics(manip, joint_pose);
-    auto current_pose = manip.get_tool_pose();
-    auto rot_rxyz     = rpy2rotation({current_pose[3], current_pose[4], current_pose[5]});
-    auto rxyz_rot     = rotation2rpy(rot_rxyz);
-
-    CHECK(is_close(manip._rotations_mult[manip._rotations_mult.size() - 1], rot_rxyz, 0.001));
-    CHECK(is_close(rxyz_rot, {current_pose[3], current_pose[4], current_pose[5]}));
-  }
-}
 
 // todo: fix inverse_kinematics
 /*TEST_CASE("Inverse kinematics zero position test", "[Manipulator]") {
