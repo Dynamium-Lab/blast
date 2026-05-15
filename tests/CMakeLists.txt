@@ -70,10 +70,9 @@ set(TESTS
     #    test_inplace acceleration/test_inplace.cpp
 
     # Container
-    #    test_container_objmatrix container/test_objmatrix.cpp
-    # test_container_objdblarray container/test_objdblarray.cpp
+    test_container_objmatrix container/test_objmatrix.cpp
     # Manipulator
-    #    test_manipulator_functions manipulators/test_functions.cpp
+    # test_manipulator_functions manipulators/test_functions.cpp
     # test_generic_gen3 manipulators/test_generic_gen3.cpp
     # test_generic_link6 manipulators/test_generic_link6.cpp
     # test_generic_crx25 manipulators/test_generic_crx25.cpp
@@ -88,7 +87,7 @@ set(TESTS
     # Math
     # test_math_matrix math/test_matrix.cpp
     # World
-    #    test_primitives world/test_primitives.cpp
+    test_primitives world/test_primitives.cpp
     # Trajectory
     test_bspline trajectory/test_bsplines.cpp
 )
