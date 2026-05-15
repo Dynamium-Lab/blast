@@ -28,6 +28,7 @@
         "rhs": "Windows"
       },
       "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "CMAKE_CXX_FLAGS": "/arch:AVX2",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
