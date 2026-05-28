@@ -240,7 +240,7 @@ std::mutex                      mut_config;
 
 // Base results
 std::vector<Result> result_base_list;
-// Results for each of the four accelerations
+// Results for each of the four speedups
 std::vector<Result> result_spdup1_list;
 std::vector<Result> result_spdup2_list;
 // Results for our final per_segment integration
@@ -418,14 +418,14 @@ void eval_function_UR5e() {
       auto result_base = optimize(&opt, blast::OptimizationMethod::baseline);
       tmp_result_list.push_back(result_base);
 
-      auto result_acc1 = optimize(&opt, blast::OptimizationMethod::with_analytical_pva);
-      tmp_result_acc1_list.push_back(result_acc1);
+      auto result_spdup1 = optimize(&opt, blast::OptimizationMethod::with_analytical_pva);
+      tmp_result_spdup1_list.push_back(result_spdup1);
 
-      auto result_acc2 = optimize(&opt, blast::OptimizationMethod::with_analytical_dynamics);
-      tmp_result_acc2_list.push_back(result_acc2);
+      auto result_spdup2 = optimize(&opt, blast::OptimizationMethod::with_analytical_dynamics);
+      tmp_result_spdup2_list.push_back(result_spdup2);
 
-      auto result_acc3 = optimize(&opt, blast::OptimizationMethod::with_segments);
-      tmp_result_acc3_list.push_back(result_acc3);
+      auto result_spdup3 = optimize(&opt, blast::OptimizationMethod::with_segments);
+      tmp_result_spdup3_list.push_back(result_spdup3);
 
       tmp_task_id.push_back(config.task_idx);
       tmp_config_id.push_back(config.config_idx);
