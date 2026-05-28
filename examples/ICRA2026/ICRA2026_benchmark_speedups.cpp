@@ -419,17 +419,17 @@ void eval_function_UR5e() {
       auto result_base = optimize(&opt);
       tmp_result_list.push_back(result_base);
 
-      opt.method         = OptimizationMethod::with_analytical_pva;
-      auto result_spdup1 = optimize(&opt);
-      tmp_result_spdup1_list.push_back(result_spdup1);
+      opt.method       = OptimizationMethod::with_analytical_pva;
+      auto result_acc1 = optimize(&opt);
+      tmp_result_acc1_list.push_back(result_acc1);
 
-      opt.method         = OptimizationMethod::with_analytical_dynamics;
-      auto result_spdup2 = optimize(&opt);
-      tmp_result_spdup2_list.push_back(result_spdup2);
+      opt.method       = OptimizationMethod::with_analytical_dynamics;
+      auto result_acc2 = optimize(&opt);
+      tmp_result_acc2_list.push_back(result_acc2);
 
-      opt.method         = OptimizationMethod::with_segments;
-      auto result_spdup3 = optimize(&opt);
-      tmp_result_spdup3_list.push_back(result_spdup3);
+      opt.method       = OptimizationMethod::with_segments;
+      auto result_acc3 = optimize(&opt);
+      tmp_result_acc3_list.push_back(result_acc3);
 
       tmp_task_id.push_back(config.task_idx);
       tmp_config_id.push_back(config.config_idx);
