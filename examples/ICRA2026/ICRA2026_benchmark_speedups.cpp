@@ -402,13 +402,13 @@ void eval_function_UR5e() {
     opt.guess.type = Guess::custom;
 
     // temp vectors
-    std::vector<Result> tmp_result_list, tmp_result_acc1_list, tmp_result_acc2_list, tmp_result_acc3_list;
+    std::vector<Result> tmp_result_list, tmp_result_spdup1_list, tmp_result_spdup2_list, tmp_result_spdup3_list;
     std::vector<u32>    tmp_task_id, tmp_config_id;
 
     tmp_result_list.reserve(n_optim);
-    tmp_result_acc1_list.reserve(n_optim);
-    tmp_result_acc2_list.reserve(n_optim);
-    tmp_result_acc3_list.reserve(n_optim);
+    tmp_result_spdup1_list.reserve(n_optim);
+    tmp_result_spdup2_list.reserve(n_optim);
+    tmp_result_spdup3_list.reserve(n_optim);
     tmp_task_id.reserve(n_optim);
     tmp_config_id.reserve(n_optim);
 
@@ -433,9 +433,9 @@ void eval_function_UR5e() {
 
     mut_result.lock();
     result_base_list.insert(result_base_list.end(), tmp_result_list.begin(), tmp_result_list.end());
-    result_spdup1_list.insert(result_spdup1_list.end(), tmp_result_acc1_list.begin(), tmp_result_acc1_list.end());
-    result_spdup2_list.insert(result_spdup2_list.end(), tmp_result_acc2_list.begin(), tmp_result_acc2_list.end());
-    result_spdup3_list.insert(result_spdup3_list.end(), tmp_result_acc3_list.begin(), tmp_result_acc3_list.end());
+    result_spdup1_list.insert(result_spdup1_list.end(), tmp_result_spdup1_list.begin(), tmp_result_spdup1_list.end());
+    result_spdup2_list.insert(result_spdup2_list.end(), tmp_result_spdup2_list.begin(), tmp_result_spdup2_list.end());
+    result_spdup3_list.insert(result_spdup3_list.end(), tmp_result_spdup3_list.begin(), tmp_result_spdup3_list.end());
     task_id.insert(task_id.end(), tmp_task_id.begin(), tmp_task_id.end());
     config_ids.insert(config_ids.end(), tmp_config_id.begin(), tmp_config_id.end());
     mut_result.unlock();
