@@ -12,7 +12,6 @@
 
 #include <blast>
 #include <iostream>
-#include "ur5e.hpp"
 
 int main() {
   using namespace blast;
@@ -22,7 +21,7 @@ int main() {
   // make_ur5e() returns a fully configured UR5e with limits, kinematics,
   // dynamics, and collision geometry. No external files are needed.
   // -----------------------------------------------------------------------
-  Manipulator ur5e = make_ur5e();
+  Manipulator ur5e = make_UR5e();
 
   // Optionally reposition the robot in the world (metres, rotation matrix).
   ur5e.base_position = {0.0, 0.0, 0.0}; // world-frame origin
