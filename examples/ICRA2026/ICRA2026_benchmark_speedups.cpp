@@ -415,17 +415,21 @@ void eval_function_UR5e() {
     for (int iter = 0; iter < n_optim; ++iter) {
       opt.guess.initial_x = guess_random((opt.bspline), opt.task);
       // opt.guess.initial_x.back() = 0.5;
-      auto result_base = optimize(&opt, blast::OptimizationMethod::baseline);
+      opt.method       = OptimizationMethod::baseline;
+      auto result_base = optimize(&opt);
       tmp_result_list.push_back(result_base);
 
-      auto result_acc1 = optimize(&opt, blast::OptimizationMethod::with_analytical_pva);
-      tmp_result_acc1_list.push_back(result_acc1);
+      opt.method         = OptimizationMethod::with_analytical_pva;
+      auto result_spdup1 = optimize(&opt);
+      tmp_result_spdup1_list.push_back(result_spdup1);
 
-      auto result_acc2 = optimize(&opt, blast::OptimizationMethod::with_analytical_dynamics);
-      tmp_result_acc2_list.push_back(result_acc2);
+      opt.method         = OptimizationMethod::with_analytical_dynamics;
+      auto result_spdup2 = optimize(&opt);
+      tmp_result_spdup2_list.push_back(result_spdup2);
 
-      auto result_acc3 = optimize(&opt, blast::OptimizationMethod::with_segments);
-      tmp_result_acc3_list.push_back(result_acc3);
+      opt.method         = OptimizationMethod::with_segments;
+      auto result_spdup3 = optimize(&opt);
+      tmp_result_spdup3_list.push_back(result_spdup3);
 
       tmp_task_id.push_back(config.task_idx);
       tmp_config_id.push_back(config.config_idx);
