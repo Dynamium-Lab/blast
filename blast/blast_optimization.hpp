@@ -108,6 +108,7 @@ struct ConstraintSelection {
 };
 
 struct Optimization {
+  OptimizationMethod  method;
   Manipulator         manip;
   Bspline             bspline;
   Guess               guess;

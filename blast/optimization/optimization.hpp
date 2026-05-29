@@ -45,6 +45,7 @@ inline Optimization::Optimization(const Manipulator& new_manip, const Task& new_
     task(new_task.to_matrix()),
     custom_data(nullptr) {
   // Default values
+  method               = OptimizationMethod::with_segments;
   guess.type           = Guess::random;
   guess.n_random_shots = 100;
 
@@ -61,6 +62,8 @@ inline Optimization::Optimization(const Manipulator& new_manip, const Task& new_
     bspline(new_bspline),
     task(new_task.to_matrix()),
     custom_data(nullptr) {
+  // Default values
+  method               = OptimizationMethod::with_segments;
   guess.type           = Guess::random;
   guess.n_random_shots = 100;
 
@@ -991,8 +994,8 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
 }
 
 
-inline Result optimize(Optimization* opt, OptimizationMethod method = OptimizationMethod::with_segments, u32 output_steps_ms = 1 /*ms*/) {
-  switch (method) {
+inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
+  switch (opt->method) {
     case OptimizationMethod::baseline:
       return optimize_baseline_impl(opt, output_steps_ms);
     case OptimizationMethod::with_analytical_pva:
