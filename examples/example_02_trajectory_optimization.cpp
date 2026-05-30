@@ -69,8 +69,7 @@ int main() {
   // Guess::random tries n_shot random starting points and picks the best
   // one as the initial solution for the optimizer.
   // -----------------------------------------------------------------------
-  opt.guess.type           = Guess::random;
-  opt.guess.n_random_shots = 50;
+  opt.guess.type = Guess::random;
 
   // -----------------------------------------------------------------------
   // Step 6 — Run the optimizer.

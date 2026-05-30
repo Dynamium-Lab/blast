@@ -87,8 +87,7 @@ int main() {
     std::cout << "Attempt " << attempt << "/" << max_attempts << "... ";
 
     // Draw a fresh random initial guess for each attempt.
-    opt.guess.type           = Guess::random;
-    opt.guess.n_random_shots = 30;
+    opt.guess.type = Guess::random;
 
     // optimize() with with_segments (the default) reduces collision constraints
     // to one worst-case value per B-spline segment, keeping the problem tractable
