@@ -16,7 +16,8 @@ set(EXAMPLES
         example_01_forward_kinematics example_01_forward_kinematics.cpp
         example_02_trajectory_optimization example_02_trajectory_optimization.cpp
         example_03_collision_avoidance example_03_collision_avoidance.cpp
-        demo_print_bsplines_and_basis_functions demo_print_bsplines_and_basis_functions.cpp
+
+        print_bsplines_and_basis_functions extras/print_bsplines_and_basis_functions.cpp
 
         ICRA2026_benchmark_speedups ICRA2026/ICRA2026_benchmark_speedups.cpp
 )
