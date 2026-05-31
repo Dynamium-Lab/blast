@@ -33,8 +33,8 @@ struct Guess {
   enum GuessType : u32 {
     custom,
     random,
-    from_list,
-    rrt_connect
+    shotgun,
+    from_list
   };
 
   GuessType type           = random;
@@ -57,16 +57,10 @@ struct Guess {
       candidates(std::move(m)) {
   }
 
-  // Constructor for Guess::random, initializing n_random_shots
+  // Constructor for Guess::shotgun, initializing n_random_shots
   explicit Guess(u32 shots) :
-      type(Guess::random),
+      type(Guess::shotgun),
       n_random_shots(shots) {
-  }
-
-  // Constructor for Guess::rrt_connect, initializing parameter
-  explicit Guess(real param) :
-      type(Guess::rrt_connect),
-      parameter(param) {
   }
 };
 
