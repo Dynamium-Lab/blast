@@ -55,9 +55,11 @@ jobs:
         run: ctest --build-config ${{ matrix.build_type }} --output-on-failure
 
   # -------------------------------------------------------------------------
-  # Install + test_package (consumer smoke test)
-  # Verifies that find_package(Blast) works from an installed tree.
-  # Only runs on Linux/GCC to keep CI fast; the logic is platform-agnostic.
+  # Install + consumer smoke test
+  # Verifies that find_package(Blast) works from an installed tree. The tiny
+  # consumer project is generated inline below (not checked into the repo) to
+  # keep the source tree clean. Only runs on Linux to keep CI fast; the logic
+  # is platform-agnostic.
   # -------------------------------------------------------------------------
   install-test:
     runs-on: ubuntu-latest
@@ -77,15 +79,42 @@ jobs:
       - name: Install Blast
         run: cmake --install ${{ github.workspace }}/build --config Release
 
-      - name: Configure test_package
+      - name: Generate consumer smoke test
+        run: |
+          mkdir -p "$RUNNER_TEMP/consumer"
+          cat > "$RUNNER_TEMP/consumer/CMakeLists.txt" <<'EOF'
+          cmake_minimum_required(VERSION 3.21)
+          project(blast_consumer CXX)
+
+          find_package(Blast REQUIRED)
+
+          add_executable(test_consumer main.cpp)
+          target_link_libraries(test_consumer PRIVATE Blast::blast)
+          EOF
+          cat > "$RUNNER_TEMP/consumer/main.cpp" <<'EOF'
+          // Minimal consumer — verifies that the installed Blast headers and the
+          // exported nlopt target are all reachable via find_package(Blast).
+          #include <blast>
+          #include <iostream>
+
+          int main() {
+            // Exercise a type from blast_math.hpp (included transitively via <blast>)
+            blast::Vec3 v{1.0, 2.0, 3.0};
+            std::cout << "Blast::Vec3 constructed: "
+                      << v.x << " " << v.y << " " << v.z << "\n";
+            return 0;
+          }
+          EOF
+
+      - name: Configure consumer
         run: >
-          cmake -B ${{ github.workspace }}/test_package/build
+          cmake -B "$RUNNER_TEMP/consumer/build"
           -DCMAKE_BUILD_TYPE=Release
           -DCMAKE_PREFIX_PATH=${{ github.workspace }}/install
-          -S ${{ github.workspace }}/test_package
+          -S "$RUNNER_TEMP/consumer"
 
-      - name: Build test_package
-        run: cmake --build ${{ github.workspace }}/test_package/build --config Release
+      - name: Build consumer
+        run: cmake --build "$RUNNER_TEMP/consumer/build" --config Release
 
-      - name: Run test_package
-        run: ${{ github.workspace }}/test_package/build/test_consumer
+      - name: Run consumer
+        run: "$RUNNER_TEMP/consumer/build/test_consumer"
