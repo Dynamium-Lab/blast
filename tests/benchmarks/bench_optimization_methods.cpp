@@ -54,7 +54,8 @@ inline MethodStats run_trials(OptimizationMethod method, int n_trials) {
   for (int i = 0; i < n_trials; i++) {
     opt.guess.initial_x = guess_random(opt.bspline, opt.task);
 
-    result = optimize(&opt, method);
+    opt.method = method;
+    result     = optimize(&opt);
 
     if (result.success) {
       n_success++;

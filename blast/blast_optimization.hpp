@@ -33,8 +33,8 @@ struct Guess {
   enum GuessType : u32 {
     custom,
     random,
-    from_list,
-    rrt_connect
+    shotgun,
+    from_list
   };
 
   GuessType type           = random;
@@ -57,16 +57,10 @@ struct Guess {
       candidates(std::move(m)) {
   }
 
-  // Constructor for Guess::random, initializing n_random_shots
+  // Constructor for Guess::shotgun, initializing n_random_shots
   explicit Guess(u32 shots) :
-      type(Guess::random),
+      type(Guess::shotgun),
       n_random_shots(shots) {
-  }
-
-  // Constructor for Guess::rrt_connect, initializing parameter
-  explicit Guess(real param) :
-      type(Guess::rrt_connect),
-      parameter(param) {
   }
 };
 
@@ -99,11 +93,8 @@ struct ConstraintSelection {
   int n_constraints             = 0;
   int n_constraints_per_segment = 0;
 
-  // Added more info for testing
-  bool                show_info = false;
-  std::vector<Matrix> grad_list;
-  std::vector<Array>  constr_list;
-  std::vector<Array>  x_list;
+  bool               collect_x_each_iteration = false; // set to true to record optimization vector for all iterations
+  std::vector<Array> x_list;
 
   ConstraintFunctionVector extra_constraints   = {};
   std::vector<u32>         n_extra_constraints = {};
@@ -111,6 +102,7 @@ struct ConstraintSelection {
 };
 
 struct Optimization {
+  OptimizationMethod  method;
   Manipulator         manip;
   Bspline             bspline;
   Guess               guess;
@@ -158,10 +150,8 @@ inline void   nlopt_constraints(unsigned m, double* result, unsigned x_len, cons
 inline double compute_objective(Array& current_x, Optimization* opt);
 inline bool   validate_task(Optimization* opt);
 
-inline void nlopt_constraints_with_analytical_pva(unsigned m, double* result, unsigned xlen, const double* x, double* grad,
-                                                  void* f_data);
-inline void nlopt_constraints_with_analytical_dynamics(unsigned m, double* result, unsigned xlen, const double* x, double* grad,
-                                                       void* f_data);
+inline void nlopt_constraints_with_analytical_pva(unsigned m, double* result, unsigned xlen, const double* x, double* grad, void* f_data);
+inline void nlopt_constraints_with_analytical_dynamics(unsigned m, double* result, unsigned xlen, const double* x, double* grad, void* f_data);
 
 
 // inline real   bound_constraint(const real& value, const real& value_min, const real& value_max);

@@ -86,12 +86,11 @@ inline Array get_best_x_segments(Optimization* opt) {
 inline Array init_guess_segments(Optimization* opt) {
   Array x(opt->bspline.x_len(opt->task));
   switch (opt->guess.type) {
-    case Guess::rrt_connect: {
-      // auto x = guess_rrt<og::RRTConnect>(opt); todo: create and use opt->guess.parameter for range
-      std::cout << "RRTConnect is not yet supported" << std::endl;
+    case Guess::random: {
+      x = guess_random(opt->bspline, opt->task);
       break;
     }
-    case Guess::random: {
+    case Guess::shotgun: {
       x = guess_shot_mean_segments(opt);
       break;
     }
@@ -148,12 +147,11 @@ inline Array get_best_x(Optimization* opt) {
 inline Array init_guess(Optimization* opt) {
   Array x(opt->bspline.x_len(opt->task));
   switch (opt->guess.type) {
-    case Guess::rrt_connect: {
-      // auto x = guess_rrt<og::RRTConnect>(opt); todo: create and use opt.guess.parameter for range
-      std::cout << "RRTConnect is not yet supported" << std::endl;
+    case Guess::random: {
+      x = guess_random(opt->bspline, opt->task);
       break;
     }
-    case Guess::random: {
+    case Guess::shotgun: {
       x = guess_shot_mean(opt);
       break;
     }

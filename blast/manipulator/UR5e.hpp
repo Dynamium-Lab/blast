@@ -3,70 +3,72 @@
 
 namespace blast {
 
-Manipulator make_UR5e() {
+inline Manipulator make_UR5e() {
   // Manipulator
-  blast::u32 joints = 6;
+  u32 joints = 6;
 
   // limits
-  blast::ManipulatorLimits limits;
-  limits.position_max = {6.283200, 6.283200, 3.141600, 6.283200, 6.283200, 6.283200};
-  limits.position_min = {-6.283200, -6.283200, -3.141600, -6.283200, -6.283200, -6.283200};
-  limits.velocity_max = {3.141600, 3.141600, 3.141600, 3.141600, 3.141600, 3.141600};
+  ManipulatorLimits limits;
+  limits.position_max     = {6.283200f, 6.283200f, 3.141600f, 6.283200f, 6.283200f, 6.283200f};       // rad
+  limits.position_min     = {-6.283200f, -6.283200f, -3.141600f, -6.283200f, -6.283200f, -6.283200f}; // rad
+  limits.velocity_max     = {3.141600f, 3.141600f, 3.141600f, 3.141600f, 3.141600f, 3.141600f};       // rad/s
+  limits.acceleration_max = {13.96f, 13.96f, 13.96f, 13.96f, 13.96f, 13.96f};                         // rad/s^2
+  limits.torque_max       = {150.0f, 150.0f, 150.0f, 28.0f, 28.0f, 28.0f};                            // Nm
+  limits.tool_speed_max   = 1.0f;                                                                     // m/s
 
-  limits.acceleration_max = {13.96, 13.96, 13.96, 13.96, 13.96, 13.96};
-
-  limits.torque_max = {150.000000, 150.000000, 150.000000, 28.000000, 28.000000, 28.000000};
-
-  limits.tool_speed_max = 2.0; // todo: verify this value
-
-  blast::ManipulatorKinematics kinematics;
+  // kinematic properties
+  ManipulatorKinematics kinematics; // using default Q_base
   kinematics.joint_offsets = {
           Vec3{0, 0, 0},
-          {-0.425, 0, 0},
-          {-0.3922, 0, 0.1333},
-          {0, -0.0997, -0},
-          {0, 0.0996, -0},
-          {0, 0, 0} // to end effector
-  };
+          {-0.425f, 0, 0},
+          {-0.3922f, 0, 0.1333f},
+          {0, -0.0997f, -0},
+          {0, 0.0996f, -0},
+          {0, 0, 0}}; // vector to next joint
   kinematics.joint_axes = {
           Vec3{0, 0, 1},
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1},
-          {0, 0, 1}};
-  // kinematics.static_rotations.resize(6);
-  kinematics.static_rotations[0] = {1.000000, 0.000000, 0.000000, -0.000000, 1.000000, 0.000000, 0.000000, -0.000000, 1.000000}; // modified (todo: why??? - if known, capsules should be inverted for x, y. Meanwhile this will go back to -1 -1 x, y)
-  kinematics.static_rotations[1] = {1.000000, 0.000000, 0.000000, -0.000000, -0.000000, 1.000000, 0.000000, -1.000000, -0.000000};
-  kinematics.static_rotations[2] = {1.000000, 0.000000, 0.000000, -0.000000, 1.000000, 0.000000, 0.000000, -0.000000, 1.000000};
-  kinematics.static_rotations[3] = {1.000000, 0.000000, 0.000000, -0.000000, 1.000000, 0.000000, 0.000000, -0.000000, 1.000000};
-  kinematics.static_rotations[4] = {1.000000, 0.000000, 0.000000, -0.000000, -0.000000, 1.000000, 0.000000, -1.000000, -0.000000};
-  kinematics.static_rotations[5] = {1.000000, -0.000000, 0.000000, 0.000000, -0.000000, -1.000000, 0.000000, 1.000000, -0.000000};
-  // kinematics.static_rotations[6] = {1.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 1.000000};
-  kinematics.first_joint_position = {0.000000, 0.000000, 0.162500};
+          {0, 0, 1}}; // direction vectors of joint
+  kinematics.static_rotations[0]  = {-1, 0, 0, -0, -1, 0, 0, -0, 1};
+  kinematics.static_rotations[1]  = {1, 0, 0, -0, -0, 1, 0, -1, -0};
+  kinematics.static_rotations[2]  = {1, 0, 0, -0, 1, 0, 0, -0, 1};
+  kinematics.static_rotations[3]  = {1, 0, 0, -0, 1, 0, 0, -0, 1};
+  kinematics.static_rotations[4]  = {1, 0, 0, -0, -0, 1, 0, -1, -0};
+  kinematics.static_rotations[5]  = {1, -0, 0, 0, -0, -1, 0, 1, -0};
+  kinematics.first_joint_position = {0, 0, 0.162500f};
 
-  blast::ManipulatorDynamics dynamics;
-  dynamics.link_masses     = {3.700000, 8.393000, 2.275000, 1.219000, 1.219000, 0.187900};
+  // dynamic properties
+  ManipulatorDynamics dynamics;
+  dynamics.link_masses = {
+          3.700000f,
+          8.393000f,
+          2.275000f,
+          1.219000f,
+          1.219000f,
+          0.187900f}; // link masses
   dynamics.inertia_tensors = {
-          Mat3{0.0103, 0, 0, 0, 0.0103, 0, 0, 0, 0.0067},
-          {0.1339, 0, 0, 0, 0.1339, 0, 0, 0, 0.0151},
-          {0.0312, 0, 0, 0, 0.0312, 0, 0, 0, 0.0041},
-          {0.0026, 0, 0, 0, 0.0026, 0, 0, 0, 0.0022},
-          {0.0026, 0, 0, 0, 0.0026, 0, 0, 0, 0.0022},
-          {0.0001, 0, 0, 0, 0.0001, 0, 0, 0, 0.0001}};
+          Mat3{0.0103f, 0, 0, 0, 0.0103f, 0, 0, 0, 0.0067f},
+          {0.1339f, 0, 0, 0, 0.1339f, 0, 0, 0, 0.0151f},
+          {0.0312f, 0, 0, 0, 0.0312f, 0, 0, 0, 0.0041f},
+          {0.0026f, 0, 0, 0, 0.0026f, 0, 0, 0, 0.0022f},
+          {0.0026f, 0, 0, 0, 0.0026f, 0, 0, 0, 0.0022f},
+          {0.0001f, 0, 0, 0, 0.0001f, 0, 0, 0, 0.0001f}}; // Inertial tensors
   dynamics.cog_offsets = {
           Vec3{0, 0, 0},
-          {-0.2125, 0, 0.138},
-          {-0.1961, 0, 0.007},
+          {-0.2125f, 0, 0.138f},
+          {-0.1961f, 0, 0.007f},
           {0, 0, 0},
           {0, 0, 0},
-          {0, 0, -0.0229}};
+          {0, 0, -0.0229f}}; // centers of mass
 
-  blast::ManipulatorCapsules collisions;
+  ManipulatorCapsules collisions;
 
-  blast::Sphere base;
-  base.center               = {0, 0, 0.0325};
-  base.radius               = 0.09;
+  Sphere base;
+  base.center               = {0, 0, 0.0325f};
+  base.radius               = 0.09f;
   collisions.base_sphere    = base;
   collisions.collision_base = {0, 0, 0, 1, 1, 1, 1};
 
@@ -94,51 +96,51 @@ Manipulator make_UR5e() {
 
   collisions.collision_matrix(3, 6) = 1;
 
-  blast::CollisionModelCapsule capsule;
+  CollisionModelCapsule capsule;
   capsule.joint_frame = 0;
   capsule.p1          = {0, 0, 0};
-  capsule.p2          = {0, -0.15, 0};
-  capsule.radius      = 0.09;
+  capsule.p2          = {0, -0.15f, 0};
+  capsule.radius      = 0.09f;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 1;
-  capsule.p1          = {-0.42, 0, 0.1375};
-  capsule.p2          = {0, 0, 0.1375};
-  capsule.radius      = 0.06;
+  capsule.p1          = {-0.42f, 0, 0.1375f};
+  capsule.p2          = {0, 0, 0.1375f};
+  capsule.radius      = 0.06f;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 2;
-  capsule.p1          = {0, 0, 0.02};
-  capsule.p2          = {0, 0, 0.18};
-  capsule.radius      = 0.065;
+  capsule.p1          = {0, 0, 0.02f};
+  capsule.p2          = {0, 0, 0.18f};
+  capsule.radius      = 0.065f;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 2;
-  capsule.p1          = {-0.373156, 0, 0.00850418};
-  capsule.p2          = {0.000440611, 0.000121443, 0.00850418};
-  capsule.radius      = 0.05;
+  capsule.p1          = {-0.373156f, 0, 0.00850418f};
+  capsule.p2          = {0.000440611f, 0.000121443f, 0.00850418f};
+  capsule.radius      = 0.05f;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 3;
   capsule.p1          = {0, 0, 0};
-  capsule.p2          = {0, 0, -0.155};
-  capsule.radius      = 0.0425;
+  capsule.p2          = {0, 0, -0.155f};
+  capsule.radius      = 0.0425f;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 3;
-  capsule.p1          = {0, 0.03, 0};
-  capsule.p2          = {0, -0.1, 0};
-  capsule.radius      = 0.0425;
+  capsule.p1          = {0, 0.03f, 0};
+  capsule.p2          = {0, -0.1f, 0};
+  capsule.radius      = 0.0425f;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 5;
-  capsule.p1          = {0, 0, -0.14};
-  capsule.p2          = {0, 0, -0.01};
-  capsule.radius      = 0.038;
+  capsule.p1          = {0, 0, -0.14f};
+  capsule.p2          = {0, 0, -0.01f};
+  capsule.radius      = 0.038f;
   collisions.capsule_list.push_back(capsule);
 
-  blast::Manipulator generic_manip(joints, limits, kinematics, &dynamics, &collisions);
-  return generic_manip;
+  Manipulator ur5e(joints, limits, kinematics, &dynamics, &collisions);
+  return ur5e;
 }
 
 } // namespace blast

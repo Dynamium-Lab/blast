@@ -360,10 +360,6 @@ inline host_fn bool is_close(const Guess& guess1, const Guess& guess2, real eps 
       if (is_close(guess1.n_random_shots, guess2.n_random_shots))
         return false;
       break;
-    case Guess::rrt_connect:
-      if (!is_close(guess1.parameter, guess2.parameter))
-        return false;
-      break;
     default:
       Assert(false);
   }

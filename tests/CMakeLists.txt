@@ -87,6 +87,7 @@ set(TESTS
     # test_math_matrix math/test_matrix.cpp
     test_misc math/test_misc.cpp
 
+    test_math_vec3 math/test_vec3.cpp
     # World
     test_primitives world/test_primitives.cpp
 

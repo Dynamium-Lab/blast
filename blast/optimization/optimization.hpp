@@ -45,6 +45,7 @@ inline Optimization::Optimization(const Manipulator& new_manip, const Task& new_
     task(new_task.to_matrix()),
     custom_data(nullptr) {
   // Default values
+  method               = OptimizationMethod::with_segments;
   guess.type           = Guess::random;
   guess.n_random_shots = 100;
 
@@ -61,6 +62,8 @@ inline Optimization::Optimization(const Manipulator& new_manip, const Task& new_
     bspline(new_bspline),
     task(new_task.to_matrix()),
     custom_data(nullptr) {
+  // Default values
+  method               = OptimizationMethod::with_segments;
   guess.type           = Guess::random;
   guess.n_random_shots = 100;
 
@@ -639,8 +642,8 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
 
   const auto n = opt->bspline.x_len(opt->task);
 
-  Array con_tol(opt->constraints.n_constraints, 0.001);
-  Array x_tol(n, 0.000001);
+  Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
+  Array x_tol(n, 0.001);
 
 #ifdef BLAST_USE_NATIVE_SQP
   nlopt_stopping stop;
@@ -748,7 +751,10 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
 #endif
       Array constraints_points(opt->constraints.n_constraints);
       compute_constraints(constraints_points.data, x, opt);
-      is_valid = max(constraints_points) < opt->success_tolerance;
+      auto max_con                = max(constraints_points);
+      result.max_constraint_idx   = argmax(constraints_points);
+      result.max_constraint_value = max_con;
+      is_valid                    = max_con < opt->success_tolerance * 2;
     }
 
     {
@@ -766,7 +772,10 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
       n_con(&opt_val_more);
       Array constraints_more_points(opt_val_more.constraints.n_constraints);
       compute_constraints(constraints_more_points.data, x, &opt_val_more);
-      is_valid_more = max(constraints_more_points) < opt->success_tolerance;
+      auto max_con_more                       = max(constraints_more_points);
+      result.max_constraint_more_points_idx   = argmax(constraints_more_points);
+      result.max_constraint_more_points_value = max_con_more;
+      is_valid_more                           = max_con_more < opt->success_tolerance * 2;
 
       result.x = x;
 
@@ -817,8 +826,8 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
 
   const auto n = opt->bspline.x_len(opt->task);
 
-  Array con_tol(opt->constraints.n_constraints, 0.001);
-  Array x_tol(n, 0.000001);
+  Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
+  Array x_tol(n, 0.001);
 
 #ifdef BLAST_USE_NATIVE_SQP
   nlopt_stopping stop;
@@ -926,7 +935,10 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
 #endif
       Array constraints_points(opt->constraints.n_constraints);
       compute_constraints(constraints_points.data, x, opt);
-      is_valid = max(constraints_points) < opt->success_tolerance;
+      auto max_con                = max(constraints_points);
+      result.max_constraint_idx   = argmax(constraints_points);
+      result.max_constraint_value = max_con;
+      is_valid                    = max_con < opt->success_tolerance * 2;
     }
 
     {
@@ -944,7 +956,10 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
       n_con(&opt_val_more);
       Array constraints_more_points(opt_val_more.constraints.n_constraints);
       compute_constraints(constraints_more_points.data, x, &opt_val_more);
-      is_valid_more = max(constraints_more_points) < opt->success_tolerance;
+      auto max_con_more                       = max(constraints_more_points);
+      result.max_constraint_more_points_idx   = argmax(constraints_more_points);
+      result.max_constraint_more_points_value = max_con_more;
+      is_valid_more                           = max_con_more < opt->success_tolerance * 2;
 
       result.x = x;
 
@@ -979,8 +994,8 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
 }
 
 
-inline Result optimize(Optimization* opt, OptimizationMethod method = OptimizationMethod::with_segments, u32 output_steps_ms = 1 /*ms*/) {
-  switch (method) {
+inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
+  switch (opt->method) {
     case OptimizationMethod::baseline:
       return optimize_baseline_impl(opt, output_steps_ms);
     case OptimizationMethod::with_analytical_pva:

@@ -15,7 +15,13 @@
 
 #include <blast>
 #include <iostream>
-#include "ur5e.hpp"
+
+// Returns a representative stop-to-stop task for the UR5e.
+inline blast::Task make_UR5e_task() {
+  blast::Array start = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
+  blast::Array end   = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.17328};
+  return blast::Task::stop_to_stop(start, end);
+}
 
 int main() {
   using namespace blast;
@@ -26,8 +32,8 @@ int main() {
   // acceleration). Task::stop_to_stop() is the common factory for
   // zero-velocity-at-boundaries motions.
   // -----------------------------------------------------------------------
-  Manipulator ur5e = make_ur5e();
-  Task        task = make_ur5e_task();
+  Manipulator ur5e = make_UR5e();
+  Task        task = make_UR5e_task();
 
   // -----------------------------------------------------------------------
   // Step 2 — Create the Optimization problem.
@@ -63,14 +69,14 @@ int main() {
   // Guess::random tries n_shot random starting points and picks the best
   // one as the initial solution for the optimizer.
   // -----------------------------------------------------------------------
-  opt.guess.type           = Guess::random;
-  opt.guess.n_random_shots = 50;
+  opt.guess.type = Guess::random;
 
   // -----------------------------------------------------------------------
   // Step 6 — Run the optimizer.
   // -----------------------------------------------------------------------
   std::cout << "Running trajectory optimization...\n";
-  Result result = optimize(&opt, OptimizationMethod::with_segments);
+  opt.method    = OptimizationMethod::with_segments;
+  Result result = optimize(&opt);
 
   // -----------------------------------------------------------------------
   // Step 7 — Inspect the result.
