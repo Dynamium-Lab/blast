@@ -44,27 +44,6 @@ host_fn bool is_close(const std::vector<T>& a1, const std::vector<T>& a2, real e
   return true;
 }
 
-// todo: remove?
-// template<typename T>
-// host_fn bool is_close(const ObjDblArray<T>& a1, const ObjDblArray<T>& a2, real eps) {
-//   if (a1.rows.size != a2.rows.size) {
-//     Assert(false);
-//     return false;
-//   }
-//   for (u32 i = 0; i < a1.cols; i++) {
-//     if (a1.rows[i] != a2.rows[i]) {
-//       Assert(false);
-//       return false;
-//     }
-//     for (u32 j = 0; j < a2.rows[i]; j++) {
-//       if (!is_close(a1(j, i), a2(j, i), eps))
-//         return false;
-//     }
-//   }
-//
-//   return true;
-// }
-
 // note: Does not use eps but necessary for consistency for usability with templates
 inline blast_fn bool is_close(const u8 a1, const u8& a2, real eps = 1e-5) {
   return (a1 == a2);

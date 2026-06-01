@@ -2,7 +2,6 @@
 #include "catch2/catch.hpp"
 
 #include <blast>
-#include "manipulator/Gen3.hpp"
 
 using namespace blast;
 
@@ -38,7 +37,7 @@ struct Gen3 {
           {0.0, 0.0, -0.1059},
           {0.0, -0.1059, 0.0},
           {0.0, 0.0, -0.0615 /*- 0.164*/} // todo: add gripper capsule
-  }; // vector to next joint
+  };                                      // vector to next joint
 
   Vec3 ev[7] = {
           {0, 0, 1},
@@ -117,7 +116,7 @@ TEST_CASE("Gen3 compute_rotation_matrices() test", "[Generic]") {
   int  n_tests = 100;
   real epsilon = 1e-6;
   Gen3 expected_manip;
-  auto generic_manip          = make_kinova_gen3();
+  auto generic_manip          = make_Kinova_Gen3();
   generic_manip.base_position = {0.0, 0.0, 0.0};
   generic_manip.base_rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};
 

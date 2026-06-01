@@ -2,7 +2,6 @@
 #include "catch2/catch.hpp"
 
 #include <blast>
-#include "manipulator/UR5e.hpp"
 
 using namespace blast;
 

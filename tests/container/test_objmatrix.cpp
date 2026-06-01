@@ -109,11 +109,6 @@ TEST_CASE("ObjMatrix Capsules", "[ObjMatrix]") {
   blast::ObjMatrix<blast::Capsule> caps_matrix(7, 1);
 
   blast::Manipulator manip = blast::make_UR5e();
-  // manip._efforts.resize(manip.joints);
-  // manip._Q.resize(manip.joints);
-  // manip._Q_mult.resize(manip.joints);
-  // manip._p_j.resize(manip.joints + 1);
-  // manip._capsule_list.resize(manip._n_caps);
 
   blast::Array               pos = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
   blast::ManipulatorTempData data;
@@ -130,5 +125,5 @@ TEST_CASE("ObjMatrix Capsules", "[ObjMatrix]") {
   auto distance = blast::test_collisions(caps_matrix, &world, 7, 0, 0);
 
   auto tmp_dist = 0.5 - data.p_j[1].x - data.capsule_list[0].radius;
-  CHECK(blast::is_close(distance[5], (blast::real) tmp_dist));
+  CHECK(blast::is_close(distance[0], (blast::real) tmp_dist));
 }
