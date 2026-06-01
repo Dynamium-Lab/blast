@@ -37,7 +37,7 @@ struct Gen3 {
           {0.0, 0.0, -0.1059},
           {0.0, -0.1059, 0.0},
           {0.0, 0.0, -0.0615 /*- 0.164*/} // todo: add gripper capsule
-  };                                      // vector to next joint
+  }; // vector to next joint
 
   Vec3 ev[7] = {
           {0, 0, 1},
