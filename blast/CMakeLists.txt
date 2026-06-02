@@ -64,18 +64,6 @@ target_compile_features(blast INTERFACE cxx_std_17)
 
 target_link_libraries(blast INTERFACE nlopt)
 
-# Tell CMake that nlopt's DLL is a runtime requirement of blast.
-# Any executable that links blast (directly or transitively) and uses
-# $<TARGET_RUNTIME_DLLS> will automatically get nlopt.dll.
-set_target_properties(nlopt PROPERTIES
-    WINDOWS_EXPORT_ALL_SYMBOLS ON
-)
-
-# Propagate nlopt as a runtime DLL dependency through blast's INTERFACE
-target_sources(blast INTERFACE
-    $<TARGET_PROPERTY:nlopt,IMPORTED_LOCATION>
-)
-
 # Tracy: propagate the correct macro to all consumers of blast.
 # TRACY_ENABLE is Tracy's own compile-time switch (checked in blast/blast).
 # Do NOT use add_compile_definitions — that would leak to every target.
