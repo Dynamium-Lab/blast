@@ -74,7 +74,7 @@ TEST_CASE("Matrix - operator()(row, col) provides mutable access", "[Math][Matri
 
 TEST_CASE("Matrix - operator()(row, col) provides const access", "[Math][Matrix]") {
   using namespace blast;
-  Matrix m(2u, 2u, 7.0);
+  Matrix        m(2u, 2u, 7.0);
   const Matrix& cm = m;
   CHECK(cm(0, 0) == 7.0);
   CHECK(cm(1, 1) == 7.0);
@@ -185,13 +185,20 @@ TEST_CASE("Matrix - operator*(Matrix, Matrix) produces correct product", "[Math]
   using namespace blast;
   // A is 2x3, B is 3x2, C = A*B is 2x2
   Matrix A(2u, 3u);
-  A(0, 0) = 1.0; A(0, 1) = 2.0; A(0, 2) = 3.0;
-  A(1, 0) = 4.0; A(1, 1) = 5.0; A(1, 2) = 6.0;
+  A(0, 0) = 1.0;
+  A(0, 1) = 2.0;
+  A(0, 2) = 3.0;
+  A(1, 0) = 4.0;
+  A(1, 1) = 5.0;
+  A(1, 2) = 6.0;
 
   Matrix B(3u, 2u);
-  B(0, 0) = 7.0;  B(0, 1) = 8.0;
-  B(1, 0) = 9.0;  B(1, 1) = 10.0;
-  B(2, 0) = 11.0; B(2, 1) = 12.0;
+  B(0, 0) = 7.0;
+  B(0, 1) = 8.0;
+  B(1, 0) = 9.0;
+  B(1, 1) = 10.0;
+  B(2, 0) = 11.0;
+  B(2, 1) = 12.0;
 
   Matrix C = A * B;
   CHECK(C.rows == 2u);
@@ -205,8 +212,10 @@ TEST_CASE("Matrix - operator*(Matrix, Matrix) produces correct product", "[Math]
 TEST_CASE("Matrix - operator*(Matrix, Array) produces correct product", "[Math][Matrix]") {
   using namespace blast;
   Matrix m(2u, 2u);
-  m(0, 0) = 1.0; m(0, 1) = 2.0;
-  m(1, 0) = 3.0; m(1, 1) = 4.0;
+  m(0, 0) = 1.0;
+  m(0, 1) = 2.0;
+  m(1, 0) = 3.0;
+  m(1, 1) = 4.0;
 
   Array v{1.0, 1.0};
   Array result = m * v;
@@ -222,8 +231,12 @@ TEST_CASE("Matrix - operator*(Matrix, Array) produces correct product", "[Math][
 TEST_CASE("Matrix - transpose() swaps dimensions and elements", "[Math][Matrix]") {
   using namespace blast;
   Matrix A(2u, 3u);
-  A(0, 0) = 1.0; A(0, 1) = 2.0; A(0, 2) = 3.0;
-  A(1, 0) = 4.0; A(1, 1) = 5.0; A(1, 2) = 6.0;
+  A(0, 0) = 1.0;
+  A(0, 1) = 2.0;
+  A(0, 2) = 3.0;
+  A(1, 0) = 4.0;
+  A(1, 1) = 5.0;
+  A(1, 2) = 6.0;
 
   Matrix T = transpose(A);
   CHECK(T.rows == 3u);
@@ -256,8 +269,10 @@ TEST_CASE("Matrix - eye(n) * eye(n) equals eye(n)", "[Math][Matrix]") {
 TEST_CASE("Matrix - multiplying by identity leaves matrix unchanged", "[Math][Matrix]") {
   using namespace blast;
   Matrix m(2u, 2u);
-  m(0, 0) = 1.0; m(0, 1) = 2.0;
-  m(1, 0) = 3.0; m(1, 1) = 4.0;
+  m(0, 0) = 1.0;
+  m(0, 1) = 2.0;
+  m(1, 0) = 3.0;
+  m(1, 1) = 4.0;
   CHECK(m * eye(2) == m);
 }
 
@@ -268,8 +283,12 @@ TEST_CASE("Matrix - multiplying by identity leaves matrix unchanged", "[Math][Ma
 TEST_CASE("Matrix - col() reads the correct column elements", "[Math][Matrix]") {
   using namespace blast;
   Matrix m(3u, 2u);
-  m(0, 0) = 1.0; m(1, 0) = 2.0; m(2, 0) = 3.0;
-  m(0, 1) = 4.0; m(1, 1) = 5.0; m(2, 1) = 6.0;
+  m(0, 0) = 1.0;
+  m(1, 0) = 2.0;
+  m(2, 0) = 3.0;
+  m(0, 1) = 4.0;
+  m(1, 1) = 5.0;
+  m(2, 1) = 6.0;
 
   Array col0 = m.col(0);
   CHECK(col0.is_alias == true);
@@ -354,8 +373,10 @@ TEST_CASE("Matrix - is_close() returns false when any element difference exceeds
 TEST_CASE("Matrix - determinant() of a 2x2 matrix is correct", "[Math][Matrix]") {
   using namespace blast;
   Matrix m(2u, 2u);
-  m(0, 0) = 1.0; m(0, 1) = 2.0;
-  m(1, 0) = 3.0; m(1, 1) = 4.0;
+  m(0, 0) = 1.0;
+  m(0, 1) = 2.0;
+  m(1, 0) = 3.0;
+  m(1, 1) = 4.0;
   // det = 1*4 - 2*3 = -2
   CHECK(std::abs(determinant(m) - (-2.0)) < 1e-9);
 }
@@ -364,9 +385,15 @@ TEST_CASE("Matrix - determinant() of a 3x3 matrix is correct", "[Math][Matrix]")
   using namespace blast;
   // [[1,2,3],[0,4,5],[1,0,6]] -> det = 22
   Matrix m(3u, 3u);
-  m(0, 0) = 1.0; m(0, 1) = 2.0; m(0, 2) = 3.0;
-  m(1, 0) = 0.0; m(1, 1) = 4.0; m(1, 2) = 5.0;
-  m(2, 0) = 1.0; m(2, 1) = 0.0; m(2, 2) = 6.0;
+  m(0, 0) = 1.0;
+  m(0, 1) = 2.0;
+  m(0, 2) = 3.0;
+  m(1, 0) = 0.0;
+  m(1, 1) = 4.0;
+  m(1, 2) = 5.0;
+  m(2, 0) = 1.0;
+  m(2, 1) = 0.0;
+  m(2, 2) = 6.0;
   CHECK(std::abs(determinant(m) - 22.0) < 1e-9);
 }
 
@@ -378,8 +405,10 @@ TEST_CASE("Matrix - solveLU() solves Ax=b via LU decomposition", "[Math][Matrix]
   using namespace blast;
   // A = [[2,1],[5,3]], b = {1,2}, solution x = {1,-1}
   Matrix A(2u, 2u);
-  A(0, 0) = 2.0; A(0, 1) = 1.0;
-  A(1, 0) = 5.0; A(1, 1) = 3.0;
+  A(0, 0) = 2.0;
+  A(0, 1) = 1.0;
+  A(1, 0) = 5.0;
+  A(1, 1) = 3.0;
 
   Array b{1.0, 2.0};
   Array x = solveLU(LU_decomp(A), b);
@@ -391,12 +420,14 @@ TEST_CASE("Matrix - solveLU() solves Ax=b via LU decomposition", "[Math][Matrix]
 TEST_CASE("Matrix - solveLU() solution satisfies Ax = b", "[Math][Matrix]") {
   using namespace blast;
   Matrix A(2u, 2u);
-  A(0, 0) = 2.0; A(0, 1) = 1.0;
-  A(1, 0) = 5.0; A(1, 1) = 3.0;
+  A(0, 0) = 2.0;
+  A(0, 1) = 1.0;
+  A(1, 0) = 5.0;
+  A(1, 1) = 3.0;
 
   Array b{1.0, 2.0};
-  Array x      = solveLU(LU_decomp(A), b);
-  Array Ax     = A * x;
+  Array x  = solveLU(LU_decomp(A), b);
+  Array Ax = A * x;
   Array expected{1.0, 2.0};
   CHECK(Ax == expected);
 }

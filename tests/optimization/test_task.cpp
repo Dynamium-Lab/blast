@@ -1,7 +1,7 @@
 #define CATCH_CONFIG_MAIN
 #define CATCH_CONFIG_ENABLE_BENCHMARKING
-#include <catch2/catch.hpp>
 #include <blast>
+#include <catch2/catch.hpp>
 #include "test_helper/test_functions.hpp"
 
 using namespace blast;
@@ -32,10 +32,10 @@ TEST_CASE("Task n_joints constructor initializes to zero") {
 }
 
 TEST_CASE("Task round-trips through to_matrix") {
-  Array q_start = {0.0f, -PI / 2, 0.0f, -PI / 2, 0.0f, 0.0f};
-  Array q_goal  = {-1.54f, -1.83f, -2.28f, -0.59f, 1.60f, 0.023f};
-  Task  task1   = Task::stop_to_stop(q_start, q_goal);
-  Matrix m      = task1.to_matrix();
+  Array  q_start = {0.0f, -PI / 2, 0.0f, -PI / 2, 0.0f, 0.0f};
+  Array  q_goal  = {-1.54f, -1.83f, -2.28f, -0.59f, 1.60f, 0.023f};
+  Task   task1   = Task::stop_to_stop(q_start, q_goal);
+  Matrix m       = task1.to_matrix();
   Task   task2(m);
 
   CHECK(is_close(task2.start.position, task1.start.position));

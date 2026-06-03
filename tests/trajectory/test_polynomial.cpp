@@ -17,7 +17,7 @@ TEST_CASE("compute_5order_trajectory - boundary conditions for single joint", "[
   real T    = 2.0;
   auto traj = compute_5order_trajectory(T, task);
 
-  constexpr real eps = 1e-6;
+  constexpr real eps  = 1e-6;
   const int      last = (int) traj.t.size - 1;
   CHECK(std::abs(traj.pos(0, 0) - 0.0) < eps);
   CHECK(std::abs(traj.vel(0, 0) - 0.0) < eps);
@@ -39,7 +39,7 @@ TEST_CASE("compute_5order_trajectory - boundary conditions with nonzero start/en
   real T    = 1.0;
   auto traj = compute_5order_trajectory(T, task);
 
-  constexpr real eps = 1e-5;
+  constexpr real eps  = 1e-5;
   const int      last = (int) traj.t.size - 1;
   CHECK(std::abs(traj.pos(0, 0) - task(0, 0)) < eps);
   CHECK(std::abs(traj.vel(0, 0) - task(0, 1)) < eps);
@@ -51,11 +51,15 @@ TEST_CASE("compute_5order_trajectory - boundary conditions with nonzero start/en
 
 TEST_CASE("compute_5order_trajectory - output size matches expected point count", "[Trajectory][Polynomial]") {
   Matrix task(1, 6);
-  task(0, 0) = 0.0; task(0, 1) = 0.0; task(0, 2) = 0.0;
-  task(0, 3) = 1.0; task(0, 4) = 0.0; task(0, 5) = 0.0;
+  task(0, 0) = 0.0;
+  task(0, 1) = 0.0;
+  task(0, 2) = 0.0;
+  task(0, 3) = 1.0;
+  task(0, 4) = 0.0;
+  task(0, 5) = 0.0;
 
-  real T       = 2.0;
-  auto traj    = compute_5order_trajectory(T, task);
+  real T        = 2.0;
+  auto traj     = compute_5order_trajectory(T, task);
   u32  expected = (u32) std::ceil(T * 1000 + 1);
   CHECK(traj.t.size == expected);
   CHECK(traj.pos.rows == 1u);
@@ -64,8 +68,12 @@ TEST_CASE("compute_5order_trajectory - output size matches expected point count"
 
 TEST_CASE("compute_5order_trajectory - time array starts at zero, is monotonic", "[Trajectory][Polynomial]") {
   Matrix task(1, 6);
-  task(0, 0) = 0.0; task(0, 1) = 0.0; task(0, 2) = 0.0;
-  task(0, 3) = 1.0; task(0, 4) = 0.0; task(0, 5) = 0.0;
+  task(0, 0) = 0.0;
+  task(0, 1) = 0.0;
+  task(0, 2) = 0.0;
+  task(0, 3) = 1.0;
+  task(0, 4) = 0.0;
+  task(0, 5) = 0.0;
 
   auto traj = compute_5order_trajectory(3.0, task);
   CHECK(traj.t[0] == Approx(0.0));
@@ -76,8 +84,12 @@ TEST_CASE("compute_5order_trajectory - time array starts at zero, is monotonic",
 
 TEST_CASE("compute_5order_trajectory - trivial motion (start == end, all zero derivatives) stays constant", "[Trajectory][Polynomial]") {
   Matrix task(1, 6);
-  task(0, 0) = 0.7; task(0, 1) = 0.0; task(0, 2) = 0.0;
-  task(0, 3) = 0.7; task(0, 4) = 0.0; task(0, 5) = 0.0;
+  task(0, 0) = 0.7;
+  task(0, 1) = 0.0;
+  task(0, 2) = 0.0;
+  task(0, 3) = 0.7;
+  task(0, 4) = 0.0;
+  task(0, 5) = 0.0;
 
   auto traj = compute_5order_trajectory(1.0, task);
   for (u32 i = 0; i < traj.t.size; i++) {

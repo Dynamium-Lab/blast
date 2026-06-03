@@ -54,8 +54,8 @@ TEST_CASE("wrap2pi() - scalar wrapping", "[Math][Misc]") {
 
 TEST_CASE("wrap2pi() - Array overload", "[Math][Misc]") {
   using namespace blast;
-  Array a   = {0.0, 4.0, -4.0};
-  auto  b   = wrap2pi(a);
+  Array a = {0.0, 4.0, -4.0};
+  auto  b = wrap2pi(a);
   CHECK(std::abs(b[0] - 0.0) < 1e-9);
   CHECK(std::abs(b[1] - (4.0 - 2 * PI)) < 1e-9);
   CHECK(std::abs(b[2] - (-4.0 + 2 * PI)) < 1e-9);

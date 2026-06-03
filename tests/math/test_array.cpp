@@ -317,7 +317,7 @@ TEST_CASE("Array - sqr_inplace() squares each element in place", "[Math][Array]"
 TEST_CASE("Array - clamp() clamps elements to [min, max]", "[Math][Array]") {
   using namespace blast;
   Array a{-1.0, 0.5, 2.0};
-  Array result   = clamp(a, 0.0, 1.0);
+  Array result = clamp(a, 0.0, 1.0);
   Array expected{0.0, 0.5, 1.0};
   CHECK(result == expected);
 }
