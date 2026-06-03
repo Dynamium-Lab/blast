@@ -22,7 +22,7 @@ TEST_CASE("optimize stop-to-stop default pva + tool_speed constraints active", "
 
   CHECK(result.success == true);
   CHECK(result.compute_time > 0.0f);
-  CHECK(result.trajectory.t.size > 0u);
+  CHECK(result.trajectory.t.size > 0);
 }
 
 TEST_CASE("optimize stop-to-stop pva + tool_speed + torque constraints active", "[Optimization]") {
@@ -37,7 +37,7 @@ TEST_CASE("optimize stop-to-stop pva + tool_speed + torque constraints active", 
 
   CHECK(result.success == true);
   CHECK(result.compute_time > 0.0f);
-  CHECK(result.trajectory.t.size > 0u);
+  CHECK(result.trajectory.t.size > 0);
 }
 
 TEST_CASE("optimization stop-to-stop pva + tool_speed + torque + self_collisions active", "[Optimization") {
@@ -53,7 +53,7 @@ TEST_CASE("optimization stop-to-stop pva + tool_speed + torque + self_collisions
 
   CHECK(result.success == true);
   CHECK(result.compute_time > 0.0f);
-  CHECK(result.trajectory.t.size > 0u);
+  CHECK(result.trajectory.t.size > 0);
 }
 
 TEST_CASE("optimization stop-to-stop all constraints active", "[Optimization") {
@@ -81,5 +81,5 @@ TEST_CASE("optimization stop-to-stop all constraints active", "[Optimization") {
 
   CHECK(result.success == true);
   CHECK(result.compute_time > 0.0f);
-  CHECK(result.trajectory.t.size > 0u);
+  CHECK(result.trajectory.t.size > 0);
 }

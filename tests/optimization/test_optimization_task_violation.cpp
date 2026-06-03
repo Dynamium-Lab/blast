@@ -37,5 +37,5 @@ TEST_CASE("optimization - task not valid", "[Optimization") {
 
   CHECK(result.success == false);
   CHECK(result.compute_time == 0.0f);
-  CHECK(result.trajectory.t.size == 0u);
+  CHECK(result.trajectory.t.size == 0);
 }
