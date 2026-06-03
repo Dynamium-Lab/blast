@@ -14,6 +14,10 @@ cmake-*/
 __pycache__/
 *.pyc
 
+### Documentation build artifacts
+docs/_build/
+docs/_doxygen/
+
 
 ### Standard C++ ignores
 # Prerequisites
