@@ -32,6 +32,8 @@ inline Manipulator make_UR5e() {
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1}}; // direction vectors of joint
+  kinematics.base_position        = {0.0, 0.0, 0.0};
+  kinematics.base_rotation        = {1, 0, 0, 0, 1, 0, 0, 0, 1};
   kinematics.static_rotations[0]  = {1, 0, 0, 0, 1, 0, 0, 0, 1};
   kinematics.static_rotations[1]  = {1, 0, 0, 0, 0, 1, 0, -1, 0};
   kinematics.static_rotations[2]  = {1, 0, 0, 0, 1, 0, 0, 0, 1};

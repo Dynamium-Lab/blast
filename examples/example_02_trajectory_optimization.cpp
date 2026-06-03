@@ -75,7 +75,7 @@ int main() {
   // Step 6 — Run the optimizer.
   // -----------------------------------------------------------------------
   std::cout << "Running trajectory optimization...\n";
-  opt.method    = OptimizationMethod::with_segments;
+  opt.method    = OptimizationMethod::with_segments; // default method
   Result result = optimize(&opt);
 
   // -----------------------------------------------------------------------

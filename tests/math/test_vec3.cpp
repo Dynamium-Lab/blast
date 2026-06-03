@@ -1,6 +1,3 @@
-//
-// Created by nikos on 2025-10-15.
-//
 #define CATCH_CONFIG_MAIN
 
 #include <blast>

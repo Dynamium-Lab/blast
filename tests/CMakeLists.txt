@@ -64,27 +64,25 @@ set(BENCHMARKS
 set(TESTS
         # Acceleration
         # test_gradients_acceleration acceleration/test_gradients_acceleration.cpp
-        # test_constraints_acceleration acceleration/test_constraints_acceleration.cpp
         #    test_accelerations acceleration/test_accelerations.cpp
-        #        test_inplace acceleration/test_inplace.cpp
 
         # Container
         test_objmatrix container/test_objmatrix.cpp
 
         # Manipulator
-        test_functions manipulators/test_functions.cpp # note: empty test
         test_generic_gen3 manipulators/test_generic_gen3.cpp
         test_generic_ur5e manipulators/test_generic_ur5e.cpp
 
         # Optimization
-        # test_optimization optimization/test_optimization.cpp
-        # test_optimization_guess optimization/test_initial_guess.cpp
-        # test_optimization_objective optimization/test_objective.cpp
-        # test_optimization_constraints optimization/test_constraints.cpp
-        # test_optimization_tasks optimization/test_task.cpp
+        test_constraints optimization/test_constraints.cpp
+        test_task optimization/test_task.cpp
+        test_optimization_basic optimization/test_optimization_basic.cpp
+        test_optimization_task_violation optimization/test_optimization_task_violation.cpp
 
         # Math
-        # test_math_matrix math/test_matrix.cpp
+        test_math_matrix math/test_matrix.cpp
+        test_math_mat3 math/test_mat3.cpp
+        test_math_array math/test_array.cpp
         test_misc math/test_misc.cpp
         test_math_vec3 math/test_vec3.cpp
 
@@ -93,6 +91,7 @@ set(TESTS
 
         # Trajectory
         test_bspline trajectory/test_bsplines.cpp
+        test_polynomial trajectory/test_polynomial.cpp
 )
 
 # Loop through and add benchmarks

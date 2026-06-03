@@ -2,7 +2,15 @@
   "version": 6,
   "configurePresets": [
     {
+      "name": "base",
+      "hidden": true,
+      "cacheVariables": {
+        "BUILD_SHARED_LIBS": "OFF"
+      }
+    },
+    {
       "name": "dev",
+      "inherits": "base",
       "displayName": "Developer build (Linux/macOS)",
       "description": "RelWithDebInfo, native tuning, compile-commands for tooling",
       "binaryDir": "${sourceDir}/build/${presetName}",
@@ -19,6 +27,7 @@
     },
     {
       "name": "dev-msvc",
+      "inherits": "base",
       "displayName": "Developer build (Windows/MSVC)",
       "description": "RelWithDebInfo with AVX2, compile-commands for tooling",
       "binaryDir": "${sourceDir}/build/${presetName}",
@@ -35,6 +44,7 @@
     },
     {
       "name": "ci",
+      "inherits": "base",
       "displayName": "CI build",
       "description": "Release build without machine-specific tuning",
       "binaryDir": "${sourceDir}/build/${presetName}",

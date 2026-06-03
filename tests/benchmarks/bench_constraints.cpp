@@ -1,5 +1,4 @@
 #include <blast>
-#include "test_helper/test_helper.hpp"
 
 #define CATCH_CONFIG_MAIN
 #define CATCH_CONFIG_ENABLE_BENCHMARKING
