@@ -58,6 +58,7 @@ set(TESTS
         # Manipulator
         test_generic_gen3 manipulators/test_generic_gen3.cpp
         test_generic_ur5e manipulators/test_generic_ur5e.cpp
+        test_manipulator_constructor manipulators/test_manipulator_constructor.cpp
 
         # Optimization
         test_constraints optimization/test_constraints.cpp

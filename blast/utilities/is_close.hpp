@@ -367,11 +367,6 @@ inline host_fn bool is_close(const Optimization& opt1, const Optimization& opt2,
 }
 
 // todo: operator==
-inline host_fn bool is_close(const nlopt_result& result1, const nlopt_result& result2, real eps) {
-  return (result1 == result2);
-}
-
-// todo: operator==
 inline host_fn bool is_close(const Result& result1, Result& result2, real eps) {
   if (result1.success != result2.success)
     return false;

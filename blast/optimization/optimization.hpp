@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include <blast>
 #include <utility>
 #ifdef BLAST_USE_NATIVE_SQP

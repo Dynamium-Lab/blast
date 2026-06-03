@@ -22,6 +22,11 @@
 #include "json.hpp"
 
 namespace blast {
+struct ConstraintSelection;
+struct Objective;
+struct Guess;
+struct Optimization;
+struct Result;
 
 inline host_fn int64_t get_tick_us() {
 #if defined(_MSC_VER)
@@ -114,12 +119,6 @@ inline host_fn bool is_close(const Guess& guess1, const Guess& guess2, real eps 
 
 inline host_fn bool is_close(const Optimization& opt1, const Optimization& opt2, real eps = 1e-5);
 
-inline host_fn bool is_close(const nlopt_result& result1, const nlopt_result& result2, real eps = 1e-5);
-
 inline host_fn bool is_close(const Result& result1, Result& result2, real eps = 1e-5);
 
 } // namespace blast
-
-#include "utilities/file_io.hpp"
-#include "utilities/is_close.hpp"
-#include "utilities/print.hpp"
