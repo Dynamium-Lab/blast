@@ -105,7 +105,7 @@ TEST_CASE("add_tool() - has_tool flag is set", "[tool]") {
 
 TEST_CASE("add_tool() - combined mass is sum of link and tool masses", "[tool]") {
   Manipulator m = make_1dof(10.0f, {0, 0, 0.1f}, Mat3{});
-  Tool tool;
+  Tool        tool;
   tool.mass           = 2.0f;
   tool.cog_offset     = {0, 0, 0.3f};
   tool.inertia_tensor = Mat3{};
@@ -115,7 +115,7 @@ TEST_CASE("add_tool() - combined mass is sum of link and tool masses", "[tool]")
 
 TEST_CASE("add_tool() - combined CoG is mass-weighted average", "[tool]") {
   Manipulator m = make_1dof(10.0f, {0, 0, 0.1f}, Mat3{});
-  Tool tool;
+  Tool        tool;
   tool.mass           = 2.0f;
   tool.cog_offset     = {0, 0, 0.3f};
   tool.inertia_tensor = Mat3{};
