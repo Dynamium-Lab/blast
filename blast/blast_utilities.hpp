@@ -23,144 +23,6 @@
 
 namespace blast {
 
-inline blast_fn void print(Vec3 v) {
-  printf("[% 0.4f, % 0.4f, % 0.4f]\n", v.x, v.y, v.z);
-}
-
-inline blast_fn void print(Mat3 m) {
-  printf("\n[% 0.4f, % 0.4f, % 0.4f]\n[% 0.4f, % 0.4f, % 0.4f]\n[% 0.4f, % 0.4f, % 0.4f]\n",
-         m(0, 0), m(0, 1), m(0, 2), m(1, 0), m(1, 1), m(1, 2), m(2, 0), m(2, 1), m(2, 2));
-}
-
-inline blast_fn void print(const Array& a) {
-  using namespace std;
-  if (a.size == 0)
-    return;
-  printf("[");
-  for (u32 i = 0; i < a.size - 1; i++)
-    printf("% 0.4f, ", a[i]);
-  printf("% 0.4f]\n", a[a.size - 1]);
-}
-
-inline blast_fn void print(const Matrix& m) {
-  if (m.size == 0)
-    return;
-  for (u32 i = 0; i < m.rows; i++) {
-    printf("[");
-    for (u32 j = 0; j < m.cols - 1; j++)
-      printf("% 0.4f, ", m(i, j));
-    printf("% 0.4f]\n", m(i, m.cols - 1));
-  }
-}
-
-inline blast_fn void print(const double* data, unsigned size) {
-  printf("[");
-  for (u32 i = 0; i < size - 1; i++)
-    printf("% 0.4f, ", data[i]);
-  printf("% 0.4f]\n", data[size - 1]);
-}
-
-inline blast_fn void print(const float* data, unsigned size) {
-  printf("[");
-  for (u32 i = 0; i < size - 1; i++)
-    printf("% 0.4f, ", data[i]);
-  printf("% 0.4f]\n", data[size - 1]);
-}
-
-inline blast_fn void print(const double* data, unsigned rows, unsigned cols) {
-  for (u32 i = 0; i < rows; i++) {
-    printf("[");
-    for (u32 j = 0; j < cols - 1; j++)
-      printf("% 0.4f, ", data[i + rows * j]);
-    printf("% 0.4f]\n", data[i + rows * (cols - 1)]);
-  }
-}
-
-inline blast_fn void print(const float* data, unsigned rows, unsigned cols) {
-  for (u32 i = 0; i < rows; i++) {
-    printf("[");
-    for (u32 j = 0; j < cols - 1; j++)
-      printf("% 0.4f, ", data[i + rows * j]);
-    printf("% 0.4f]\n", data[i + rows * (cols - 1)]);
-  }
-}
-
-inline host_fn void print_to_csv(const Matrix& m, const std::string& filename) {
-  std::ofstream file;
-  file.open(filename);
-  for (u32 i = 0; i < m.rows; i++) {
-    for (u32 j = 0; j < m.cols - 1; j++)
-      file << m(i, j) << ",";
-    file << m(i, m.cols - 1) << std::endl;
-  }
-  file.close();
-}
-
-inline host_fn void print_to_csv(const Trajectory& traj, const std::string& filename) {
-  std::ofstream file;
-  file.open(filename);
-
-  // print header
-  {
-    file << "t";
-    for (u32 i = 0; i < traj.pos.rows; i++)
-      file << ",p[" << i << "]";
-    for (u32 i = 0; i < traj.vel.rows; i++)
-      file << ",v[" << i << "]";
-    for (u32 i = 0; i < traj.acc.rows; i++)
-      file << ",a[" << i << "]";
-    file << std::endl;
-  }
-
-  // print data
-  for (u32 i = 0; i < traj.t.size; i++) {
-    file << traj.t[i];
-    for (u32 j = 0; j < traj.pos.rows; j++)
-      file << "," << traj.pos(j, i);
-    for (u32 j = 0; j < traj.vel.rows; j++)
-      file << "," << traj.vel(j, i);
-    for (u32 j = 0; j < traj.acc.rows; j++)
-      file << "," << traj.acc(j, i);
-    file << std::endl;
-  }
-  file.close();
-}
-
-inline host_fn void print_to_csv(const std::vector<Trajectory>& traj, const std::string& filename) {
-  std::ofstream file;
-  file.open(filename);
-
-  real start_time = 0.0;
-
-  file << traj[0].t[0];
-  for (u32 j = 0; j < traj[0].pos.rows; j++)
-    file << "," << traj[0].pos(j, 0);
-  for (u32 j = 0; j < traj[0].vel.rows; j++)
-    file << "," << traj[0].vel(j, 0);
-  for (u32 j = 0; j < traj[0].acc.rows; j++)
-    file << "," << traj[0].acc(j, 0);
-  file << std::endl;
-
-  for (int task_id = 0; task_id < traj.size(); task_id++) {
-    // int points_more = (int) std::ceil(res[task_id].x.back() * 1000.0) + 1;
-
-
-    for (u32 i = 1; i < traj[task_id].t.size; i++) {
-      file << traj[task_id].t[i] + start_time;
-      for (u32 j = 0; j < traj[task_id].pos.rows; j++)
-        file << "," << traj[task_id].pos(j, i);
-      for (u32 j = 0; j < traj[task_id].vel.rows; j++)
-        file << "," << traj[task_id].vel(j, i);
-      for (u32 j = 0; j < traj[task_id].acc.rows; j++)
-        file << "," << traj[task_id].acc(j, i);
-      file << std::endl;
-    }
-
-    start_time += traj[task_id].t[traj[task_id].t.size - 1];
-  }
-  file.close();
-}
-
 inline host_fn int64_t get_tick_us() {
 #if defined(_MSC_VER)
   LARGE_INTEGER start, frequency;
@@ -174,189 +36,90 @@ inline host_fn int64_t get_tick_us() {
 #endif
 }
 
-inline host_fn blast::Matrix read_csv_matrix(const std::string& filename, const char* csv_sep = ",") {
-  std::ifstream file(filename);
-  std::cout << "Reading from file: " << filename << std::endl;
-  if (!file.is_open()) {
-    Assert(false);
-    std::cerr << "ERROR: File is unavailable" << std::endl;
-    return blast::Matrix(0, 0);
-  }
+inline blast_fn void print(Vec3 v);
 
-  std::string line;
-  u32         num_rows = 0, num_cols = 0;
+inline blast_fn void print(Mat3 m);
 
-  std::getline(file, line); // discard first line
-  // Determine number of rows and columns
-  if (std::getline(file, line)) {
-    num_cols = std::count(line.begin(), line.end(), *csv_sep) + 1;
-    num_rows++;
-  }
-  while (std::getline(file, line)) {
-    num_rows++;
-  }
+inline blast_fn void print(const Array& a);
 
-  // Rewind file to read again
-  file.clear();
-  file.seekg(0);
+inline blast_fn void print(const Matrix& m);
 
-  // Create matrix with detected dimensions
-  blast::Matrix pos(num_rows, num_cols);
+inline blast_fn void print(const double* data, unsigned size);
 
-  std::getline(file, line); // discard first line
-  // Read the data into the matrix
-  for (u32 i = 0; i < num_rows; i++) {
-    std::getline(file, line);
-    std::istringstream iss(line);
-    for (u32 j = 0; j < num_cols; j++) {
-      std::string value;
-      if (std::getline(iss, value, *csv_sep)) {
-        pos(i, j) = std::stod(value);
-      }
-    }
-  }
-  return pos;
-}
+inline blast_fn void print(const float* data, unsigned size);
 
-inline host_fn blast::Matrix read_csv_matrix_no_header(const std::string& filename, const char* csv_sep = ",") {
-  std::ifstream file(filename);
-  std::cout << "Reading from file: " << filename << std::endl;
-  if (!file.is_open()) {
-    Assert(false);
-    std::cerr << "ERROR: File is unavailable" << std::endl;
-    return blast::Matrix(0, 0);
-  }
+inline blast_fn void print(const double* data, unsigned rows, unsigned cols);
 
-  std::string line;
-  u32         num_rows = 0, num_cols = 0;
+inline blast_fn void print(const float* data, unsigned rows, unsigned cols);
 
-  // Determine number of rows and columns
-  if (std::getline(file, line)) {
-    num_cols = std::count(line.begin(), line.end(), *csv_sep) + 1;
-    num_rows++;
-  }
-  while (std::getline(file, line)) {
-    num_rows++;
-  }
+inline host_fn void print_to_csv(const Matrix& m, const std::string& filename);
 
-  // Rewind file to read again
-  file.clear();
-  file.seekg(0);
+inline host_fn void print_to_csv(const Trajectory& traj, const std::string& filename);
 
-  // Create matrix with detected dimensions
-  blast::Matrix pos(num_rows, num_cols);
+inline host_fn void print_to_csv(const std::vector<Trajectory>& traj, const std::string& filename);
 
-  // Read the data into the matrix
-  for (u32 i = 0; i < num_rows; i++) {
-    std::getline(file, line);
-    std::istringstream iss(line);
-    for (u32 j = 0; j < num_cols; j++) {
-      std::string value;
-      if (std::getline(iss, value, *csv_sep)) {
-        pos(i, j) = std::stod(value);
-      }
-    }
-  }
+inline host_fn blast::Matrix read_csv_matrix(const std::string& filename, const char* csv_sep);
 
-  return pos;
-}
+inline host_fn blast::Matrix read_csv_matrix_no_header(const std::string& filename, const char* csv_sep);
 
-inline host_fn Trajectory read_csv_trajectory_no_header(const std::string& filename, const char* csv_sep = ",") {
-  std::ifstream file(filename);
-  std::cout << "Reading from file: " << filename << std::endl;
-  if (!file.is_open()) {
-    Assert(false);
-    std::cerr << "ERROR: File is unavailable" << std::endl;
-    return {0, 0};
-  }
+inline host_fn Trajectory read_csv_trajectory_no_header(const std::string& filename, const char* csv_sep);
 
-  std::string line;
-  u32         num_rows = 0, num_cols = 0;
+template<typename T>
+host_fn bool is_close(const T type1, const T type2, real eps = 1e-5);
 
-  // Determine number of rows and columns
-  if (std::getline(file, line)) {
-    num_cols = std::count(line.begin(), line.end(), *csv_sep) + 1;
-    num_rows++;
-  }
-  while (std::getline(file, line)) {
-    num_rows++;
-  }
+template<typename T, std::size_t N>
+host_fn bool is_close(const std::array<T, N>& a1, const std::array<T, N>& a2, real eps = 1e-5);
 
-  // Rewind file to read again
-  file.clear();
-  file.seekg(0);
+template<typename T>
+host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps = 1e-5);
 
-  u32        num_joints = (num_cols - 1) / 3;
-  Trajectory trajectory(num_rows, num_joints);
+template<typename T>
+host_fn bool is_close(const std::vector<T>& a1, const std::vector<T>& a2, real eps = 1e-5);
 
-  // Read the data into the matrix
-  for (u32 i = 0; i < num_rows; i++) {
-    std::getline(file, line);
-    std::istringstream iss(line);
-    u32                col = 0;
+// note: Does not use eps = 1e-5 but necessary for consistency for usability with templates
+inline blast_fn bool is_close(const u8 a1, const u8& a2, real eps = 1e-5);
 
-    // Gets time
-    {
-      std::string value;
-      if (std::getline(iss, value, *csv_sep))
-        trajectory.t[i] = std::stod(value);
-    }
+// note: Does not use eps = 1e-5 but necessary for consistency for usability with templates
+inline blast_fn bool is_close(u32 a1, u32 a2, real eps = 1e-5);
 
-    // Gets position
-    for (col = 0; col < num_joints; col++) {
-      std::string value;
-      if (std::getline(iss, value, *csv_sep)) {
-        trajectory.pos(col, i) = std::stod(value);
-      }
-    }
+inline host_fn bool is_close(real r1, real r2, real eps = 1e-5);
 
-    // Gets velocity
-    for (col = 0; col < num_joints; col++) {
-      std::string value;
-      if (std::getline(iss, value, *csv_sep)) {
-        trajectory.vel(col, i) = std::stod(value);
-      }
-    }
+inline host_fn bool is_close(const Box& box1, const Box& box2, real eps = 1e-5);
 
-    // Gets acceleration
-    for (col = 0; col < num_joints; col++) {
-      std::string value;
-      if (std::getline(iss, value, *csv_sep)) {
-        trajectory.acc(col, i) = std::stod(value);
-      }
-    }
-  }
+inline host_fn bool is_close(const DynamicBox& box1, const DynamicBox& box2, real eps = 1e-5);
 
-  return trajectory;
-}
+inline host_fn bool is_close(const Sphere& sph1, const Sphere& sph2, real eps = 1e-5);
 
-// note: CUDA stuff, only enabled if compiling for Nvidia GPUs
-#ifdef __NVCC__
-// print the properties of all connected GPUs
-inline host_fn void print_device_properties() {
-  int nDevices;
-  cudaGetDeviceCount(&nDevices);
-  for (int i = 0; i < nDevices; i++) {
-    cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, i);
-    printf("Device Number: ............................... %d\n", i);
-    printf("  Device name: ............................... %s\n", prop.name);
-    printf("  Multiprocessors: ........................... %d\n", prop.multiProcessorCount);
-    printf("  Threads per multiprocessor: ................ %d\n", prop.maxThreadsPerMultiProcessor);
-    printf("  Threads per block: ......................... %d\n", prop.maxThreadsPerBlock);
-    printf("  Async Engine Count: ........................ %d\n", prop.asyncEngineCount);
-    printf("  Registers per block: ....................... %d\n", prop.regsPerBlock);
-    printf("  Registers per multiprocessor: .............. %d\n", prop.regsPerMultiprocessor);
-    printf("  Shared memory per block (KB): .............. %f\n", prop.sharedMemPerBlock / 1024.0);
-    printf("  Shared memory per multiprocessor (KB): ..... %f\n", prop.sharedMemPerMultiprocessor / 1024.0);
-    printf("  Concurrent Kernels: ........................ %d\n", prop.concurrentKernels);
-    printf("  Clock Rate (KHz): .......................... %d\n", prop.clockRate);
-    printf("  Memory Clock Rate (KHz): ................... %d\n", prop.memoryClockRate);
-    printf("  Memory Bus Width (bits): ................... %d\n", prop.memoryBusWidth);
-    printf("  Peak Memory Bandwidth (GB/s): .............. %f\n", 2.0 * prop.memoryClockRate * (prop.memoryBusWidth / 8) / 1.0e6);
-    printf("  Compute capabilities : ..................... %d,%d\n", prop.major, prop.minor);
-  }
-}
-#endif
+inline host_fn bool is_close(const DynamicSphere& sph1, const DynamicSphere& sph2, real eps = 1e-5);
+
+inline host_fn bool is_close(const Capsule& capsule1, const Capsule& capsule2, real eps = 1e-5);
+
+inline host_fn bool is_close(const DynamicCapsule& capsule1, const DynamicCapsule& capsule2, real eps = 1e-5);
+
+inline host_fn bool is_close(const World& world1, const World& world2, real eps = 1e-5);
+
+inline host_fn bool is_close(const CollisionModelCapsule& capsule1, const CollisionModelCapsule& capsule2, real eps = 1e-5);
+
+inline host_fn bool is_close(const Manipulator& manip1, const Manipulator& manip2, real eps = 1e-5);
+
+inline host_fn bool is_close(const ManipulatorTempData& manip_data1, const ManipulatorTempData& manip_data2, const u32 n_joints, const u32 n_caps, real eps = 1e-5);
+
+inline host_fn bool is_close(const Bspline& spline1, const Bspline& spline2, real eps = 1e-5);
+
+inline host_fn bool is_close(const ConstraintSelection& constraints1, const ConstraintSelection& constraints2, real eps = 1e-5);
+
+inline host_fn bool is_close(const Objective& objective1, const Objective& objective2, real eps = 1e-5);
+
+inline host_fn bool is_close(const Guess& guess1, const Guess& guess2, real eps = 1e-5);
+
+inline host_fn bool is_close(const Optimization& opt1, const Optimization& opt2, real eps = 1e-5);
+
+inline host_fn bool is_close(const nlopt_result& result1, const nlopt_result& result2, real eps = 1e-5);
+
+inline host_fn bool is_close(const Result& result1, Result& result2, real eps = 1e-5);
 
 } // namespace blast
+
+#include "utilities/file_io.hpp"
+#include "utilities/is_close.hpp"
+#include "utilities/print.hpp"

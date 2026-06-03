@@ -160,6 +160,18 @@ inline host_fn real get_random() {
   static thread_local std::uniform_real_distribution<blast::real> dis(-1, 1);
   return dis(e2);
 }
+
+// todo: make thread safe?
+inline host_fn u32 random_int(u32 min, u32 max) {
+// Create a static random number generator (seeded once)
+static std::random_device rd;
+static std::mt19937       gen(rd());
+
+// Create a uniform distribution for integers in the given range
+std::uniform_int_distribution<u32> dist(min, max);
+
+return dist(gen);
+}
 #endif
 
 } // namespace blast

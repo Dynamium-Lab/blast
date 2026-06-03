@@ -44,27 +44,13 @@ endfunction()
 # NAME_OF_BENCHMARK BENCHMARK_TARGET_LOCATION
 # List of benchmarks with their source files
 set(BENCHMARKS
-        # Acceleration
-        #  bench_gradients_acceleration acceleration/bench_gradients_acceleration.cpp
-        # bench_generic benchmarks/bench_generic.cpp
-        # bench_test_manip benchmarks/bench_test_manip.cpp
-        #    bench_manipulator benchmarks/bench_manipulator.cpp
-        #    bench_accelerations acceleration/bench_accelerations.cpp
-        #    bench_inplace acceleration/bench_inplace.cpp
-        #    bench_paper_gradients benchmarks/bench_paper_gradients.cpp
-        #    bench_constraints benchmarks/bench_constraints.cpp
-        #    bench_functions benchmarks/bench_functions.cpp
-
-        # bench_optimization_methods benchmarks/bench_optimization_methods.cpp
+        #
 )
 
 # note: Add new tests files as follows :
 # NAME_OF_TEST TEST_TARGET_LOCATION
 # List of tests with their source files
 set(TESTS
-        # Acceleration
-        # test_gradients_acceleration acceleration/test_gradients_acceleration.cpp
-        #    test_accelerations acceleration/test_accelerations.cpp
 
         # Container
         test_objmatrix container/test_objmatrix.cpp

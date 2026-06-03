@@ -1,10 +1,11 @@
 #pragma once
 #include <blast>
 
+namespace blast {
 // Extracted scenes from MotionBenchMaker (github : https://github.com/KavrakiLab/motion_bench_maker)
 
-inline host_fn blast::World get_bookshelf_small() {
-  blast::World bookshelf_small;
+inline host_fn World get_bookshelf_small() {
+  World bookshelf_small;
   bookshelf_small.add_capsule({0.9, 0.0, 1.01}, {0.9, 0.0, 1.15}, 0.03);
   bookshelf_small.add_capsule({0.7, 0.0, 1.01}, {0.7, 0.0, 1.15}, 0.03);
   bookshelf_small.add_capsule({0.5, 0.0, 1.01}, {0.5, 0.0, 1.15}, 0.03);
@@ -15,8 +16,8 @@ inline host_fn blast::World get_bookshelf_small() {
   return bookshelf_small;
 }
 
-inline host_fn blast::World get_bookshelf_tall() {
-  blast::World bookshelf_tall;
+inline host_fn World get_bookshelf_tall() {
+  World bookshelf_tall;
   bookshelf_tall.add_capsule({0.9, 0.0, 1.31}, {0.9, 0.0, 1.45}, 0.03);
   bookshelf_tall.add_capsule({0.7, 0.0, 1.31}, {0.7, 0.0, 1.45}, 0.03);
   bookshelf_tall.add_capsule({0.5, 0.0, 1.31}, {0.5, 0.0, 1.45}, 0.03);
@@ -35,8 +36,8 @@ inline host_fn blast::World get_bookshelf_tall() {
   return bookshelf_tall;
 }
 
-inline host_fn blast::World get_bookshelf_thin() {
-  blast::World bookshelf_thin;
+inline host_fn World get_bookshelf_thin() {
+  World bookshelf_thin;
   bookshelf_thin.add_capsule({1.1, 0.25, 0.37}, {1.1, 0.25, 0.51}, 0.03);
   bookshelf_thin.add_capsule({0.8, 0.25, 0.37}, {0.8, 0.25, 0.51}, 0.03);
   bookshelf_thin.add_capsule({1.1, -0.25, 0.62}, {1.1, -0.25, 0.76}, 0.03);
@@ -61,8 +62,8 @@ inline host_fn blast::World get_bookshelf_thin() {
   return bookshelf_thin;
 }
 
-inline host_fn blast::World get_scene_box() {
-  blast::World box;
+inline host_fn World get_scene_box() {
+  World box;
   box.add_capsule({0.8, 0.0, 0.48}, {0.8, 0.0, 0.62}, 0.03);
   box.add_box({0.8, 0, 0.44}, {0.35, 0.35, 0.02}, {-1, 0, 0, 0, -1, 0, 0, 0, 1});
   box.add_box({0.8, -0.35, 0.8}, {0.35, 0.02, 0.35}, {-1, 0, 0, 0, -1, 0, 0, 0, 1});
@@ -73,8 +74,8 @@ inline host_fn blast::World get_scene_box() {
   return box;
 }
 
-inline host_fn blast::World get_scene_cage() {
-  blast::World cage;
+inline host_fn World get_scene_cage() {
+  World cage;
   cage.add_box({0.8, 0, 0.52}, {0.035, 0.035, 0.035}, {-1, 0, 0, 0, -1, 0, 0, 0, 1});
   cage.add_box({0.8, 0, 0.44}, {0.35, 0.35, 0.02}, {-1, 0, 0, 0, -1, 0, 0, 0, 1});
   cage.add_box({0.8, -0.35, 0.8}, {0.35, 0.02, 0.35}, {-1, 0, 0, 0, -1, 0, 0, 0, 1});
@@ -86,8 +87,8 @@ inline host_fn blast::World get_scene_cage() {
   return cage;
 }
 
-inline host_fn blast::World get_scene_table() {
-  blast::World table;
+inline host_fn World get_scene_table() {
+  World table;
   table.add_capsule({0.85, 0.0, 0.74}, {0.85, 0.0, 0.86}, 0.03);
   table.add_box({0.75, 0.4, 0.85}, {0.125, 0.125, 0.125}, {-1, 0, 0, 0, -1, 0, 0, 0, 1});
   table.add_box({1.5, 0.85, 0.35}, {0.025, 0.025, 0.35}, {-1, 0, 0, 0, -1, 0, 0, 0, 1});
@@ -103,8 +104,8 @@ inline host_fn blast::World get_scene_table() {
   return table;
 }
 
-inline host_fn blast::World get_kitchen_no_doors() {
-  blast::World world;
+inline host_fn World get_kitchen_no_doors() {
+  World world;
   world.add_box({0.427, -1.0847, 1.1974}, {0.36029, 0.06, 0.36242}, {1, 0, 0, 0, 1, 0, 0, 0, 1});
   world.add_box({0.427, 0.48791, 1.1974}, {0.36029, 0.06, 0.36242}, {1, 0, 0, 0, 1, 0, 0, 0, 1});
   world.add_box({0.427, -0.29838, 1.5298}, {0.36029, 0.84629, 0.03}, {1, 0, 0, 0, 1, 0, 0, 0, 1});
@@ -118,3 +119,44 @@ inline host_fn blast::World get_kitchen_no_doors() {
   world.add_box({0.35698, -0.80106, -0.47336}, {0.41378, 0.38356, 0.03}, {1, 0, 0, 0, 1, 0, 0, 0, 1});
   return world;
 }
+
+inline host_fn World get_demo2_world() {
+  World result;
+  result.add_box({0.7, 0, 0.381}, {1.0, 0.75, 0.381}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});       // table 76 cm high
+  result.add_box({0.67, -0.1475, 0.96}, {0.35, 0.025, 0.2}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // vertical plate (no coll)
+  // result.add_box({0.7, 0, -0.55}, {1.0, 0.75, 0.4}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});                 // table 76 cm high
+  // result.add_box({0.67, -0.1475, -0.0562}, {0.35, 0.025, 0.4}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // vertical plate (no coll)
+  return result;
+}
+
+inline host_fn World get_lab_world() {
+  World world;
+  // Lab environment
+  // add_box({0.6415, 0.0237, -0.53815}, {2.0, 2.0, 0.381}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); //table
+  world.add_box({0.7, 0, -0.55}, {1.0, 0.75, 0.4}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});                 // table
+  world.add_box({-0.5654, -0.8145, 0.3248}, {0.381, 0.635, 0.381}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // computer and screens next to link6
+  world.add_box({0.4506, -1.3479, 0.3248}, {0.635, 0.381, 0.381}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1));  // computer and screens next to gen3lite
+  world.add_box({0.0, 0.0, -0.4091}, {0.1459, 0.2018, 0.4091}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1));     // link6 base
+  world.add_box({0.6665, 1.1286, 0.0}, {0.508, 0.3175, 1.0457}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1));    // UR5
+  world.add_box({0, -0.75, 1.0}, {0.10, 0.15, 2.0}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1));                // cables
+
+  // DEMO 1 bin 1
+  // world.add_box({0.4114, -0.3784, -0.04465}, {0.2125, 0.155, 0.0125}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // bottom
+  // world.add_box({0.2114, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1));  // front
+  // world.add_box({0.6114, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1));  // back
+  // world.add_box({0.4114, -0.2359, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // left
+  // world.add_box({0.4114, -0.5209, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // right
+
+  // // DEMO 1 bin 2
+  // world.add_box({0.8716, -0.3784, -0.04465}, {0.2125, 0.155, 0.0125}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // bottom
+  // world.add_box({0.6716, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1));  // front
+  // world.add_box({1.0716, -0.3784, 0.03035}, {0.0125, 0.155, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1));  // back
+  // world.add_box({0.8716, -0.2359, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // left
+  // world.add_box({0.8716, -0.5209, 0.03035}, {0.1875, 0.0125, 0.0625}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // right
+
+  // DEMO 1 obstacle
+  world.add_box({0.67, -0.1475, -0.0562}, {0.35, 0.025, 0.4}, Mat3(1, 0, 0, 0, 1, 0, 0, 0, 1)); // vertical plate (no coll)
+
+  return world;
+}
+} // namespace blast
