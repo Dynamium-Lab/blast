@@ -12,7 +12,7 @@ int main() {
   int n_ctrl = 16;
 
   Bspline spline(n_ctrl, points, p, joints);
-  
+
   Task  task(joints);
   Array x(spline.x_len(task.to_matrix()));                                            // note: only works this way if task has no NaN values later on
 
