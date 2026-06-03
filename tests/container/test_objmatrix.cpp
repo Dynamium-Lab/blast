@@ -4,8 +4,6 @@
 #include <blast>
 #include "blast_utilities.hpp"
 #include "manipulator/UR5e.hpp"
-#include "test_helper/test_functions.hpp"
-
 
 TEST_CASE("ObjMatrix Copy Constructor", "[ObjMatrix]") {
   blast::ObjMatrix<int> mat1(2, 3);

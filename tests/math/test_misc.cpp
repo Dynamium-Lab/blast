@@ -3,9 +3,6 @@
 
 #include <blast>
 #include "manipulator/UR5e.hpp"
-#include "test_helper/test_functions.hpp"
-#include "test_helper/test_helper.hpp"
-
 
 TEST_CASE("Conversions Q & rx, ry, rz", "[Math][Misc]") {
   using namespace blast;
