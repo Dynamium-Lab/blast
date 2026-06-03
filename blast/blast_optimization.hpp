@@ -102,7 +102,7 @@ struct ConstraintSelection {
 };
 
 struct Optimization {
-  OptimizationMethod  method;
+  OptimizationMethod  method = OptimizationMethod::with_segments;
   Manipulator         manip;
   Bspline             bspline;
   Guess               guess;
@@ -111,7 +111,7 @@ struct Optimization {
   Matrix              task;
   World               world;
   real                trajectory_start_time = 0.0;
-  real                success_tolerance     = 0.0;  // % of constraint violation after optimization that is still considered a success
+  real                success_tolerance     = 0.01; // constraint violation after optimization that is still considered a success
   int                 max_tries             = 1;    // Maximum number of tries in the optimization loop.
   int                 max_eval              = 1000; // Maximum number of function evaluations for a single NLopt call.
   real                max_time              = 30.0; // Maximum time (seconds) for a single NLopt call.
@@ -156,7 +156,6 @@ inline void nlopt_constraints_with_analytical_dynamics(unsigned m, double* resul
 
 // inline real   bound_constraint(const real& value, const real& value_min, const real& value_max);
 // inline Matrix get_J_tool(const Optimization* opt);
-// inline bool   validate_task(Optimization* opt);
 } // namespace blast
 
 #include "optimization/constraints.hpp"
