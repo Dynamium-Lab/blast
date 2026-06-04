@@ -14,11 +14,6 @@
       "displayName": "Developer build (Linux/macOS)",
       "description": "RelWithDebInfo, native tuning, compile-commands for tooling",
       "binaryDir": "${sourceDir}/build/${presetName}",
-      "condition": {
-        "type": "notEquals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "CMAKE_CXX_FLAGS": "-march=native",
@@ -45,12 +40,32 @@
     {
       "name": "ci",
       "inherits": "base",
-      "displayName": "CI build",
+      "displayName": "CI build (MSVC/default)",
       "description": "Release build without machine-specific tuning",
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "ci-gcc",
+      "inherits": "ci",
+      "displayName": "CI build (GCC)",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++"
+      }
+    },
+    {
+      "name": "ci-clang",
+      "inherits": "ci",
+      "displayName": "CI build (Clang)",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
       }
     }
   ],
@@ -68,6 +83,42 @@
       "name": "ci",
       "configurePreset": "ci",
       "configuration": "Release"
+    },
+    {
+      "name": "ci-gcc",
+      "configurePreset": "ci-gcc",
+      "configuration": "Release"
+    },
+    {
+      "name": "ci-clang",
+      "configurePreset": "ci-clang",
+      "configuration": "Release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "ci",
+      "configurePreset": "ci",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ci-gcc",
+      "configurePreset": "ci-gcc",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ci-clang",
+      "configurePreset": "ci-clang",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
     }
   ]
 }
