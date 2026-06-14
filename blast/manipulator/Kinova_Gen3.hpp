@@ -86,6 +86,9 @@ inline Manipulator make_Kinova_Gen3() {
   collisions.collision_matrix.resize(3, 3);
   collisions.collision_matrix(2, 0) = 1;
 
+  // mirrored just for consistency, technically not used
+  collisions.collision_matrix(0, 2) = 1;
+
   // Collision model
   CollisionModelCapsule model_caps;
 
@@ -113,6 +116,10 @@ inline Manipulator make_Kinova_Gen3() {
   gen3.set_capsules(collisions);
 
   return gen3;
+}
+
+inline host_fn Array get_gen3_home() {
+  return wrap2pi(deg2rad(Array({0, 15, 180, -130, 0, 55, 90})));
 }
 
 } // namespace blast

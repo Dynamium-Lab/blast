@@ -15,44 +15,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
-        build_type: [Release]
-        c_compiler: [gcc, clang, cl]
         include:
-          - os: windows-latest
-            c_compiler: cl
-            cpp_compiler: cl
           - os: ubuntu-latest
-            c_compiler: gcc
-            cpp_compiler: g++
+            preset: ci-gcc
           - os: ubuntu-latest
-            c_compiler: clang
-            cpp_compiler: clang++
-        exclude:
+            preset: ci-clang
           - os: windows-latest
-            c_compiler: gcc
-          - os: windows-latest
-            c_compiler: clang
-          - os: ubuntu-latest
-            c_compiler: cl
+            preset: ci
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Configure CMake
-        run: >
-          cmake -B ${{ github.workspace }}/build
-          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
-          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-          -S ${{ github.workspace }}
+        run: cmake --preset ${{ matrix.preset }}
 
       - name: Build
-        run: cmake --build ${{ github.workspace }}/build --config ${{ matrix.build_type }}
+        run: cmake --build --preset ${{ matrix.preset }}
 
       - name: Test
-        working-directory: ${{ github.workspace }}/build
-        run: ctest --build-config ${{ matrix.build_type }} --output-on-failure
+        run: ctest --preset ${{ matrix.preset }}
 
   # -------------------------------------------------------------------------
   # Install + consumer smoke test
@@ -92,17 +73,21 @@ jobs:
           target_link_libraries(test_consumer PRIVATE Blast::blast)
           EOF
           cat > "$RUNNER_TEMP/consumer/main.cpp" <<'EOF'
-          // Minimal consumer — verifies that the installed Blast headers and the
-          // exported nlopt target are all reachable via find_package(Blast).
+          // Consumer smoke test — verifies that find_package(Blast) exposes the
+          // headers/nlopt AND that the AVX2+FMA contract holds: blast::dot uses
+          // _mm256_fmadd_pd, so this fails to compile unless the installed
+          // Blast::blast target propagates the required ISA flags (or the
+          // #error guard fires). No flags are set here on purpose — that is what
+          // the test checks.
           #include <blast>
           #include <iostream>
 
           int main() {
-            // Exercise a type from blast_math.hpp (included transitively via <blast>)
-            blast::Vec3 v{1.0, 2.0, 3.0};
-            std::cout << "Blast::Vec3 constructed: "
-                      << v.x << " " << v.y << " " << v.z << "\n";
-            return 0;
+            blast::Array a({1.0, 2.0, 3.0, 4.0});
+            blast::Array b({4.0, 3.0, 2.0, 1.0});
+            blast::real  d = blast::dot(a, b); // exercises the AVX2/FMA path
+            std::cout << "Blast::dot = " << d << "\n";
+            return (d == 20.0) ? 0 : 1; // 1*4 + 2*3 + 3*2 + 4*1 = 20
           }
           EOF
 

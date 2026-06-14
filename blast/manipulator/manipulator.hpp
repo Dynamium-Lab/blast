@@ -316,14 +316,6 @@ inline Array get_internal_collisions(const Manipulator& manip, const Manipulator
   return distances;
 }
 
-// inline host_fn Array Manipulator::get_tool_pose() const {
-//   Mat3 tmp             = _rotations_mult.back();
-//   Vec3 current_rpy     = rotation2rpy(tmp);
-//   Vec3 current_cartpos = _p_j.back();
-//   return {current_cartpos.x, current_cartpos.y, current_cartpos.z,
-//           current_rpy.x, current_rpy.y, current_rpy.z};
-// }
-
 inline host_fn void Manipulator::add_tool(const Tool& tool) {
   tool_offset         = tool.tool_offset;
   tool_rotation       = tool.tool_rotation;
@@ -332,37 +324,37 @@ inline host_fn void Manipulator::add_tool(const Tool& tool) {
   tool_cog_offset     = tool.cog_offset;
   has_tool            = true;
 
-  joint_offsets.back() += tool_rotation * tool.tool_offset;
-  static_rotations.back() *= tool_rotation;
-  real m_new    = link_masses.back() + tool.mass;
-  Vec3 av_new   = (link_masses.back() * cog_offsets.back() + tool.mass * tool.cog_offset) / m_new;
-  Vec3 delta_av = av_new - cog_offsets.back();
+  joint_offsets[n_joints - 1] += tool_rotation * tool.tool_offset;
+  static_rotations[n_joints - 1] *= tool_rotation;
+  real m_new    = link_masses[n_joints - 1] + tool.mass;
+  Vec3 av_new   = (link_masses[n_joints - 1] * cog_offsets[n_joints - 1] + tool.mass * tool.cog_offset) / m_new;
+  Vec3 delta_av = av_new - cog_offsets[n_joints - 1];
 
-  inertia_tensors.back()(0, 0) += link_masses.back() * delta_av.x * delta_av.x + tool.mass * tool.cog_offset.x * tool.cog_offset.x;
-  inertia_tensors.back()(1, 1) += link_masses.back() * delta_av.y * delta_av.y + tool.mass * tool.cog_offset.y * tool.cog_offset.y;
-  inertia_tensors.back()(2, 2) += link_masses.back() * delta_av.z * delta_av.z + tool.mass * tool.cog_offset.z * tool.cog_offset.z;
-  inertia_tensors.back() += tool.inertia_tensor;
+  inertia_tensors[n_joints - 1](0, 0) += link_masses[n_joints - 1] * delta_av.x * delta_av.x + tool.mass * tool.cog_offset.x * tool.cog_offset.x;
+  inertia_tensors[n_joints - 1](1, 1) += link_masses[n_joints - 1] * delta_av.y * delta_av.y + tool.mass * tool.cog_offset.y * tool.cog_offset.y;
+  inertia_tensors[n_joints - 1](2, 2) += link_masses[n_joints - 1] * delta_av.z * delta_av.z + tool.mass * tool.cog_offset.z * tool.cog_offset.z;
+  inertia_tensors[n_joints - 1] += tool.inertia_tensor;
 
-  link_masses.back()         = m_new;
-  cog_offsets.back()         = av_new;
-  cog_from_next_joint.back() = {-joint_offsets.back() + cog_offsets.back()};
+  link_masses[n_joints - 1]         = m_new;
+  cog_offsets[n_joints - 1]         = av_new;
+  cog_from_next_joint[n_joints - 1] = {-joint_offsets[n_joints - 1] + cog_offsets[n_joints - 1]};
 }
 
 inline host_fn void Manipulator::set_payload(real m_payload, Vec3 cg_payload, Mat3 I_payload) {
   Vec3 av_payload = cg_payload;
-  real m_new      = link_masses.back() + m_payload;
-  Vec3 av_new     = (link_masses.back() * cog_offsets.back() + m_payload * av_payload) / m_new;
-  Vec3 delta_av   = av_new - cog_offsets.back();
+  real m_new      = link_masses[n_joints - 1] + m_payload;
+  Vec3 av_new     = (link_masses[n_joints - 1] * cog_offsets[n_joints - 1] + m_payload * av_payload) / m_new;
+  Vec3 delta_av   = av_new - cog_offsets[n_joints - 1];
   Vec3 av_to_mass = av_payload - av_new;
 
-  inertia_tensors.back()(0, 0) += link_masses.back() * delta_av.x * delta_av.x + m_payload * av_to_mass.x * av_to_mass.x;
-  inertia_tensors.back()(1, 1) += link_masses.back() * delta_av.y * delta_av.y + m_payload * av_to_mass.y * av_to_mass.y;
-  inertia_tensors.back()(2, 2) += link_masses.back() * delta_av.z * delta_av.z + m_payload * av_to_mass.z * av_to_mass.z;
-  inertia_tensors.back() += I_payload;
+  inertia_tensors[n_joints - 1](0, 0) += link_masses[n_joints - 1] * delta_av.x * delta_av.x + m_payload * av_to_mass.x * av_to_mass.x;
+  inertia_tensors[n_joints - 1](1, 1) += link_masses[n_joints - 1] * delta_av.y * delta_av.y + m_payload * av_to_mass.y * av_to_mass.y;
+  inertia_tensors[n_joints - 1](2, 2) += link_masses[n_joints - 1] * delta_av.z * delta_av.z + m_payload * av_to_mass.z * av_to_mass.z;
+  inertia_tensors[n_joints - 1] += I_payload;
 
-  link_masses.back()         = m_new;
-  cog_offsets.back()         = av_new;
-  cog_from_next_joint.back() = {-joint_offsets.back() + cog_offsets.back()};
+  link_masses[n_joints - 1]         = m_new;
+  cog_offsets[n_joints - 1]         = av_new;
+  cog_from_next_joint[n_joints - 1] = {-joint_offsets[n_joints - 1] + cog_offsets[n_joints - 1]};
 }
 
 inline host_fn real clamped_root(real slope, real h0, real h1) {

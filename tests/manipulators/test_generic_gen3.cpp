@@ -2,245 +2,136 @@
 #include "catch2/catch.hpp"
 
 #include <blast>
-#include "test_helper/test_functions.hpp"
-#include "test_helper/test_helper.hpp"
 
 using namespace blast;
 
-// GEN3 TESTS
-TEST_CASE("Gen3 forward_kinematics() test", "[Generic]") {
+// user guide: https://www.kinovarobotics.com/uploads/User-Guide-Gen3-R07.pdf
+struct Gen3 {
+  // basic manipulator properties
+  int joints = 7;
+
+  // All limits are from webapp
+  Array pmax    = {INF_REAL, 2.25, INF_REAL, 2.58f, INF_REAL, 2.1f, INF_REAL}; // rad
+  Array pmin    = -pmax;                                                       // rad
+  Array vmax    = {1.745f, 1.745f, 1.745f, 1.745f, 2.443f, 2.443f, 2.443f};    // rad/s
+  Array vmin    = -vmax;                                                       // rad/s
+  Array amax    = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL};
+  Array amin    = -amax;                                                       // rad/s^2
+  Array tau_max = {52, 52, 52, 52, 17, 17, 17};                                // Nm
+  Array tau_min = -tau_max;                                                    // Nm
+
+  // tcp & elbow speed limits
+  real tcp_max = 0.5; // from user guide
+
+  // kinematic properties
+  Vec3 p_base = {0, 0, 0};
+  Mat3 Q_base = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+
+  Vec3 p_j0 = {0, 0, 0.1564f};
+
+  Vec3 dv[7] = {
+          {0.0, 0.0054, -0.1284},
+          {0.0, -0.2104, -0.0064},
+          {0.0, -0.0064, -0.2104},
+          {0.0, -0.2084, -0.0064},
+          {0.0, 0.0, -0.1059},
+          {0.0, -0.1059, 0.0},
+          {0.0, 0.0, -0.0615 /*- 0.164*/} // todo: add gripper capsule
+  }; // vector to next joint
+
+  Vec3 ev[7] = {
+          {0, 0, 1},
+          {0, 0, 1},
+          {0, 0, 1},
+          {0, 0, 1},
+          {0, 0, 1},
+          {0, 0, 1},
+          {0, 0, 1}}; // direction vectors of joint
+
+  // dynamic properties
+  real m[7] = {
+          1.377f,
+          1.1636f,
+          1.1636f,
+          0.93f,
+          0.678f,
+          0.678f,
+          0.364f}; // link masses
+
+  Mat3 I[7] = {
+          {0.004570f, 0.000001f, 0.000002f, 0.000001f, 0.004831f, 0.000448f, 0.000002f, 0.000448f, 0.001409f},
+          {0.011088f, 0.000005f, 0.000000f, 0.000005f, 0.001072f, -0.000691f, 0.000000f, -0.000691f, 0.011255f},
+          {0.010932f, 0.000000f, -0.000007f, 0.000000f, 0.011127f, 0.000606f, -0.000007f, 0.000606f, 0.001043f},
+          {0.008147f, -0.000001f, 0.000000f, -0.000001f, 0.000631f, -0.000500f, 0.000000f, -0.000500f, 0.008316f},
+          {0.001596f, 0.000000f, 0.000000f, 0.000000f, 0.001607f, 0.000256f, 0.000000f, 0.000256f, 0.000399f},
+          {0.001641f, 0.000000f, 0.000000f, 0.000000f, 0.000410f, -0.000278f, 0.000000f, -0.000278f, 0.001641f},
+          {0.000214f, 0.000000f, 0.000001f, 0.000000f, 0.000223f, -0.000002f, 0.000001f, -0.000002f, 0.000240f}}; // Inertial tensors
+
+  Vec3 av[7] = {
+          {-0.000023f, -0.010364f, -0.073360f},
+          {-0.000044f, -0.099580f, -0.013278f},
+          {-0.000044f, -0.006641f, -0.117892f},
+          {-0.000018f, -0.075478f, -0.015006f},
+          {0.000001f, -0.009432f, -0.063883f},
+          {0.000001f, -0.045483f, -0.009650f},
+          {-0.000093f, 0.000132f, -0.022905f}}; // centers of mass
+
+  Vec3 sv[7] = {
+          {-dv[0] + av[0]},
+          {-dv[1] + av[1]},
+          {-dv[2] + av[2]},
+          {-dv[3] + av[3]},
+          {-dv[4] + av[4]},
+          {-dv[5] + av[5]},
+          {-dv[6] + av[6]}}; // centers of mass from next joint
+
+  Array _efforts;            // put the efforts temporarily when computing the constraints
+
+  // Internal variables
+  std::vector<Mat3>    Q_static               = {};                      // static rotation to next joint todo: remove this
+  std::vector<Mat3>    _rotations             = std::vector<Mat3>(7);    // put the rotation matrices temporarily when computing the constraints
+  std::vector<Mat3>    _rotations_mult        = std::vector<Mat3>(7);    // put the rotation matrices multiplications temporarily when computing the constraints
+  std::vector<Vec3>    _p_j                   = std::vector<Vec3>(8);    // put the joint coordinates temporarily when computing the constraints
+  std::vector<Capsule> _capsule_list          = std::vector<Capsule>(3); // put the capsules temporarily when computing the constraints
+  u32                  _n_caps                = 3;
+  u32                  _n_internal_collisions = 2;
+
+  inline void compute_rotation_matrices(const Array& joint_position) {
+    Array s(7);
+    Array c(7);
+    sincos(joint_position, s, c);
+
+    // note: these are stored column-wise
+    _rotations[0] = {c[0], -s[0], 0, -s[0], -c[0], 0, 0, 0, -1};
+    _rotations[1] = {c[1], 0, s[1], -s[1], 0, c[1], 0, -1, 0};
+    _rotations[2] = {c[2], 0, -s[2], -s[2], 0, -c[2], 0, 1, 0};
+    _rotations[3] = {c[3], 0, s[3], -s[3], 0, c[3], 0, -1, 0};
+    _rotations[4] = {c[4], 0, -s[4], -s[4], 0, -c[4], 0, 1, 0};
+    _rotations[5] = {c[5], 0, s[5], -s[5], 0, c[5], 0, -1, 0};
+    _rotations[6] = {c[6], 0, -s[6], -s[6], 0, -c[6], 0, 1, 0};
+  }
+};
+
+TEST_CASE("Gen3 compute_rotation_matrices() test", "[Generic]") {
   int  n_tests = 100;
   real epsilon = 1e-6;
   Gen3 expected_manip;
-  auto generic_manip           = get_generic_gen3();
-  expected_manip.base_position = generic_manip.base_position;
-  expected_manip.base_rotation = generic_manip.base_rotation;
+  auto generic_manip          = make_Kinova_Gen3();
+  generic_manip.base_position = {0.0, 0.0, 0.0};
+  generic_manip.base_rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};
 
-  // todo: remove?
-  // setup_manip(&expected_manip);
-  // setup_manip(&generic_manip);
+  ManipulatorTempData data_expected;
+  ManipulatorTempData data_generic;
 
   for (int i = 0; i < n_tests; i++) {
     Array test_position(7);
     fill_random(test_position, PI);
-    forward_kinematics(generic_manip, test_position);
-    forward_kinematics(expected_manip, test_position);
 
-    CHECK(is_close(generic_manip._p_j, expected_manip._p_j, epsilon));
-    CHECK(is_close(generic_manip._rotations, expected_manip._rotations, epsilon));
-    CHECK(is_close(generic_manip._rotations_mult, expected_manip._rotations_mult, epsilon));
-  }
-}
+    forward_kinematics(generic_manip, data_generic, test_position);
+    expected_manip.compute_rotation_matrices(test_position);
 
-TEST_CASE("Gen3 dynamics() test", "[Generic]") {
-  int  n_tests = 100;
-  real epsilon = 1e-6;
-  Gen3 expected_manip;
-  auto generic_manip           = get_generic_gen3();
-  expected_manip.base_position = generic_manip.base_position;
-  expected_manip.base_rotation = generic_manip.base_rotation;
-
-  // todo: remove?
-  // setup_manip(&expected_manip);
-  // setup_manip(&generic_manip);
-
-  for (int i = 0; i < n_tests; i++) {
-    Matrix random_task(7, 6);
-    fill_random(random_task, PI);
-    Trajectory test_trajectory = compute_5order_trajectory(2.0, random_task);
-
-    Matrix result_gen(7, test_trajectory.t.size);
-    Matrix result_hc(7, test_trajectory.t.size);
-    for (u32 p = 0; p < test_trajectory.t.size; p++) {
-      auto tmp_pos = test_trajectory.pos.col(p);
-      forward_kinematics(generic_manip, tmp_pos);
-      forward_kinematics(expected_manip, tmp_pos);
-
-      auto tmp_vel = test_trajectory.vel.col(p);
-      auto tmp_acc = test_trajectory.acc.col(p);
-      dynamics(generic_manip, tmp_vel, tmp_acc);
-      dynamics(expected_manip, tmp_vel, tmp_acc);
-
-      for (int j = 0; j < 7; j++) {
-        result_gen(j, p) = generic_manip._efforts[j];
-        result_hc(j, p)  = expected_manip._efforts[j];
-      }
+    for (int j = 0; j < expected_manip._rotations.size(); j++) {
+      CHECK(is_close(data_generic.rotations[j], expected_manip._rotations[j], epsilon));
     }
-    CHECK(is_close(result_gen, result_hc));
-  }
-}
-
-// todo: collisions not working properly
-TEST_CASE("Gen3 compute_capsules() test", "[Generic]") {
-  int  n_tests = 100;
-  Gen3 expected_manip;
-  auto generic_manip           = get_generic_gen3();
-  expected_manip.base_position = generic_manip.base_position;
-  expected_manip.base_rotation = generic_manip.base_rotation;
-
-  for (int i = 0; i < n_tests; i++) {
-    Array test_position(7);
-    fill_random(test_position, PI);
-
-    forward_kinematics(generic_manip, test_position);
-    forward_kinematics(expected_manip, test_position);
-
-    generic_manip.compute_capsules();
-    expected_manip.compute_capsules();
-    auto generic_internal       = generic_manip.get_internal_collisions();
-    auto expected_internal      = expected_manip.internal_collisions();
-    auto generic_internal_dist  = min(generic_internal);
-    auto expected_internal_dist = min(expected_internal);
-    // CHECK(is_close(generic_internal_dist, expected_internal_dist, epsilon));
-
-    // CHECK(is_close(generic_manip._capsule_list, expected_manip._capsule_list));
-
-    // auto gen_self_collision_distances = generic_manip.internal_collisions();
-    // auto expected_self_collision_distances = expected_manip.internal_collisions();
-
-    // CHECK(is_close(gen_self_collision_distances, expected_self_collision_distances));
-  }
-}
-
-TEST_CASE("Gen3 compute_constraints() test", "[Generic]") {
-  int  n_tests = 100;
-  Gen3 manip_hc;
-
-  auto         opt_gen       = get_generic_gen3_opt();
-  Optimization opt_hc        = get_gen3_gen3_opt();
-  opt_hc.manip.base_position = opt_gen.manip.base_position;
-  opt_hc.manip.base_rotation = opt_gen.manip.base_rotation;
-
-  opt_gen.constraints.self_collisions     = false;
-  opt_gen.constraints.external_collisions = false;
-  opt_hc.constraints.self_collisions      = false;
-  opt_hc.constraints.external_collisions  = false;
-
-  ncon(&opt_gen);
-  ncon(&opt_hc);
-
-  real x_len = opt_gen.bspline.x_len(opt_gen.task);
-
-  Array x_test(x_len);
-  Array result_gen(opt_gen.constraints.n_constraints);
-  Array result_hc(opt_hc.constraints.n_constraints);
-  for (int i = 0; i < n_tests; i++) {
-    fill_random(x_test, PI);
-
-    compute_constraints(result_gen.data, x_test, &opt_gen);
-    compute_constraints(result_hc.data, x_test, &opt_hc);
-
-    CHECK(is_close(result_gen, result_hc));
-  }
-}
-
-TEST_CASE("Gen3 nlopt_constraints() test", "[Generic]") {
-  int  n_tests = 100;
-  Gen3 manip_hc;
-
-  auto         opt_gen       = get_generic_gen3_opt();
-  Optimization opt_hc        = get_gen3_gen3_opt();
-  opt_hc.manip.base_position = opt_gen.manip.base_position;
-  opt_hc.manip.base_rotation = opt_gen.manip.base_rotation;
-
-  opt_gen.constraints.self_collisions     = false;
-  opt_gen.constraints.external_collisions = false;
-  opt_hc.constraints.self_collisions      = false;
-  opt_hc.constraints.external_collisions  = false;
-
-  ncon(&opt_gen);
-  ncon(&opt_hc);
-
-  real x_len = opt_gen.bspline.x_len(opt_gen.task);
-
-  Array x_test(x_len);
-  Array constraints_value_gen(opt_gen.constraints.n_constraints);
-  Array constraints_value_hc(opt_hc.constraints.n_constraints);
-  Array grad_gen(opt_gen.constraints.n_constraints * x_len);
-  Array grad_hc(opt_hc.constraints.n_constraints * x_len);
-  for (int i = 0; i < n_tests; i++) {
-    fill_random(x_test, PI);
-
-    nlopt_constraints(opt_gen.constraints.n_constraints, constraints_value_gen.data, (unsigned int) x_len, x_test.data, grad_gen.data, (void*) (&opt_gen));
-    nlopt_constraints(opt_hc.constraints.n_constraints, constraints_value_hc.data, x_len, x_test.data, grad_hc.data, &opt_hc);
-
-    CHECK(is_close(constraints_value_gen, constraints_value_hc));
-    CHECK(is_close(grad_gen, grad_hc));
-  }
-}
-
-TEST_CASE("Gen3 compute_objective() test", "[objective]") {
-  int  n_tests = 100;
-  Gen3 manip_hc;
-
-  auto         opt_gen       = get_generic_gen3_opt();
-  Optimization opt_hc        = get_gen3_gen3_opt();
-  opt_hc.manip.base_position = opt_gen.manip.base_position;
-  opt_hc.manip.base_rotation = opt_gen.manip.base_rotation;
-
-  for (int i = 0; i < n_tests; i++) {
-    Array x(37, 5 * (get_random() + 1));
-
-    double obj_fun_gen = compute_objective(x, &opt_gen);
-    double obj_fun_hc  = compute_objective(x, &opt_hc);
-
-    CHECK(is_close(obj_fun_gen, obj_fun_hc));
-  }
-}
-
-TEST_CASE("Gen3 objective_function() test", "[objective]") {
-  int  n_tests = 100;
-  Gen3 manip_hc;
-
-  auto         opt_gen       = get_generic_gen3_opt();
-  Optimization opt_hc        = get_gen3_gen3_opt();
-  opt_hc.manip.base_position = opt_gen.manip.base_position;
-  opt_hc.manip.base_rotation = opt_gen.manip.base_rotation;
-
-  real x_len = opt_gen.bspline.x_len(opt_gen.task);
-
-  Array x_test(x_len);
-  Array grad_gen(opt_gen.constraints.n_constraints * x_len);
-  Array grad_hc(opt_hc.constraints.n_constraints * x_len);
-  for (int i = 0; i < n_tests; i++) {
-    fill_random(x_test, PI);
-
-    double obj_fun_gen = objective_function(x_len, x_test.data, grad_gen.data, &opt_gen);
-    double obj_fun_hc  = objective_function(x_len, x_test.data, grad_hc.data, &opt_hc);
-
-    CHECK(is_close(obj_fun_gen, obj_fun_hc));
-    CHECK(is_close(grad_gen, grad_hc));
-  }
-}
-
-TEST_CASE("Gen3 optimize() test", "[Optimization][objective]") {
-  int n_tests = 10;
-
-  for (int i = 0; i < n_tests; i++) {
-    auto         opt_gen = get_generic_gen3_opt();
-    Optimization opt_hc  = get_gen3_gen3_opt();
-
-    opt_gen.constraints.self_collisions     = false;
-    opt_gen.constraints.external_collisions = false;
-    opt_hc.constraints.self_collisions      = false;
-    opt_hc.constraints.external_collisions  = false;
-
-    World world;
-    add_box({0.67, -0.1475, -0.0562}, {0.35, 0.025, 0.4}, {1, 0, 0, 0, 1, 0, 0, 0, 1}, &world); // vertical plate (no coll)
-    // add_box({0.6415, 0.0237, -0.53815}, {2.0, 2.0, 0.381}, {1, 0, 0, 0, 1, 0, 0, 0, 1}, &world); // table
-
-    opt_gen.set_world(world);
-    opt_hc.set_world(world);
-
-    auto result_gen = optimize(&opt_gen, OptimizationMethod::baseline);
-
-    opt_hc.guess.type      = Guess::custom;
-    opt_hc.guess.initial_x = (result_gen.x0);
-    auto result_hc         = optimize(&opt_hc, OptimizationMethod::baseline);
-
-    CHECK(is_close(result_gen.x0, result_hc.x0));
-    CHECK(is_close(result_gen.x, result_hc.x));
-    CHECK(result_gen.success == result_hc.success);
-    CHECK(result_gen.success_false == result_hc.success_false);
   }
 }

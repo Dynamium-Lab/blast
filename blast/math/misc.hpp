@@ -154,11 +154,25 @@ inline blast_fn real& clamp_inplace(real& val, real mini, real maxi) {
 }
 
 #ifndef __CUDA_ARCH__
-inline host_fn real get_random() {
+inline host_fn real random_real() {
   static thread_local std::random_device                          rd;
   static thread_local std::mt19937                                e2(rd());
   static thread_local std::uniform_real_distribution<blast::real> dis(-1, 1);
   return dis(e2);
+}
+
+inline host_fn u32 random_int(u32 min, u32 max) {
+  // thread_local: the generator carries mutable state, so a shared static
+  // would be a data race when guesses are generated from Taskflow workers.
+  // Mirrors random_real() above; each thread seeds its own generator once.
+  static thread_local std::random_device rd;
+  static thread_local std::mt19937       gen(rd());
+
+  // Distribution is cheap and stateless across calls — keep it local so the
+  // [min, max] range can vary per call.
+  std::uniform_int_distribution<u32> dist(min, max);
+
+  return dist(gen);
 }
 #endif
 

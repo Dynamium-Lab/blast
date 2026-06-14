@@ -353,7 +353,7 @@ inline blast_fn real  wrap2pi(real);
 inline blast_fn real  wrap_to_180(real);
 inline blast_fn real  deg2rad(real);
 inline blast_fn real  rad2deg(real);
-inline blast_fn real  get_random();
+inline blast_fn real  random_real();
 inline blast_fn real  clamp(real val, real mini, real maxi);
 inline blast_fn real& clamp_inplace(real& val, real mini, real maxi);
 inline blast_fn real  sign(real v);

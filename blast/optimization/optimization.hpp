@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include <blast>
 #include <utility>
 #ifdef BLAST_USE_NATIVE_SQP
@@ -45,9 +44,8 @@ inline Optimization::Optimization(const Manipulator& new_manip, const Task& new_
     task(new_task.to_matrix()),
     custom_data(nullptr) {
   // Default values
-  method               = OptimizationMethod::with_segments;
-  guess.type           = Guess::random;
-  guess.n_random_shots = 100;
+  method     = OptimizationMethod::with_segments;
+  guess.type = Guess::random;
 
   constraints.position     = true;
   constraints.velocity     = true;

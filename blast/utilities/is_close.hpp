@@ -4,7 +4,7 @@
 
 namespace blast {
 template<typename T>
-host_fn bool is_close(const T type1, const T type2, real eps = 1e-5) {
+host_fn bool is_close(const T type1, const T type2, real eps) {
   if (type1 != type2)
     return false;
   if (!is_close(type1, type2, eps))
@@ -14,7 +14,7 @@ host_fn bool is_close(const T type1, const T type2, real eps = 1e-5) {
 }
 
 template<typename T, std::size_t N>
-host_fn bool is_close(const std::array<T, N>& a1, const std::array<T, N>& a2, real eps = 1e-5) {
+host_fn bool is_close(const std::array<T, N>& a1, const std::array<T, N>& a2, real eps) {
   for (u32 i = 0; i < N; i++)
     if (!is_close(a1[i], a2[i], eps))
       return false;
@@ -23,7 +23,7 @@ host_fn bool is_close(const std::array<T, N>& a1, const std::array<T, N>& a2, re
 }
 
 template<typename T>
-host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps = 1e-5) {
+host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps) {
   if (a1.size != a2.size) {
     Assert(false);
     return false;
@@ -32,7 +32,7 @@ host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps =
 }
 
 template<typename T>
-host_fn bool is_close(const std::vector<T>& a1, const std::vector<T>& a2, real eps = 1e-5) {
+host_fn bool is_close(const std::vector<T>& a1, const std::vector<T>& a2, real eps) {
   if (a1.size() != a2.size()) {
     return false;
   }
@@ -44,38 +44,17 @@ host_fn bool is_close(const std::vector<T>& a1, const std::vector<T>& a2, real e
   return true;
 }
 
-// todo: remove?
-// template<typename T>
-// host_fn bool is_close(const ObjDblArray<T>& a1, const ObjDblArray<T>& a2, real eps) {
-//   if (a1.rows.size != a2.rows.size) {
-//     Assert(false);
-//     return false;
-//   }
-//   for (u32 i = 0; i < a1.cols; i++) {
-//     if (a1.rows[i] != a2.rows[i]) {
-//       Assert(false);
-//       return false;
-//     }
-//     for (u32 j = 0; j < a2.rows[i]; j++) {
-//       if (!is_close(a1(j, i), a2(j, i), eps))
-//         return false;
-//     }
-//   }
-//
-//   return true;
-// }
-
 // note: Does not use eps but necessary for consistency for usability with templates
-inline blast_fn bool is_close(const u8 a1, const u8& a2, real eps = 1e-5) {
+inline blast_fn bool is_close(const u8 a1, const u8& a2, real eps) {
   return (a1 == a2);
 }
 
 // note: Does not use eps but necessary for consistency for usability with templates
-inline blast_fn bool is_close(u32 a1, u32 a2, real eps = 1e-5) {
+inline blast_fn bool is_close(u32 a1, u32 a2, real eps) {
   return (a1 == a2);
 }
 
-inline host_fn bool is_close(real r1, real r2, real eps = 1e-5) {
+inline host_fn bool is_close(real r1, real r2, real eps) {
   return (r1 == INF_REAL && r2 == INF_REAL) || (r1 == -INF_REAL && r2 == -INF_REAL)
                  ? true
                  : (r1 == INF_REAL || r2 == INF_REAL || r1 == -INF_REAL || r2 == -INF_REAL
@@ -83,7 +62,7 @@ inline host_fn bool is_close(real r1, real r2, real eps = 1e-5) {
                             : (std::abs(r1 - r2) < eps));
 }
 
-inline host_fn bool is_close(const Box& box1, const Box& box2, real eps = 1e-5) {
+inline host_fn bool is_close(const Box& box1, const Box& box2, real eps) {
   if (!is_close(box1.center, box2.center, eps))
     return false;
   if (!is_close(box1.extents, box2.extents, eps))
@@ -94,7 +73,7 @@ inline host_fn bool is_close(const Box& box1, const Box& box2, real eps = 1e-5) 
   return true;
 }
 
-inline host_fn bool is_close(const DynamicBox& box1, const DynamicBox& box2, real eps = 1e-5) {
+inline host_fn bool is_close(const DynamicBox& box1, const DynamicBox& box2, real eps) {
   if (!is_close(box1.n_points, box2.n_points))
     return false;
   if (!is_close(box1.start_time, box2.start_time, eps))
@@ -107,7 +86,7 @@ inline host_fn bool is_close(const DynamicBox& box1, const DynamicBox& box2, rea
   return true;
 }
 
-inline host_fn bool is_close(const Sphere& sph1, const Sphere& sph2, real eps = 1e-5) {
+inline host_fn bool is_close(const Sphere& sph1, const Sphere& sph2, real eps) {
   if (!is_close(sph1.center, sph2.center, eps))
     return false;
   if (!is_close(sph1.radius, sph2.radius, eps))
@@ -116,7 +95,7 @@ inline host_fn bool is_close(const Sphere& sph1, const Sphere& sph2, real eps = 
   return true;
 }
 
-inline host_fn bool is_close(const DynamicSphere& sph1, const DynamicSphere& sph2, real eps = 1e-5) {
+inline host_fn bool is_close(const DynamicSphere& sph1, const DynamicSphere& sph2, real eps) {
   if (!is_close(sph1.n_points, sph2.n_points))
     return false;
   if (!is_close(sph1.start_time, sph2.start_time, eps))
@@ -129,7 +108,7 @@ inline host_fn bool is_close(const DynamicSphere& sph1, const DynamicSphere& sph
   return true;
 }
 
-inline host_fn bool is_close(const Capsule& capsule1, const Capsule& capsule2, real eps = 1e-5) {
+inline host_fn bool is_close(const Capsule& capsule1, const Capsule& capsule2, real eps) {
   if (!((is_close(capsule1.p1, capsule2.p1, eps) && is_close(capsule1.p2, capsule2.p2, eps)) ||
         (is_close(capsule1.p1, capsule2.p2, eps) && is_close(capsule1.p2, capsule2.p1, eps))))
     return false;
@@ -139,7 +118,7 @@ inline host_fn bool is_close(const Capsule& capsule1, const Capsule& capsule2, r
   return true;
 }
 
-inline host_fn bool is_close(const DynamicCapsule& capsule1, const DynamicCapsule& capsule2, real eps = 1e-5) {
+inline host_fn bool is_close(const DynamicCapsule& capsule1, const DynamicCapsule& capsule2, real eps) {
   if (!is_close(capsule1.n_points, capsule2.n_points))
     return false;
   if (!is_close(capsule1.start_time, capsule2.start_time, eps))
@@ -152,7 +131,7 @@ inline host_fn bool is_close(const DynamicCapsule& capsule1, const DynamicCapsul
   return true;
 }
 
-inline host_fn bool is_close(const World& world1, const World& world2, real eps = 1e-5) {
+inline host_fn bool is_close(const World& world1, const World& world2, real eps) {
   if (!is_close(world1.boxes, world2.boxes, eps))
     return false;
   if (!is_close(world1.capsules, world2.capsules, eps))
@@ -173,7 +152,7 @@ inline host_fn bool is_close(const World& world1, const World& world2, real eps 
 
 // todo: operator==
 inline host_fn bool is_close(const CollisionModelCapsule& capsule1, const CollisionModelCapsule& capsule2,
-                             real eps = 1e-5) {
+                             real eps) {
   if (!((is_close(capsule1.p1, capsule2.p1, eps) && is_close(capsule1.p2, capsule2.p2, eps)) ||
         (is_close(capsule1.p1, capsule2.p2, eps) && is_close(capsule1.p2, capsule2.p1, eps))))
     return false;
@@ -183,7 +162,7 @@ inline host_fn bool is_close(const CollisionModelCapsule& capsule1, const Collis
 }
 
 // todo: operator==
-inline host_fn bool is_close(const Manipulator& manip1, const Manipulator& manip2, real eps = 1e-5) {
+inline host_fn bool is_close(const Manipulator& manip1, const Manipulator& manip2, real eps) {
   if (manip1.n_joints != manip2.n_joints)
     return false;
 
@@ -267,7 +246,7 @@ inline host_fn bool is_close(const Manipulator& manip1, const Manipulator& manip
 }
 
 inline host_fn bool is_close(const ManipulatorTempData& manip_data1, const ManipulatorTempData& manip_data2,
-                             const u32 n_joints, const u32 n_caps, real eps = 1e-5) {
+                             const u32 n_joints, const u32 n_caps, real eps) {
   for (int joint = 0; joint < n_joints; joint++) {
     // internal variables
     if (!is_close(manip_data1.efforts[joint], manip_data2.efforts[joint], eps))
@@ -293,7 +272,7 @@ inline host_fn bool is_close(const ManipulatorTempData& manip_data1, const Manip
 
 // todo: operator==
 // todo: why only test these parameters?
-inline host_fn bool is_close(const Bspline& spline1, const Bspline& spline2, real eps = 1e-5) {
+inline host_fn bool is_close(const Bspline& spline1, const Bspline& spline2, real eps) {
   if (!is_close(spline1.n_joints, spline2.n_joints, eps))
     return false;
   if (!is_close(spline1.degree, spline2.degree, eps))
@@ -308,7 +287,7 @@ inline host_fn bool is_close(const Bspline& spline1, const Bspline& spline2, rea
 
 // todo: operator==
 inline host_fn bool is_close(const ConstraintSelection& constraints1, const ConstraintSelection& constraints2,
-                             real eps = 1e-5) {
+                             real eps) {
   if (constraints1.position != constraints2.position)
     return false;
   if (constraints1.velocity != constraints2.velocity)
@@ -338,7 +317,7 @@ inline host_fn bool is_close(const ConstraintSelection& constraints1, const Cons
 }
 
 // todo: operator==
-inline host_fn bool is_close(const Objective& objective1, const Objective& objective2, real eps = 1e-5) {
+inline host_fn bool is_close(const Objective& objective1, const Objective& objective2, real eps) {
   if (!is_close(objective1.time_weight, objective2.time_weight, eps))
     return false;
   if (!is_close(objective1.k_extra_objectives, objective2.k_extra_objectives, eps))
@@ -348,7 +327,7 @@ inline host_fn bool is_close(const Objective& objective1, const Objective& objec
 }
 
 // todo: operator==
-inline host_fn bool is_close(const Guess& guess1, const Guess& guess2, real eps = 1e-5) {
+inline host_fn bool is_close(const Guess& guess1, const Guess& guess2, real eps) {
   if (guess1.type != guess2.type)
     return false;
   switch (guess1.type) {
@@ -368,7 +347,7 @@ inline host_fn bool is_close(const Guess& guess1, const Guess& guess2, real eps 
 }
 
 // todo: operator==
-inline host_fn bool is_close(const Optimization& opt1, const Optimization& opt2, real eps = 1e-5) {
+inline host_fn bool is_close(const Optimization& opt1, const Optimization& opt2, real eps) {
   if (!is_close(opt1.bspline, opt2.bspline, eps))
     return false;
   if (!is_close(opt1.constraints, opt2.constraints, eps))
@@ -388,12 +367,7 @@ inline host_fn bool is_close(const Optimization& opt1, const Optimization& opt2,
 }
 
 // todo: operator==
-inline host_fn bool is_close(const nlopt_result& result1, const nlopt_result& result2, real eps = 1e-5) {
-  return (result1 == result2);
-}
-
-// todo: operator==
-inline host_fn bool is_close(const Result& result1, Result& result2, real eps = 1e-5) {
+inline host_fn bool is_close(const Result& result1, Result& result2, real eps) {
   if (result1.success != result2.success)
     return false;
   if (result1.success_false != result2.success_false)
@@ -410,15 +384,5 @@ inline host_fn bool is_close(const Result& result1, Result& result2, real eps = 
   return true;
 }
 
-// todo: make thread safe?
-inline host_fn u32 random_int(u32 min, u32 max) {
-  // Create a static random number generator (seeded once)
-  static std::random_device rd;
-  static std::mt19937       gen(rd());
 
-  // Create a uniform distribution for integers in the given range
-  std::uniform_int_distribution<u32> dist(min, max);
-
-  return dist(gen);
-}
 } // namespace blast

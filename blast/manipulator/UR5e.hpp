@@ -22,8 +22,8 @@ inline Manipulator make_UR5e() {
           Vec3{0, 0, 0},
           {-0.425f, 0, 0},
           {-0.3922f, 0, 0.1333f},
-          {0, -0.0997f, -0},
-          {0, 0.0996f, -0},
+          {0, -0.0997f, 0},
+          {0, 0.0996f, 0},
           {0, 0, 0}}; // vector to next joint
   kinematics.joint_axes = {
           Vec3{0, 0, 1},
@@ -32,12 +32,14 @@ inline Manipulator make_UR5e() {
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1}}; // direction vectors of joint
-  kinematics.static_rotations[0]  = {-1, 0, 0, -0, -1, 0, 0, -0, 1};
-  kinematics.static_rotations[1]  = {1, 0, 0, -0, -0, 1, 0, -1, -0};
-  kinematics.static_rotations[2]  = {1, 0, 0, -0, 1, 0, 0, -0, 1};
-  kinematics.static_rotations[3]  = {1, 0, 0, -0, 1, 0, 0, -0, 1};
-  kinematics.static_rotations[4]  = {1, 0, 0, -0, -0, 1, 0, -1, -0};
-  kinematics.static_rotations[5]  = {1, -0, 0, 0, -0, -1, 0, 1, -0};
+  kinematics.base_position        = {0.0, 0.0, 0.0};
+  kinematics.base_rotation        = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  kinematics.static_rotations[0]  = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  kinematics.static_rotations[1]  = {1, 0, 0, 0, 0, 1, 0, -1, 0};
+  kinematics.static_rotations[2]  = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  kinematics.static_rotations[3]  = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  kinematics.static_rotations[4]  = {1, 0, 0, 0, 0, 1, 0, -1, 0};
+  kinematics.static_rotations[5]  = {1, 0, 0, 0, 0, -1, 0, 1, 0};
   kinematics.first_joint_position = {0, 0, 0.162500f};
 
   // dynamic properties

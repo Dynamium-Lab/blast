@@ -2,9 +2,6 @@
 
 #include <blast>
 #include "catch2/catch.hpp"
-#include "test_helper/test_functions.hpp"
-#include "test_helper/test_helper.hpp"
-
 
 TEST_CASE("get_generic_gen3_auto() test", "[Generic]") {
   auto auto_manip    = blast::get_generic_gen3_auto();
