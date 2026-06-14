@@ -32,7 +32,7 @@ static_assert(sizeof(real) == BLAST_SIZEOF_REAL);
 
 // Constants
 constexpr u32  ALIGN         = 64;
-constexpr real BLAST_EPSILON = 0.00001;
+constexpr real BLAST_EPSILON = 0.00001; // default tolerance for is_close / is_small / operator==
 constexpr real PI            = 3.141592653589793;
 #ifdef __CUDA_ARCH__
 #if BLAST_USE_DOUBLES
@@ -75,8 +75,8 @@ inline blast_fn Vec3  cross(Vec3, Vec3);
 inline blast_fn Vec3& zero(Vec3&);
 inline blast_fn real  dot(Vec3, Vec3);
 inline blast_fn real  norm(Vec3);
-inline blast_fn bool  is_small(const Vec3&, real eps = 1e-05);
-inline blast_fn bool  is_close(const Vec3&, const Vec3&, real eps = 1e-05);
+inline blast_fn bool  is_small(const Vec3&, real eps = BLAST_EPSILON);
+inline blast_fn bool  is_close(const Vec3&, const Vec3&, real eps = BLAST_EPSILON);
 inline blast_fn Vec3& constant(Vec3&, real val);
 
 
@@ -109,8 +109,9 @@ inline blast_fn Mat3& transpose_inplace(Mat3& m);
 inline blast_fn Mat3  transpose(Mat3 m);
 inline blast_fn Mat3  eye();
 inline blast_fn Mat3& constant(Mat3&, real val);
-inline blast_fn bool  is_close(const Mat3&, const Mat3&, real eps = 1e-05);
-inline blast_fn bool  is_small(const Mat3&, real eps = 1e-05);
+inline blast_fn bool  operator==(const Mat3&, const Mat3&);
+inline blast_fn bool  is_close(const Mat3&, const Mat3&, real eps = BLAST_EPSILON);
+inline blast_fn bool  is_small(const Mat3&, real eps = BLAST_EPSILON);
 inline blast_fn Mat3  rpy2rotation(Vec3 rpy);
 
 
@@ -227,8 +228,8 @@ inline blast_fn real   min(const Array&);
 inline blast_fn real   max(const Array&);
 inline blast_fn u32    argmin(const Array&);
 inline blast_fn u32    argmax(const Array&);
-inline blast_fn bool   is_close(const Array&, const Array&, real eps = 1e-05);
-inline blast_fn bool   is_small(const Array&, real eps = 1e-05);
+inline blast_fn bool   is_close(const Array&, const Array&, real eps = BLAST_EPSILON);
+inline blast_fn bool   is_small(const Array&, real eps = BLAST_EPSILON);
 inline blast_fn real   sum(const Array&);
 inline blast_fn real   mean(const Array&);
 inline blast_fn real   norm(const Array&);
@@ -339,8 +340,8 @@ inline blast_fn Matrix  eye(int s);
 inline blast_fn Matrix  transpose(const Matrix& m);
 inline blast_fn Matrix& zero(Matrix&);
 inline blast_fn Matrix& constant(Matrix&, real val);
-inline blast_fn bool    is_close(const Matrix&, const Matrix&, real eps = 1e-05);
-inline blast_fn bool    is_small(const Matrix&, real eps = 1e-05);
+inline blast_fn bool    is_close(const Matrix&, const Matrix&, real eps = BLAST_EPSILON);
+inline blast_fn bool    is_small(const Matrix&, real eps = BLAST_EPSILON);
 inline blast_fn real    min(const Matrix&);
 inline blast_fn real    max(const Matrix&);
 inline blast_fn std::tuple<u32, u32> argmin(const Matrix&); // return row, column of smallest element

@@ -69,56 +69,40 @@ inline host_fn blast::Matrix read_csv_matrix_no_header(const std::string& filena
 
 inline host_fn Trajectory read_csv_trajectory_no_header(const std::string& filename, const char* csv_sep);
 
-template<typename T>
-host_fn bool is_close(const T type1, const T type2, real eps = 1e-5);
-
 template<typename T, std::size_t N>
-host_fn bool is_close(const std::array<T, N>& a1, const std::array<T, N>& a2, real eps = 1e-5);
+host_fn bool is_close(const std::array<T, N>& a1, const std::array<T, N>& a2, real eps = BLAST_EPSILON);
 
 template<typename T>
-host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps = 1e-5);
+host_fn bool is_close(const ObjMatrix<T>& a1, const ObjMatrix<T>& a2, real eps = BLAST_EPSILON);
 
 template<typename T>
-host_fn bool is_close(const std::vector<T>& a1, const std::vector<T>& a2, real eps = 1e-5);
+host_fn bool is_close(const std::vector<T>& a1, const std::vector<T>& a2, real eps = BLAST_EPSILON);
 
-// note: Does not use eps = 1e-5 but necessary for consistency for usability with templates
-inline blast_fn bool is_close(const u8 a1, const u8& a2, real eps = 1e-5);
+inline host_fn bool is_close(real r1, real r2, real eps = BLAST_EPSILON);
 
-// note: Does not use eps = 1e-5 but necessary for consistency for usability with templates
-inline blast_fn bool is_close(u32 a1, u32 a2, real eps = 1e-5);
+inline host_fn bool is_close(const Box& box1, const Box& box2, real eps = BLAST_EPSILON);
 
-inline host_fn bool is_close(real r1, real r2, real eps = 1e-5);
+inline host_fn bool is_close(const DynamicBox& box1, const DynamicBox& box2, real eps = BLAST_EPSILON);
 
-inline host_fn bool is_close(const Box& box1, const Box& box2, real eps = 1e-5);
+inline host_fn bool is_close(const Sphere& sph1, const Sphere& sph2, real eps = BLAST_EPSILON);
 
-inline host_fn bool is_close(const DynamicBox& box1, const DynamicBox& box2, real eps = 1e-5);
+inline host_fn bool is_close(const DynamicSphere& sph1, const DynamicSphere& sph2, real eps = BLAST_EPSILON);
 
-inline host_fn bool is_close(const Sphere& sph1, const Sphere& sph2, real eps = 1e-5);
+inline host_fn bool is_close(const Capsule& capsule1, const Capsule& capsule2, real eps = BLAST_EPSILON);
 
-inline host_fn bool is_close(const DynamicSphere& sph1, const DynamicSphere& sph2, real eps = 1e-5);
+inline host_fn bool is_close(const DynamicCapsule& capsule1, const DynamicCapsule& capsule2, real eps = BLAST_EPSILON);
 
-inline host_fn bool is_close(const Capsule& capsule1, const Capsule& capsule2, real eps = 1e-5);
+inline host_fn bool is_close(const World& world1, const World& world2, real eps = BLAST_EPSILON);
 
-inline host_fn bool is_close(const DynamicCapsule& capsule1, const DynamicCapsule& capsule2, real eps = 1e-5);
+inline host_fn bool is_close(const ManipulatorTempData& manip_data1, const ManipulatorTempData& manip_data2, const u32 n_joints, const u32 n_caps, real eps = BLAST_EPSILON);
 
-inline host_fn bool is_close(const World& world1, const World& world2, real eps = 1e-5);
-
-inline host_fn bool is_close(const CollisionModelCapsule& capsule1, const CollisionModelCapsule& capsule2, real eps = 1e-5);
-
-inline host_fn bool is_close(const Manipulator& manip1, const Manipulator& manip2, real eps = 1e-5);
-
-inline host_fn bool is_close(const ManipulatorTempData& manip_data1, const ManipulatorTempData& manip_data2, const u32 n_joints, const u32 n_caps, real eps = 1e-5);
-
-inline host_fn bool is_close(const Bspline& spline1, const Bspline& spline2, real eps = 1e-5);
-
-inline host_fn bool is_close(const ConstraintSelection& constraints1, const ConstraintSelection& constraints2, real eps = 1e-5);
-
-inline host_fn bool is_close(const Objective& objective1, const Objective& objective2, real eps = 1e-5);
-
-inline host_fn bool is_close(const Guess& guess1, const Guess& guess2, real eps = 1e-5);
-
-inline host_fn bool is_close(const Optimization& opt1, const Optimization& opt2, real eps = 1e-5);
-
-inline host_fn bool is_close(const Result& result1, Result& result2, real eps = 1e-5);
+inline host_fn bool operator==(const CollisionModelCapsule& a, const CollisionModelCapsule& b);
+inline host_fn bool operator==(const Manipulator& a, const Manipulator& b);
+inline host_fn bool operator==(const Bspline& a, const Bspline& b);
+inline host_fn bool operator==(const ConstraintSelection& a, const ConstraintSelection& b);
+inline host_fn bool operator==(const Objective& a, const Objective& b);
+inline host_fn bool operator==(const Guess& a, const Guess& b);
+inline host_fn bool operator==(const Optimization& a, const Optimization& b);
+inline host_fn bool operator==(const Result& a, const Result& b);
 
 } // namespace blast
