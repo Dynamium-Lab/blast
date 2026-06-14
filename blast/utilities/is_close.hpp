@@ -45,11 +45,9 @@ host_fn bool is_close(const std::vector<T>& a1, const std::vector<T>& a2, real e
 }
 
 inline host_fn bool is_close(real r1, real r2, real eps) {
-  return (r1 == INF_REAL && r2 == INF_REAL) || (r1 == -INF_REAL && r2 == -INF_REAL)
-                 ? true
-                 : (r1 == INF_REAL || r2 == INF_REAL || r1 == -INF_REAL || r2 == -INF_REAL
-                            ? false
-                            : (std::abs(r1 - r2) < eps));
+  // r1 == r2 covers exact matches and equal infinities; otherwise any inf or NaN
+  // makes the difference non-finite, so abs(diff) < eps is false as desired.
+  return r1 == r2 || std::abs(r1 - r2) < eps;
 }
 
 inline host_fn bool is_close(const Box& box1, const Box& box2, real eps) {
@@ -145,7 +143,12 @@ inline host_fn bool operator==(const CollisionModelCapsule& a, const CollisionMo
 }
 
 inline host_fn bool operator==(const Manipulator& a, const Manipulator& b) {
+  // Cheap O(1) checks first so a mismatch bails before any loop or array compare.
   if (a.n_joints != b.n_joints)
+    return false;
+  if (a._n_caps != b._n_caps)
+    return false;
+  if (a._n_internal_collisions != b._n_internal_collisions)
     return false;
 
   if (!is_close(a.tool_speed_max, b.tool_speed_max))
@@ -169,6 +172,17 @@ inline host_fn bool operator==(const Manipulator& a, const Manipulator& b) {
       return false;
     if (!(a.cog_from_next_joint[j] == b.cog_from_next_joint[j]))
       return false;
+    // limits (jerk_max intentionally not compared, matching prior behavior)
+    if (!is_close(a.position_max[j], b.position_max[j]))
+      return false;
+    if (!is_close(a.position_min[j], b.position_min[j]))
+      return false;
+    if (!is_close(a.velocity_max[j], b.velocity_max[j]))
+      return false;
+    if (!is_close(a.acceleration_max[j], b.acceleration_max[j]))
+      return false;
+    if (!is_close(a.torque_max[j], b.torque_max[j]))
+      return false;
   }
 
   for (int j = 0; j < a.n_joints + 1; j++) {
@@ -180,10 +194,6 @@ inline host_fn bool operator==(const Manipulator& a, const Manipulator& b) {
     return false;
   if (!(a._collision_base == b._collision_base))
     return false;
-  if (a._n_caps != b._n_caps)
-    return false;
-  if (a._n_internal_collisions != b._n_internal_collisions)
-    return false;
 
   for (int c = 0; c < a._n_caps; c++) {
     if (!(a._collision_model[c] == b._collision_model[c]))
@@ -192,7 +202,7 @@ inline host_fn bool operator==(const Manipulator& a, const Manipulator& b) {
   if (!is_close(a._base_sphere, b._base_sphere))
     return false;
 
-  return a.position_max == b.position_max && a.position_min == b.position_min && a.velocity_max == b.velocity_max && a.acceleration_max == b.acceleration_max && a.torque_max == b.torque_max;
+  return true;
 }
 
 inline host_fn bool is_close(const ManipulatorTempData& manip_data1, const ManipulatorTempData& manip_data2,
@@ -249,7 +259,9 @@ inline host_fn bool operator==(const Optimization& a, const Optimization& b) {
 }
 
 inline host_fn bool operator==(const Result& a, const Result& b) {
-  return a.success == b.success && a.success_false == b.success_false && *a.opt == *b.opt && a.x == b.x && a.x0 == b.x0 && a.nlopt_exit_criteria == b.nlopt_exit_criteria;
+  return a.success == b.success && a.success_false == b.success_false &&
+         (a.opt == b.opt || (a.opt && b.opt && *a.opt == *b.opt)) && a.x == b.x && a.x0 == b.x0 &&
+         a.nlopt_exit_criteria == b.nlopt_exit_criteria;
 }
 
 
