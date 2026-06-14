@@ -37,7 +37,7 @@ myst_heading_anchors = 3
 
 breathe_projects = {"blast": "_doxygen/xml"}
 breathe_default_project = "blast"
-breathe_default_members = ("members",)
+breathe_default_members = ("members", "undoc-members")
 
 # -- Autodoc (Python) --------------------------------------------------------
 # The compiled `blast` extension must be importable at build time

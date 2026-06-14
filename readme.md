@@ -8,6 +8,8 @@
 
 Blast is the software accompanying the ICRA 2026 paper *"Accelerating Trajectory Optimization by Exploiting B-Spline Gradient Structure"*.
 
+**Full documentation:** [docs.dynamium.ca](https://docs.dynamium.ca)
+
 ---
 
 ## Requirements
