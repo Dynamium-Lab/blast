@@ -11,9 +11,9 @@ namespace blast {
 TEST_CASE("Benchmark of .at() vs [] for std::vector", "[general]") {
   std::vector<Capsule> capsules(250);
   Capsule              caps;
-  caps.p1 = {1, 1, 1};
-  caps.p2 = {2, 2, 2};
-  caps.r  = 2.0;
+  caps.p1     = {1, 1, 1};
+  caps.p2     = {2, 2, 2};
+  caps.radius = 2.0;
   for (auto& capsule: capsules) {
     capsule = caps;
   }
