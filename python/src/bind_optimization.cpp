@@ -14,11 +14,11 @@ void bind_optimization(nb::module_& m) {
           .value("custom", Guess::custom,
                  "Use a user-provided initial solution vector.")
           .value("random", Guess::random,
-                 "Try n_random_shots random initial guesses and keep the best.")
+                 "Use a randomly generated initial guess.")
           .value("from_list", Guess::from_list,
                  "Try each column of the candidates matrix as an initial guess.")
-          .value("rrt_connect", Guess::rrt_connect,
-                 "Use RRT-Connect to generate an initial path.")
+          .value("shotgun", Guess::shotgun,
+                 "Try n_random_shots random initial guesses and keep the best.")
           .export_values();
 
   // ------------------------------------------------------------------
@@ -165,24 +165,24 @@ void bind_optimization(nb::module_& m) {
   // ------------------------------------------------------------------
   // optimize()  — main entry point
   // ------------------------------------------------------------------
-  m.def("optimize", [](Optimization* opt, OptimizationMethod method, u32 output_steps_ms) -> Result {
+  m.def("optimize", [](Optimization* opt, u32 output_steps_ms) -> Result {
             nb::gil_scoped_release release;
-            return blast::optimize(opt, method, output_steps_ms); }, nb::arg("opt"), nb::arg("method") = OptimizationMethod::with_segments, nb::arg("output_steps_ms") = 1u, "Run trajectory optimization.\n\n"
-                                                                                                                                                                                                                 "Parameters\n"
-                                                                                                                                                                                                                 "----------\n"
-                                                                                                                                                                                                                 "opt : Optimization\n"
-                                                                                                                                                                                                                 "    Fully configured optimization problem. Do NOT access opt from\n"
-                                                                                                                                                                                                                 "    another thread while this call is in progress.\n"
-                                                                                                                                                                                                                 "method : OptimizationMethod\n"
-                                                                                                                                                                                                                 "    Gradient/constraint evaluation strategy.\n"
-                                                                                                                                                                                                                 "output_steps_ms : int\n"
-                                                                                                                                                                                                                 "    Print progress every N milliseconds (0 = silent).\n\n"
-                                                                                                                                                                                                                 "Returns\n"
-                                                                                                                                                                                                                 "-------\n"
-                                                                                                                                                                                                                 "Result\n"
-                                                                                                                                                                                                                 "    Optimization result including trajectory and diagnostics.\n\n"
-                                                                                                                                                                                                                 "Notes\n"
-                                                                                                                                                                                                                 "-----\n"
-                                                                                                                                                                                                                 "The GIL is released for the duration of the NLopt call, allowing\n"
-                                                                                                                                                                                                                 "other Python threads to run concurrently.");
+            return blast::optimize(opt, output_steps_ms); }, nb::arg("opt"), nb::arg("output_steps_ms") = 1u, "Run trajectory optimization.\n\n"
+                                                                                                                               "Parameters\n"
+                                                                                                                               "----------\n"
+                                                                                                                               "opt : Optimization\n"
+                                                                                                                               "    Fully configured optimization problem. Do NOT access opt from\n"
+                                                                                                                               "    another thread while this call is in progress.\n"
+                                                                                                                               "method : OptimizationMethod\n"
+                                                                                                                               "    Gradient/constraint evaluation strategy.\n"
+                                                                                                                               "output_steps_ms : int\n"
+                                                                                                                               "    Print progress every N milliseconds (0 = silent).\n\n"
+                                                                                                                               "Returns\n"
+                                                                                                                               "-------\n"
+                                                                                                                               "Result\n"
+                                                                                                                               "    Optimization result including trajectory and diagnostics.\n\n"
+                                                                                                                               "Notes\n"
+                                                                                                                               "-----\n"
+                                                                                                                               "The GIL is released for the duration of the NLopt call, allowing\n"
+                                                                                                                               "other Python threads to run concurrently.");
 }

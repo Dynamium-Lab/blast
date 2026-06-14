@@ -1,48 +1,80 @@
 # Configuration file for the Sphinx documentation builder.
-#
-# For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
-# -- Project information -----------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
+import os
+import sys
 
-project = 'Blast'
-copyright = '2024, Andre Gallant'
-author = 'Andre Gallant'
-release = '1.0'
+# -- Project information -----------------------------------------------------
+
+project = "Blast"
+copyright = "2024-2026, Andre Gallant"
+author = "Andre Gallant"
+release = "1.0"
 
 # -- General configuration ---------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = ['myst_parser']
+extensions = [
+    "myst_parser",          # author pages in Markdown
+    "breathe",              # C++ API via Doxygen XML
+    "sphinx.ext.autodoc",   # Python API from docstrings
+    "sphinx.ext.napoleon",  # NumPy/Google-style docstring parsing
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.viewcode",
+]
 
-templates_path = ['_templates']
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
-html_show_sphinx = False
-html_show_sourcelink = False
-html_copy_source = False
+templates_path = ["_templates"]
+exclude_patterns = ["_build", "_doxygen", "Thumbs.db", ".DS_Store"]
 
-pygments_style = 'nord'
+# MyST: allow ::: fenced directives and useful extensions.
+myst_enable_extensions = [
+    "colon_fence",
+    "deflist",
+    "fieldlist",
+]
+myst_heading_anchors = 3
 
+# -- Breathe (C++) -----------------------------------------------------------
 
-# -- Options for HTML output -------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
+breathe_projects = {"blast": "_doxygen/xml"}
+breathe_default_project = "blast"
+breathe_default_members = ("members",)
 
-html_theme = 'alabaster'
-html_theme_options = {
-    'fixed_sidebar': 'True',
-    'page_width': '1100px',
-    'description' : 'A fast C++ trajectory optimization library for robot manipulators',
-    'base_bg': '#1E2129',
-    'gray_1' : '#BEC1C6',
-    'base_text' : '#BEC1C6',
-    'body_text' : '#BEC1C6',
-    'footer_text' : '#BEC1C6',
-    'sidebar_text' : '#BEC1C6',
-    'sidebar_list' : '#BEC1C6',
-    'sidebar_hr' : '#000',
-    'pre_bg' : '#272A35',
-    'code_bg' : '#272A35',
-    'code_text' : '#aebbfe',
+# -- Autodoc (Python) --------------------------------------------------------
+# The compiled `blast` extension must be importable at build time
+# (RTD installs it via pip; locally run `pip install .` first).
+
+autodoc_default_options = {
+    "members": True,
+    "undoc-members": True,
+    "show-inheritance": True,
 }
-html_static_path = ['_static']
+autodoc_member_order = "groupwise"
+napoleon_numpy_docstring = True
+napoleon_google_docstring = True
+
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+}
+
+# -- HTML output -------------------------------------------------------------
+
+html_theme = "furo"
+html_title = "Blast"
+html_static_path = ["_static"]
+html_css_files = ["custom.css"]
+html_show_sphinx = False
+
+html_theme_options = {
+    "source_repository": "https://github.com/Dynamium-Lab/blast/",
+    "source_branch": "main",
+    "source_directory": "docs/",
+    "light_css_variables": {
+        "color-brand-primary": "#3b5bdb",
+        "color-brand-content": "#3b5bdb",
+    },
+    "dark_css_variables": {
+        "color-brand-primary": "#aebbfe",
+        "color-brand-content": "#aebbfe",
+    },
+}
