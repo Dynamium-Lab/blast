@@ -11,29 +11,11 @@
     {
       "name": "dev",
       "inherits": "base",
-      "displayName": "Developer build (Linux/macOS)",
-      "description": "RelWithDebInfo, native tuning, compile-commands for tooling",
+      "displayName": "Developer build",
+      "description": "RelWithDebInfo with compile-commands for tooling. AVX2/native tuning is applied per dev target (see examples/ and tests/, which pick /arch:AVX2 for MSVC and -march=native otherwise), so this preset is correct for MSVC, GCC, Clang and MinGW on any OS.",
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "CMAKE_CXX_FLAGS": "-march=native",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
-      }
-    },
-    {
-      "name": "dev-msvc",
-      "inherits": "base",
-      "displayName": "Developer build (Windows/MSVC)",
-      "description": "RelWithDebInfo with AVX2, compile-commands for tooling",
-      "binaryDir": "${sourceDir}/build/${presetName}",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      },
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "CMAKE_CXX_FLAGS": "/arch:AVX2",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     },
@@ -72,11 +54,7 @@
   "buildPresets": [
     {
       "name": "dev",
-      "configurePreset": "dev"
-    },
-    {
-      "name": "dev-msvc",
-      "configurePreset": "dev-msvc",
+      "configurePreset": "dev",
       "configuration": "RelWithDebInfo"
     },
     {

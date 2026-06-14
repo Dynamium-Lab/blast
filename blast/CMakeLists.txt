@@ -75,7 +75,8 @@ endif()
 # -march=native / /arch:AVX2 are machine-specific developer flags.
 # They must NOT be INTERFACE — that would force them on every downstream
 # consumer, breaking cross-compilation and reproducible builds.
-# Add them to your personal build via CMakePresets.json (see root preset).
+# The dev targets (examples/, tests/) apply them per-target as PRIVATE,
+# choosing /arch:AVX2 for MSVC and -march=native otherwise.
 
 # --------------------------------------------------------------------------
 # Install rules
