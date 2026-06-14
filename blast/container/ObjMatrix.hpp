@@ -1,8 +1,15 @@
 #pragma once
 #include <blast>
+#include <type_traits>
 #include <vector>
 
 namespace blast {
+
+// Defined in utilities/is_close.hpp, which is included after this header in the <blast>
+// umbrella. Forward-declared so operator== can compare floating-point elements with
+// tolerance on strict two-phase-lookup compilers (Clang/GCC). No default arg here: the
+// canonical declaration in blast_utilities.hpp supplies eps = BLAST_EPSILON.
+inline host_fn bool is_close(real r1, real r2, real eps);
 
 /// @brief A simple matrix class that stores objects of type T. Data are stored in a column-major order.
 template<typename T>
@@ -22,6 +29,8 @@ struct ObjMatrix {
 
   inline T&       operator()(int r, int c);
   inline const T& operator()(int r, int c) const;
+
+  inline bool operator==(const ObjMatrix& other) const;
 
   inline void resize(int rows, int cols);
 
@@ -120,6 +129,24 @@ inline const T& ObjMatrix<T>::operator()(int r, int c) const {
   Assert(r >= 0 && c >= 0);
   Assert(r < rows && c < cols);
   return data[c * rows + r];
+}
+
+template<typename T>
+inline bool ObjMatrix<T>::operator==(const ObjMatrix& other) const {
+  if (rows != other.rows || cols != other.cols)
+    return false;
+  for (int i = 0; i < size; i++) {
+    if constexpr (std::is_floating_point_v<T>) {
+      // Floating-point elements compare with tolerance.
+      if (!is_close(data[i], other.data[i], BLAST_EPSILON))
+        return false;
+    } else {
+      // Integral and custom types use their own operator==.
+      if (!(data[i] == other.data[i]))
+        return false;
+    }
+  }
+  return true;
 }
 
 /// @brief Resizes the matrix to the specified number of columns and rows.
