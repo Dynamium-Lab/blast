@@ -357,7 +357,7 @@ inline blast_fn Matrix& fill_random(Matrix& m, real A) {
     m.data[i] = A * curand_uniform(&state);
 #else
   for (int i = 0; i < (int) m.size; i++)
-    m.data[i] = A * get_random();
+    m.data[i] = A * random_real();
 #endif
   return m;
 }
