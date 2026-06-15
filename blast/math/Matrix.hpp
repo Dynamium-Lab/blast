@@ -431,7 +431,7 @@ inline blast_fn Matrix LU_decomp(const Matrix& m) {
 
 inline blast_fn Array solveLU(const Matrix& LU, const Array& b) {
   int   n = LU.rows;
-  Array x(n, real(0));
+  Array x(n, 0);
 
   for (int i = 0; i < n; i++) {
     real sum = 0;

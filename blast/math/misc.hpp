@@ -62,7 +62,7 @@ inline Vec3 rotation2rpy(Mat3 rotation) {
   u32  condition = std::abs(rotation(0, 2)) != 1 ? 1 : rotation(0, 2) == 1 ? 2
                                                                            : 3; // allow for gimble lock
   real rx        = condition == 1 ? atan2(-rotation(1, 2), rotation(2, 2))
-                                  : real(0);
+                                  : 0;
 
 
   real ry = condition == 1   ? asin(rotation(0, 2))

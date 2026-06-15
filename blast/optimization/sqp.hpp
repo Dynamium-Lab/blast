@@ -220,7 +220,7 @@ inline real ddot_sl__(int* n_, real* dx, int incx, real* dy, int incy) {
     return 0;
   for (int i = 0; i < n; ++i)
     sum += dx[i * incx] * dy[i * incy];
-  return (real) sum;
+  return sum;
 }
 
 /* compute the L2 norm of array DX of length N, stride INCX */
@@ -234,12 +234,12 @@ inline real dnrm2___(const int* n_, const real* dx, int incx) {
   }
   if (xmax == 0)
     return 0;
-  real scale = 1.0 / xmax;
+  real scale = ((real) 1) / xmax;
   for (int i = 0; i < n; ++i) {
     real xs = scale * dx[incx * i];
     sum += xs * xs;
   }
-  return xmax * sqrt((real) sum);
+  return xmax * sqrt(sum);
 }
 
 /* apply Givens rotation */
@@ -308,7 +308,7 @@ inline void h12_(const int* mode, int* lpivot, int* l1,
                  real* c__, const int* ice, const int* icv, const int* ncv) {
   /* Initialized data */
 
-  const real one = 1.;
+  const real one = 1;
 
   /* System generated locals */
   int  u_dim1, u_offset, i__1, i__2;
@@ -437,8 +437,8 @@ inline void nnls_(real* a, int* mda, int* m, int* n, real* b, real* x, real* rno
                   real* z__, int* indx, int* mode) {
   /* Initialized data */
 
-  const real one    = 1.;
-  const real factor = .01;
+  const real one    = 1;
+  const real factor = 0.01;
 
   /* System generated locals */
   int  a_dim1, a_offset, i__1, i__2;
