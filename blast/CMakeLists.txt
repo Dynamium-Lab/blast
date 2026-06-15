@@ -11,6 +11,10 @@ include(GNUInstallDirs)
 # Disable language bindings and tests — we only need the C library.
 # EXCLUDE_FROM_ALL keeps nlopt out of the default install; we export it
 # explicitly below so downstream find_package(Blast) sees it.
+#
+# NLOPT_LUKSAN is forced OFF: the Luksan solvers are LGPL, and including them
+# makes the compiled NLopt (and therefore Blast) LGPL. Without them, NLopt is
+# MIT-licensed, keeping Blast cleanly Apache-2.0. Do not re-enable.
 # --------------------------------------------------------------------------
 set(NLOPT_PYTHON  OFF CACHE BOOL "NLopt Python bindings"  FORCE)
 set(NLOPT_OCTAVE  OFF CACHE BOOL "NLopt Octave bindings"  FORCE)
@@ -18,6 +22,7 @@ set(NLOPT_MATLAB  OFF CACHE BOOL "NLopt MATLAB bindings"  FORCE)
 set(NLOPT_GUILE   OFF CACHE BOOL "NLopt Guile bindings"   FORCE)
 set(NLOPT_SWIG    OFF CACHE BOOL "NLopt SWIG wrappers"    FORCE)
 set(NLOPT_TESTS   OFF CACHE BOOL "NLopt unit tests"       FORCE)
+set(NLOPT_LUKSAN  OFF CACHE BOOL "NLopt LGPL Luksan solvers" FORCE)
 
 if(NOT TARGET nlopt)
     # Pre-initialize variables that nlopt's CMakeLists reads before setting,

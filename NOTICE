@@ -1,0 +1,16 @@
+Blast
+Copyright 2024-2026 André Gallant <andre.gallant@umoncton.ca>
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+--------------------------------------------------------------------------------
+Third-party components bundled under blast/extern/ retain their own licenses:
+
+- NLopt (blast/extern/nlopt) — MIT when built without the "luksan" directory;
+  otherwise LGPL-2.1-or-later. See blast/extern/nlopt/COPYING and COPYRIGHT.
+- Vectorclass / VCL (blast/extern/vcl) — Apache License 2.0.
+  See blast/extern/vcl/README.md.
+- Taskflow (blast/extern/taskflow) — MIT License.
+
+Catch2 (tests only) and Tracy (optional profiling) are fetched at build time
+and are not redistributed as part of this source tree.

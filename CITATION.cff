@@ -2,7 +2,7 @@ cff-version: 1.2.0
 title: Blast
 message: "If you use this software, please cite it using the metadata from this file."
 type: software
-license: MIT
+license: Apache-2.0
 repository-code: https://github.com/Dynamium-Lab/blast
 authors:
   - family-names: Doiron
