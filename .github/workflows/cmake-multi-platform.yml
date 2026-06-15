@@ -22,6 +22,9 @@ jobs:
             preset: ci-clang
           - os: windows-latest
             preset: ci
+          # Single-precision build (blast::real = float) with the in-house SQP.
+          - os: ubuntu-latest
+            preset: ci-float
 
     steps:
       - uses: actions/checkout@v4

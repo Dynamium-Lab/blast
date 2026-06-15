@@ -6,6 +6,16 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(catch)
 
+# nanobench powers the (optional) benchmarks; only fetched when building them.
+if (BLAST_BUILD_BENCHMARKS)
+    FetchContent_Declare(
+            nanobench
+            GIT_REPOSITORY https://github.com/martinus/nanobench.git
+            GIT_TAG v4.3.11
+    )
+    FetchContent_MakeAvailable(nanobench)
+endif ()
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/tests/CMake/Modules/")
 include(ParseAndAddCatchTests)
 
@@ -25,13 +35,27 @@ function(add_blast_target target_name source_file type)
     # tests/ is the include root for test_helper/, etc.
     target_include_directories(${target_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-    # Base dependencies
-    target_link_libraries(${target_name} PRIVATE Catch2::Catch2 blast)
+    # Base dependencies. Tests use Catch2; benchmarks use nanobench.
+    target_link_libraries(${target_name} PRIVATE blast)
+    if ("${type}" STREQUAL "BENCH")
+        target_link_libraries(${target_name} PRIVATE nanobench)
+    else ()
+        target_link_libraries(${target_name} PRIVATE Catch2::Catch2)
+    endif ()
 
     # Conditional Tracy logic
     if (ENABLE_TRACY)
         target_link_libraries(${target_name} PRIVATE TracyClient)
         target_compile_definitions(${target_name} PRIVATE TRACY_ENABLE TRACY_NO_EXIT)
+    endif ()
+
+    # The external-NLopt backend builds nlopt as a shared library; copy it beside
+    # the executable so it is found at runtime. No-op for the in-house SQP backend
+    # (no nlopt target exists there).
+    if (NOT BLAST_USE_NATIVE_SQP)
+        add_custom_command(TARGET ${target_name} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:nlopt> $<TARGET_FILE_DIR:${target_name}>)
     endif ()
 
     # If marked as a TEST, register it with CTest
@@ -44,7 +68,7 @@ endfunction()
 # NAME_OF_BENCHMARK BENCHMARK_TARGET_LOCATION
 # List of benchmarks with their source files
 set(BENCHMARKS
-        #
+        bench_core benchmarks/bench_core.cpp
 )
 
 # note: Add new tests files as follows :
@@ -81,12 +105,14 @@ set(TESTS
         test_polynomial trajectory/test_polynomial.cpp
 )
 
-# Loop through and add benchmarks
-while (BENCHMARKS)
-    list(POP_FRONT BENCHMARKS target_name)
-    list(POP_FRONT BENCHMARKS source_file)
-    add_blast_target(${target_name} ${source_file} "BENCH")
-endwhile ()
+# Loop through and add benchmarks (opt-in via BLAST_BUILD_BENCHMARKS)
+if (BLAST_BUILD_BENCHMARKS)
+    while (BENCHMARKS)
+        list(POP_FRONT BENCHMARKS target_name)
+        list(POP_FRONT BENCHMARKS source_file)
+        add_blast_target(${target_name} ${source_file} "BENCH")
+    endwhile ()
+endif ()
 
 # Loop through and add tests
 while (TESTS)

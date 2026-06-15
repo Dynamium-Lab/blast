@@ -2,6 +2,7 @@
 
 #include <blast>
 #include "catch2/catch.hpp"
+#include "test_helper.hpp"
 
 // ---------------------------------------------------------------------------
 // Construction
@@ -203,10 +204,10 @@ TEST_CASE("Matrix - operator*(Matrix, Matrix) produces correct product", "[Math]
   Matrix C = A * B;
   CHECK(C.rows == 2u);
   CHECK(C.cols == 2u);
-  CHECK(std::abs(C(0, 0) - 58.0) < 1e-9);
-  CHECK(std::abs(C(0, 1) - 64.0) < 1e-9);
-  CHECK(std::abs(C(1, 0) - 139.0) < 1e-9);
-  CHECK(std::abs(C(1, 1) - 154.0) < 1e-9);
+  CHECK(std::abs(C(0, 0) - 58.0) < blast::test::abs_tol);
+  CHECK(std::abs(C(0, 1) - 64.0) < blast::test::abs_tol);
+  CHECK(std::abs(C(1, 0) - 139.0) < blast::test::abs_tol);
+  CHECK(std::abs(C(1, 1) - 154.0) < blast::test::abs_tol);
 }
 
 TEST_CASE("Matrix - operator*(Matrix, Array) produces correct product", "[Math][Matrix]") {
@@ -220,8 +221,8 @@ TEST_CASE("Matrix - operator*(Matrix, Array) produces correct product", "[Math][
   Array v{1.0, 1.0};
   Array result = m * v;
   CHECK(result.size == 2u);
-  CHECK(std::abs(result[0] - 3.0) < 1e-9);
-  CHECK(std::abs(result[1] - 7.0) < 1e-9);
+  CHECK(std::abs(result[0] - 3.0) < blast::test::abs_tol);
+  CHECK(std::abs(result[1] - 7.0) < blast::test::abs_tol);
 }
 
 // ---------------------------------------------------------------------------
@@ -243,7 +244,7 @@ TEST_CASE("Matrix - transpose() swaps dimensions and elements", "[Math][Matrix]"
   CHECK(T.cols == 2u);
   for (u32 r = 0; r < A.rows; r++)
     for (u32 c = 0; c < A.cols; c++)
-      CHECK(std::abs(T(c, r) - A(r, c)) < 1e-9);
+      CHECK(std::abs(T(c, r) - A(r, c)) < blast::test::abs_tol);
 }
 
 // ---------------------------------------------------------------------------
@@ -378,7 +379,7 @@ TEST_CASE("Matrix - determinant() of a 2x2 matrix is correct", "[Math][Matrix]")
   m(1, 0) = 3.0;
   m(1, 1) = 4.0;
   // det = 1*4 - 2*3 = -2
-  CHECK(std::abs(determinant(m) - (-2.0)) < 1e-9);
+  CHECK(std::abs(determinant(m) - (-2.0)) < blast::test::abs_tol);
 }
 
 TEST_CASE("Matrix - determinant() of a 3x3 matrix is correct", "[Math][Matrix]") {
@@ -394,7 +395,7 @@ TEST_CASE("Matrix - determinant() of a 3x3 matrix is correct", "[Math][Matrix]")
   m(2, 0) = 1.0;
   m(2, 1) = 0.0;
   m(2, 2) = 6.0;
-  CHECK(std::abs(determinant(m) - 22.0) < 1e-9);
+  CHECK(std::abs(determinant(m) - 22.0) < blast::test::abs_tol);
 }
 
 // ---------------------------------------------------------------------------
@@ -413,8 +414,8 @@ TEST_CASE("Matrix - solveLU() solves Ax=b via LU decomposition", "[Math][Matrix]
   Array b{1.0, 2.0};
   Array x = solveLU(LU_decomp(A), b);
 
-  CHECK(std::abs(x[0] - 1.0) < 1e-9);
-  CHECK(std::abs(x[1] - (-1.0)) < 1e-9);
+  CHECK(std::abs(x[0] - 1.0) < blast::test::abs_tol);
+  CHECK(std::abs(x[1] - (-1.0)) < blast::test::abs_tol);
 }
 
 TEST_CASE("Matrix - solveLU() solution satisfies Ax = b", "[Math][Matrix]") {

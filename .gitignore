@@ -4,6 +4,7 @@
 .vscode/
 .vs/
 build/
+build-float/
 _deps/
 cmake-build*/
 cmake-*/

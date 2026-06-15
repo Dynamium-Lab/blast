@@ -338,7 +338,7 @@ inline std::tuple<u32, u32> argmax(const Matrix& m) {
 
 inline blast_fn Matrix& zero(Matrix& m) {
   for (int i = 0; i < m.size; i++)
-    m.data[i] = 0.0;
+    m.data[i] = 0;
   return m;
 }
 
@@ -406,7 +406,7 @@ inline blast_fn real determinant(const Matrix& m) {
     }
   }
 
-  real det = 1.0;
+  real det = 1;
   for (int i = 0; i < n; i++) {
     det *= LU(i, i);
   }
@@ -431,10 +431,10 @@ inline blast_fn Matrix LU_decomp(const Matrix& m) {
 
 inline blast_fn Array solveLU(const Matrix& LU, const Array& b) {
   int   n = LU.rows;
-  Array x(n, 0.0);
+  Array x(n, 0);
 
   for (int i = 0; i < n; i++) {
-    real sum = 0.0;
+    real sum = 0;
     for (int j = 0; j < i; j++)
       sum += LU(i, j) * x[j];
 
@@ -443,7 +443,7 @@ inline blast_fn Array solveLU(const Matrix& LU, const Array& b) {
 
   // Solve Ux = y (backsubstitution)
   for (int i = n - 1; i >= 0; i--) {
-    real sum = 0.0;
+    real sum = 0;
     for (int j = i + 1; j < n; j++)
       sum += LU(i, j) * x[j];
 
@@ -463,7 +463,7 @@ inline blast_fn Matrix inverse(const Matrix& m) {
   for (int i = 0; i < n; i++) {
     // unit vector in one dimension
     Array unit(n);
-    unit[i] = 1.0;
+    unit[i] = 1;
 
     // Solve for the i-th column of the inverse
     Array column = solveLU(LU, unit);
@@ -530,7 +530,7 @@ inline blast_fn Array eigen_values(const Matrix& A, Matrix& Q, Matrix& R, Matrix
   Array sing_val(A.rows);
 
   real diff    = INF_REAL;
-  real tol     = (real) 1e-8;
+  real tol     = BLAST_SOLVER_TOL;
   int  k       = 0;
   int  maxiter = 1000;
 

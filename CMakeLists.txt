@@ -15,6 +15,24 @@ include(CMakePackageConfigHelpers)
 # --------------------------------------------------------------------------
 option(ENABLE_TRACY "Enable Tracy Profiler support" OFF)
 
+# Scalar precision of blast::real. ON = double (default), OFF = float.
+option(BLAST_USE_DOUBLES "Use double precision for blast::real (OFF = float)" ON)
+
+# Solver backend. OFF = external NLopt (double-only), ON = in-house SQP.
+option(BLAST_USE_NATIVE_SQP "Use the in-house SQP solver instead of external NLopt" OFF)
+
+# Developer benchmarks (only built when Blast is the top-level project).
+option(BLAST_BUILD_BENCHMARKS "Build benchmarks" OFF)
+
+# A float build cannot use external NLopt: its C API is double-only. Float
+# therefore requires the in-house SQP solver. Fail early with a clear message
+# rather than a deep template/linker error.
+if(NOT BLAST_USE_DOUBLES AND NOT BLAST_USE_NATIVE_SQP)
+    message(FATAL_ERROR
+        "BLAST_USE_DOUBLES=OFF (float) requires BLAST_USE_NATIVE_SQP=ON: "
+        "external NLopt is double-only.")
+endif()
+
 # --------------------------------------------------------------------------
 # Tracy (optional profiling dependency, fetched only when requested)
 # --------------------------------------------------------------------------

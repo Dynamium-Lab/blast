@@ -21,32 +21,39 @@
 
 using std::isinf;
 
-typedef double (*nlopt_func)(unsigned n, const double* x, double* gradient, void* func_data);
-typedef void (*nlopt_mfunc)(unsigned m, double* result, unsigned n, const double* x, double* gradient, void* func_data);
-typedef void (*nlopt_precond)(unsigned n, const double* x, const double* v, double* vpre, void* data);
+// The SLSQP solver below is f2c-translated Fortran that originally used `double`
+// throughout. Blast parameterizes it on blast::real so the float build
+// (BLAST_USE_DOUBLES=0) runs the solver in single precision. Two things stay
+// `double` on purpose: wall-clock timing (absolute timestamps need the range)
+// and the machine-epsilon constant uses std::numeric_limits<real>::epsilon().
+using blast::real;
+
+typedef real (*nlopt_func)(unsigned n, const real* x, real* gradient, void* func_data);
+typedef void (*nlopt_mfunc)(unsigned m, real* result, unsigned n, const real* x, real* gradient, void* func_data);
+typedef void (*nlopt_precond)(unsigned n, const real* x, const real* v, real* vpre, void* data);
 struct nlopt_constraint {
   unsigned      m;   /* dimensional of constraint: mf maps R^n -> R^m */
   nlopt_func    f;   /* one-dimensional constraint, requires m == 1 */
   nlopt_mfunc   mf;
   nlopt_precond pre; /* preconditioner for f (NULL if none or if mf) */
   void*         f_data;
-  double*       tol;
+  real*         tol;
 };
 
 struct nlopt_stopping {
-  unsigned      n{};
-  double        minf_max{};
-  double        ftol_rel{};
-  double        ftol_abs{};
-  double        xtol_rel{};
-  const double* xtol_abs{};
-  const double* x_weights{};
-  int           nevals_p{};
-  int           maxeval{};
-  double        maxtime{};
-  double        start{};
-  bool          force_stop = false;
-  char**        stop_msg{}; /* pointer to msg string to update */
+  unsigned    n{};
+  real        minf_max{};
+  real        ftol_rel{};
+  real        ftol_abs{};
+  real        xtol_rel{};
+  const real* xtol_abs{};
+  const real* x_weights{};
+  int         nevals_p{};
+  int         maxeval{};
+  double      maxtime{};
+  double      start{};
+  bool        force_stop = false;
+  char**      stop_msg{}; /* pointer to msg string to update */
 };
 
 
@@ -175,16 +182,16 @@ enum nlopt_result {
 
 
 /*     COPIES A VECTOR, X, TO A VECTOR, Y, with the given increments */
-inline void dcopy___(const int* n_, const double* dx, int incx,
-                     double* dy, int incy) {
+inline void dcopy___(const int* n_, const real* dx, int incx,
+                     real* dy, int incy) {
   int i, n = *n_;
 
   if (n <= 0)
     return;
   if (incx == 1 && incy == 1)
-    memcpy(dy, dx, sizeof(double) * ((unsigned) n));
+    memcpy(dy, dx, sizeof(real) * ((unsigned) n));
   else if (incx == 0 && incy == 1) {
-    double x = dx[0];
+    real x = dx[0];
     for (i = 0; i < n; ++i)
       dy[i] = x;
   } else {
@@ -194,10 +201,10 @@ inline void dcopy___(const int* n_, const double* dx, int incx,
 } /* dcopy___ */
 
 /* CONSTANT TIMES A VECTOR PLUS A VECTOR. */
-inline void daxpy_sl__(int* n_, const double* da_, const double* dx,
-                       int incx, double* dy, int incy) {
-  int    n  = *n_;
-  double da = *da_;
+inline void daxpy_sl__(int* n_, const real* da_, const real* dx,
+                       int incx, real* dy, int incy) {
+  int  n  = *n_;
+  real da = *da_;
 
   if (n <= 0 || da == 0)
     return;
@@ -206,51 +213,51 @@ inline void daxpy_sl__(int* n_, const double* da_, const double* dx,
 }
 
 /* dot product dx dot dy. */
-inline double ddot_sl__(int* n_, double* dx, int incx, double* dy, int incy) {
-  int    n   = *n_;
-  double sum = 0;
+inline real ddot_sl__(int* n_, real* dx, int incx, real* dy, int incy) {
+  int  n   = *n_;
+  real sum = 0;
   if (n <= 0)
     return 0;
   for (int i = 0; i < n; ++i)
     sum += dx[i * incx] * dy[i * incy];
-  return (double) sum;
+  return sum;
 }
 
 /* compute the L2 norm of array DX of length N, stride INCX */
-inline double dnrm2___(const int* n_, const double* dx, int incx) {
+inline real dnrm2___(const int* n_, const real* dx, int incx) {
   const int n    = *n_;
-  double    xmax = 0;
-  double    sum  = 0;
+  real      xmax = 0;
+  real      sum  = 0;
   for (int i = 0; i < n; ++i) {
-    if (double xabs = fabs(dx[incx * i]); xmax < xabs)
+    if (real xabs = fabs(dx[incx * i]); xmax < xabs)
       xmax = xabs;
   }
   if (xmax == 0)
     return 0;
-  double scale = 1.0 / xmax;
+  real scale = ((real) 1) / xmax;
   for (int i = 0; i < n; ++i) {
-    double xs = scale * dx[incx * i];
+    real xs = scale * dx[incx * i];
     sum += xs * xs;
   }
-  return xmax * sqrt((double) sum);
+  return xmax * sqrt(sum);
 }
 
 /* apply Givens rotation */
-inline void dsrot_(int n, double* dx, int incx,
-                   double* dy, int incy, double* c__, double* s_) {
-  int    i;
-  double c = *c__, s = *s_;
+inline void dsrot_(int n, real* dx, int incx,
+                   real* dy, int incy, real* c__, real* s_) {
+  int  i;
+  real c = *c__, s = *s_;
 
   for (i = 0; i < n; ++i) {
-    double x = dx[incx * i], y = dy[incy * i];
+    real x = dx[incx * i], y = dy[incy * i];
     dx[incx * i] = c * x + s * y;
     dy[incy * i] = c * y - s * x;
   }
 }
 
 /* construct Givens rotation */
-inline void dsrotg_(double* da, double* db, double* c, double* s) {
-  double absa, absb, roe, scale;
+inline void dsrotg_(real* da, real* db, real* c, real* s) {
+  real absa, absb, roe, scale;
 
   absa = fabs(*da);
   absb = fabs(*db);
@@ -263,8 +270,8 @@ inline void dsrotg_(double* da, double* db, double* c, double* s) {
   }
 
   if (scale != 0) {
-    double r, iscale = 1 / scale;
-    double tmpa = (*da) * iscale, tmpb = (*db) * iscale;
+    real r, iscale = 1 / scale;
+    real tmpa = (*da) * iscale, tmpb = (*db) * iscale;
     r   = (roe < 0 ? -scale : scale) * sqrt((tmpa * tmpa) + (tmpb * tmpb));
     *c  = *da / r;
     *s  = *db / r;
@@ -280,9 +287,9 @@ inline void dsrotg_(double* da, double* db, double* c, double* s) {
 }
 
 /* scales vector X(n) by constant da */
-inline void dscal_sl__(int* n_, const double* da, double* dx, int incx) {
-  int    i, n = *n_;
-  double alpha = *da;
+inline void dscal_sl__(int* n_, const real* da, real* dx, int incx) {
+  int  i, n = *n_;
+  real alpha = *da;
   for (i = 0; i < n; ++i)
     dx[i * incx] *= alpha;
 }
@@ -297,22 +304,22 @@ static const int c__2 = 2;
 #define MAX2(a, b) ((a) >= (b) ? (a) : (b))
 
 inline void h12_(const int* mode, int* lpivot, int* l1,
-                 int* m, double* u, const int* iue, double* up,
-                 double* c__, const int* ice, const int* icv, const int* ncv) {
+                 int* m, real* u, const int* iue, real* up,
+                 real* c__, const int* ice, const int* icv, const int* ncv) {
   /* Initialized data */
 
-  const double one = 1.;
+  const real one = 1;
 
   /* System generated locals */
-  int    u_dim1, u_offset, i__1, i__2;
-  double d__1;
+  int  u_dim1, u_offset, i__1, i__2;
+  real d__1;
 
   /* Local variables */
-  double b;
-  int    i__, j, i2, i3, i4;
-  double cl, sm;
-  int    incr;
-  double clinv;
+  real b;
+  int  i__, j, i2, i3, i4;
+  real cl, sm;
+  int  incr;
+  real clinv;
 
   /*     C.L.LAWSON AND R.J.HANSON, JET PROPULSION LABORATORY, 1973 JUN 12 */
   /*     TO APPEAR IN 'SOLVING LEAST SQUARES PROBLEMS', PRENTICE-HALL, 1974 */
@@ -426,27 +433,27 @@ L80:
   return;
 } /* h12_ */
 
-inline void nnls_(double* a, int* mda, int* m, int* n, double* b, double* x, double* rnorm, double* w,
-                  double* z__, int* indx, int* mode) {
+inline void nnls_(real* a, int* mda, int* m, int* n, real* b, real* x, real* rnorm, real* w,
+                  real* z__, int* indx, int* mode) {
   /* Initialized data */
 
-  const double one    = 1.;
-  const double factor = .01;
+  const real one    = 1;
+  const real factor = 0.01;
 
   /* System generated locals */
-  int    a_dim1, a_offset, i__1, i__2;
-  double d__1;
+  int  a_dim1, a_offset, i__1, i__2;
+  real d__1;
 
   /* Local variables */
-  double c__;
-  int    i__, j, k, l;
-  double s, t;
-  int    ii, jj, ip, iz, jz;
-  double up;
-  int    iz1, iz2, npp1, iter;
-  double wmax, alpha, asave;
-  int    itmax, izmax = 0, nsetp;
-  double unorm;
+  real c__;
+  int  i__, j, k, l;
+  real s, t;
+  int  ii, jj, ip, iz, jz;
+  real up;
+  int  iz1, iz2, npp1, iter;
+  real wmax, alpha, asave;
+  int  itmax, izmax = 0, nsetp;
+  real unorm;
 
   /*     C.L.LAWSON AND R.J.HANSON, JET PROPULSION LABORATORY: */
   /*     'SOLVING LEAST SQUARES PROBLEMS'. PRENTICE-HALL.1974 */
@@ -682,22 +689,22 @@ L290:
   return;
 } /* nnls_ */
 
-inline void ldp_(double* g, int* mg, int* m, int* n,
-                 double* h__, double* x, double* xnorm, double* w,
+inline void ldp_(real* g, int* mg, int* m, int* n,
+                 real* h__, real* x, real* xnorm, real* w,
                  int* indx, int* mode) {
   /* Initialized data */
 
-  const double one = 1.;
+  const real one = 1.;
 
   /* System generated locals */
-  int    g_dim1, g_offset, i__1, i__2;
-  double d__1;
+  int  g_dim1, g_offset, i__1, i__2;
+  real d__1;
 
   /* Local variables */
-  int    i__, j, n1, if__, iw, iy, iz;
-  double fac;
-  double rnorm;
-  int    iwdual;
+  int  i__, j, n1, if__, iw, iy, iz;
+  real fac;
+  real rnorm;
+  int  iwdual;
 
   /*                     T */
   /*     MINIMIZE   1/2 X X    SUBJECT TO   G * X >= H. */
@@ -806,21 +813,21 @@ L50:
   return;
 } /* ldp_ */
 
-inline void lsi_(double* e, double* f, double* g,
-                 double* h__, int* le, int* me, int* lg, int* mg,
-                 int* n, double* x, double* xnorm, double* w, int* jw, int* mode) {
+inline void lsi_(real* e, real* f, real* g,
+                 real* h__, int* le, int* me, int* lg, int* mg,
+                 int* n, real* x, real* xnorm, real* w, int* jw, int* mode) {
   /* Initialized data */
 
-  const double epmach = 2.22e-16;
-  const double one    = 1.;
+  const real epmach = std::numeric_limits<real>::epsilon();
+  const real one    = 1.;
 
   /* System generated locals */
-  int    e_dim1, e_offset, g_dim1, g_offset, i__1, i__2, i__3;
-  double d__1;
+  int  e_dim1, e_offset, g_dim1, g_offset, i__1, i__2, i__3;
+  real d__1;
 
   /* Local variables */
-  int    i__, j;
-  double t;
+  int  i__, j;
+  real t;
 
   /*     FOR MODE=1, THE SUBROUTINE RETURNS THE SOLUTION X OF */
   /*     INEQUALITY CONSTRAINED LINEAR LEAST SQUARES PROBLEM: */
@@ -922,20 +929,20 @@ L50:
   return;
 } /* lsi_ */
 
-inline void hfti_(double* a, int* mda, int* m, int* n, double* b, int* mdb, const int* nb, double* tau, int* krank, double* rnorm, double* h__, double* g, int* ip) {
+inline void hfti_(real* a, int* mda, int* m, int* n, real* b, int* mdb, const int* nb, real* tau, int* krank, real* rnorm, real* h__, real* g, int* ip) {
   /* Initialized data */
 
-  const double factor = .001;
+  const real factor = .001;
 
   /* System generated locals */
-  int    a_dim1, a_offset, b_dim1, b_offset, i__1, i__2, i__3;
-  double d__1;
+  int  a_dim1, a_offset, b_dim1, b_offset, i__1, i__2, i__3;
+  real d__1;
 
   /* Local variables */
-  int    i__, j, k, l;
-  int    jb, kp1;
-  double tmp, hmax;
-  int    lmax, ldiag;
+  int  i__, j, k, l;
+  int  jb, kp1;
+  real tmp, hmax;
+  int  lmax, ldiag;
 
   /*     RANK-DEFICIENT LEAST SQUARES ALGORITHM AS DESCRIBED IN: */
   /*     C.L.LAWSON AND R.J.HANSON, JET PROPULSION LABORATORY, 1973 JUN 12 */
@@ -1135,22 +1142,22 @@ L270:
 } /* hfti_ */
 
 // Solve Least Square with Equality and Inequality constraints
-inline void lsei_(double* c__, double* d__, double* e,
-                  double* f, double* g, double* h__, int* lc, int* mc, int* le, int* me, int* lg, int* mg, int* n,
-                  double* x, double* xnrm, double* w, int* jw, int* mode) {
+inline void lsei_(real* c__, real* d__, real* e,
+                  real* f, real* g, real* h__, int* lc, int* mc, int* le, int* me, int* lg, int* mg, int* n,
+                  real* x, real* xnrm, real* w, int* jw, int* mode) {
   /* Initialized data */
 
-  const double epmach = 2.22e-16;
+  const real epmach = std::numeric_limits<real>::epsilon();
 
   /* System generated locals */
-  int    c_dim1, c_offset, e_dim1, e_offset, g_dim1, g_offset, i__1, i__2, i__3;
-  double d__1;
+  int  c_dim1, c_offset, e_dim1, e_offset, g_dim1, g_offset, i__1, i__2, i__3;
+  real d__1;
 
   /* Local variables */
-  int    i__, j, k, l;
-  double t;
-  int    ie, if__, ig, iw, mc1;
-  int    krank;
+  int  i__, j, k, l;
+  real t;
+  int  ie, if__, ig, iw, mc1;
+  int  krank;
 
   /*     FOR MODE=1, THE SUBROUTINE RETURNS THE SOLUTION X OF */
   /*     EQUALITY & INEQUALITY CONSTRAINED LEAST SQUARES PROBLEM LSEI : */
@@ -1329,22 +1336,22 @@ L75:
 } /* lsei_ */
 
 inline void lsq_(int* m, int* meq, int* n, int* nl,
-                 int* la, double* l, double* g, double* a, double* b, const double* xl, const double* xu, double* x, double* y,
-                 double* w, int* jw, int* mode) {
+                 int* la, real* l, real* g, real* a, real* b, const real* xl, const real* xu, real* x, real* y,
+                 real* w, int* jw, int* mode) {
   /* Initialized data */
 
-  const double one = 1.;
+  const real one = 1.;
 
   /* System generated locals */
-  int    a_dim1, a_offset, i__1, i__2;
-  double d__1;
+  int  a_dim1, a_offset, i__1, i__2;
+  real d__1;
 
   /* Local variables */
   int i__, i1, i2, i3, i4, m1, n1, n2, n3, ic, id, ie, if__, ig, ih, il,
           im, ip, iu, iw;
-  double diag;
-  int    mineq;
-  double xnorm = 0.0;
+  real diag;
+  int  mineq;
+  real xnorm = 0.0;
 
   /*   MINIMIZE with respect to X */
   /*             ||E*X - F|| */
@@ -1532,22 +1539,22 @@ inline void lsq_(int* m, int* meq, int* n, int* nl,
   /*   END OF SUBROUTINE LSQ */
 } /* lsq_ */
 
-inline void ldl_(int* n, double* a, double* z__,
-                 double* sigma, double* w) {
+inline void ldl_(int* n, real* a, real* z__,
+                 real* sigma, real* w) {
   /* Initialized data */
   PROFILE_FUNCTION;
-  const double one    = 1.;
-  const double four   = 4.;
-  const double epmach = 2.22e-16;
+  const real one    = 1.;
+  const real four   = 4.;
+  const real epmach = std::numeric_limits<real>::epsilon();
 
   /* System generated locals */
   int i__1, i__2;
 
   /* Local variables */
-  int    i__, j;
-  double t, u, v;
-  int    ij;
-  double tp, beta, gamma_, alpha, delta;
+  int  i__, j;
+  real t, u, v;
+  int  ij;
+  real tp, beta, gamma_, alpha, delta;
 
   /*   LDL     LDL' - RANK-ONE - UPDATE */
   /*   PURPOSE: */
@@ -1668,15 +1675,15 @@ L280:
 } /* ldl_ */
 
 typedef struct {
-  double  t, f0, h1, h2, h3, h4;
-  int     n1, n2, n3;
-  double  t0, gs;
-  double  tol;
-  int     line;
-  double  alpha;
-  int     iexact;
-  int     incons, ireset, itermx;
-  double* x0;
+  real  t, f0, h1, h2, h3, h4;
+  int   n1, n2, n3;
+  real  t0, gs;
+  real  tol;
+  int   line;
+  real  alpha;
+  int   iexact;
+  int   incons, ireset, itermx;
+  real* x0;
 } slsqpb_state;
 
 #define SS(var) state->var = var
@@ -1765,20 +1772,20 @@ inline unsigned nlopt_max_constraint_dim(unsigned p, const nlopt_constraint* c) 
   return max_dim;
 }
 
-inline void nlopt_eval_constraint(double* result, double* grad, const nlopt_constraint* c, unsigned n, const double* x) {
+inline void nlopt_eval_constraint(real* result, real* grad, const nlopt_constraint* c, unsigned n, const real* x) {
   if (c->f)
     result[0] = c->f(n, x, grad, c->f_data);
   else
     c->mf(c->m, result, n, x, grad, c->f_data);
 }
 
-inline double sc(double x, double smin, double smax) {
+inline real sc(real x, real smin, real smax) {
   return smin + x * (smax - smin);
 }
 
-inline double vector_norm(unsigned n, const double* vec, const double* w, const double* scale_min, const double* scale_max) {
+inline real vector_norm(unsigned n, const real* vec, const real* w, const real* scale_min, const real* scale_max) {
   unsigned i;
-  double   ret = 0;
+  real     ret = 0;
   if (scale_min && scale_max) {
     if (w)
       for (i = 0; i < n; i++)
@@ -1797,9 +1804,9 @@ inline double vector_norm(unsigned n, const double* vec, const double* w, const 
   return ret;
 }
 
-inline double diff_norm(unsigned n, const double* x, const double* oldx, const double* w, const double* scale_min, const double* scale_max) {
+inline real diff_norm(unsigned n, const real* x, const real* oldx, const real* w, const real* scale_min, const real* scale_max) {
   unsigned i;
-  double   ret = 0;
+  real     ret = 0;
   if (scale_min && scale_max) {
     if (w)
       for (i = 0; i < n; i++)
@@ -1818,21 +1825,21 @@ inline double diff_norm(unsigned n, const double* x, const double* oldx, const d
   return ret;
 }
 
-inline int relstop(double vold, double vnew, double reltol, double abstol) {
+inline int relstop(real vold, real vnew, real reltol, real abstol) {
   if (isinf(vold))
     return 0;
   return (fabs(vnew - vold) < abstol || fabs(vnew - vold) < reltol * (fabs(vnew) + fabs(vold)) * 0.5 || (reltol > 0 && vnew == vold)); /* catch vnew == vold == 0 */
 }
 
-inline int nlopt_stop_ftol(const nlopt_stopping* s, double f, double oldf) {
+inline int nlopt_stop_ftol(const nlopt_stopping* s, real f, real oldf) {
   return (relstop(oldf, f, s->ftol_rel, s->ftol_abs));
 }
 
-inline int nlopt_stop_f(const nlopt_stopping* s, double f, double oldf) {
+inline int nlopt_stop_f(const nlopt_stopping* s, real f, real oldf) {
   return (f <= s->minf_max || nlopt_stop_ftol(s, f, oldf));
 }
 
-inline int nlopt_stop_x(const nlopt_stopping* s, const double* x, const double* oldx) {
+inline int nlopt_stop_x(const nlopt_stopping* s, const real* x, const real* oldx) {
   unsigned i;
   if (diff_norm(s->n, x, oldx, s->x_weights, nullptr, nullptr) < s->xtol_rel * vector_norm(s->n, x, s->x_weights, nullptr, nullptr))
     return 1;
@@ -1844,7 +1851,7 @@ inline int nlopt_stop_x(const nlopt_stopping* s, const double* x, const double* 
   return 1;
 }
 
-inline int nlopt_stop_dx(const nlopt_stopping* s, const double* x, const double* dx) {
+inline int nlopt_stop_dx(const nlopt_stopping* s, const real* x, const real* dx) {
   unsigned i;
   if (vector_norm(s->n, dx, s->x_weights, nullptr, nullptr) < s->xtol_rel * vector_norm(s->n, x, s->x_weights, nullptr, nullptr))
     return 1;
@@ -1856,7 +1863,7 @@ inline int nlopt_stop_dx(const nlopt_stopping* s, const double* x, const double*
   return 1;
 }
 
-inline int nlopt_stop_xs(const nlopt_stopping* s, const double* xs, const double* oldxs, const double* scale_min, const double* scale_max) {
+inline int nlopt_stop_xs(const nlopt_stopping* s, const real* xs, const real* oldxs, const real* scale_min, const real* scale_max) {
   unsigned i;
   if (diff_norm(s->n, xs, oldxs, s->x_weights, scale_min, scale_max) < s->xtol_rel * vector_norm(s->n, xs, s->x_weights, scale_min, scale_max))
     return 1;
@@ -1915,37 +1922,37 @@ inline int nlopt_stop_evalstime(const nlopt_stopping* stop) {
   return nlopt_stop_evals(stop) || nlopt_stop_time(stop);
 }
 
-inline void slsqpb_(int* m, int* meq, int* la, int* n, double* x, const double* xl, const double* xu, double* f,
-                    double* c__, double* g, double* a, double* acc,
-                    int* iter, int* mode, double* r__, double* l,
-                    double* x0, double* mu, double* s, double* u,
-                    double* v, double* w, int* iw,
+inline void slsqpb_(int* m, int* meq, int* la, int* n, real* x, const real* xl, const real* xu, real* f,
+                    real* c__, real* g, real* a, real* acc,
+                    int* iter, int* mode, real* r__, real* l,
+                    real* x0, real* mu, real* s, real* u,
+                    real* v, real* w, int* iw,
                     slsqpb_state* state) {
   PROFILE_FUNCTION;
   /* Initialized data */
 
-  constexpr double one    = 1.;
-  constexpr double alfmin = .1;
-  const double     ten    = 10.;
-  const double     two    = 2.;
+  constexpr real one    = 1.;
+  constexpr real alfmin = .1;
+  const real     ten    = 10.;
+  const real     two    = 2.;
 
   /* System generated locals */
-  int    a_dim1, a_offset, i__1, i__2;
-  double d__1, d__2;
+  int  a_dim1, a_offset, i__1, i__2;
+  real d__1, d__2;
 
   /* Local variables */
   int i__, j, k;
 
   /* saved state from one call to the next;
      SGJ 2010: save/restore via state parameter, to make re-entrant. */
-  double t, f0, h1, h2, h3, h4;
-  int    n1, n2, n3;
-  double t0, gs;
-  double tol;
-  int    line;
-  double alpha;
-  int    iexact;
-  int    incons, ireset, itermx;
+  real t, f0, h1, h2, h3, h4;
+  int  n1, n2, n3;
+  real t0, gs;
+  real tol;
+  int  line;
+  real alpha;
+  int  iexact;
+  int  incons, ireset, itermx;
   RESTORE_STATE;
 
   /*   NONLINEAR PROGRAMMING BY SOLVING SEQUENTIALLY QUADRATIC PROGRAMS */
@@ -2039,8 +2046,8 @@ L130:
     }
   }
   if (*mode == 4) {
-    constexpr double hun = 100.;
-    i__1                 = *m;
+    constexpr real hun = 100.;
+    i__1               = *m;
     for (j = 1; j <= i__1; ++j) {
       if (j <= *meq) {
         a[j + n1 * a_dim1] = -c__[j];
@@ -2310,9 +2317,9 @@ L330:
 /*                              optimizer                               * */
 /* *********************************************************************** */
 inline void slsqp(int* m, int* meq, int* la, int* n,
-                  double* x, const double* xl, const double* xu, double* f,
-                  double* c__, double* g, double* a, double* acc,
-                  int* iter, int* mode, double* w, int* l_w__, int* jw, int* l_jw__, slsqpb_state* state) {
+                  real* x, const real* xl, const real* xu, real* f,
+                  real* c__, real* g, real* a, real* acc,
+                  int* iter, int* mode, real* w, int* l_w__, int* jw, int* l_jw__, slsqpb_state* state) {
   PROFILE_FUNCTION;
   /* System generated locals */
   int a_dim1   = 0;
@@ -2564,24 +2571,24 @@ inline nlopt_result sqp(
         nlopt_constraint* fc,
         unsigned          p,
         nlopt_constraint* h,
-        const double*     lb,
-        const double*     ub,
-        double*           x,
-        double*           minf,
+        const real*       lb,
+        const real*       ub,
+        real*             x,
+        real*             minf,
         nlopt_stopping*   stop) {
   slsqpb_state state             = {};
   unsigned     mtot              = nlopt_count_constraints(m, fc);
   unsigned     ptot              = nlopt_count_constraints(p, h);
-  double*      work              = {};
-  double*      cgrad             = {};
-  double*      c                 = {};
-  double*      grad              = {};
-  double*      w                 = {};
-  double       fcur              = 0;
-  double*      xcur              = {};
-  double       fprev             = {};
-  double*      xprev             = {};
-  double*      cgradtmp          = {};
+  real*        work              = {};
+  real*        cgrad             = {};
+  real*        c                 = {};
+  real*        grad              = {};
+  real*        w                 = {};
+  real         fcur              = 0;
+  real*        xcur              = {};
+  real         fprev             = {};
+  real*        xprev             = {};
+  real*        cgradtmp          = {};
   int          mpi               = (int) (mtot + ptot);
   int          pi                = (int) ptot;
   int          ni                = (int) x_len;
@@ -2591,14 +2598,14 @@ inline nlopt_result sqp(
   int*         jw                = {};
   int          mode              = 0;
   int          prev_mode         = 0;
-  double       acc               = 0; /* we do our own convergence tests below */
+  real         acc               = 0; /* we do our own convergence tests below */
   int          iter              = 0; /* tell sqsqp to ignore this check, since we check evaluation counts ourselves */
   unsigned     i                 = 0;
   nlopt_result ret               = NLOPT_SUCCESS;
   int          feasible          = 0;
   int          feasible_cur      = 0;
-  double       infeasibility     = HUGE_VAL;
-  double       infeasibility_cur = HUGE_VAL;
+  real         infeasibility     = HUGE_VAL;
+  real         infeasibility_cur = HUGE_VAL;
   unsigned     max_cdim          = 0;
   int          want_grad         = 1;
 
@@ -2612,7 +2619,7 @@ inline nlopt_result sqp(
   length_work(&len_w, &len_jw, mpi, pi, ni);
 
 #define U(n) ((unsigned) (n))
-  work = (double*) malloc(sizeof(double) * (U(mpi1) * (x_len + 1) + U(mpi) + x_len + 1 + x_len + x_len + max_cdim * x_len + U(len_w)) + sizeof(int) * U(len_jw));
+  work = (real*) malloc(sizeof(real) * (U(mpi1) * (x_len + 1) + U(mpi) + x_len + 1 + x_len + x_len + max_cdim * x_len + U(len_w)) + sizeof(int) * U(len_jw));
   if (!work)
     return NLOPT_OUT_OF_MEMORY;
   cgrad    = work;
@@ -2624,8 +2631,8 @@ inline nlopt_result sqp(
   w        = cgradtmp + max_cdim * x_len;
   jw       = (int*) (w + len_w);
 
-  memcpy(xcur, x, sizeof(double) * x_len);
-  memcpy(xprev, x, sizeof(double) * x_len);
+  memcpy(xcur, x, sizeof(real) * x_len);
+  memcpy(xprev, x, sizeof(real) * x_len);
   fprev = fcur = *minf = HUGE_VAL;
   feasible = feasible_cur = 0;
 
@@ -2649,8 +2656,8 @@ inline nlopt_result sqp(
         want_grad = 1;
         /* fall through */
       case 1: { /* don't need grad unless we don't have it yet */
-        double* newgrad  = nullptr;
-        double* newcgrad = nullptr;
+        real* newgrad  = nullptr;
+        real* newcgrad = nullptr;
         if (want_grad) {
           newgrad  = grad;
           newcgrad = cgradtmp;
@@ -2692,9 +2699,9 @@ inline nlopt_result sqp(
            as in the SLSQP code (except xtol as well as ftol) */
         ret = NLOPT_ROUNDOFF_LIMITED; /* usually why deriv>0 */
         if (feasible_cur) {
-          double save_ftol_rel = stop->ftol_rel;
-          double save_xtol_rel = stop->xtol_rel;
-          double save_ftol_abs = stop->ftol_abs;
+          real save_ftol_rel = stop->ftol_rel;
+          real save_xtol_rel = stop->xtol_rel;
+          real save_ftol_abs = stop->ftol_abs;
           stop->ftol_rel *= 10;
           stop->ftol_abs *= 10;
           stop->xtol_rel *= 10;
@@ -2731,7 +2738,7 @@ inline nlopt_result sqp(
       *minf         = fcur;
       feasible      = feasible_cur;
       infeasibility = infeasibility_cur;
-      memcpy(x, xcur, sizeof(double) * x_len);
+      memcpy(x, xcur, sizeof(real) * x_len);
     }
 
     /* note: mode == -1 corresponds to the completion of a line search,
@@ -2744,7 +2751,7 @@ inline nlopt_result sqp(
           ret = NLOPT_XTOL_REACHED;
       }
       fprev = fcur;
-      memcpy(xprev, xcur, sizeof(double) * x_len);
+      memcpy(xprev, xcur, sizeof(real) * x_len);
     }
 
     /* do some additional termination tests */
@@ -2767,10 +2774,10 @@ done:
   if (isinf(*minf)) {  /* didn't find any feasible points, just return last point evaluated */
     if (isinf(fcur)) { /* invalid cur. point, use previous pt. */
       *minf = fprev;
-      memcpy(x, xprev, sizeof(double) * x_len);
+      memcpy(x, xprev, sizeof(real) * x_len);
     } else {
       *minf = fcur;
-      memcpy(x, xcur, sizeof(double) * x_len);
+      memcpy(x, xcur, sizeof(real) * x_len);
     }
   }
 
@@ -2784,16 +2791,16 @@ inline nlopt_result sqp(blast::Array& x, blast::Optimization& opt, nlopt_stoppin
   slsqpb_state state             = {};
   unsigned     mtot              = opt.constraints.n_constraints;
   unsigned     ptot              = 0;
-  double*      work              = {};
-  double*      cgrad             = {};
-  double*      c                 = {};
-  double*      grad              = {};
-  double*      w                 = {};
-  double       fcur              = 0;
-  double*      xcur              = {};
-  double       fprev             = {};
-  double*      xprev             = {};
-  double*      cgradtmp          = {};
+  real*        work              = {};
+  real*        cgrad             = {};
+  real*        c                 = {};
+  real*        grad              = {};
+  real*        w                 = {};
+  real         fcur              = 0;
+  real*        xcur              = {};
+  real         fprev             = {};
+  real*        xprev             = {};
+  real*        cgradtmp          = {};
   int          mpi               = (int) (mtot + ptot);
   int          pi                = (int) ptot;
   int          ni                = (int) x_len;
@@ -2803,14 +2810,14 @@ inline nlopt_result sqp(blast::Array& x, blast::Optimization& opt, nlopt_stoppin
   int*         jw                = {};
   int          mode              = 0;
   int          prev_mode         = 0;
-  double       acc               = 0; /* we do our own convergence tests below */
+  real         acc               = 0; /* we do our own convergence tests below */
   int          iter              = 0; /* tell sqsqp to ignore this check, since we check evaluation counts ourselves */
   unsigned     ii                = 0;
   nlopt_result ret               = NLOPT_SUCCESS;
   int          feasible          = 0;
   int          feasible_cur      = 0;
-  double       infeasibility     = HUGE_VAL;
-  double       infeasibility_cur = HUGE_VAL;
+  real         infeasibility     = HUGE_VAL;
+  real         infeasibility_cur = HUGE_VAL;
   unsigned     max_cdim          = 0;
   int          want_grad         = 1;
 
@@ -2823,7 +2830,7 @@ inline nlopt_result sqp(blast::Array& x, blast::Optimization& opt, nlopt_stoppin
   length_work(&len_w, &len_jw, mpi, pi, ni);
 
 #define U(n) ((unsigned) (n))
-  work = (double*) malloc(sizeof(double) * (U(mpi1) * (x_len + 1) + U(mpi) + x_len + 1 + x_len + x_len + max_cdim * x_len + U(len_w)) + sizeof(int) * U(len_jw));
+  work = (real*) malloc(sizeof(real) * (U(mpi1) * (x_len + 1) + U(mpi) + x_len + 1 + x_len + x_len + max_cdim * x_len + U(len_w)) + sizeof(int) * U(len_jw));
   if (!work)
     return NLOPT_OUT_OF_MEMORY;
   cgrad    = work;
@@ -2835,11 +2842,11 @@ inline nlopt_result sqp(blast::Array& x, blast::Optimization& opt, nlopt_stoppin
   w        = cgradtmp + max_cdim * x_len;
   jw       = (int*) (w + len_w);
 
-  double  f;
-  double* minf = &f;
+  real  f;
+  real* minf = &f;
 
-  memcpy(xcur, x.data, sizeof(double) * x_len);
-  memcpy(xprev, x.data, sizeof(double) * x_len);
+  memcpy(xcur, x.data, sizeof(real) * x_len);
+  memcpy(xprev, x.data, sizeof(real) * x_len);
   fprev = fcur = *minf = HUGE_VAL;
   feasible = feasible_cur = 0;
 
@@ -2863,8 +2870,8 @@ inline nlopt_result sqp(blast::Array& x, blast::Optimization& opt, nlopt_stoppin
         want_grad = 1;
         /* fall through */
       case 1: { /* don't need grad unless we don't have it yet */
-        double* newgrad  = nullptr;
-        double* newcgrad = nullptr;
+        real* newgrad  = nullptr;
+        real* newcgrad = nullptr;
         if (want_grad) {
           newgrad  = grad;
           newcgrad = cgradtmp;
@@ -2906,9 +2913,9 @@ inline nlopt_result sqp(blast::Array& x, blast::Optimization& opt, nlopt_stoppin
            as in the SLSQP code (except xtol as well as ftol) */
         ret = NLOPT_ROUNDOFF_LIMITED; /* usually why deriv>0 */
         if (feasible_cur) {
-          double save_ftol_rel = stop->ftol_rel;
-          double save_xtol_rel = stop->xtol_rel;
-          double save_ftol_abs = stop->ftol_abs;
+          real save_ftol_rel = stop->ftol_rel;
+          real save_xtol_rel = stop->xtol_rel;
+          real save_ftol_abs = stop->ftol_abs;
           stop->ftol_rel *= 10;
           stop->ftol_abs *= 10;
           stop->xtol_rel *= 10;
@@ -2945,7 +2952,7 @@ inline nlopt_result sqp(blast::Array& x, blast::Optimization& opt, nlopt_stoppin
       *minf         = fcur;
       feasible      = feasible_cur;
       infeasibility = infeasibility_cur;
-      memcpy(x.data, xcur, sizeof(double) * x_len);
+      memcpy(x.data, xcur, sizeof(real) * x_len);
     }
 
     /* note: mode == -1 corresponds to the completion of a line search,
@@ -2958,7 +2965,7 @@ inline nlopt_result sqp(blast::Array& x, blast::Optimization& opt, nlopt_stoppin
           ret = NLOPT_XTOL_REACHED;
       }
       fprev = fcur;
-      memcpy(xprev, xcur, sizeof(double) * x_len);
+      memcpy(xprev, xcur, sizeof(real) * x_len);
     }
 
     /* do some additional termination tests */
@@ -2981,10 +2988,10 @@ done:
   if (isinf(*minf)) {  /* didn't find any feasible points, just return last point evaluated */
     if (isinf(fcur)) { /* invalid cur. point, use previous pt. */
       *minf = fprev;
-      memcpy(x.data, xprev, sizeof(double) * x_len);
+      memcpy(x.data, xprev, sizeof(real) * x_len);
     } else {
       *minf = fcur;
-      memcpy(x.data, xcur, sizeof(double) * x_len);
+      memcpy(x.data, xcur, sizeof(real) * x_len);
     }
   }
 
