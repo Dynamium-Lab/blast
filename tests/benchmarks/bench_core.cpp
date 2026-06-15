@@ -19,7 +19,7 @@
 using namespace blast;
 
 int main() {
-  const std::string prec = sizeof(real) == 8 ? "double" : "float";
+  const std::string        prec = sizeof(real) == 8 ? "double" : "float";
   ankerl::nanobench::Bench bench;
   bench.title("Blast core (real = " + prec + ")");
 

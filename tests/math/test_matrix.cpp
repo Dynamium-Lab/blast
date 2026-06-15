@@ -1,8 +1,8 @@
 #define CATCH_CONFIG_MAIN
 
 #include <blast>
-#include "test_helper.hpp"
 #include "catch2/catch.hpp"
+#include "test_helper.hpp"
 
 // ---------------------------------------------------------------------------
 // Construction

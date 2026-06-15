@@ -2,8 +2,8 @@
 #include "catch2/catch.hpp"
 
 #include <blast>
-#include "test_helper.hpp"
 #include "manipulator/UR5e.hpp"
+#include "test_helper.hpp"
 
 TEST_CASE("Conversions Q & rx, ry, rz", "[Math][Misc]") {
   using namespace blast;
