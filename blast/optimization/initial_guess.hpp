@@ -58,7 +58,7 @@ inline Array guess_shot_mean_segments(Optimization* opt) { // no collisions
     constraints_and_gradients_with_segments(x, *opt, c1, gradient); // todo: change for segments
     real r = 0;
     for (u32 i = 0; i < c1.size; i++)
-      r += std::max({c1[i], 0.0});
+      r += std::max({c1[i], real(0)});
     Assert(!isnan(r));
     r = r * x.back(); // todo: Evaluate time estimate impact on trajectory
     if (r < best_val) {
@@ -119,7 +119,7 @@ inline Array guess_shot_mean(Optimization* opt) { // no collisions
     compute_constraints(c1.data, x, opt); // todo: change for segments
     real r = 0;
     for (u32 i = 0; i < c1.size; i++)
-      r += std::max({c1[i], 0.0});
+      r += std::max({c1[i], real(0)});
     Assert(!isnan(r));
     r = r * x.back(); // todo: Evaluate time estimate impact on trajectory
     if (r < best_val) {

@@ -49,6 +49,17 @@
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++"
       }
+    },
+    {
+      "name": "ci-float",
+      "inherits": "ci",
+      "displayName": "CI build (float / native SQP)",
+      "description": "Single-precision build: blast::real = float, which requires the in-house SQP solver (external NLopt is double-only).",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "BLAST_USE_DOUBLES": "OFF",
+        "BLAST_USE_NATIVE_SQP": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -70,6 +81,11 @@
     {
       "name": "ci-clang",
       "configurePreset": "ci-clang",
+      "configuration": "Release"
+    },
+    {
+      "name": "ci-float",
+      "configurePreset": "ci-float",
       "configuration": "Release"
     }
   ],
@@ -93,6 +109,14 @@
     {
       "name": "ci-clang",
       "configurePreset": "ci-clang",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ci-float",
+      "configurePreset": "ci-float",
       "configuration": "Release",
       "output": {
         "outputOnFailure": true

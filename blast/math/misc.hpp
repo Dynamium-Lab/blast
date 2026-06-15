@@ -34,12 +34,12 @@ inline host_fn float simd_hadd(__m256 v) {
 // Returns a rotation matrix from roll, pitch, yaw angles
 inline Mat3 rpy2rotation(Vec3 rpy) {
   // Pre-compute cosines and sines.
-  const double cx = cos(rpy.x);
-  const double sx = sin(rpy.x);
-  const double cy = cos(rpy.y);
-  const double sy = sin(rpy.y);
-  const double cz = cos(rpy.z);
-  const double sz = sin(rpy.z);
+  const real cx = cos(rpy.x);
+  const real sx = sin(rpy.x);
+  const real cy = cos(rpy.y);
+  const real sy = sin(rpy.y);
+  const real cz = cos(rpy.z);
+  const real sz = sin(rpy.z);
 
   // Compute the rotation matrix components.
   Mat3 R;
@@ -62,7 +62,7 @@ inline Vec3 rotation2rpy(Mat3 rotation) {
   u32  condition = std::abs(rotation(0, 2)) != 1 ? 1 : rotation(0, 2) == 1 ? 2
                                                                            : 3; // allow for gimble lock
   real rx        = condition == 1 ? atan2(-rotation(1, 2), rotation(2, 2))
-                                  : 0.0;
+                                  : real(0);
 
 
   real ry = condition == 1   ? asin(rotation(0, 2))
@@ -105,13 +105,16 @@ inline blast_fn Array wrap2pi(Array a) {
 }
 
 inline blast_fn real wrap_to_180(real r) {
-  while (r < -180.0)
-    r += 360.0;
-  while (r > 180.0)
-    r -= 360.0;
+  while (r < -180)
+    r += 360;
+  while (r > 180)
+    r -= 360;
   return r;
 }
 
+// A distinct float overload is only meaningful when real is not already float;
+// otherwise it would redefine the function above (identical signature).
+#if BLAST_USE_DOUBLES
 inline blast_fn float wrap_to_180(float r) {
   while (r < -180)
     r += 360;
@@ -119,6 +122,7 @@ inline blast_fn float wrap_to_180(float r) {
     r -= 360;
   return r;
 }
+#endif
 
 inline blast_fn real deg2rad(real r) {
   return r * PI / 180;

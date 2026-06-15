@@ -15,7 +15,11 @@ include(GNUInstallDirs)
 # NLOPT_LUKSAN is forced OFF: the Luksan solvers are LGPL, and including them
 # makes the compiled NLopt (and therefore Blast) LGPL. Without them, NLopt is
 # MIT-licensed, keeping Blast cleanly Apache-2.0. Do not re-enable.
+#
+# NLopt is only needed for the external-NLopt backend. The in-house SQP solver
+# (BLAST_USE_NATIVE_SQP) has no external dependency, so skip building it there.
 # --------------------------------------------------------------------------
+if(NOT BLAST_USE_NATIVE_SQP)
 set(NLOPT_PYTHON  OFF CACHE BOOL "NLopt Python bindings"  FORCE)
 set(NLOPT_OCTAVE  OFF CACHE BOOL "NLopt Octave bindings"  FORCE)
 set(NLOPT_MATLAB  OFF CACHE BOOL "NLopt MATLAB bindings"  FORCE)
@@ -41,6 +45,7 @@ if(NOT TARGET nlopt)
     endif()
     add_subdirectory(extern/nlopt EXCLUDE_FROM_ALL)
 endif()
+endif() # NOT BLAST_USE_NATIVE_SQP
 
 # --------------------------------------------------------------------------
 # Blast — header-only interface library
@@ -67,7 +72,17 @@ target_include_directories(blast
 
 target_compile_features(blast INTERFACE cxx_std_17)
 
-target_link_libraries(blast INTERFACE nlopt)
+# Propagate scalar precision and solver backend to every consumer, so a
+# find_package(Blast) / add_subdirectory consumer compiles against the same
+# configuration the library was built with (these gate code in blast headers).
+target_compile_definitions(blast INTERFACE
+    BLAST_USE_DOUBLES=$<IF:$<BOOL:${BLAST_USE_DOUBLES}>,1,0>
+)
+if(BLAST_USE_NATIVE_SQP)
+    target_compile_definitions(blast INTERFACE BLAST_USE_NATIVE_SQP)
+else()
+    target_link_libraries(blast INTERFACE nlopt)
+endif()
 
 # Tracy: propagate the correct macro to all consumers of blast.
 # TRACY_ENABLE is Tracy's own compile-time switch (checked in blast/blast).
@@ -98,8 +113,13 @@ target_compile_options(blast INTERFACE
 # Install rules
 # --------------------------------------------------------------------------
 
-# Library targets (nlopt is a compiled dependency; blast is INTERFACE)
-install(TARGETS blast nlopt
+# Library targets (nlopt is a compiled dependency; blast is INTERFACE).
+# nlopt is only built/exported for the external-NLopt backend.
+set(BLAST_INSTALL_TARGETS blast)
+if(NOT BLAST_USE_NATIVE_SQP)
+    list(APPEND BLAST_INSTALL_TARGETS nlopt)
+endif()
+install(TARGETS ${BLAST_INSTALL_TARGETS}
     EXPORT      BlastTargets
     ARCHIVE     DESTINATION ${CMAKE_INSTALL_LIBDIR}
     LIBRARY     DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -128,17 +148,19 @@ install(
     FILES_MATCHING PATTERN "*.h"
 )
 
-# nlopt public headers.
+# nlopt public headers (external-NLopt backend only).
 # The exported Blast::nlopt target declares INTERFACE_INCLUDE_DIRECTORIES
 # pointing to ${CMAKE_INSTALL_INCLUDEDIR}, so we must install nlopt.h and
 # the generated nlopt.hpp there.  (nlopt's own install rules are suppressed
 # by EXCLUDE_FROM_ALL, so we handle them explicitly.)
-install(FILES extern/nlopt/src/api/nlopt.h
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/extern/nlopt/nlopt.hpp
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+if(NOT BLAST_USE_NATIVE_SQP)
+    install(FILES extern/nlopt/src/api/nlopt.h
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/extern/nlopt/nlopt.hpp
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
+endif()
 
 # JSON single-header (blast_utilities.hpp includes "json.hpp")
 install(FILES extern/json.hpp

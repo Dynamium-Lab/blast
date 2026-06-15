@@ -1,6 +1,7 @@
 #define CATCH_CONFIG_MAIN
 
 #include <blast>
+#include "test_helper.hpp"
 #include "catch2/catch.hpp"
 
 // ---------------------------------------------------------------------------
@@ -163,8 +164,8 @@ TEST_CASE("Vec3 - cross product result is perpendicular to both inputs", "[Math]
   Vec3 a(1.0, 2.0, 3.0);
   Vec3 b(4.0, 5.0, 6.0);
   Vec3 c = cross(a, b);
-  CHECK(std::abs(dot(c, a)) < 1e-9);
-  CHECK(std::abs(dot(c, b)) < 1e-9);
+  CHECK(std::abs(dot(c, a)) < blast::test::abs_tol);
+  CHECK(std::abs(dot(c, b)) < blast::test::abs_tol);
 }
 
 // ---------------------------------------------------------------------------
@@ -213,9 +214,9 @@ TEST_CASE("Vec3 - norm of zero vector is zero", "[Math][Vec3]") {
 
 TEST_CASE("Vec3 - norm of unit axis vectors is one", "[Math][Vec3]") {
   using namespace blast;
-  CHECK(std::abs(norm(Vec3(1, 0, 0)) - 1.0) < 1e-9);
-  CHECK(std::abs(norm(Vec3(0, 1, 0)) - 1.0) < 1e-9);
-  CHECK(std::abs(norm(Vec3(0, 0, 1)) - 1.0) < 1e-9);
+  CHECK(std::abs(norm(Vec3(1, 0, 0)) - 1.0) < blast::test::abs_tol);
+  CHECK(std::abs(norm(Vec3(0, 1, 0)) - 1.0) < blast::test::abs_tol);
+  CHECK(std::abs(norm(Vec3(0, 0, 1)) - 1.0) < blast::test::abs_tol);
 }
 
 // ---------------------------------------------------------------------------

@@ -517,7 +517,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           Assert(fill_column.size == x_len);
           Assert(fill_column.is_alias);
 
-          constexpr real eps            = 1e-5;
+          constexpr real eps            = BLAST_FD_STEP;
           const auto     point          = max_tor_indices[joint];
           const auto     p              = opt.bspline.traj.pos.col(start_point_for_segment + point);
           const auto     v              = opt.bspline.traj.vel.col(start_point_for_segment + point);
@@ -589,7 +589,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 
       // tool speed
       if (opt.constraints.tool_speed) {
-        constexpr real eps    = 1e-5;
+        constexpr real eps    = BLAST_FD_STEP;
         const auto     point  = max_tool_index;
         const auto     p      = opt.bspline.traj.pos.col(start_point_for_segment + point);
         const auto     v      = opt.bspline.traj.vel.col(start_point_for_segment + point);
@@ -645,7 +645,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 
       // internal collisions
       if (opt.constraints.self_collisions) {
-        constexpr real eps    = 1e-5;
+        constexpr real eps    = BLAST_FD_STEP;
         const auto     point  = max_internal_collision_index;
         const auto     p      = opt.bspline.traj.pos.col(start_point_for_segment + point);
         auto           p_plus = p;
@@ -687,7 +687,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
       // collisions
       if (opt.constraints.external_collisions) {
         for (int capsule_id = 0; capsule_id < opt.manip._n_caps; capsule_id++) {
-          constexpr real eps    = 1e-5;
+          constexpr real eps    = BLAST_FD_STEP;
           const auto     point  = max_collision_entities[capsule_id].point_in_segment;
           const auto     p      = opt.bspline.traj.pos.col(start_point_for_segment + point);
           auto           p_plus = p;
@@ -752,7 +752,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
   }
 }
 
-inline blast_fn void nlopt_constraints_with_segments(unsigned m, double* result, unsigned x_len, const double* x, double* grad, void* f_data) {
+inline blast_fn void nlopt_constraints_with_segments(unsigned m, real* result, unsigned x_len, const real* x, real* grad, void* f_data) {
 #if BLAST_TRACE_LEVEL >= 1
   PROFILE_FUNCTION;
 #endif
@@ -777,12 +777,12 @@ inline blast_fn void nlopt_constraints_with_segments(unsigned m, double* result,
   }
 }
 
-inline blast_fn void compute_constraints(double* result, const Array& x, Optimization* opt) {
+inline blast_fn void compute_constraints(real* result, const Array& x, Optimization* opt) {
 #if BLAST_TRACE_LEVEL >= 2
   PROFILE_FUNCTION;
 #endif
 
-  double* moving_result = result;
+  real* moving_result = result;
 
   const int n_capsules = opt->manip._n_caps;
 
@@ -960,7 +960,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
   //   }
 }
 
-inline blast_fn void nlopt_constraints(unsigned m, double* result, unsigned x_len, const double* x, double* grad, void* f_data) {
+inline blast_fn void nlopt_constraints(unsigned m, real* result, unsigned x_len, const real* x, real* grad, void* f_data) {
 #if BLAST_TRACE_LEVEL >= 1
   PROFILE_FUNCTION;
 #endif
@@ -986,7 +986,7 @@ inline blast_fn void nlopt_constraints(unsigned m, double* result, unsigned x_le
     Array r_plus(m);
 
     for (u32 j = 0; j < x_len; j++) {
-      constexpr real eps = 1e-5;
+      constexpr real eps = BLAST_FD_STEP;
       // todo: only copy value that changed last j
       memcpy(x_plus.data, x, x_len * sizeof(real));
       x_plus[j] += eps;
@@ -1351,7 +1351,7 @@ inline void compute_constraints_with_analytical_pva(ConstraintPerPoint& constrai
 }
 
 template<bool is_grad> // note: n_collision_skip must be 1 for this to work !!!
-blast_fn void compute_constraints_with_analytical_dynamics(double* result, Array& gradient_coeffs, Matrix& dtau_dp, Matrix& dtau_dv, Matrix& dtau_da, Matrix& dtool_dp, Matrix& dtool_dv, Matrix& dselfcol_dp, std::vector<Matrix>& dcol_dp, const Array& x, Optimization* opt) {
+blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& gradient_coeffs, Matrix& dtau_dp, Matrix& dtau_dv, Matrix& dtau_da, Matrix& dtool_dp, Matrix& dtool_dv, Matrix& dselfcol_dp, std::vector<Matrix>& dcol_dp, const Array& x, Optimization* opt) {
 #if BLAST_TRACE_LEVEL >= 2
   ZoneScoped;
 #endif
@@ -1375,10 +1375,10 @@ blast_fn void compute_constraints_with_analytical_dynamics(double* result, Array
     int point_in_segment = 0;
   };
 
-  double* moving_result = result;
-  u32     grad_idx      = 0;
+  real* moving_result = result;
+  u32   grad_idx      = 0;
 
-  constexpr real eps = 1e-5;
+  constexpr real eps = BLAST_FD_STEP;
 
   auto joints     = opt->manip.n_joints;
   auto n_capsules = opt->manip._n_caps;
@@ -1679,11 +1679,11 @@ blast_fn void compute_constraints_with_analytical_dynamics(double* result, Array
   }
 }
 
-inline blast_fn void compute_constraints_per_point(double* result, real& external_collisions, const u32 i, Optimization* opt) {
+inline blast_fn void compute_constraints_per_point(real* result, real& external_collisions, const u32 i, Optimization* opt) {
 #if BLAST_TRACE_LEVEL >= 3
   PROFILE_SCOPE("ConstraintsPerPoint");
 #endif
-  double* moving_result = result;
+  real* moving_result = result;
 
   ManipulatorTempData manip_data;
 
@@ -1829,7 +1829,7 @@ inline u32 ncon_per_point_with_analytical_pva(const Optimization* opt, const int
   return n_constraints;
 }
 
-inline blast_fn void nlopt_constraints_with_analytical_pva(unsigned m, double* result, unsigned xlen, const double* x, double* grad, void* f_data) {
+inline blast_fn void nlopt_constraints_with_analytical_pva(unsigned m, real* result, unsigned xlen, const real* x, real* grad, void* f_data) {
 #if BLAST_TRACE_LEVEL >= 1
   ZoneScoped;
 #endif
@@ -1851,7 +1851,7 @@ inline blast_fn void nlopt_constraints_with_analytical_pva(unsigned m, double* r
 #endif
     memset(grad, 0, m * xlen * sizeof(real)); // note: zeros grad, since grad originally starts with -6e+66 ...
 
-    constexpr real eps = 1e-5;
+    constexpr real eps = BLAST_FD_STEP;
 
     u32   n_con_lb = 0;
     Array x_plus(xlen);
@@ -1945,7 +1945,7 @@ inline blast_fn void nlopt_constraints_with_analytical_pva(unsigned m, double* r
   }
 }
 
-inline blast_fn void nlopt_constraints_with_analytical_dynamics(unsigned m, double* result, unsigned xlen, const double* x, double* grad, void* f_data) {
+inline blast_fn void nlopt_constraints_with_analytical_dynamics(unsigned m, real* result, unsigned xlen, const real* x, real* grad, void* f_data) {
 #if BLAST_TRACE_LEVEL >= 1
   PROFILE_FUNCTION;
 #endif
@@ -1983,7 +1983,7 @@ inline blast_fn void nlopt_constraints_with_analytical_dynamics(unsigned m, doub
 #endif
       memset(grad, 0, m * xlen * sizeof(real)); // note: zeros grad, since grad originally starts with -6e+66 ...
 
-      constexpr real eps      = 1e-5;
+      constexpr real eps      = BLAST_FD_STEP;
       u32            n_con_lb = 0;
       Array          x_plus(xlen);
 

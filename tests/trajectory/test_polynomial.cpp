@@ -2,6 +2,7 @@
 #include "catch2/catch.hpp"
 
 #include <blast>
+#include "test_helper.hpp"
 
 using namespace blast;
 
@@ -93,9 +94,9 @@ TEST_CASE("compute_5order_trajectory - trivial motion (start == end, all zero de
 
   auto traj = compute_5order_trajectory(1.0, task);
   for (u32 i = 0; i < traj.t.size; i++) {
-    CHECK(std::abs(traj.pos(0, (int) i) - 0.7) < 1e-9);
-    CHECK(std::abs(traj.vel(0, (int) i) - 0.0) < 1e-9);
-    CHECK(std::abs(traj.acc(0, (int) i) - 0.0) < 1e-9);
+    CHECK(std::abs(traj.pos(0, (int) i) - 0.7) < blast::test::abs_tol);
+    CHECK(std::abs(traj.vel(0, (int) i) - 0.0) < blast::test::abs_tol);
+    CHECK(std::abs(traj.acc(0, (int) i) - 0.0) < blast::test::abs_tol);
   }
 }
 
