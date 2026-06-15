@@ -47,3 +47,6 @@ docs/_doxygen/
 *.exe
 *.out
 *.app
+# pixi environments
+.pixi/*
+!.pixi/config.toml

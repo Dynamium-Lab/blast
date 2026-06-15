@@ -21,3 +21,30 @@ CMAKE_C_FLAGS = "-march=native"
 
 [tool.pytest.ini_options]
 pythonpath = ["python"]
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[tool.pixi.pypi-dependencies]
+blast-py = { path = ".", editable = true }
+
+[tool.pixi.tasks]
+configure = "cmake --preset dev"
+build-examples = { cmd = "cmake --build --preset dev", depends-on = [
+    "configure",
+] }
+example-01 = { cmd = "./build/dev/examples/example_01_forward_kinematics", depends-on = [
+    "build-examples",
+] }
+example-02 = { cmd = "./build/dev/examples/example_02_trajectory_optimization", depends-on = [
+    "build-examples",
+] }
+example-03 = { cmd = "./build/dev/examples/example_03_collision_avoidance", depends-on = [
+    "build-examples",
+] }
+
+[tool.pixi.dependencies]
+cmake = ">=4.3.3,<5"
+ninja = ">=1.13.2,<2"
+cxx-compiler = ">=1.11.0,<2"
