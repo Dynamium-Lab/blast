@@ -34,7 +34,26 @@ if(NOT TARGET nlopt)
     if(NOT DEFINED Python_VERSION_MINOR)
         set(Python_VERSION_MINOR "0")
     endif()
+    
+    # ======================================================================
+    # FIX: Force NLopt to build as a static library to prevent missing DLLs
+    # ======================================================================
+    set(NLOPT_CXX ON CACHE BOOL "Build NLopt with C++ compiler" FORCE)
+    
+    set(OLD_BUILD_SHARED ${BUILD_SHARED_LIBS})
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libraries" FORCE)
+
     add_subdirectory(extern/nlopt EXCLUDE_FROM_ALL)
+    
+    # Restore the original global setting so you don't force the outer 
+    # project's other dependencies to be static unexpectedly
+    set(BUILD_SHARED_LIBS ${OLD_BUILD_SHARED} CACHE BOOL "Build static libraries" FORCE)
+
+    # Keep the interface include fix from earlier
+    target_include_directories(nlopt INTERFACE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/extern/nlopt/src/api>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/extern/nlopt>
+    )
 endif()
 
 # --------------------------------------------------------------------------
