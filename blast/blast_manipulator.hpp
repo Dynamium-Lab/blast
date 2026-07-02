@@ -239,18 +239,17 @@ struct Manipulator {
   host_fn void set_capsules(const ManipulatorCapsules& capsules);
 
   /**
-   * @brief Set a tool to this manipulator, and appends dynamic and collision properties to last link.
+   * @brief Set a tool to this manipulator, and adds dynamic and collision contributions to last link.
    * @param tool  Tool structure and geometry.
    */
   host_fn void set_tool(const Tool& tool);
+  host_fn void remove_tool();
 
   /**
-   * @brief Set a payload to this manipulator's tool, and appends dynamic and collision properties to last link.
+   * @brief Set a payload to this manipulator's tool, and adds dynamic and collision contributions to last link.
    * @param payload Payload structure and geometry
    */
   host_fn void set_payload(const Payload& payload);
-
-  host_fn void remove_tool();
   host_fn void remove_payload();
 
   /**

@@ -382,14 +382,20 @@ inline host_fn void Manipulator::set_payload(const Payload& new_payload) {
 }
 
 // Modifies last link to remove dynamic and collision contributions of the tool and payload (if the tool has a payload)
-// Calls set_tool with negative mass
 inline host_fn void Manipulator::remove_tool() {
   if (tool.has_payload) {
     remove_payload();
   }
 
+  // Call set_tool with negative mass to remove dynamics contribution
   tool.mass = -tool.mass;
   set_tool(tool);
+
+  // // Remove collsion model
+  // for (auto& box : tool.collision_model.boxes) {
+  //   for (int i = 0; i < )
+  // }
+
   tool     = {};
   has_tool = false;
 }
