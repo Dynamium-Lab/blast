@@ -139,9 +139,9 @@ struct Tool {
   bool    has_payload = false;
   Payload payload;
 
-  inline host_fn void set_payload(Payload payload) {
+  inline host_fn void set_payload(const Payload& new_payload) {
     has_payload = true;
-    payload     = payload;
+    payload     = new_payload;
   }
 };
 
