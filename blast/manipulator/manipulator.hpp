@@ -316,45 +316,92 @@ inline Array get_internal_collisions(const Manipulator& manip, const Manipulator
   return distances;
 }
 
-inline host_fn void Manipulator::add_tool(const Tool& tool) {
-  tool_offset         = tool.tool_offset;
-  tool_rotation       = tool.tool_rotation;
-  tool_mass           = tool.mass;
-  tool_inertia_tensor = tool.inertia_tensor;
-  tool_cog_offset     = tool.cog_offset;
-  has_tool            = true;
+// Modifies last link to include dynamic and collision parameters of the tool and payload (if the tool has a payload)
+inline host_fn void Manipulator::set_tool(const Tool& new_tool) {
+  // Set tool
+  tool     = new_tool;
+  has_tool = true;
 
-  joint_offsets[n_joints - 1] += tool_rotation * tool.tool_offset;
-  static_rotations[n_joints - 1] *= tool_rotation;
-  real m_new    = link_masses[n_joints - 1] + tool.mass;
-  Vec3 av_new   = (link_masses[n_joints - 1] * cog_offsets[n_joints - 1] + tool.mass * tool.cog_offset) / m_new;
-  Vec3 delta_av = av_new - cog_offsets[n_joints - 1];
+  int last_link_id = n_joints - 1;
 
-  inertia_tensors[n_joints - 1](0, 0) += link_masses[n_joints - 1] * delta_av.x * delta_av.x + tool.mass * tool.cog_offset.x * tool.cog_offset.x;
-  inertia_tensors[n_joints - 1](1, 1) += link_masses[n_joints - 1] * delta_av.y * delta_av.y + tool.mass * tool.cog_offset.y * tool.cog_offset.y;
-  inertia_tensors[n_joints - 1](2, 2) += link_masses[n_joints - 1] * delta_av.z * delta_av.z + tool.mass * tool.cog_offset.z * tool.cog_offset.z;
-  inertia_tensors[n_joints - 1] += tool.inertia_tensor;
+  // Modify last link dynamic parameters
+  Vec3 center_of_gravity_in_last_joint_coordinates = tool.position + tool.rotation * tool.cog_offset;
+  Mat3 inertial_tensor_in_last_joint_coordinates   = tool.rotation * tool.inertia_tensor * transpose(tool.rotation);
 
-  link_masses[n_joints - 1]         = m_new;
-  cog_offsets[n_joints - 1]         = av_new;
-  cog_from_next_joint[n_joints - 1] = {-joint_offsets[n_joints - 1] + cog_offsets[n_joints - 1]};
+  real new_mass;
+  Vec3 new_cog;
+  Mat3 new_inertia;
+
+  sum_dynamic_properties(link_masses[last_link_id], cog_offsets[last_link_id], inertia_tensors[last_link_id],
+                         tool.mass, center_of_gravity_in_last_joint_coordinates, inertial_tensor_in_last_joint_coordinates,
+                         new_mass, new_cog, new_inertia);
+
+  link_masses[last_link_id]         = new_mass;
+  cog_offsets[last_link_id]         = new_cog;
+  inertia_tensors[last_link_id]     = new_inertia;
+  cog_from_next_joint[last_link_id] = {-joint_offsets[last_link_id] + cog_offsets[last_link_id]}; // todo: verify the meaning of this?
+
+  // Modify last link collision model
+
+  if (new_tool.has_payload) {
+    set_payload(new_tool.payload);
+  }
 }
 
-inline host_fn void Manipulator::set_payload(real m_payload, Vec3 cg_payload, Mat3 I_payload) {
-  Vec3 av_payload = cg_payload;
-  real m_new      = link_masses[n_joints - 1] + m_payload;
-  Vec3 av_new     = (link_masses[n_joints - 1] * cog_offsets[n_joints - 1] + m_payload * av_payload) / m_new;
-  Vec3 delta_av   = av_new - cog_offsets[n_joints - 1];
-  Vec3 av_to_mass = av_payload - av_new;
+// Modifies last link to include dynamic and collision parameters of the payload
+inline host_fn void Manipulator::set_payload(const Payload& new_payload) {
+  if (tool.has_payload) {
+    std::cout << "Warning: Erasing current payload to set new payload" << std::endl;
+    remove_payload();
+  }
 
-  inertia_tensors[n_joints - 1](0, 0) += link_masses[n_joints - 1] * delta_av.x * delta_av.x + m_payload * av_to_mass.x * av_to_mass.x;
-  inertia_tensors[n_joints - 1](1, 1) += link_masses[n_joints - 1] * delta_av.y * delta_av.y + m_payload * av_to_mass.y * av_to_mass.y;
-  inertia_tensors[n_joints - 1](2, 2) += link_masses[n_joints - 1] * delta_av.z * delta_av.z + m_payload * av_to_mass.z * av_to_mass.z;
-  inertia_tensors[n_joints - 1] += I_payload;
+  // Set payload
+  tool.has_payload = true;
+  tool.payload     = new_payload;
 
-  link_masses[n_joints - 1]         = m_new;
-  cog_offsets[n_joints - 1]         = av_new;
-  cog_from_next_joint[n_joints - 1] = {-joint_offsets[n_joints - 1] + cog_offsets[n_joints - 1]};
+  int last_link_id = n_joints - 1;
+
+  // Modify last link dynamic parameters
+  Mat3 payload_rotation_in_last_joint_coordinates          = tool.rotation * new_payload.rotation;
+  Vec3 payload_center_of_gravity_in_last_joint_coordinates = tool.position + tool.rotation * new_payload.position + payload_rotation_in_last_joint_coordinates * new_payload.cog_position;
+
+  Mat3 payload_inertial_tensor_in_last_joint_coordinates = payload_rotation_in_last_joint_coordinates * new_payload.inertia_tensor * transpose(payload_rotation_in_last_joint_coordinates);
+
+  real new_mass;
+  Vec3 new_cog;
+  Mat3 new_inertia;
+
+  sum_dynamic_properties(link_masses[last_link_id], cog_offsets[last_link_id], inertia_tensors[last_link_id],
+                         new_payload.mass, payload_center_of_gravity_in_last_joint_coordinates, payload_inertial_tensor_in_last_joint_coordinates,
+                         new_mass, new_cog, new_inertia);
+
+  link_masses[last_link_id]         = new_mass;
+  cog_offsets[last_link_id]         = new_cog;
+  inertia_tensors[last_link_id]     = new_inertia;
+  cog_from_next_joint[last_link_id] = {-joint_offsets[last_link_id] + cog_offsets[last_link_id]}; // todo: verify the meaning of this?
+}
+
+// Modifies last link to remove dynamic and collision contributions of the tool and payload (if the tool has a payload)
+// Calls set_tool with negative mass
+inline host_fn void Manipulator::remove_tool() {
+  if (tool.has_payload) {
+    remove_payload();
+  }
+
+  tool.mass = -tool.mass;
+  set_tool(tool);
+  tool     = {};
+  has_tool = false;
+}
+
+// Modifies last link to remove dynamic and collision contributions of the payload
+// Calls set_payload with negative mass
+inline host_fn void Manipulator::remove_payload() {
+  tool.has_payload  = false;
+  tool.payload.mass = -tool.payload.mass;
+  set_payload(tool.payload);
+  tool.has_payload = false;
+  tool.payload     = {};
 }
 
 inline host_fn real clamped_root(real slope, real h0, real h1) {
