@@ -44,6 +44,22 @@ struct World {
   host_fn void add_dynamic_capsule(const std::vector<Capsule>& new_capsules, u32 n_points, real start_time, real end_time);
 };
 
+struct CollisionModel {
+  std::vector<Box>     boxes;
+  std::vector<Sphere>  spheres;
+  std::vector<Capsule> capsules;
+  u32                  size = 0;
+
+  host_fn void add_box(const Box& box);
+  host_fn void add_box(Vec3 center_point, Vec3 half_width, Mat3 rotation_matrix);
+
+  host_fn void add_sphere(const Sphere& sphere);
+  host_fn void add_sphere(Vec3 center_point, real radius);
+
+  host_fn void add_capsule(const Capsule& capsule);
+  host_fn void add_capsule(Vec3 point1, Vec3 point2, real radius);
+};
+
 struct Box {
   Vec3 center;   // Box center point
   Vec3 extents;  // Positive halfwidth extents of Box along each axis
@@ -99,6 +115,22 @@ struct DynamicDoor {
   Vec3 axis        = {0, 0, 1};
 
   inline blast_fn Box lookup(real t) const;
+};
+
+/**
+ * @struct CollisionModelCapsule
+ * @brief Simple capsule primitive for collision checking.
+ *
+ * @var p1           First endpoint of the capsule (Vec3).
+ * @var joint_frame  Index of the joint frame to which this capsule is attached.
+ * @var p2           Second endpoint of the capsule (Vec3).
+ * @var radius       Radius of the capsule.
+ */
+struct CollisionModelCapsule {
+  Vec3 p1;
+  u32  joint_frame;
+  Vec3 p2;
+  real radius;
 };
 
 inline blast_fn Array test_collisions(const ObjMatrix<Capsule>& robot_capsules, const World* world, u32 n_lowest_distances, real start_time, real end_time);
