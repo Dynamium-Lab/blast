@@ -494,7 +494,7 @@ inline blast_fn Array random_array(u32 n, real A) {
     result[i] = A * curand_uniform(&state);
 #else
   for (int i = 0; i < (int) n; i++)
-    result[i] = A * get_random();
+    result[i] = A * random_real();
 #endif
   return result;
 }
@@ -508,7 +508,7 @@ inline blast_fn Array& fill_random(Array& a, real A) {
     a[i] = A * curand_uniform(&state);
 #else
   for (int i = 0; i < (int) a.size; i++)
-    a[i] = A * get_random();
+    a[i] = A * random_real();
 #endif
   return a;
 }

@@ -11,6 +11,10 @@ include(GNUInstallDirs)
 # Disable language bindings and tests — we only need the C library.
 # EXCLUDE_FROM_ALL keeps nlopt out of the default install; we export it
 # explicitly below so downstream find_package(Blast) sees it.
+#
+# NLOPT_LUKSAN is forced OFF: the Luksan solvers are LGPL, and including them
+# makes the compiled NLopt (and therefore Blast) LGPL. Without them, NLopt is
+# MIT-licensed, keeping Blast cleanly Apache-2.0. Do not re-enable.
 # --------------------------------------------------------------------------
 set(NLOPT_PYTHON  OFF CACHE BOOL "NLopt Python bindings"  FORCE)
 set(NLOPT_OCTAVE  OFF CACHE BOOL "NLopt Octave bindings"  FORCE)
@@ -18,6 +22,7 @@ set(NLOPT_MATLAB  OFF CACHE BOOL "NLopt MATLAB bindings"  FORCE)
 set(NLOPT_GUILE   OFF CACHE BOOL "NLopt Guile bindings"   FORCE)
 set(NLOPT_SWIG    OFF CACHE BOOL "NLopt SWIG wrappers"    FORCE)
 set(NLOPT_TESTS   OFF CACHE BOOL "NLopt unit tests"       FORCE)
+set(NLOPT_LUKSAN  OFF CACHE BOOL "NLopt LGPL Luksan solvers" FORCE)
 
 if(NOT TARGET nlopt)
     # Pre-initialize variables that nlopt's CMakeLists reads before setting,
@@ -72,10 +77,22 @@ if(ENABLE_TRACY)
     target_link_libraries(blast INTERFACE TracyClient)
 endif()
 
-# -march=native / /arch:AVX2 are machine-specific developer flags.
-# They must NOT be INTERFACE — that would force them on every downstream
-# consumer, breaking cross-compilation and reproducible builds.
-# Add them to your personal build via CMakePresets.json (see root preset).
+# -march=native is machine-specific *tuning*. It must NOT be INTERFACE — that
+# would force it on every downstream consumer, breaking cross-compilation and
+# reproducible builds. The dev targets (examples/, tests/) apply it per-target
+# as PRIVATE, choosing /arch:AVX2 for MSVC and -march=native otherwise.
+#
+# AVX2+FMA, by contrast, is a hard *minimum-ISA requirement*: Blast's headers
+# call AVX2/FMA intrinsics directly (e.g. _mm256_fmadd_pd), so consumers cannot
+# compile without them. Propagate the feature flags so find_package(Blast)
+# consumers just work. Feature flags are additive — they never downgrade a
+# consumer's -march=native. MSVC is intentionally excluded: its /arch: is a
+# single mutually-exclusive level, so forcing /arch:AVX2 would downgrade an
+# /arch:AVX512 consumer (warning D9025); MSVC is covered by the #error guard in
+# blast/blast instead.
+target_compile_options(blast INTERFACE
+    $<$<CXX_COMPILER_ID:GNU,Clang>:-mavx2;-mfma>
+)
 
 # --------------------------------------------------------------------------
 # Install rules

@@ -45,6 +45,27 @@ using i64 = int64_t;
 #define device_fn
 #endif
 
+// ---------------------------------------------------------------------------
+// Instruction-set requirement
+// Blast's math headers use AVX2+FMA intrinsics directly (e.g. _mm256_fmadd_pd
+// in math/Array.hpp). Without those features enabled, GCC/Clang fail with a
+// cryptic "target specific option mismatch" and MSVC silently degrades. Fail
+// early here with an actionable message instead. CUDA builds opt out.
+// ---------------------------------------------------------------------------
+#if !defined(__NVCC__) && !defined(__CUDACC__)
+#if defined(_MSC_VER) && !defined(__clang__)
+// MSVC: /arch:AVX2 (and /arch:AVX512) define __AVX2__ and imply FMA.
+#if !defined(__AVX2__)
+#error "Blast requires AVX2. Compile with /arch:AVX2 (or higher)."
+#endif
+#else
+// GCC, Clang, clang-cl: both macros are set when the features are enabled.
+#if !defined(__AVX2__) || !defined(__FMA__)
+#error "Blast requires AVX2 and FMA. Compile with -mavx2 -mfma (or -march=native)."
+#endif
+#endif
+#endif
+
 #define VCL_NAMESPACE vcl
 #include "vectorclass.h"
 #include "vectormath_trig.h"
@@ -74,3 +95,7 @@ using i64 = int64_t;
 #include "blast_manipulator.hpp"
 #include "blast_optimization.hpp"
 #include "blast_trajectory.hpp"
+
+#include "utilities/file_io.hpp"
+#include "utilities/is_close.hpp"
+#include "utilities/print.hpp"

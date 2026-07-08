@@ -4,10 +4,19 @@
 .vscode/
 .vs/
 build/
+_deps/
 cmake-build*/
 cmake-*/
 .idea/
 .claude/
+.venv/
+*.deb
+__pycache__/
+*.pyc
+
+### Documentation build artifacts
+docs/_build/
+docs/_doxygen/
 
 
 ### Standard C++ ignores

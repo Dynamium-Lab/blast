@@ -2,8 +2,6 @@
 #include <blast>
 
 namespace blast {
-
-
 struct TaskBoundary {
   Array position;
   Array velocity;
@@ -23,6 +21,16 @@ struct Task {
       start.position[i] = start.velocity[i] = start.acceleration[i] = 0.0f;
       goal.position[i] = goal.velocity[i] = goal.acceleration[i] = 0.0f;
     }
+  }
+
+  explicit Task(const Matrix& m) {
+    start.position     = m.col(0);
+    start.velocity     = m.col(1);
+    start.acceleration = m.col(2);
+
+    goal.position     = m.col(3);
+    goal.velocity     = m.col(4);
+    goal.acceleration = m.col(5);
   }
 
   static Task stop_to_stop(Array start_pos, Array goal_pos) {
@@ -46,6 +54,5 @@ struct Task {
     return m;
   }
 };
-
 
 } // namespace blast

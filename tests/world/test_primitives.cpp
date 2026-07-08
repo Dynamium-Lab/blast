@@ -3,7 +3,6 @@
 
 #include <blast>
 #include "catch2/catch.hpp"
-#include "test_helper/test_functions.hpp"
 
 using namespace blast;
 

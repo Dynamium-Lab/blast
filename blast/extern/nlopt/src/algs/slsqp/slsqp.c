@@ -2444,12 +2444,6 @@ nlopt_result nlopt_slsqp(unsigned n, nlopt_func f, void *f_data,
 			 double *x, double *minf,
 			 nlopt_stopping *stop)
 {
-  printf("Printing from nlopt_slsqp\n");
-  printf("n = %d, m = %d, p = %d\n", n, m, p);
-  printf("lb = %f, ub = %f\n", lb[0], ub[0]);
-  printf("x = %f, %f, %f\n", x[0], x[1], x[2]);
-  printf("minf = %f\n", minf[0]);
-  print_nlopt_stopping(stop, "");
      slsqpb_state state = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,NULL};
      unsigned mtot = nlopt_count_constraints(m, fc);
      unsigned ptot = nlopt_count_constraints(p, h);

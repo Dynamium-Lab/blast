@@ -39,6 +39,14 @@ endif()
 add_subdirectory(blast)
 
 # --------------------------------------------------------------------------
+# Python bindings (optional)
+# --------------------------------------------------------------------------
+option(BLAST_BUILD_PYTHON "Build Python bindings via nanobind" OFF)
+if(BLAST_BUILD_PYTHON)
+    add_subdirectory(python)
+endif()
+
+# --------------------------------------------------------------------------
 # Developer targets — tests, benchmarks, examples
 # Only built when Blast is the top-level project; silently absent when
 # consumed via add_subdirectory() or find_package().

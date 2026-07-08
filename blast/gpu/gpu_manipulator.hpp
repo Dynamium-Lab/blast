@@ -392,12 +392,12 @@ TEST_CASE("GpuCpuManipCorrectness", "[Manipulator]") {
   real   amp = 10;
   for (u32 i = 0; i < task.rows; i++)
     for (u32 j = 0; j < task.cols; j++)
-      task(i, j) = amp * get_random();
+      task(i, j) = amp * random_real();
 
   // random optimization vector
   Array x(joints * (ncontrol - 6) + 1);
   for (u32 i = 0; i < x.size; i++)
-    x[i] = amp * get_random();
+    x[i] = amp * random_real();
   x.back() = abs(x.back());
 
   // copy the 'x' Array 'ntrajectories' times for the gpu version

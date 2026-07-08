@@ -39,4 +39,5 @@ SpacesInConditionalStatement: false
 SpacesInCStyleCastParentheses: false
 SpacesInParentheses: false
 TabWidth: 2
+LineEnding: LF
 ...

@@ -15,49 +15,32 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
-        build_type: [Release]
-        c_compiler: [gcc, clang, cl]
         include:
-          - os: windows-latest
-            c_compiler: cl
-            cpp_compiler: cl
           - os: ubuntu-latest
-            c_compiler: gcc
-            cpp_compiler: g++
+            preset: ci-gcc
           - os: ubuntu-latest
-            c_compiler: clang
-            cpp_compiler: clang++
-        exclude:
+            preset: ci-clang
           - os: windows-latest
-            c_compiler: gcc
-          - os: windows-latest
-            c_compiler: clang
-          - os: ubuntu-latest
-            c_compiler: cl
+            preset: ci
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Configure CMake
-        run: >
-          cmake -B ${{ github.workspace }}/build
-          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
-          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-          -S ${{ github.workspace }}
+        run: cmake --preset ${{ matrix.preset }}
 
       - name: Build
-        run: cmake --build ${{ github.workspace }}/build --config ${{ matrix.build_type }}
+        run: cmake --build --preset ${{ matrix.preset }}
 
       - name: Test
-        working-directory: ${{ github.workspace }}/build
-        run: ctest --build-config ${{ matrix.build_type }} --output-on-failure
+        run: ctest --preset ${{ matrix.preset }}
 
   # -------------------------------------------------------------------------
-  # Install + test_package (consumer smoke test)
-  # Verifies that find_package(Blast) works from an installed tree.
-  # Only runs on Linux/GCC to keep CI fast; the logic is platform-agnostic.
+  # Install + consumer smoke test
+  # Verifies that find_package(Blast) works from an installed tree. The tiny
+  # consumer project is generated inline below (not checked into the repo) to
+  # keep the source tree clean. Only runs on Linux to keep CI fast; the logic
+  # is platform-agnostic.
   # -------------------------------------------------------------------------
   install-test:
     runs-on: ubuntu-latest
@@ -77,15 +60,46 @@ jobs:
       - name: Install Blast
         run: cmake --install ${{ github.workspace }}/build --config Release
 
-      - name: Configure test_package
+      - name: Generate consumer smoke test
+        run: |
+          mkdir -p "$RUNNER_TEMP/consumer"
+          cat > "$RUNNER_TEMP/consumer/CMakeLists.txt" <<'EOF'
+          cmake_minimum_required(VERSION 3.21)
+          project(blast_consumer CXX)
+
+          find_package(Blast REQUIRED)
+
+          add_executable(test_consumer main.cpp)
+          target_link_libraries(test_consumer PRIVATE Blast::blast)
+          EOF
+          cat > "$RUNNER_TEMP/consumer/main.cpp" <<'EOF'
+          // Consumer smoke test — verifies that find_package(Blast) exposes the
+          // headers/nlopt AND that the AVX2+FMA contract holds: blast::dot uses
+          // _mm256_fmadd_pd, so this fails to compile unless the installed
+          // Blast::blast target propagates the required ISA flags (or the
+          // #error guard fires). No flags are set here on purpose — that is what
+          // the test checks.
+          #include <blast>
+          #include <iostream>
+
+          int main() {
+            blast::Array a({1.0, 2.0, 3.0, 4.0});
+            blast::Array b({4.0, 3.0, 2.0, 1.0});
+            blast::real  d = blast::dot(a, b); // exercises the AVX2/FMA path
+            std::cout << "Blast::dot = " << d << "\n";
+            return (d == 20.0) ? 0 : 1; // 1*4 + 2*3 + 3*2 + 4*1 = 20
+          }
+          EOF
+
+      - name: Configure consumer
         run: >
-          cmake -B ${{ github.workspace }}/test_package/build
+          cmake -B "$RUNNER_TEMP/consumer/build"
           -DCMAKE_BUILD_TYPE=Release
           -DCMAKE_PREFIX_PATH=${{ github.workspace }}/install
-          -S ${{ github.workspace }}/test_package
+          -S "$RUNNER_TEMP/consumer"
 
-      - name: Build test_package
-        run: cmake --build ${{ github.workspace }}/test_package/build --config Release
+      - name: Build consumer
+        run: cmake --build "$RUNNER_TEMP/consumer/build" --config Release
 
-      - name: Run test_package
-        run: ${{ github.workspace }}/test_package/build/test_consumer
+      - name: Run consumer
+        run: "$RUNNER_TEMP/consumer/build/test_consumer"

@@ -1,0 +1,45 @@
+# Doxygen configuration for Blast — emits XML only, consumed by Breathe/Sphinx.
+#
+# Run from the repository root:
+#     doxygen docs/Doxyfile
+#
+# Output lands in docs/_doxygen/xml, which conf.py's breathe_projects points at.
+# Only non-default tags are listed; Doxygen supplies defaults for the rest.
+
+PROJECT_NAME           = "Blast"
+PROJECT_BRIEF          = "Fast C++ trajectory optimization for robot manipulators"
+
+# Inputs (paths are relative to the working directory = repo root).
+INPUT                  = blast
+FILE_PATTERNS          = *.hpp *.h
+RECURSIVE              = YES
+EXCLUDE                = blast/extern
+
+# We only want machine-readable XML for Breathe.
+GENERATE_HTML          = NO
+GENERATE_LATEX         = NO
+GENERATE_XML           = YES
+OUTPUT_DIRECTORY       = docs/_doxygen
+XML_OUTPUT             = xml
+
+# Extraction: surface everything so undocumented members still appear,
+# and pick up plain // comments as brief descriptions where present.
+EXTRACT_ALL            = YES
+EXTRACT_STATIC         = YES
+JAVADOC_AUTOBRIEF      = YES
+QT_AUTOBRIEF           = YES
+MULTILINE_CPP_IS_BRIEF = YES
+
+# Keep the macro-heavy header-only API readable.
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = YES
+PREDEFINED             = "blast_fn=" \
+                         "host_fn=" \
+                         "device_fn=" \
+                         "__host__=" \
+                         "__device__=" \
+                         "PROFILE_SCOPE(x)=" \
+                         "PROFILE_FUNCTION="
+
+QUIET                  = YES
+WARN_IF_UNDOCUMENTED   = NO

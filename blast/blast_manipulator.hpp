@@ -266,4 +266,7 @@ struct Manipulator {
 
 } // namespace blast
 
+#include "manipulator/Kinova_Gen3.hpp"
+#include "manipulator/Kinova_Link6.hpp"
+#include "manipulator/UR5e.hpp"
 #include "manipulator/manipulator.hpp"

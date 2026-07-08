@@ -125,3 +125,5 @@ inline blast_fn Vec3 get_point(const Array& x, const Matrix& capsule_list);
 #include "world/dynamicsphere.hpp"
 
 #include "world/CoDO.hpp"
+
+#include "world/scenes.hpp"

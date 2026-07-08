@@ -168,6 +168,10 @@ inline blast_fn Mat3& constant(Mat3& m, real val) {
   return m;
 }
 
+inline blast_fn bool operator==(const Mat3& a, const Mat3& b) {
+  return is_close(a, b);
+}
+
 inline blast_fn bool is_close(const Mat3& a, const Mat3& b, real eps) {
   for (int i = 0; i < 9; i++)
     if (std::abs(a.data[i] - b.data[i]) > eps)
