@@ -12,10 +12,10 @@
       "name": "dev",
       "inherits": "base",
       "displayName": "Developer build",
-      "description": "RelWithDebInfo with compile-commands for tooling. AVX2/native tuning is applied per dev target (see examples/ and tests/, which pick /arch:AVX2 for MSVC and -march=native otherwise), so this preset is correct for MSVC, GCC, Clang and MinGW on any OS.",
+      "description": "Debug or Release with compile-commands for tooling. AVX2/native tuning is applied per dev target (see examples/ and tests/, which pick /arch:AVX2 for MSVC and -march=native otherwise), so this preset is correct for MSVC, GCC, Clang and MinGW on any OS.",
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     },
@@ -53,9 +53,13 @@
   ],
   "buildPresets": [
     {
-      "name": "dev",
+      "name": "dev-Debug",
       "configurePreset": "dev",
-      "configuration": "RelWithDebInfo"
+      "configuration": "Debug"
+    },
+    {"name": "dev-Release",
+      "configurePreset": "dev",
+      "configuration": "Release"
     },
     {
       "name": "ci",
