@@ -387,7 +387,6 @@ inline Array get_internal_collisions(const Manipulator& manip, const Manipulator
 // Attaches a new tool to the manipulator
 // Erases the current tool if there is one
 inline host_fn void Manipulator::set_tool(const Tool& new_tool) {
-  // Set tool
   has_tool = true;
   tool     = new_tool;
 }
@@ -395,9 +394,8 @@ inline host_fn void Manipulator::set_tool(const Tool& new_tool) {
 // Attaches a new payload to the manipulator
 // Erases the current payload if there is one
 inline host_fn void Manipulator::set_payload(const Payload& new_payload) {
-  // Set payload
-  tool.has_payload = true;
-  tool.payload     = new_payload;
+  has_payload = true;
+  payload     = new_payload;
 }
 
 // Remove the current tool from the manipulator
@@ -408,8 +406,8 @@ inline host_fn void Manipulator::remove_tool() {
 
 // Remove the current payload from the manipulator
 inline host_fn void Manipulator::remove_payload() {
-  tool.has_payload = false;
-  tool.payload     = {};
+  has_payload = false;
+  payload     = {};
 }
 
 inline host_fn real clamped_root(real slope, real h0, real h1) {
