@@ -42,7 +42,7 @@ Payload make_payload() {
   p.position       = {0.0, 0.0, 0.02};
   p.rotation       = {1, 0, 0, 0, 1, 0, 0, 0, 1};
   p.mass           = 1.2;
-  p.cog_position   = {0.0, 0.0, 0.04};
+  p.cog_offset     = {0.0, 0.0, 0.04};
   p.inertia_tensor = Mat3{
           0.0008, 0.0, 0.0,
           0.0, 0.0008, 0.0,
@@ -95,8 +95,8 @@ TEST_CASE("set_payload() - combined mass is sum of link and payload masses", "[c
   Manipulator m = make_1dof(10.0f, {0, 0, 0.1f}, Mat3{});
   m.has_tool    = true; // to stop warning in test
   Payload payload;
-  payload.mass         = 2.0;
-  payload.cog_position = {0, 0, 0.3f};
+  payload.mass       = 2.0;
+  payload.cog_offset = {0, 0, 0.3f};
   m.set_payload(payload);
   CHECK(is_close(m.link_masses[0], 12.0f, 1e-5f));
 }
@@ -105,8 +105,8 @@ TEST_CASE("set_payload() - combined CoG is mass-weighted average", "[constructor
   Manipulator m = make_1dof(10.0f, {0, 0, 0.1f}, Mat3{});
   m.has_tool    = true; // to stop warning in test
   Payload payload;
-  payload.mass         = 2.0;
-  payload.cog_position = {0, 0, 0.3f};
+  payload.mass       = 2.0;
+  payload.cog_offset = {0, 0, 0.3f};
   m.set_payload(payload);
   CHECK(is_close(m.cog_offsets[0].z, 1.6f / 12.0f, 1e-5f));
   CHECK(is_close(m.cog_offsets[0].x, 0.0f, 1e-5f));
@@ -118,8 +118,8 @@ TEST_CASE("set_payload() - rotated point mass is COM invariant", "[constructor]"
   m.has_tool    = true; // to stop warning in test
 
   Payload p;
-  p.mass         = 1.0;
-  p.cog_position = {1.0, 0.0, 0.0};
+  p.mass       = 1.0;
+  p.cog_offset = {1.0, 0.0, 0.0};
 
   // rotation is irrelevant for point mass inertia about itself
   p.rotation = {
@@ -142,7 +142,7 @@ TEST_CASE("set_payload() - inertia updated via parallel axis theorem (diagonal t
 
   Payload p;
   p.mass           = 2.0;
-  p.cog_position   = {0.3, 0.0, 0.0};
+  p.cog_offset     = {0.3, 0.0, 0.0};
   p.inertia_tensor = Mat3{}; // point mass
 
   m.set_payload(p);
@@ -165,7 +165,7 @@ TEST_CASE("set_payload() - inertia updated via parallel axis theorem (off-diagon
 
   Payload p;
   p.mass           = 2.0;
-  p.cog_position   = {1.0, 2.0, 3.0};
+  p.cog_offset     = {1.0, 2.0, 3.0};
   p.inertia_tensor = Mat3{};
 
   m.set_payload(p);
@@ -205,7 +205,7 @@ TEST_CASE("set_payload() - mass and cog updated with pre-existing tool", "[const
   Payload payload = make_payload();
   manip.set_payload(payload);
 
-  CHECK(manip.tool.has_payload);
+  CHECK(manip.has_payload);
   CHECK(manip.link_masses[link_id] == Approx(mass_with_tool + payload.mass));
 }
 
@@ -241,7 +241,7 @@ TEST_CASE("remove_payload() - restores tool-only mass, cog, inertia", "[construc
   manip.set_payload(make_payload());
   manip.remove_payload();
 
-  CHECK(!manip.tool.has_payload);
+  CHECK(!manip.has_payload);
   CHECK(manip.link_masses[link_id] == Approx(mass_tool_only));
   CHECK(is_close(manip.cog_offsets[link_id], cog_tool_only, 1e-9));
 
@@ -354,7 +354,7 @@ TEST_CASE("remove_tool() - restores original mass, cog, inertia (with payload)",
   manip.remove_tool();
 
   CHECK(!manip.has_tool);
-  CHECK(!manip.tool.has_payload);
+  CHECK(!manip.has_payload);
   CHECK(manip.link_masses[link_id] == Approx(mass_before));
   CHECK(is_close(manip.cog_offsets[link_id], cog_before, 1e-9));
 
@@ -369,16 +369,14 @@ TEST_CASE("set_payload() in tool and set_tool() / set_tool() and set_payload() o
   Manipulator base1 = make_UR5e();
   Manipulator base2 = make_UR5e();
 
-  Tool t        = make_gripper();
-  t.has_payload = false;
-  Payload p     = make_payload();
+  Tool    t = make_gripper();
+  Payload p = make_payload();
 
   // pipeline A
   base1.set_tool(t);
   base1.set_payload(p);
 
   // pipeline B
-  t.set_payload(p);
   base2.set_tool(t);
 
   Mat3 I1 = base1.inertia_tensors[base1.n_joints - 1];

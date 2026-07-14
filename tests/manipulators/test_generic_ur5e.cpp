@@ -43,7 +43,7 @@ Payload make_payload() {
   p.position       = {0.0, 0.0, 0.02};
   p.rotation       = {1, 0, 0, 0, 1, 0, 0, 0, 1};
   p.mass           = 1.2;
-  p.cog_position   = {0.0, 0.0, 0.04};
+  p.cog_offset     = {0.0, 0.0, 0.04};
   p.inertia_tensor = Mat3{
           0.0008, 0.0, 0.0,
           0.0, 0.0008, 0.0,
