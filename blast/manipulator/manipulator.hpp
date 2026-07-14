@@ -305,14 +305,14 @@ inline void compute_collision_model(const Manipulator& manip, ManipulatorTempDat
     Mat3 collision_model_global_rotation = manip_data.rotations_mult[manip.n_joints - 1] * manip_data.tool_rotation;
     Vec3 collision_model_global_position = manip_data.tool_position + collision_model_global_rotation * manip.tool.collision_model.position;
     for (int i = 0; i < manip.tool.collision_model.points.size(); i++) {
-      manip_data.tool_collision_model.points[i] = collision_model_global_position + collision_model_global_rotation * manip.tool.collision_model.points[i];
+      manip_data.tool_collision_model[i] = collision_model_global_position + collision_model_global_rotation * manip.tool.collision_model.points[i];
     }
   }
   if (manip.has_payload) {
     Mat3 collision_model_global_rotation = manip_data.rotations_mult[manip.n_joints - 1] * manip_data.payload_rotation;
     Vec3 collision_model_global_position = manip_data.payload_position + collision_model_global_rotation * manip.payload.collision_model.position;
     for (int i = 0; i < manip.payload.collision_model.points.size(); i++) {
-      manip_data.payload_collision_model.points[i] = collision_model_global_position + collision_model_global_rotation * manip.payload.collision_model.points[i];
+      manip_data.payload_collision_model[i] = collision_model_global_position + collision_model_global_rotation * manip.payload.collision_model.points[i];
     }
   }
 }
@@ -321,15 +321,19 @@ inline void compute_collision_model(const Manipulator& manip, ManipulatorTempDat
 inline Array get_internal_collisions(const Manipulator& manip, const ManipulatorTempData& temp) {
   Array distances(manip._n_internal_collisions);
   int   idx = 0;
-  for (int i = 0; i < manip._collision_matrix.cols; ++i) {
-    for (int j = i + 1; j < manip._collision_matrix.rows; ++j) {
+  for (int i = 0; i < manip._n_caps; ++i) {
+    for (int j = i + 1; j < manip._n_caps; ++j) {
       if (manip._collision_matrix(j, i) != 0)
         distances[idx++] = distance(temp.capsule_list[i], temp.capsule_list[j]);
     }
   }
-  for (u32 i = 0; i < manip._collision_base.size; ++i) {
+  for (u32 i = 0; i < manip._n_caps; ++i) {
     if (manip._collision_base[i] != 0)
       distances[idx++] = distance(temp.capsule_list[i], manip._base_sphere);
+    // if (manip.has_tool && manip._collision_tool[i] != 0)
+    //   distances[idx++] = distance(temp.capsule_list[i], temp.tool_collision_model);
+    // if (manip.has_payload && manip._collision_payload[i] != 0)
+    //   distances[idx++] = distance(temp.capsule_list[i], temp.payload_collision_model);
   }
   return distances;
 }

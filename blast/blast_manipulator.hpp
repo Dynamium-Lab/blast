@@ -145,14 +145,16 @@ struct ManipulatorTempData {
   std::array<Capsule, MAX_CAPSULES> capsule_list{};
 
   // tool
-  Vec3       tool_position;
-  Mat3       tool_rotation;
-  PointCloud tool_collision_model;
+  Vec3 tool_position;
+  Mat3 tool_rotation;
+  // Not using PointCloud since positions and rotations are precomputed, avoiding repeated transformations.
+  std::vector<Vec3> tool_collision_model;
 
   // payload
-  Vec3       payload_position;
-  Mat3       payload_rotation;
-  PointCloud payload_collision_model;
+  Vec3 payload_position;
+  Mat3 payload_rotation;
+  // Not using PointCloud since positions and rotations are precomputed, avoiding repeated transformations.
+  std::vector<Vec3> payload_collision_model;
 };
 
 /**
@@ -206,6 +208,8 @@ struct Manipulator {
   std::array<CollisionModelCapsule, MAX_CAPSULES> _collision_model{};
   ObjMatrix<u8>                                   _collision_matrix{};
   Array                                           _collision_base{};
+  Array                                           _collision_tool{};
+  Array                                           _collision_payload{};
   Sphere                                          _base_sphere{};
 
   Manipulator() = delete;
