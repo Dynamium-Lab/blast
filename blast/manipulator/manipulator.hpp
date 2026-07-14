@@ -19,7 +19,12 @@ struct host_fn IK_opt {
 
 inline host_fn Matrix jacobian(const Manipulator& manip, const ManipulatorTempData& temp) {
   std::vector<Vec3> r_tool(manip.n_joints);
-  r_tool[manip.n_joints - 1] = manip.joint_offsets[manip.n_joints - 1];
+  if (manip.has_tool) {
+    r_tool[manip.n_joints - 1] = manip.tool.position;
+  } else {
+    r_tool[manip.n_joints - 1] = Vec3(0, 0, 0);
+  }
+
   for (int i = (int) manip.n_joints - 2; i >= 0; i--) {
     r_tool[i] = manip.joint_offsets[i] + temp.rotations[i + 1] * r_tool[i + 1];
   }
@@ -32,18 +37,12 @@ inline host_fn Matrix jacobian(const Manipulator& manip, const ManipulatorTempDa
   for (int i = 0; i < manip.n_joints; i++) {
     const Vec3 e       = temp.rotations_mult[i] * manip.joint_axes[i]; // replaced e directly in function to skip copy
     const Vec3 cr_tool = cross(e, r_tool[i]);
-    // J_tool(0, i) = e.x;
-    // J_tool(1, i) = e.y;
-    // J_tool(2, i) = e.z;
-    // J_tool(3, i) = cr_tool.x;
-    // J_tool(4, i) = cr_tool.y;
-    // J_tool(5, i) = cr_tool.z;
-    J_tool(3, i) = e.x;
-    J_tool(4, i) = e.y;
-    J_tool(5, i) = e.z;
-    J_tool(0, i) = cr_tool.x;
-    J_tool(1, i) = cr_tool.y;
-    J_tool(2, i) = cr_tool.z;
+    J_tool(3, i)       = e.x;
+    J_tool(4, i)       = e.y;
+    J_tool(5, i)       = e.z;
+    J_tool(0, i)       = cr_tool.x;
+    J_tool(1, i)       = cr_tool.y;
+    J_tool(2, i)       = cr_tool.z;
   }
 
   return J_tool;
