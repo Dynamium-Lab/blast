@@ -302,8 +302,18 @@ inline void compute_collision_model(const Manipulator& manip, ManipulatorTempDat
   }
 
   if (manip.has_tool) {
+    Mat3 collision_model_global_rotation = manip_data.rotations_mult[manip.n_joints - 1] * manip_data.tool_rotation;
+    Vec3 collision_model_global_position = manip_data.tool_position + collision_model_global_rotation * manip.tool.collision_model.position;
+    for (int i = 0; i < manip.tool.collision_model.points.size(); i++) {
+      manip_data.tool_collision_model.points[i] = collision_model_global_position + collision_model_global_rotation * manip.tool.collision_model.points[i];
+    }
   }
   if (manip.has_payload) {
+    Mat3 collision_model_global_rotation = manip_data.rotations_mult[manip.n_joints - 1] * manip_data.payload_rotation;
+    Vec3 collision_model_global_position = manip_data.payload_position + collision_model_global_rotation * manip.payload.collision_model.position;
+    for (int i = 0; i < manip.payload.collision_model.points.size(); i++) {
+      manip_data.payload_collision_model.points[i] = collision_model_global_position + collision_model_global_rotation * manip.payload.collision_model.points[i];
+    }
   }
 }
 
@@ -324,7 +334,7 @@ inline Array get_internal_collisions(const Manipulator& manip, const Manipulator
   return distances;
 }
 
-// Sets a new tool to the manipulator
+// Attaches a new tool to the manipulator
 // Erases the current tool if there is one
 inline host_fn void Manipulator::set_tool(const Tool& new_tool) {
   // Set tool
@@ -332,7 +342,7 @@ inline host_fn void Manipulator::set_tool(const Tool& new_tool) {
   tool     = new_tool;
 }
 
-// Sets a new payload to the manipulator
+// Attaches a new payload to the manipulator
 // Erases the current payload if there is one
 inline host_fn void Manipulator::set_payload(const Payload& new_payload) {
   // Set payload

@@ -137,11 +137,22 @@ struct Tool {
 };
 
 struct ManipulatorTempData {
+  // manipulator
   std::array<real, MAX_JOINTS>      efforts{};
   std::array<Mat3, MAX_JOINTS>      rotations{};
   std::array<Mat3, MAX_JOINTS>      rotations_mult{};
   std::array<Vec3, MAX_JOINTS + 1>  p_j{};
   std::array<Capsule, MAX_CAPSULES> capsule_list{};
+
+  // tool
+  Vec3       tool_position;
+  Mat3       tool_rotation;
+  PointCloud tool_collision_model;
+
+  // payload
+  Vec3       payload_position;
+  Mat3       payload_rotation;
+  PointCloud payload_collision_model;
 };
 
 /**

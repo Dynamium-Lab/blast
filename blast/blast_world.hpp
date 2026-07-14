@@ -61,6 +61,8 @@ struct CollisionModel {
 };
 
 struct PointCloud {
+  Vec3              position;
+  Mat3              rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};
   std::vector<Vec3> points;
 };
 
