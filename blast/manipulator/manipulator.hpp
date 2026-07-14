@@ -64,7 +64,7 @@ inline host_fn Matrix jacobian(const Manipulator& manip, const ManipulatorTempDa
 // }
 
 inline host_fn void forward_kinematics(const Manipulator& manip, ManipulatorTempData& temp, const Array& joint_pos) {
-  const auto n_joints = joint_pos.size;
+  Assert(manip.n_joints == joint_pos.size);
 
   // real s[MAX_JOINTS];
   // real c[MAX_JOINTS];
@@ -85,7 +85,7 @@ inline host_fn void forward_kinematics(const Manipulator& manip, ManipulatorTemp
   //   }
   // #endif
 
-  for (u32 j = 0; j < n_joints; ++j) {
+  for (u32 j = 0; j < manip.n_joints; ++j) {
     auto       s      = sin(joint_pos[j]);
     auto       c      = cos(joint_pos[j]);
     const Mat3 temp_Q = {c, s, 0, -s, c, 0, 0, 0, 1};
@@ -94,15 +94,20 @@ inline host_fn void forward_kinematics(const Manipulator& manip, ManipulatorTemp
 
   temp.rotations_mult[0] = manip.base_rotation * temp.rotations[0];
   temp.p_j[0]            = manip.base_position + manip.base_rotation * manip.first_joint_position;
-  for (u32 j = 1; j < n_joints; j++) {
+  for (u32 j = 1; j < manip.n_joints; j++) {
     temp.rotations_mult[j] = temp.rotations_mult[j - 1] * temp.rotations[j]; // note: add this to *= temp._rotations_mult ?
     temp.p_j[j]            = temp.p_j[j - 1] + temp.rotations_mult[j - 1] * manip.joint_offsets[j - 1];
   }
-  temp.p_j[n_joints] = temp.p_j[n_joints - 1] + temp.rotations_mult[n_joints - 1] * manip.joint_offsets[n_joints - 1];
+  // originally for the tool (todo: remove when agreed)
+  temp.p_j[manip.n_joints] = temp.p_j[manip.n_joints - 1] + temp.rotations_mult[manip.n_joints - 1] * manip.joint_offsets[manip.n_joints - 1];
 
   if (manip.has_tool) {
+    temp.tool_position = temp.p_j[manip.n_joints - 1] + temp.rotations_mult[manip.n_joints - 1] * manip.tool.position;
+    temp.tool_rotation = temp.rotations_mult[manip.n_joints - 1] * manip.tool.rotation;
   }
   if (manip.has_payload) {
+    temp.payload_position = temp.p_j[manip.n_joints - 1] + temp.rotations_mult[manip.n_joints - 1] * manip.payload.position;
+    temp.payload_rotation = temp.rotations_mult[manip.n_joints - 1] * manip.payload.rotation;
   }
 }
 
