@@ -100,9 +100,13 @@ inline host_fn void forward_kinematics(const Manipulator& manip, ManipulatorTemp
   }
   temp.p_j[n_joints] = temp.p_j[n_joints - 1] + temp.rotations_mult[n_joints - 1] * manip.joint_offsets[n_joints - 1];
 
-  // todo: Handle end-effector
+  if (manip.has_tool) {
+  }
+  if (manip.has_payload) {
+  }
 }
 
+// todo: add tool and payload
 inline host_fn void dynamics(const Manipulator& manip, ManipulatorTempData& temp, const Array& vel, const Array& acc) {
   Assert(vel.size == acc.size);
   Assert(vel.size == manip.n_joints);
@@ -289,15 +293,19 @@ inline host_fn void Manipulator::set_capsules(const ManipulatorCapsules& capsule
   }
 }
 
-inline void compute_capsules(const Manipulator& manip, ManipulatorTempData& manip_data) {
+inline void compute_collision_model(const Manipulator& manip, ManipulatorTempData& manip_data) {
   for (u32 i = 0; i < manip._n_caps; ++i) {
     manip_data.capsule_list[i] = {
             {manip_data.p_j[manip._collision_model[i].joint_frame] + manip_data.rotations_mult[manip._collision_model[i].joint_frame] * manip._collision_model[i].p1},
             {manip_data.p_j[manip._collision_model[i].joint_frame] + manip_data.rotations_mult[manip._collision_model[i].joint_frame] * manip._collision_model[i].p2},
             manip._collision_model[i].radius};
   }
-}
 
+  if (manip.has_tool) {
+  }
+  if (manip.has_payload) {
+  }
+}
 
 // todo: reformat for speed. ex: have a list of tuples that contain indices of collidable bodies
 inline Array get_internal_collisions(const Manipulator& manip, const ManipulatorTempData& temp) {
@@ -316,104 +324,30 @@ inline Array get_internal_collisions(const Manipulator& manip, const Manipulator
   return distances;
 }
 
-// Modifies last link to include dynamic and collision parameters of the tool and payload (if the tool has a payload)
+// Sets a new tool to the manipulator
+// Erases the current tool if there is one
 inline host_fn void Manipulator::set_tool(const Tool& new_tool) {
   // Set tool
   has_tool = true;
   tool     = new_tool;
-
-  if (new_tool.has_payload) {
-    tool.has_payload = false; // necessary to call next function
-    set_payload(new_tool.payload);
-  }
-
-
-  int last_link_id = n_joints - 1;
-
-  // Modify last link dynamic parameters
-  Vec3 center_of_gravity_in_last_joint_coordinates = tool.position + tool.rotation * tool.cog_offset;
-  Mat3 inertia_tensor_in_last_joint_coordinates    = tool.rotation * tool.inertia_tensor * transpose(tool.rotation);
-
-  real new_mass;
-  Vec3 new_cog;
-  Mat3 new_inertia;
-
-  sum_dynamic_properties(link_masses[last_link_id], cog_offsets[last_link_id], inertia_tensors[last_link_id],
-                         tool.mass, center_of_gravity_in_last_joint_coordinates, inertia_tensor_in_last_joint_coordinates,
-                         new_mass, new_cog, new_inertia);
-
-  link_masses[last_link_id]         = new_mass;
-  cog_offsets[last_link_id]         = new_cog;
-  inertia_tensors[last_link_id]     = new_inertia;
-  cog_from_next_joint[last_link_id] = {-joint_offsets[last_link_id] + cog_offsets[last_link_id]}; // todo: verify the meaning of this?
-
-  // Modify last link collision model
 }
 
-// Modifies last link to include dynamic and collision parameters of the payload
+// Sets a new payload to the manipulator
+// Erases the current payload if there is one
 inline host_fn void Manipulator::set_payload(const Payload& new_payload) {
-  if (tool.has_payload) {
-    std::cout << "Warning: Erasing current payload to set new payload" << std::endl;
-    remove_payload();
-  }
-  if (!has_tool) {
-    std::cout << "Warning: Adding payload without any tool" << std::endl;
-  }
-
   // Set payload
   tool.has_payload = true;
   tool.payload     = new_payload;
-
-  int last_link_id = n_joints - 1;
-
-  // Modify last link dynamic parameters
-  Mat3 payload_rotation_in_last_joint_coordinates          = tool.rotation * new_payload.rotation;
-  Vec3 payload_center_of_gravity_in_last_joint_coordinates = tool.position + tool.rotation * new_payload.position + payload_rotation_in_last_joint_coordinates * new_payload.cog_position;
-
-  Mat3 payload_inertia_tensor_in_last_joint_coordinates = payload_rotation_in_last_joint_coordinates * new_payload.inertia_tensor * transpose(payload_rotation_in_last_joint_coordinates);
-
-  real new_mass;
-  Vec3 new_cog;
-  Mat3 new_inertia;
-
-  sum_dynamic_properties(link_masses[last_link_id], cog_offsets[last_link_id], inertia_tensors[last_link_id],
-                         new_payload.mass, payload_center_of_gravity_in_last_joint_coordinates, payload_inertia_tensor_in_last_joint_coordinates,
-                         new_mass, new_cog, new_inertia);
-
-  link_masses[last_link_id]         = new_mass;
-  cog_offsets[last_link_id]         = new_cog;
-  inertia_tensors[last_link_id]     = new_inertia;
-  cog_from_next_joint[last_link_id] = {-joint_offsets[last_link_id] + cog_offsets[last_link_id]}; // todo: verify the meaning of this?
 }
 
-// Modifies last link to remove dynamic and collision contributions of the tool and payload (if the tool has a payload)
+// Remove the current tool from the manipulator
 inline host_fn void Manipulator::remove_tool() {
-  if (tool.has_payload) {
-    remove_payload();
-  }
-
-  // Call set_tool with negative mass and inertia tensor to remove dynamics contribution
-  tool.mass           = -tool.mass;
-  tool.inertia_tensor = -tool.inertia_tensor;
-
-  set_tool(tool);
-
-  // // Remove collsion model
-  // for (auto& box : tool.collision_model.boxes) {
-  //   for (int i = 0; i < )
-  // }
-
   tool     = {};
   has_tool = false;
 }
 
-// Modifies last link to remove dynamic and collision contributions of the payload
-// Calls set_payload with negative mass
+// Remove the current payload from the manipulator
 inline host_fn void Manipulator::remove_payload() {
-  tool.has_payload            = false;
-  tool.payload.mass           = -tool.payload.mass;
-  tool.payload.inertia_tensor = -tool.payload.inertia_tensor;
-  set_payload(tool.payload);
   tool.has_payload = false;
   tool.payload     = {};
 }

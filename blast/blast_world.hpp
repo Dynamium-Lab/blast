@@ -60,6 +60,10 @@ struct CollisionModel {
   host_fn void add_capsule(Vec3 point1, Vec3 point2, real radius);
 };
 
+struct PointCloud {
+  std::vector<Vec3> points;
+};
+
 struct Box {
   Vec3 center;   // Box center point
   Vec3 extents;  // Positive halfwidth extents of Box along each axis

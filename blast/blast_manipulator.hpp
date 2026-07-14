@@ -103,7 +103,7 @@ struct ManipulatorCapsules {
  * @var mass            Payload mass.
  * @var inertia_tensor  Payload inertia tensor.
  * @var cog_position    Payload center of mass position in local frame.
- * @var collision_model Collision model for the payload.
+ * @var collision_model Point cloud collision model for the payload.
  */
 struct Payload {
   Vec3 position = {0.0, 0.0, 0.0};
@@ -112,7 +112,7 @@ struct Payload {
   Mat3 inertia_tensor;
   Vec3 cog_position = {0.0, 0.0, 0.0}; // center of gravity position
 
-  CollisionModel collision_model;
+  PointCloud collision_model;
 };
 
 /**
@@ -124,8 +124,7 @@ struct Payload {
  * @var mass            Tool mass.
  * @var inertia_tensor  Tool inertia tensor.
  * @var cog_position    Tool center of mass position in local frame.
- * @var collision_model Collision model for the tool.
- * @var payload Payload being manipulated.
+ * @var collision_model Point cloud collision model for the tool.
  */
 struct Tool {
   Vec3 position = {0.0, 0.0, 0.0};
@@ -134,15 +133,7 @@ struct Tool {
   Mat3 inertia_tensor;
   Vec3 cog_offset = {0.0, 0.0, 0.0}; // center of gravity offset
 
-  CollisionModel collision_model;
-
-  bool    has_payload = false;
-  Payload payload;
-
-  inline host_fn void set_payload(const Payload& new_payload) {
-    has_payload = true;
-    payload     = new_payload;
-  }
+  PointCloud collision_model;
 };
 
 struct ManipulatorTempData {
@@ -181,6 +172,10 @@ struct Manipulator {
   // Tool state
   bool has_tool = false;
   Tool tool;
+
+  // Payload state
+  bool    has_payload = false;
+  Payload payload;
 
   // Joint kinematics
   Vec3                             first_joint_position = {0, 0, 0};
@@ -239,14 +234,14 @@ struct Manipulator {
   host_fn void set_capsules(const ManipulatorCapsules& capsules);
 
   /**
-   * @brief Set a tool to this manipulator, and adds dynamic and collision contributions to last link.
+   * @brief Set a tool to this manipulator.
    * @param tool  Tool structure and geometry.
    */
   host_fn void set_tool(const Tool& tool);
   host_fn void remove_tool();
 
   /**
-   * @brief Set a payload to this manipulator's tool, and adds dynamic and collision contributions to last link.
+   * @brief Set a payload to this manipulator.
    * @param payload Payload structure and geometry
    */
   host_fn void set_payload(const Payload& payload);
@@ -255,7 +250,7 @@ struct Manipulator {
   /**
    * @brief Update collision capsules in world frame (store internally).
    */
-  // host_fn void compute_capsules();
+  // host_fn void compute_collision_model();
 
   /**
    * @brief Compute distances for all internal collisions.

@@ -159,7 +159,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
         auto a = opt.bspline.traj.acc.col(start_point_for_segment + point_in_segment);
 
         forward_kinematics(opt.manip, manip_data, p);
-        compute_capsules(opt.manip, manip_data);
+        compute_collision_model(opt.manip, manip_data);
         dynamics(opt.manip, manip_data, v, a);
 
         for (int j = 0; j < n_joints; j++) {
@@ -667,7 +667,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 
           // recompute internal collisions at the worst point in segment
           forward_kinematics(opt.manip, manip_data, p_plus);
-          compute_capsules(opt.manip, manip_data);
+          compute_collision_model(opt.manip, manip_data);
           const auto new_internal_collision_constraint = max(-get_internal_collisions(opt.manip, manip_data));
           // partial difference d(internal_collision)/dp
           const real dint_coll_dp = (new_internal_collision_constraint - max_internal_col_constraints) / eps;
@@ -711,7 +711,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 
             // recompute collision constraint, but only with the current capsule and the identified object.
             forward_kinematics(opt.manip, manip_data, p_plus);
-            compute_capsules(opt.manip, manip_data);
+            compute_collision_model(opt.manip, manip_data);
             const auto capsule = manip_data.capsule_list[capsule_id];
 
             real        distance_plus;
@@ -828,7 +828,7 @@ inline blast_fn void compute_constraints(double* result, const Array& x, Optimiz
 #endif
       // todo: this cleaner
       // if (opt->constraints.external_collisions || opt->constraints.self_collisions) {
-      compute_capsules(opt->manip, manip_data);
+      compute_collision_model(opt->manip, manip_data);
       // if (opt->constraints.external_collisions) {
       //   if (i % opt->constraints.n_collision_skip == 0 && i / opt->constraints.n_collision_skip < capsules.cols) {
       //     for (int j = 0; j < opt->manip._n_caps; j++) {
@@ -1037,7 +1037,7 @@ inline blast_fn bool validate_task(Optimization* opt) {
 
     forward_kinematics(manip, manip_data, p); // fills _Q, _Q_mult, and _p_j
     if (constraints.external_collisions || constraints.self_collisions) {
-      compute_capsules(manip, manip_data);
+      compute_collision_model(manip, manip_data);
       if (constraints.external_collisions) {
         if (i == 0) {
           for (int j = 0; j < manip._n_caps; j++) {
@@ -1235,7 +1235,7 @@ inline void compute_constraints_with_analytical_pva(ConstraintPerPoint& constrai
 #endif
       // todo: this cleaner
       // if (opt->constraints.external_collisions || opt->constraints.self_collisions) {
-      compute_capsules(opt->manip, manip_data);
+      compute_collision_model(opt->manip, manip_data);
       // }
     }
 
@@ -1466,7 +1466,7 @@ blast_fn void compute_constraints_with_analytical_dynamics(double* result, Array
           }
         }
 
-        compute_capsules(opt->manip, manip_data);
+        compute_collision_model(opt->manip, manip_data);
 
         if (opt->constraints.torque) {
 #if BLAST_TRACE_LEVEL >= 3
@@ -1591,7 +1591,7 @@ blast_fn void compute_constraints_with_analytical_dynamics(double* result, Array
           dtool_dp(j, i)            = (tool_constraint_plus - tool_constraint) / eps;
         }
 
-        compute_capsules(opt->manip, manip_data);
+        compute_collision_model(opt->manip, manip_data);
         if (opt->constraints.self_collisions) {
           auto self_collision_constraint_plus = max(-get_internal_collisions(opt->manip, manip_data));
           dselfcol_dp(j, i)                   = (self_collision_constraint_plus - self_collision_constraint) / eps;
@@ -1702,7 +1702,7 @@ inline blast_fn void compute_constraints_per_point(double* result, real& externa
     PROFILE_SCOPE("Capsules");
 #endif
     if (opt->constraints.self_collisions || opt->constraints.external_collisions) {
-      compute_capsules(opt->manip, manip_data);
+      compute_collision_model(opt->manip, manip_data);
     }
   }
 
