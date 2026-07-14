@@ -37,7 +37,7 @@ inline blast_fn real abs_constraint(const real& value, const real& value_max) {
 inline blast_fn Matrix get_J_tool(const Optimization* opt, const ManipulatorTempData& temp) {
   std::vector<Vec3> r_tool(opt->manip.n_joints);
   if (opt->manip.has_tool) {
-    r_tool[opt->manip.n_joints - 1] = opt->manip.tool.position;
+    r_tool[opt->manip.n_joints - 1] = opt->manip.tool.position + opt->manip.tool.tool_center_position;
   } else {
     r_tool[opt->manip.n_joints - 1] = Vec3(0, 0, 0);
   }

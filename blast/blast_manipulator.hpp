@@ -127,11 +127,13 @@ struct Payload {
  * @var collision_model Point cloud collision model for the tool.
  */
 struct Tool {
-  Vec3 position = {0.0, 0.0, 0.0};
-  Mat3 rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  real mass     = 0.0;
+  Vec3 position             = {0, 0, 0};
+  Mat3 rotation             = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  Vec3 tool_center_position = {0, 0, 0};
+
+  real mass = 0;
   Mat3 inertia_tensor;
-  Vec3 cog_offset = {0.0, 0.0, 0.0}; // center of gravity offset
+  Vec3 cog_offset = {0, 0, 0}; // center of gravity offset
 
   PointCloud collision_model;
 };

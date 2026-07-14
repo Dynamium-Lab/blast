@@ -20,7 +20,7 @@ struct host_fn IK_opt {
 inline host_fn Matrix jacobian(const Manipulator& manip, const ManipulatorTempData& temp) {
   std::vector<Vec3> r_tool(manip.n_joints);
   if (manip.has_tool) {
-    r_tool[manip.n_joints - 1] = manip.tool.position;
+    r_tool[manip.n_joints - 1] = manip.tool.position + manip.tool.tool_center_position;
   } else {
     r_tool[manip.n_joints - 1] = Vec3(0, 0, 0);
   }
