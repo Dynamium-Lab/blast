@@ -102,7 +102,7 @@ struct ManipulatorCapsules {
  * @var rotation        Rotation from Tool to payload.
  * @var mass            Payload mass.
  * @var inertia_tensor  Payload inertia tensor.
- * @var cog_position    Payload center of mass position in local frame.
+ * @var cog_offset      Payload center of mass offset in local frame.
  * @var collision_model Point cloud collision model for the payload.
  */
 struct Payload {
@@ -110,7 +110,7 @@ struct Payload {
   Mat3 rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};
   real mass     = 0.0;
   Mat3 inertia_tensor;
-  Vec3 cog_position = {0.0, 0.0, 0.0}; // center of gravity position
+  Vec3 cog_offset = {0.0, 0.0, 0.0}; // center of gravity offset
 
   PointCloud collision_model;
 };

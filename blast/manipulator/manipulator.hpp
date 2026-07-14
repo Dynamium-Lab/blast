@@ -48,7 +48,8 @@ inline host_fn Matrix jacobian(const Manipulator& manip, const ManipulatorTempDa
 
   return J_tool;
 }
-//
+
+// todo: remove?
 // inline host_fn void forward_kinematics(Manipulator& manip, const Array& joint_pos) {
 //   manip.compute_rotation_matrices(joint_pos);
 //
@@ -147,8 +148,48 @@ inline host_fn void dynamics(const Manipulator& manip, ManipulatorTempData& temp
   }
 
   //-- dynamics
-  f[joints - 1] = manip.link_masses[joints - 1] * cdd[joints - 1];
-  n[joints - 1] = manip.inertia_tensors[joints - 1] * wd[joints - 1] + cross(w[joints - 1], manip.inertia_tensors[joints - 1] * w[joints - 1]) + cross(manip.cog_offsets[joints - 1], f[joints - 1]);
+  if (manip.has_tool || manip.has_payload) {
+    // include tool and payload in final link tensor
+    real modified_last_link_mass    = manip.link_masses[manip.n_joints - 1];
+    Vec3 modified_last_link_cog     = manip.cog_offsets[manip.n_joints - 1];
+    Mat3 modified_last_link_inertia = manip.inertia_tensors[manip.n_joints - 1];
+
+    if (manip.has_tool && manip.has_payload) {
+      Vec3 tool_cog_offset_from_last_joint    = manip.tool.position + manip.tool.rotation * manip.tool.cog_offset;
+      Vec3 payload_cog_offset_from_last_joint = manip.payload.position + manip.payload.rotation * manip.payload.cog_offset;
+
+      real last_link_mass_with_tool    = manip.link_masses[manip.n_joints - 1];
+      Vec3 last_link_cog_with_tool     = manip.cog_offsets[manip.n_joints - 1];
+      Mat3 last_link_inertia_with_tool = manip.inertia_tensors[manip.n_joints - 1];
+
+      sum_dynamic_properties(manip.link_masses[manip.n_joints - 1], manip.cog_offsets[manip.n_joints - 1], manip.inertia_tensors[manip.n_joints - 1],
+                             manip.tool.mass, tool_cog_offset_from_last_joint, manip.tool.inertia_tensor,
+                             last_link_mass_with_tool, last_link_cog_with_tool, last_link_inertia_with_tool);
+      sum_dynamic_properties(last_link_mass_with_tool, last_link_cog_with_tool, last_link_inertia_with_tool,
+                             manip.payload.mass, payload_cog_offset_from_last_joint, manip.payload.inertia_tensor,
+                             modified_last_link_mass, modified_last_link_cog, modified_last_link_inertia);
+    } else if (manip.has_tool) {
+      Vec3 tool_cog_offset_from_last_joint = manip.tool.position + manip.tool.rotation * manip.tool.cog_offset;
+
+      sum_dynamic_properties(manip.link_masses[manip.n_joints - 1], manip.cog_offsets[manip.n_joints - 1], manip.inertia_tensors[manip.n_joints - 1],
+                             manip.tool.mass, tool_cog_offset_from_last_joint, manip.tool.inertia_tensor,
+                             modified_last_link_mass, modified_last_link_cog, modified_last_link_inertia);
+    } else if (manip.has_payload) { // this if could be a else {}
+      Vec3 payload_cog_offset_from_last_joint = manip.payload.position + manip.payload.rotation * manip.payload.cog_offset;
+
+      sum_dynamic_properties(manip.link_masses[manip.n_joints - 1], manip.cog_offsets[manip.n_joints - 1], manip.inertia_tensors[manip.n_joints - 1],
+                             manip.payload.mass, payload_cog_offset_from_last_joint, manip.payload.inertia_tensor,
+                             modified_last_link_mass, modified_last_link_cog, modified_last_link_inertia);
+    }
+
+    Vec3 modified_last_link_cdd = Qt[manip.n_joints - 1] * cdd[manip.n_joints - 1 - 1] + cross(wd[manip.n_joints - 1], modified_last_link_cog) + cross(w[manip.n_joints - 1], cross(w[manip.n_joints - 1], modified_last_link_cog));
+
+    f[joints - 1] = modified_last_link_mass * modified_last_link_cdd;
+    n[joints - 1] = modified_last_link_inertia * wd[joints - 1] + cross(w[joints - 1], modified_last_link_inertia * w[joints - 1]) + cross(modified_last_link_cog, f[joints - 1]);
+  } else { // no gripper or payload
+    f[joints - 1] = manip.link_masses[joints - 1] * cdd[joints - 1];
+    n[joints - 1] = manip.inertia_tensors[joints - 1] * wd[joints - 1] + cross(w[joints - 1], manip.inertia_tensors[joints - 1] * w[joints - 1]) + cross(manip.cog_offsets[joints - 1], f[joints - 1]);
+  }
 
   for (int j = (int) joints - 2; j >= 0; j--) {
     f[j] = manip.link_masses[j] * cdd[j] + temp.rotations[j + 1] * f[j + 1];
