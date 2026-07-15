@@ -61,6 +61,12 @@ struct Sphere {
   real radius = 0;
 };
 
+struct Cylinder {
+  Vec3 p1;
+  Vec3 p2;
+  real radius;
+};
+
 struct DynamicBox {
   u32              n_points;
   real             start_time = 0;
@@ -127,3 +133,5 @@ inline blast_fn Vec3 get_point(const Array& x, const Matrix& capsule_list);
 #include "world/CoDO.hpp"
 
 #include "world/scenes.hpp"
+
+#include "world/gjk_epa.hpp"
