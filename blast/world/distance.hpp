@@ -59,7 +59,7 @@ struct SegFace {
   Segment segments[4];
 };
 
-constexpr real COLLISION_EPSILON = 1e-9;
+constexpr real COLLISION_EPSILON = BLAST_GEOMETRY_EPSILON;
 
 // Internal functions not directly exposed to the API
 inline blast_fn bool point_in_triangle(Vec3 triangle_v1, Vec3 triangle_v2, Vec3 triangle_origin, Vec3 point);

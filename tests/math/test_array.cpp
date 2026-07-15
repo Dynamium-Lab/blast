@@ -2,6 +2,7 @@
 
 #include <blast>
 #include "catch2/catch.hpp"
+#include "test_helper.hpp"
 
 // ---------------------------------------------------------------------------
 // Construction
@@ -195,21 +196,21 @@ TEST_CASE("Array - dot() computes correct inner product", "[Math][Array]") {
   using namespace blast;
   Array a{1.0, 2.0, 3.0};
   Array b{4.0, 5.0, 6.0};
-  CHECK(std::abs(dot(a, b) - 32.0) < 1e-9);
+  CHECK(std::abs(dot(a, b) - 32.0) < blast::test::abs_tol);
 }
 
 TEST_CASE("Array - dot(a, a) equals norm_sqr(a)", "[Math][Array]") {
   using namespace blast;
   Array a{3.0, 4.0};
-  CHECK(std::abs(dot(a, a) - norm_sqr(a)) < 1e-9);
-  CHECK(std::abs(dot(a, a) - 25.0) < 1e-9);
+  CHECK(std::abs(dot(a, a) - norm_sqr(a)) < blast::test::abs_tol);
+  CHECK(std::abs(dot(a, a) - 25.0) < blast::test::abs_tol);
 }
 
 TEST_CASE("Array - dot() of orthogonal arrays is zero", "[Math][Array]") {
   using namespace blast;
   Array a{1.0, 0.0, 0.0};
   Array b{0.0, 1.0, 0.0};
-  CHECK(std::abs(dot(a, b)) < 1e-9);
+  CHECK(std::abs(dot(a, b)) < blast::test::abs_tol);
 }
 
 // ---------------------------------------------------------------------------
@@ -219,25 +220,25 @@ TEST_CASE("Array - dot() of orthogonal arrays is zero", "[Math][Array]") {
 TEST_CASE("Array - norm() computes the Euclidean norm", "[Math][Array]") {
   using namespace blast;
   Array a{3.0, 4.0};
-  CHECK(std::abs(norm(a) - 5.0) < 1e-9);
+  CHECK(std::abs(norm(a) - 5.0) < blast::test::abs_tol);
 }
 
 TEST_CASE("Array - norm_sqr() computes the squared Euclidean norm", "[Math][Array]") {
   using namespace blast;
   Array a{3.0, 4.0};
-  CHECK(std::abs(norm_sqr(a) - 25.0) < 1e-9);
+  CHECK(std::abs(norm_sqr(a) - 25.0) < blast::test::abs_tol);
 }
 
 TEST_CASE("Array - norm_1() computes the L1 norm", "[Math][Array]") {
   using namespace blast;
   Array a{1.0, -2.0, 3.0};
-  CHECK(std::abs(norm_1(a) - 6.0) < 1e-9);
+  CHECK(std::abs(norm_1(a) - 6.0) < blast::test::abs_tol);
 }
 
 TEST_CASE("Array - norm_inf() computes the L-infinity norm", "[Math][Array]") {
   using namespace blast;
   Array a{1.0, -5.0, 3.0};
-  CHECK(std::abs(norm_inf(a) - 5.0) < 1e-9);
+  CHECK(std::abs(norm_inf(a) - 5.0) < blast::test::abs_tol);
 }
 
 // ---------------------------------------------------------------------------
@@ -247,25 +248,25 @@ TEST_CASE("Array - norm_inf() computes the L-infinity norm", "[Math][Array]") {
 TEST_CASE("Array - sum() computes the sum of all elements", "[Math][Array]") {
   using namespace blast;
   Array a{1.0, 2.0, 3.0};
-  CHECK(std::abs(sum(a) - 6.0) < 1e-9);
+  CHECK(std::abs(sum(a) - 6.0) < blast::test::abs_tol);
 }
 
 TEST_CASE("Array - mean() computes the arithmetic mean", "[Math][Array]") {
   using namespace blast;
   Array a{1.0, 2.0, 3.0};
-  CHECK(std::abs(mean(a) - 2.0) < 1e-9);
+  CHECK(std::abs(mean(a) - 2.0) < blast::test::abs_tol);
 }
 
 TEST_CASE("Array - min() returns the smallest element", "[Math][Array]") {
   using namespace blast;
   Array a{3.0, 1.0, 2.0};
-  CHECK(std::abs(min(a) - 1.0) < 1e-9);
+  CHECK(std::abs(min(a) - 1.0) < blast::test::abs_tol);
 }
 
 TEST_CASE("Array - max() returns the largest element", "[Math][Array]") {
   using namespace blast;
   Array a{3.0, 1.0, 2.0};
-  CHECK(std::abs(max(a) - 3.0) < 1e-9);
+  CHECK(std::abs(max(a) - 3.0) < blast::test::abs_tol);
 }
 
 TEST_CASE("Array - argmin() returns the index of the smallest element", "[Math][Array]") {

@@ -1,4 +1,5 @@
 #include <blast>
+#include "test_helper.hpp"
 
 #define CATCH_CONFIG_MAIN
 #define CATCH_CONFIG_ENABLE_BENCHMARKING
@@ -140,9 +141,9 @@ TEST_CASE("Basis function test", "[bspline]") {
     spline_test.compute_basis();
     spline_test.compute_basis_derivative(2);
 
-    CHECK(is_close(spline_test.basis_p, spline_test.basis[0]));
-    CHECK(is_close(spline_test.basis_v, spline_test.basis[1]));
-    CHECK(is_close(spline_test.basis_a, spline_test.basis[2]));
+    CHECK(is_close(spline_test.basis_p, spline_test.basis[0], blast::test::approx_tol));
+    CHECK(is_close(spline_test.basis_v, spline_test.basis[1], blast::test::approx_tol));
+    CHECK(is_close(spline_test.basis_a, spline_test.basis[2], blast::test::approx_tol));
   }
 }
 
@@ -151,8 +152,16 @@ TEST_CASE("Bspline velocity and acceleration test", "[bspline]") {
   int n_ctrl   = 12;
   int p        = 5;
   int n_joints = 1;
-  int n_pts    = 100000;
-  // int n_pts = 2001;
+  // Finite differencing trades truncation error (large dt) against cancellation
+  // error (small dt). Double tolerates a tiny dt, so a large n_pts keeps
+  // truncation negligible. Float loses ~half its significant digits to
+  // cancellation at that dt, so it uses a coarser grid that stays in single
+  // precision's sweet spot.
+#if BLAST_USE_DOUBLES
+  int n_pts = 100000;
+#else
+  int n_pts = 2000;
+#endif
 
   Bspline spline_test(n_ctrl, n_pts, p, n_joints);
 
@@ -178,6 +187,6 @@ TEST_CASE("Bspline velocity and acceleration test", "[bspline]") {
       acc_approx(j, i) = (0.5 * (spline_test.traj.vel(j, i) - spline_test.traj.vel(j, i - 1)) + 0.5 * (spline_test.traj.vel(j, i + 1) - spline_test.traj.vel(j, i))) / dt;
     }
   }
-  CHECK(is_close(vel_approx, spline_test.traj.vel));
-  CHECK(is_close(acc_approx, spline_test.traj.acc));
+  CHECK(is_close(vel_approx, spline_test.traj.vel, blast::test::approx_tol));
+  CHECK(is_close(acc_approx, spline_test.traj.acc, blast::test::approx_tol));
 }

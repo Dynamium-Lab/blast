@@ -4,17 +4,24 @@
 #include <cstring>
 #include <functional>
 
+// A float build cannot use external NLopt (its C API is double-only); it requires
+// the in-house SQP solver. Mirror the CMake FATAL_ERROR for header-only consumers
+// who set the macros directly instead of going through Blast's CMake options.
+#if !BLAST_USE_DOUBLES && !defined(BLAST_USE_NATIVE_SQP)
+#error "Blast float build (BLAST_USE_DOUBLES=0) requires BLAST_USE_NATIVE_SQP: external NLopt is double-only."
+#endif
+
 namespace blast {
 struct Optimization;
 struct Objective;
 struct ConstraintSelection;
 struct Guess;
 
-using ConstraintFunctionVector = std::vector<void (*)(double* result, Optimization* opt)>;
-using ConstraintFunction       = void (*)(double*, Optimization*);
+using ConstraintFunctionVector = std::vector<void (*)(real* result, Optimization* opt)>;
+using ConstraintFunction       = void (*)(real*, Optimization*);
 
 
-using ObjectiveFunction = double (*)(Optimization* opt);
+using ObjectiveFunction = real (*)(Optimization* opt);
 
 struct Objective {
   real time_weight = 1.0;
@@ -141,17 +148,17 @@ struct Optimization {
 inline void constraints_and_gradients_with_segments(const Array& x, Optimization& opt, Array& constraints,
                                                     Matrix& grad);
 // inline void compute_constraints_with_segments(const Array& x, Optimization& opt, Array& constraints);
-inline void nlopt_constraints_with_segments(unsigned m, double* result, unsigned x_len, const double* x, double* grad,
+inline void nlopt_constraints_with_segments(unsigned m, real* result, unsigned x_len, const real* x, real* grad,
                                             void* f_data);
 
-inline void   compute_constraints(double* result, const Array& x, Optimization* opt);
-inline void   nlopt_constraints(unsigned m, double* result, unsigned x_len, const double* x, double* grad,
-                                void* f_data);
-inline double compute_objective(Array& current_x, Optimization* opt);
-inline bool   validate_task(Optimization* opt);
+inline void compute_constraints(real* result, const Array& x, Optimization* opt);
+inline void nlopt_constraints(unsigned m, real* result, unsigned x_len, const real* x, real* grad,
+                              void* f_data);
+inline real compute_objective(Array& current_x, Optimization* opt);
+inline bool validate_task(Optimization* opt);
 
-inline void nlopt_constraints_with_analytical_pva(unsigned m, double* result, unsigned xlen, const double* x, double* grad, void* f_data);
-inline void nlopt_constraints_with_analytical_dynamics(unsigned m, double* result, unsigned xlen, const double* x, double* grad, void* f_data);
+inline void nlopt_constraints_with_analytical_pva(unsigned m, real* result, unsigned xlen, const real* x, real* grad, void* f_data);
+inline void nlopt_constraints_with_analytical_dynamics(unsigned m, real* result, unsigned xlen, const real* x, real* grad, void* f_data);
 
 
 // inline real   bound_constraint(const real& value, const real& value_min, const real& value_max);

@@ -271,7 +271,7 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
       PROFILE_SCOPE("NLopt optimization");
 #endif
 
-      double f = HUGE_VAL;
+      real f = HUGE_VAL;
 #ifdef BLAST_USE_NATIVE_SQP
       stop.nevals_p              = 0;
       result.nlopt_exit_criteria = sqp(
@@ -528,7 +528,7 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
       PROFILE_SCOPE("NLopt optimization");
 #endif
 
-      double f = HUGE_VAL;
+      real f = HUGE_VAL;
       // note: can we initialize grad to 0 here
 #ifdef BLAST_USE_NATIVE_SQP
       stop.nevals_p              = 0;
@@ -718,7 +718,7 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
       PROFILE_SCOPE("NLopt optimization");
 #endif
 
-      double f = HUGE_VAL;
+      real f = HUGE_VAL;
 #ifdef BLAST_USE_NATIVE_SQP
       stop.nevals_p              = 0;
       result.nlopt_exit_criteria = sqp(
@@ -902,7 +902,7 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
       PROFILE_SCOPE("NLopt optimization");
 #endif
 
-      double f = HUGE_VAL;
+      real f = HUGE_VAL;
 #ifdef BLAST_USE_NATIVE_SQP
       stop.nevals_p              = 0;
       result.nlopt_exit_criteria = sqp(

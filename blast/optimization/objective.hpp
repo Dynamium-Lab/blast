@@ -4,11 +4,11 @@
 
 namespace blast {
 
-inline double compute_objective(Array& current_x, Optimization* opt) {
+inline real compute_objective(Array& current_x, Optimization* opt) {
 #if BLAST_TRACE_LEVEL >= 2
   PROFILE_FUNCTION;
 #endif
-  double result = 0;
+  real result = 0;
   if (opt->objective.time_weight > 0) {
     result += current_x.back();
   }
@@ -18,7 +18,7 @@ inline double compute_objective(Array& current_x, Optimization* opt) {
   return result;
 }
 
-inline double objective_function(unsigned int n, const double* x, double* grad, void* data) {
+inline real objective_function(unsigned int n, const real* x, real* grad, void* data) {
 #if BLAST_TRACE_LEVEL >= 1
   PROFILE_FUNCTION;
 #endif
@@ -27,12 +27,12 @@ inline double objective_function(unsigned int n, const double* x, double* grad, 
 
   Array xv;
   xv.alias(x, n);
-  double result = compute_objective(xv, opt);
+  real result = compute_objective(xv, opt);
 
   if (grad) {
     Array x_plus(n);
     for (u32 j = 0; j < n; j++) {
-      constexpr real eps = 1e-5;
+      constexpr real eps = BLAST_FD_STEP;
       memcpy(x_plus.data, x, n * sizeof(real));
       x_plus[j] += eps;
 
