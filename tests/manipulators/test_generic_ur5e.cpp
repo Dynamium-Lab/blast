@@ -232,7 +232,7 @@ TEST_CASE("Tool Jacobian finite difference", "[Manipulator]") {
 
   Matrix J = jacobian(manip, data);
 
-  constexpr real eps = BLAST_EPSILON;
+  constexpr real eps = BLAST_FD_STEP;
 
   for (int i = 0; i < manip.n_joints; i++) {
     Array qp = q;
