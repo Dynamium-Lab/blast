@@ -112,7 +112,7 @@ TEST_CASE("ObjMatrix Capsules", "[ObjMatrix]") {
   blast::ManipulatorTempData data;
 
   blast::forward_kinematics(manip, data, pos);
-  blast::compute_capsules(manip, data);
+  blast::compute_collision_model(manip, data);
 
   blast::World world;
   world.add_box({1.0, 0.0, 0.0}, {0.5, 0.5, 0.5}, {1, 0, 0, 0, 1, 0, 0, 0, 1});

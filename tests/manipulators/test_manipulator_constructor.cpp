@@ -24,6 +24,32 @@ static Manipulator make_1dof(real mass, Vec3 cog, Mat3 inertia) {
   return Manipulator{1, lim, kin, &dyn};
 }
 
+Tool make_gripper() {
+  Tool t;
+  t.position       = {0.0, 0.0, 0.05};
+  t.rotation       = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  t.mass           = 0.85;
+  t.cog_offset     = {0.0, 0.0, 0.03};
+  t.inertia_tensor = Mat3{
+          0.001, 0.0, 0.0,
+          0.0, 0.001, 0.0,
+          0.0, 0.0, 0.0005};
+  return t;
+}
+
+Payload make_payload() {
+  Payload p;
+  p.position       = {0.0, 0.0, 0.02};
+  p.rotation       = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  p.mass           = 1.2;
+  p.cog_offset     = {0.0, 0.0, 0.04};
+  p.inertia_tensor = Mat3{
+          0.0008, 0.0, 0.0,
+          0.0, 0.0008, 0.0,
+          0.0, 0.0, 0.0003};
+  return p;
+}
+
 // ─── constructor ────────────────────────────────────────────────────────────
 
 TEST_CASE("Manipulator constructor - kinematics-only leaves dynamic fields zero-initialized", "[constructor]") {
@@ -63,64 +89,34 @@ TEST_CASE("UR5e set_capsules() - _n_internal_collisions counts lower-triangle pa
   CHECK(ur5e._n_internal_collisions == 12);
 }
 
-// ─── set_payload ─────────────────────────────────────────────────────────────
+// ─── set_payload / remove_payload ────────────────────────────────────────────
 
-TEST_CASE("set_payload() - combined mass is sum of link and payload masses", "[payload]") {
+TEST_CASE("set_payload() - combined mass is sum of link and payload masses", "[constructor]") {
   Manipulator m = make_1dof(10.0f, {0, 0, 0.1f}, Mat3{});
-  m.set_payload(2.0f, {0, 0, 0.3f}, Mat3{});
-  CHECK(is_close(m.link_masses[0], 12.0f, 1e-5f));
+
+  CHECK(m.has_payload == false);
+
+  Payload payload = make_payload();
+  m.set_payload(payload);
+  CHECK(m.has_payload == true);
+  CHECK(is_close(m.payload, payload, BLAST_EPSILON));
+
+  m.remove_payload();
+  CHECK(m.has_payload == false);
 }
 
-TEST_CASE("set_payload() - combined CoG is mass-weighted average", "[payload]") {
-  Manipulator m = make_1dof(10.0f, {0, 0, 0.1f}, Mat3{});
-  m.set_payload(2.0f, {0, 0, 0.3f}, Mat3{});
-  // av_new_z = (10*0.1 + 2*0.3) / 12 = 1.6/12
-  CHECK(is_close(m.cog_offsets[0].z, 1.6f / 12.0f, 1e-5f));
-  CHECK(is_close(m.cog_offsets[0].x, 0.0f, 1e-5f));
-  CHECK(is_close(m.cog_offsets[0].y, 0.0f, 1e-5f));
-}
+// ─── set_tool / remove_tool ──────────────────────────────────────────────────
 
-TEST_CASE("set_payload() - inertia updated via parallel axis theorem", "[payload]") {
-  Manipulator m = make_1dof(10.0f, {0, 0, 0.1f}, Mat3{});
-  m.set_payload(2.0f, {0, 0, 0.3f}, Mat3{});
-  // delta_av_z = 1.6/12 - 0.1 = 1/30
-  // av_to_mass_z = 0.3 - 1.6/12 = 1/6
-  // I_zz = 10*(1/30)^2 + 2*(1/6)^2 = 1/90 + 1/18 = 1/15
-  CHECK(is_close(m.inertia_tensors[0](2, 2), 1.0f / 15.0f, 1e-5f));
-  CHECK(is_close(m.inertia_tensors[0](0, 0), 0.0f, 1e-5f));
-  CHECK(is_close(m.inertia_tensors[0](1, 1), 0.0f, 1e-5f));
-}
-
-// ─── add_tool ────────────────────────────────────────────────────────────────
-
-TEST_CASE("add_tool() - has_tool flag is set", "[tool]") {
+TEST_CASE("set_tool()  and remove_tool() basic tests", "[tool]") {
   Manipulator m = make_1dof(10.0f, {0, 0, 0.1f}, Mat3{});
   CHECK(m.has_tool == false);
+
   Tool tool;
-  tool.mass           = 1.0f;
-  tool.inertia_tensor = Mat3{};
-  m.add_tool(tool);
+  tool.mass = 1.0f;
+  m.set_tool(tool);
   CHECK(m.has_tool == true);
-}
+  CHECK(is_close(m.tool, tool, BLAST_EPSILON));
 
-TEST_CASE("add_tool() - combined mass is sum of link and tool masses", "[tool]") {
-  Manipulator m = make_1dof(10.0f, {0, 0, 0.1f}, Mat3{});
-  Tool        tool;
-  tool.mass           = 2.0f;
-  tool.cog_offset     = {0, 0, 0.3f};
-  tool.inertia_tensor = Mat3{};
-  m.add_tool(tool);
-  CHECK(is_close(m.link_masses[0], 12.0f, 1e-5f));
-}
-
-TEST_CASE("add_tool() - combined CoG is mass-weighted average", "[tool]") {
-  Manipulator m = make_1dof(10.0f, {0, 0, 0.1f}, Mat3{});
-  Tool        tool;
-  tool.mass           = 2.0f;
-  tool.cog_offset     = {0, 0, 0.3f};
-  tool.inertia_tensor = Mat3{};
-  m.add_tool(tool);
-  CHECK(is_close(m.cog_offsets[0].z, 1.6f / 12.0f, 1e-5f));
-  CHECK(is_close(m.cog_offsets[0].x, 0.0f, 1e-5f));
-  CHECK(is_close(m.cog_offsets[0].y, 0.0f, 1e-5f));
+  m.remove_tool();
+  CHECK(m.has_tool == false);
 }

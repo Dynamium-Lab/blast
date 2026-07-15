@@ -138,6 +138,53 @@ inline host_fn bool is_close(const World& world1, const World& world2, real eps)
   return true;
 }
 
+inline host_fn bool is_close(const PointCloud& point_cloud1, const PointCloud& point_cloud_2, real eps) {
+  if (!is_close(point_cloud1.points, point_cloud_2.points, eps))
+    return false;
+  if (!is_close(point_cloud1.position, point_cloud_2.position, eps))
+    return false;
+  if (!is_close(point_cloud1.rotation, point_cloud_2.rotation, eps))
+    return false;
+
+  return true;
+}
+
+inline host_fn bool is_close(const Tool& tool1, const Tool& tool2, real eps) {
+  if (!is_close(tool1.cog_offset, tool2.cog_offset, eps))
+    return false;
+  if (!is_close(tool1.collision_model, tool2.collision_model, eps))
+    return false;
+  if (!is_close(tool1.inertia_tensor, tool2.inertia_tensor, eps))
+    return false;
+  if (!is_close(tool1.mass, tool2.mass, eps))
+    return false;
+  if (!is_close(tool1.position, tool2.position, eps))
+    return false;
+  if (!is_close(tool1.rotation, tool2.rotation, eps))
+    return false;
+  if (!is_close(tool1.tool_center_position, tool2.tool_center_position, eps))
+    return false;
+
+  return true;
+}
+
+inline host_fn bool is_close(const Payload& payload1, const Payload& payload2, real eps) {
+  if (!is_close(payload1.cog_offset, payload2.cog_offset, eps))
+    return false;
+  if (!is_close(payload1.collision_model, payload2.collision_model, eps))
+    return false;
+  if (!is_close(payload1.inertia_tensor, payload2.inertia_tensor, eps))
+    return false;
+  if (!is_close(payload1.mass, payload2.mass, eps))
+    return false;
+  if (!is_close(payload1.position, payload2.position, eps))
+    return false;
+  if (!is_close(payload1.rotation, payload2.rotation, eps))
+    return false;
+
+  return true;
+}
+
 inline host_fn bool operator==(const CollisionModelCapsule& a, const CollisionModelCapsule& b) {
   return ((a.p1 == b.p1 && a.p2 == b.p2) || (a.p1 == b.p2 && a.p2 == b.p1)) && is_close(a.radius, b.radius);
 }

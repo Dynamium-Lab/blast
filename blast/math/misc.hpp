@@ -180,4 +180,37 @@ inline host_fn u32 random_int(u32 min, u32 max) {
 }
 #endif
 
+Mat3 move_inertia_tensor(const real& mass, const Vec3& center_of_gravity, const Mat3& inertia_tensor, Vec3 new_center_of_gravity = {0.0, 0.0, 0.0}) {
+  Mat3 result;
+
+  Vec3 r = center_of_gravity - new_center_of_gravity;
+
+  result(0, 0) = inertia_tensor(0, 0) + mass * (r.y * r.y + r.z * r.z);
+  result(0, 1) = inertia_tensor(0, 1) + mass * (-r.x * r.y);
+  result(0, 2) = inertia_tensor(0, 2) + mass * (-r.x * r.z);
+
+  result(1, 0) = inertia_tensor(1, 0) + mass * (-r.x * r.y);
+  result(1, 1) = inertia_tensor(1, 1) + mass * (r.x * r.x + r.z * r.z);
+  result(1, 2) = inertia_tensor(1, 2) + mass * (-r.y * r.z);
+
+  result(2, 0) = inertia_tensor(2, 0) + mass * (-r.x * r.z);
+  result(2, 1) = inertia_tensor(2, 1) + mass * (-r.y * r.z);
+  result(2, 2) = inertia_tensor(2, 2) + mass * (r.x * r.x + r.y * r.y);
+
+  return result;
+}
+
+// Computes combined dynamic properties of mass a and b relative to the origin (0, 0, 0).
+// Expects inertial tensors to be w.r.t. center of gravity
+// math from: https://physics.stackexchange.com/questions/514700/calculating-new-mass-moments-given-change-in-cg-and-transformation
+void sum_dynamic_properties(const real& mass_a, const Vec3& center_of_gravity_a, const Mat3& inertia_tensor_a,
+                            const real& mass_b, const Vec3& center_of_gravity_b, const Mat3& inertia_tensor_b,
+                            real& mass_result, Vec3& center_of_gravity_result, Mat3& inertia_tensor_result) {
+  mass_result = mass_a + mass_b;
+
+  center_of_gravity_result = (center_of_gravity_a * mass_a + center_of_gravity_b * mass_b) / mass_result;
+  inertia_tensor_result    = move_inertia_tensor(mass_a, center_of_gravity_a, inertia_tensor_a, center_of_gravity_result) +
+                          move_inertia_tensor(mass_b, center_of_gravity_b, inertia_tensor_b, center_of_gravity_result);
+}
+
 } // namespace blast

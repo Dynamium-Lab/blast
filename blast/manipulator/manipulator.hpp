@@ -19,7 +19,12 @@ struct host_fn IK_opt {
 
 inline host_fn Matrix jacobian(const Manipulator& manip, const ManipulatorTempData& temp) {
   std::vector<Vec3> r_tool(manip.n_joints);
-  r_tool[manip.n_joints - 1] = manip.joint_offsets[manip.n_joints - 1];
+  if (manip.has_tool) {
+    r_tool[manip.n_joints - 1] = manip.tool.position + manip.tool.tool_center_position;
+  } else {
+    r_tool[manip.n_joints - 1] = Vec3(0, 0, 0);
+  }
+
   for (int i = (int) manip.n_joints - 2; i >= 0; i--) {
     r_tool[i] = manip.joint_offsets[i] + temp.rotations[i + 1] * r_tool[i + 1];
   }
@@ -32,23 +37,18 @@ inline host_fn Matrix jacobian(const Manipulator& manip, const ManipulatorTempDa
   for (int i = 0; i < manip.n_joints; i++) {
     const Vec3 e       = temp.rotations_mult[i] * manip.joint_axes[i]; // replaced e directly in function to skip copy
     const Vec3 cr_tool = cross(e, r_tool[i]);
-    // J_tool(0, i) = e.x;
-    // J_tool(1, i) = e.y;
-    // J_tool(2, i) = e.z;
-    // J_tool(3, i) = cr_tool.x;
-    // J_tool(4, i) = cr_tool.y;
-    // J_tool(5, i) = cr_tool.z;
-    J_tool(3, i) = e.x;
-    J_tool(4, i) = e.y;
-    J_tool(5, i) = e.z;
-    J_tool(0, i) = cr_tool.x;
-    J_tool(1, i) = cr_tool.y;
-    J_tool(2, i) = cr_tool.z;
+    J_tool(3, i)       = e.x;
+    J_tool(4, i)       = e.y;
+    J_tool(5, i)       = e.z;
+    J_tool(0, i)       = cr_tool.x;
+    J_tool(1, i)       = cr_tool.y;
+    J_tool(2, i)       = cr_tool.z;
   }
 
   return J_tool;
 }
-//
+
+// todo: remove?
 // inline host_fn void forward_kinematics(Manipulator& manip, const Array& joint_pos) {
 //   manip.compute_rotation_matrices(joint_pos);
 //
@@ -64,7 +64,7 @@ inline host_fn Matrix jacobian(const Manipulator& manip, const ManipulatorTempDa
 // }
 
 inline host_fn void forward_kinematics(const Manipulator& manip, ManipulatorTempData& temp, const Array& joint_pos) {
-  const auto n_joints = joint_pos.size;
+  Assert(manip.n_joints == joint_pos.size);
 
   // real s[MAX_JOINTS];
   // real c[MAX_JOINTS];
@@ -85,7 +85,7 @@ inline host_fn void forward_kinematics(const Manipulator& manip, ManipulatorTemp
   //   }
   // #endif
 
-  for (u32 j = 0; j < n_joints; ++j) {
+  for (u32 j = 0; j < manip.n_joints; ++j) {
     auto       s      = sin(joint_pos[j]);
     auto       c      = cos(joint_pos[j]);
     const Mat3 temp_Q = {c, s, 0, -s, c, 0, 0, 0, 1};
@@ -94,15 +94,24 @@ inline host_fn void forward_kinematics(const Manipulator& manip, ManipulatorTemp
 
   temp.rotations_mult[0] = manip.base_rotation * temp.rotations[0];
   temp.p_j[0]            = manip.base_position + manip.base_rotation * manip.first_joint_position;
-  for (u32 j = 1; j < n_joints; j++) {
+  for (u32 j = 1; j < manip.n_joints; j++) {
     temp.rotations_mult[j] = temp.rotations_mult[j - 1] * temp.rotations[j]; // note: add this to *= temp._rotations_mult ?
     temp.p_j[j]            = temp.p_j[j - 1] + temp.rotations_mult[j - 1] * manip.joint_offsets[j - 1];
   }
-  temp.p_j[n_joints] = temp.p_j[n_joints - 1] + temp.rotations_mult[n_joints - 1] * manip.joint_offsets[n_joints - 1];
+  // originally for the tool (todo: remove when agreed)
+  temp.p_j[manip.n_joints] = temp.p_j[manip.n_joints - 1] + temp.rotations_mult[manip.n_joints - 1] * manip.joint_offsets[manip.n_joints - 1];
 
-  // todo: Handle end-effector
+  if (manip.has_tool) {
+    temp.tool_position = temp.p_j[manip.n_joints - 1] + temp.rotations_mult[manip.n_joints - 1] * manip.tool.position;
+    temp.tool_rotation = temp.rotations_mult[manip.n_joints - 1] * manip.tool.rotation;
+  }
+  if (manip.has_payload) {
+    temp.payload_position = temp.p_j[manip.n_joints - 1] + temp.rotations_mult[manip.n_joints - 1] * manip.payload.position;
+    temp.payload_rotation = temp.rotations_mult[manip.n_joints - 1] * manip.payload.rotation;
+  }
 }
 
+// todo: add tool and payload
 inline host_fn void dynamics(const Manipulator& manip, ManipulatorTempData& temp, const Array& vel, const Array& acc) {
   Assert(vel.size == acc.size);
   Assert(vel.size == manip.n_joints);
@@ -138,8 +147,48 @@ inline host_fn void dynamics(const Manipulator& manip, ManipulatorTempData& temp
   }
 
   //-- dynamics
-  f[joints - 1] = manip.link_masses[joints - 1] * cdd[joints - 1];
-  n[joints - 1] = manip.inertia_tensors[joints - 1] * wd[joints - 1] + cross(w[joints - 1], manip.inertia_tensors[joints - 1] * w[joints - 1]) + cross(manip.cog_offsets[joints - 1], f[joints - 1]);
+  if (manip.has_tool || manip.has_payload) {
+    // include tool and payload in final link tensor
+    real modified_last_link_mass    = manip.link_masses[manip.n_joints - 1];
+    Vec3 modified_last_link_cog     = manip.cog_offsets[manip.n_joints - 1];
+    Mat3 modified_last_link_inertia = manip.inertia_tensors[manip.n_joints - 1];
+
+    if (manip.has_tool && manip.has_payload) {
+      Vec3 tool_cog_offset_from_last_joint    = manip.tool.position + manip.tool.rotation * manip.tool.cog_offset;
+      Vec3 payload_cog_offset_from_last_joint = manip.payload.position + manip.payload.rotation * manip.payload.cog_offset;
+
+      real last_link_mass_with_tool    = manip.link_masses[manip.n_joints - 1];
+      Vec3 last_link_cog_with_tool     = manip.cog_offsets[manip.n_joints - 1];
+      Mat3 last_link_inertia_with_tool = manip.inertia_tensors[manip.n_joints - 1];
+
+      sum_dynamic_properties(manip.link_masses[manip.n_joints - 1], manip.cog_offsets[manip.n_joints - 1], manip.inertia_tensors[manip.n_joints - 1],
+                             manip.tool.mass, tool_cog_offset_from_last_joint, manip.tool.inertia_tensor,
+                             last_link_mass_with_tool, last_link_cog_with_tool, last_link_inertia_with_tool);
+      sum_dynamic_properties(last_link_mass_with_tool, last_link_cog_with_tool, last_link_inertia_with_tool,
+                             manip.payload.mass, payload_cog_offset_from_last_joint, manip.payload.inertia_tensor,
+                             modified_last_link_mass, modified_last_link_cog, modified_last_link_inertia);
+    } else if (manip.has_tool) {
+      Vec3 tool_cog_offset_from_last_joint = manip.tool.position + manip.tool.rotation * manip.tool.cog_offset;
+
+      sum_dynamic_properties(manip.link_masses[manip.n_joints - 1], manip.cog_offsets[manip.n_joints - 1], manip.inertia_tensors[manip.n_joints - 1],
+                             manip.tool.mass, tool_cog_offset_from_last_joint, manip.tool.inertia_tensor,
+                             modified_last_link_mass, modified_last_link_cog, modified_last_link_inertia);
+    } else if (manip.has_payload) { // this if could be a else {}
+      Vec3 payload_cog_offset_from_last_joint = manip.payload.position + manip.payload.rotation * manip.payload.cog_offset;
+
+      sum_dynamic_properties(manip.link_masses[manip.n_joints - 1], manip.cog_offsets[manip.n_joints - 1], manip.inertia_tensors[manip.n_joints - 1],
+                             manip.payload.mass, payload_cog_offset_from_last_joint, manip.payload.inertia_tensor,
+                             modified_last_link_mass, modified_last_link_cog, modified_last_link_inertia);
+    }
+
+    Vec3 modified_last_link_cdd = Qt[manip.n_joints - 1] * cdd[manip.n_joints - 1 - 1] + cross(wd[manip.n_joints - 1], modified_last_link_cog) + cross(w[manip.n_joints - 1], cross(w[manip.n_joints - 1], modified_last_link_cog));
+
+    f[joints - 1] = modified_last_link_mass * modified_last_link_cdd;
+    n[joints - 1] = modified_last_link_inertia * wd[joints - 1] + cross(w[joints - 1], modified_last_link_inertia * w[joints - 1]) + cross(modified_last_link_cog, f[joints - 1]);
+  } else { // no gripper or payload
+    f[joints - 1] = manip.link_masses[joints - 1] * cdd[joints - 1];
+    n[joints - 1] = manip.inertia_tensors[joints - 1] * wd[joints - 1] + cross(w[joints - 1], manip.inertia_tensors[joints - 1] * w[joints - 1]) + cross(manip.cog_offsets[joints - 1], f[joints - 1]);
+  }
 
   for (int j = (int) joints - 2; j >= 0; j--) {
     f[j] = manip.link_masses[j] * cdd[j] + temp.rotations[j + 1] * f[j + 1];
@@ -289,72 +338,75 @@ inline host_fn void Manipulator::set_capsules(const ManipulatorCapsules& capsule
   }
 }
 
-inline void compute_capsules(const Manipulator& manip, ManipulatorTempData& manip_data) {
+inline void compute_collision_model(const Manipulator& manip, ManipulatorTempData& manip_data) {
   for (u32 i = 0; i < manip._n_caps; ++i) {
     manip_data.capsule_list[i] = {
             {manip_data.p_j[manip._collision_model[i].joint_frame] + manip_data.rotations_mult[manip._collision_model[i].joint_frame] * manip._collision_model[i].p1},
             {manip_data.p_j[manip._collision_model[i].joint_frame] + manip_data.rotations_mult[manip._collision_model[i].joint_frame] * manip._collision_model[i].p2},
             manip._collision_model[i].radius};
   }
-}
 
+  if (manip.has_tool) {
+    Mat3 collision_model_global_rotation = manip_data.rotations_mult[manip.n_joints - 1] * manip_data.tool_rotation;
+    Vec3 collision_model_global_position = manip_data.tool_position + collision_model_global_rotation * manip.tool.collision_model.position;
+    for (int i = 0; i < manip.tool.collision_model.points.size(); i++) {
+      manip_data.tool_collision_model[i] = collision_model_global_position + collision_model_global_rotation * manip.tool.collision_model.points[i];
+    }
+  }
+  if (manip.has_payload) {
+    Mat3 collision_model_global_rotation = manip_data.rotations_mult[manip.n_joints - 1] * manip_data.payload_rotation;
+    Vec3 collision_model_global_position = manip_data.payload_position + collision_model_global_rotation * manip.payload.collision_model.position;
+    for (int i = 0; i < manip.payload.collision_model.points.size(); i++) {
+      manip_data.payload_collision_model[i] = collision_model_global_position + collision_model_global_rotation * manip.payload.collision_model.points[i];
+    }
+  }
+}
 
 // todo: reformat for speed. ex: have a list of tuples that contain indices of collidable bodies
 inline Array get_internal_collisions(const Manipulator& manip, const ManipulatorTempData& temp) {
   Array distances(manip._n_internal_collisions);
   int   idx = 0;
-  for (int i = 0; i < manip._collision_matrix.cols; ++i) {
-    for (int j = i + 1; j < manip._collision_matrix.rows; ++j) {
+  for (int i = 0; i < manip._n_caps; ++i) {
+    for (int j = i + 1; j < manip._n_caps; ++j) {
       if (manip._collision_matrix(j, i) != 0)
         distances[idx++] = distance(temp.capsule_list[i], temp.capsule_list[j]);
     }
   }
-  for (u32 i = 0; i < manip._collision_base.size; ++i) {
+  for (u32 i = 0; i < manip._n_caps; ++i) {
     if (manip._collision_base[i] != 0)
       distances[idx++] = distance(temp.capsule_list[i], manip._base_sphere);
+    // if (manip.has_tool && manip._collision_tool[i] != 0)
+    //   distances[idx++] = distance(temp.capsule_list[i], temp.tool_collision_model);
+    // if (manip.has_payload && manip._collision_payload[i] != 0)
+    //   distances[idx++] = distance(temp.capsule_list[i], temp.payload_collision_model);
   }
   return distances;
 }
 
-inline host_fn void Manipulator::add_tool(const Tool& tool) {
-  tool_offset         = tool.tool_offset;
-  tool_rotation       = tool.tool_rotation;
-  tool_mass           = tool.mass;
-  tool_inertia_tensor = tool.inertia_tensor;
-  tool_cog_offset     = tool.cog_offset;
-  has_tool            = true;
-
-  joint_offsets[n_joints - 1] += tool_rotation * tool.tool_offset;
-  static_rotations[n_joints - 1] *= tool_rotation;
-  real m_new    = link_masses[n_joints - 1] + tool.mass;
-  Vec3 av_new   = (link_masses[n_joints - 1] * cog_offsets[n_joints - 1] + tool.mass * tool.cog_offset) / m_new;
-  Vec3 delta_av = av_new - cog_offsets[n_joints - 1];
-
-  inertia_tensors[n_joints - 1](0, 0) += link_masses[n_joints - 1] * delta_av.x * delta_av.x + tool.mass * tool.cog_offset.x * tool.cog_offset.x;
-  inertia_tensors[n_joints - 1](1, 1) += link_masses[n_joints - 1] * delta_av.y * delta_av.y + tool.mass * tool.cog_offset.y * tool.cog_offset.y;
-  inertia_tensors[n_joints - 1](2, 2) += link_masses[n_joints - 1] * delta_av.z * delta_av.z + tool.mass * tool.cog_offset.z * tool.cog_offset.z;
-  inertia_tensors[n_joints - 1] += tool.inertia_tensor;
-
-  link_masses[n_joints - 1]         = m_new;
-  cog_offsets[n_joints - 1]         = av_new;
-  cog_from_next_joint[n_joints - 1] = {-joint_offsets[n_joints - 1] + cog_offsets[n_joints - 1]};
+// Attaches a new tool to the manipulator
+// Erases the current tool if there is one
+inline host_fn void Manipulator::set_tool(const Tool& new_tool) {
+  has_tool = true;
+  tool     = new_tool;
 }
 
-inline host_fn void Manipulator::set_payload(real m_payload, Vec3 cg_payload, Mat3 I_payload) {
-  Vec3 av_payload = cg_payload;
-  real m_new      = link_masses[n_joints - 1] + m_payload;
-  Vec3 av_new     = (link_masses[n_joints - 1] * cog_offsets[n_joints - 1] + m_payload * av_payload) / m_new;
-  Vec3 delta_av   = av_new - cog_offsets[n_joints - 1];
-  Vec3 av_to_mass = av_payload - av_new;
+// Attaches a new payload to the manipulator
+// Erases the current payload if there is one
+inline host_fn void Manipulator::set_payload(const Payload& new_payload) {
+  has_payload = true;
+  payload     = new_payload;
+}
 
-  inertia_tensors[n_joints - 1](0, 0) += link_masses[n_joints - 1] * delta_av.x * delta_av.x + m_payload * av_to_mass.x * av_to_mass.x;
-  inertia_tensors[n_joints - 1](1, 1) += link_masses[n_joints - 1] * delta_av.y * delta_av.y + m_payload * av_to_mass.y * av_to_mass.y;
-  inertia_tensors[n_joints - 1](2, 2) += link_masses[n_joints - 1] * delta_av.z * delta_av.z + m_payload * av_to_mass.z * av_to_mass.z;
-  inertia_tensors[n_joints - 1] += I_payload;
+// Remove the current tool from the manipulator
+inline host_fn void Manipulator::remove_tool() {
+  tool     = {};
+  has_tool = false;
+}
 
-  link_masses[n_joints - 1]         = m_new;
-  cog_offsets[n_joints - 1]         = av_new;
-  cog_from_next_joint[n_joints - 1] = {-joint_offsets[n_joints - 1] + cog_offsets[n_joints - 1]};
+// Remove the current payload from the manipulator
+inline host_fn void Manipulator::remove_payload() {
+  has_payload = false;
+  payload     = {};
 }
 
 inline host_fn real clamped_root(real slope, real h0, real h1) {

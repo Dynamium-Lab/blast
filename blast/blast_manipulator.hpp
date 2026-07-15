@@ -23,22 +23,6 @@ inline host_fn void   dynamics(const Manipulator& manip, ManipulatorTempData& te
 // inline Array          inverse_kinematics_nlopt(Manipulator manip, Array desired_pose, Array initial_joint_position);
 
 /**
- * @struct CollisionModelCapsule
- * @brief Simple capsule primitive for collision checking.
- *
- * @var p1           First endpoint of the capsule (Vec3).
- * @var joint_frame  Index of the joint frame to which this capsule is attached.
- * @var p2           Second endpoint of the capsule (Vec3).
- * @var radius       Radius of the capsule.
- */
-struct CollisionModelCapsule {
-  Vec3 p1;
-  u32  joint_frame;
-  Vec3 p2;
-  real radius;
-};
-
-/**
  * @struct ManipulatorLimits
  * @brief Actuator limits for a manipulator's joints and Tool.
  *
@@ -111,36 +95,68 @@ struct ManipulatorCapsules {
 };
 
 /**
- * @struct Tool
- * @brief Payload and collision properties of a tool.
+ * @struct Payload
+ * @brief Kinematic, Dynamic and Collision properties of a payload.
  *
- * @var tool_offset    Offset vector from Tool to payload.
- * @var tool_rotation  Rotation from Tool to payload.
- * @var mass          Payload mass.
- * @var inertia_tensor Payload inertia tensor.
- * @var cog_offset    Payload center of mass offset.
- * @var capsule_list  Collision capsules for the tool.
- * @var collision_matrix Collision matrix for payload capsules.
+ * @var position        Position vector from Tool to payload.
+ * @var rotation        Rotation from Tool to payload.
+ * @var mass            Payload mass.
+ * @var inertia_tensor  Payload inertia tensor.
+ * @var cog_offset      Payload center of mass offset in local frame.
+ * @var collision_model Point cloud collision model for the payload.
  */
-struct Tool {
-  Vec3 tool_offset   = {0.0, 0.0, 0.0};
-  Mat3 tool_rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  real mass          = 0.0;
+struct Payload {
+  Vec3 position = {0.0, 0.0, 0.0};
+  Mat3 rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  real mass     = 0.0;
   Mat3 inertia_tensor;
   Vec3 cog_offset = {0.0, 0.0, 0.0}; // center of gravity offset
 
-  // Collision for the tool
-  std::vector<CollisionModelCapsule> capsule_list;
-  ObjMatrix<u8>                      collision_matrix = {};
+  PointCloud collision_model;
 };
 
+/**
+ * @struct Tool
+ * @brief Kinematic, Dynamic and Collision properties of a tool.
+ *
+ * @var position        Position vector from last joint to tool.
+ * @var rotation        Rotation from last joint to tool.
+ * @var mass            Tool mass.
+ * @var inertia_tensor  Tool inertia tensor.
+ * @var cog_position    Tool center of mass position in local frame.
+ * @var collision_model Point cloud collision model for the tool.
+ */
+struct Tool {
+  Vec3 position             = {0, 0, 0};
+  Mat3 rotation             = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  Vec3 tool_center_position = {0, 0, 0};
+
+  real mass = 0;
+  Mat3 inertia_tensor;
+  Vec3 cog_offset = {0, 0, 0}; // center of gravity offset
+
+  PointCloud collision_model;
+};
 
 struct ManipulatorTempData {
+  // manipulator
   std::array<real, MAX_JOINTS>      efforts{};
   std::array<Mat3, MAX_JOINTS>      rotations{};
   std::array<Mat3, MAX_JOINTS>      rotations_mult{};
   std::array<Vec3, MAX_JOINTS + 1>  p_j{};
   std::array<Capsule, MAX_CAPSULES> capsule_list{};
+
+  // tool
+  Vec3 tool_position;
+  Mat3 tool_rotation;
+  // Not using PointCloud since positions and rotations are precomputed, avoiding repeated transformations.
+  std::vector<Vec3> tool_collision_model;
+
+  // payload
+  Vec3 payload_position;
+  Mat3 payload_rotation;
+  // Not using PointCloud since positions and rotations are precomputed, avoiding repeated transformations.
+  std::vector<Vec3> payload_collision_model;
 };
 
 /**
@@ -169,12 +185,12 @@ struct Manipulator {
   Mat3 base_rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};
 
   // Tool state
-  bool has_tool            = false;
-  Vec3 tool_offset         = {0, 0, 0};
-  Mat3 tool_rotation       = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  real tool_mass           = 0.0;
-  Mat3 tool_inertia_tensor = eye();
-  Vec3 tool_cog_offset     = {0, 0, 0}; // center of gravity offset
+  bool has_tool = false;
+  Tool tool;
+
+  // Payload state
+  bool    has_payload = false;
+  Payload payload;
 
   // Joint kinematics
   Vec3                             first_joint_position = {0, 0, 0};
@@ -194,6 +210,8 @@ struct Manipulator {
   std::array<CollisionModelCapsule, MAX_CAPSULES> _collision_model{};
   ObjMatrix<u8>                                   _collision_matrix{};
   Array                                           _collision_base{};
+  Array                                           _collision_tool{};
+  Array                                           _collision_payload{};
   Sphere                                          _base_sphere{};
 
   Manipulator() = delete;
@@ -233,23 +251,23 @@ struct Manipulator {
   host_fn void set_capsules(const ManipulatorCapsules& capsules);
 
   /**
-   * @brief Attach a tool to this manipulator.
-   * @param tool  Tool structure with payload and geometry.
+   * @brief Set a tool to this manipulator.
+   * @param tool  Tool structure and geometry.
    */
-  host_fn void add_tool(const Tool& tool);
+  host_fn void set_tool(const Tool& tool);
+  host_fn void remove_tool();
 
   /**
-   * @brief Add a payload to the last link, adjusting mass and inertia.
-   * @param m_payload    Payload mass.
-   * @param cg_payload   Payload center of mass offset.
-   * @param I_payload    Payload inertia tensor.
+   * @brief Set a payload to this manipulator.
+   * @param payload Payload structure and geometry
    */
-  host_fn void set_payload(real m_payload, Vec3 cg_payload, Mat3 I_payload);
+  host_fn void set_payload(const Payload& payload);
+  host_fn void remove_payload();
 
   /**
    * @brief Update collision capsules in world frame (store internally).
    */
-  // host_fn void compute_capsules();
+  // host_fn void compute_collision_model();
 
   /**
    * @brief Compute distances for all internal collisions.
