@@ -181,7 +181,9 @@ inline host_fn void dynamics(const Manipulator& manip, ManipulatorTempData& temp
                              modified_last_link_mass, modified_last_link_cog, modified_last_link_inertia);
     }
 
-    Vec3 modified_last_link_cdd = Qt[manip.n_joints - 1] * cdd[manip.n_joints - 1 - 1] + cross(wd[manip.n_joints - 1], modified_last_link_cog) + cross(w[manip.n_joints - 1], cross(w[manip.n_joints - 1], modified_last_link_cog));
+    // modify linear acceleration of cog to match its new position on the rigid body
+    Vec3 delta_cog              = modified_last_link_cog - manip.cog_offsets[manip.n_joints - 1];
+    Vec3 modified_last_link_cdd = cdd[manip.n_joints - 1] + cross(wd[manip.n_joints - 1], delta_cog) + cross(w[manip.n_joints - 1], cross(w[manip.n_joints - 1], delta_cog));
 
     f[joints - 1] = modified_last_link_mass * modified_last_link_cdd;
     n[joints - 1] = modified_last_link_inertia * wd[joints - 1] + cross(w[joints - 1], modified_last_link_inertia * w[joints - 1]) + cross(modified_last_link_cog, f[joints - 1]);
