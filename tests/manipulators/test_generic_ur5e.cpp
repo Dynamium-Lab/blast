@@ -297,9 +297,7 @@ TEST_CASE("Tool changes dynamics", "[Manipulator]") {
   dynamics(manip1, d1, qd, qdd);
   dynamics(manip2, d2, qd, qdd);
 
-  for (int i = 0; i < manip1.n_joints; i++) {
-    CHECK(std::abs(d1.efforts[i]) < std::abs(d2.efforts[i]));
-  }
+  CHECK(!is_close(d1.efforts, d2.efforts, BLAST_EPSILON));
 }
 
 TEST_CASE("Massless tool leaves dynamics unchanged", "[Manipulator]") {
@@ -378,8 +376,83 @@ TEST_CASE("Payload changes dynamics", "[Manipulator]") {
   dynamics(manip1, d1, qd, qdd);
   dynamics(manip2, d2, qd, qdd);
 
-  for (int i = 0; i < manip1.n_joints; i++) {
-    CHECK(std::abs(d1.efforts[i]) < std::abs(d2.efforts[i]));
+  CHECK(!is_close(d1.efforts, d2.efforts, BLAST_EPSILON));
+}
+
+TEST_CASE("Equivalent tool and payload have identical dynamics", "[Manipulator]") {
+
+  Manipulator manip_tool    = make_UR5e();
+  Manipulator manip_payload = make_UR5e();
+
+  Tool tool;
+  tool.mass           = 5.0;
+  tool.position       = {0.2, 0.0, 0.0};
+  tool.inertia_tensor = {0.01, 0.0, 0.0, 0.0, 0.02, 0.0, 0.0, 0.0, 0.03};
+
+  Payload payload;
+  payload.mass           = tool.mass;
+  payload.position       = tool.position;
+  payload.inertia_tensor = tool.inertia_tensor;
+
+  manip_tool.set_tool(tool);
+  manip_payload.set_payload(payload);
+
+  ManipulatorTempData d_tool;
+  ManipulatorTempData d_payload;
+
+  Array q   = {0.3, -1.0, 0.5, -1.2, 0.4, 0.2};
+  Array qd  = {0.2, -0.1, 0.3, 0.1, -0.2, 0.05};
+  Array qdd = {0.5, 0.2, -0.3, 0.1, 0.4, -0.2};
+
+  forward_kinematics(manip_tool, d_tool, q);
+  forward_kinematics(manip_payload, d_payload, q);
+
+  dynamics(manip_tool, d_tool, qd, qdd);
+  dynamics(manip_payload, d_payload, qd, qdd);
+
+
+  for (int i = 0; i < manip_tool.n_joints; i++) {
+    CHECK(d_tool.efforts[i] ==
+          Approx(d_payload.efforts[i]).margin(1e-10));
+  }
+}
+
+TEST_CASE("Payload gravity matches Jacobian torque at TCP", "[Manipulator]") {
+  Manipulator manip1 = make_UR5e();
+  Manipulator manip2 = make_UR5e();
+
+  Payload payload;
+  payload.mass     = 5.0;
+  payload.position = {0, 0, 0};
+
+  manip2.set_payload(payload);
+
+  ManipulatorTempData data1;
+  ManipulatorTempData data2;
+
+  Array q = {0.4, -1.1, 0.7, -1.0, 0.2, 0.1};
+  Array qd(6, 0.0);
+  Array qdd(6, 0.0);
+
+  forward_kinematics(manip1, data1, q);
+  forward_kinematics(manip2, data2, q);
+
+  dynamics(manip1, data1, qd, qdd);
+  dynamics(manip2, data2, qd, qdd);
+
+  Matrix J = jacobian(manip2, data2);
+
+  Vec3 F = {0, 0, payload.mass * 9.81};
+
+  for (int i = 0; i < manip2.n_joints; i++) {
+    Vec3 Ji = {J(0, i), J(1, i), J(2, i)};
+
+    double expected = dot(Ji, F);
+
+    double measured =
+            data2.efforts[i] - data1.efforts[i];
+
+    CHECK(measured == Approx(expected).margin(1e-8));
   }
 }
 

@@ -4,6 +4,22 @@
 namespace blast {
 
 
+// // Returns distance between an box and a point
+// inline real distance(const Box& box, const Vec3& point) {
+//   Mat3 Rtrans = transpose(box.rotation);
+
+//   Vec3 point_box = Rtrans * (point - box.center);
+
+//   Vec3  proj = {clamp(point_box.x, -box.extents.x, box.extents.x), clamp(point_box.y, -box.extents.y, box.extents.y), clamp(point_box.z, -box.extents.z, box.extents.z)};
+//   Array dist_in(3);
+//   dist_in[0]            = std::abs(point_box.x) - box.extents.x;
+//   dist_in[1]            = std::abs(point_box.y) - box.extents.y;
+//   dist_in[2]            = std::abs(point_box.z) - box.extents.z;
+//   real result_if_inside = max(dist_in);
+
+//   return result_if_inside > 0 ? norm(proj - point_box) : result_if_inside;
+// }
+
 // Returns distance between an box and a point
 inline real distance(const Box& box, const Vec3& point) {
   Mat3 Rtrans = transpose(box.rotation);
@@ -16,9 +32,7 @@ inline real distance(const Box& box, const Vec3& point) {
   dist_in[1]            = std::abs(point_box.y) - box.extents.y;
   dist_in[2]            = std::abs(point_box.z) - box.extents.z;
   real result_if_inside = max(dist_in);
-  if (max(dist_in) == 0.29048075959276026) {
-    int stop = 0;
-  }
+
   return result_if_inside > 0 ? norm(proj - point_box) : result_if_inside;
 }
 
