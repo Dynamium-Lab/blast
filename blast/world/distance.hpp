@@ -255,6 +255,10 @@ inline blast_fn real distance(Segment segment, Vec3 point) {
   return norm(d - point);
 }
 
+inline blast_fn void print_vec(Vec3 v, std::string name = "") {
+  printf("%s = [% 0.4f, % 0.4f, % 0.4f]\n", name.c_str(), v.x, v.y, v.z);
+}
+
 inline blast_fn real distance(const Capsule& capsule, const Box& box) {
   // Transferring points to OBB frame
   Mat3 R_trans = transpose(box.rotation);
@@ -281,9 +285,15 @@ inline blast_fn real distance(const Capsule& capsule, const Box& box) {
   origin_vertices.vert[2] = {box.extents.x, -box.extents.y, -box.extents.z};
   origin_vertices.vert[3] = {box.extents.x, box.extents.y, -box.extents.z};
   origin_vertices.vert[4] = {-box.extents.x, -box.extents.y, box.extents.z};
-  origin_vertices.vert[5] = {-box.extents.x, box.extents.y, box.extents.z};
+  origin_vertices.vert[5] = {-box.extents.x, box.extents.y, box.extents.z}; // this one
   origin_vertices.vert[6] = {box.extents.x, -box.extents.y, box.extents.z};
-  origin_vertices.vert[7] = {box.extents.x, box.extents.y, box.extents.z};
+  origin_vertices.vert[7] = {box.extents.x, box.extents.y, box.extents.z};  // this one
+
+
+  // std::cout << "(0.35, 0.35, 0.02)" << std::endl;
+  // print_vec(origin_vertices.vert[7]);
+  // std::cout << "(-0.35, 0.35, 0.02)" << std::endl;
+  // print_vec(origin_vertices.vert[5]);
 
   // Thus, we get the three main directions
   Directions directions;

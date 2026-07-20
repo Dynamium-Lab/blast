@@ -23,7 +23,7 @@ PointCloud point_cloud_from_box(Box box) {
   v2[6] = box.center - size_x - size_y + size_z;
   v2[7] = box.center - size_x - size_y - size_z;
 
-  cloud.set = v2;
+  cloud.points = v2;
   // // Add box corners
   // for (int i = 0; i < 8; i++) {
   //   Vec3 rotated_corner = box.rotation * corners[i];
