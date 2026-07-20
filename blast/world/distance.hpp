@@ -260,6 +260,13 @@ inline blast_fn void print_vec(Vec3 v, std::string name = "") {
 }
 
 inline blast_fn real distance(const Capsule& capsule, const Box& box) {
+  Assert(norm(box.rotation.col_copy(0)) == 1.0);
+  Assert(norm(box.rotation.col_copy(1)) == 1.0);
+  Assert(norm(box.rotation.col_copy(2)) == 1.0);
+  Assert(norm(Vec3(box.rotation(0, 0), box.rotation(0, 1), box.rotation(0, 2))) == 1.0);
+  Assert(norm(Vec3(box.rotation(1, 0), box.rotation(1, 1), box.rotation(1, 2))) == 1.0);
+  Assert(norm(Vec3(box.rotation(2, 0), box.rotation(2, 1), box.rotation(2, 2))) == 1.0);
+
   // Transferring points to OBB frame
   Mat3 R_trans = transpose(box.rotation);
 
