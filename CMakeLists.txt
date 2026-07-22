@@ -13,7 +13,7 @@ include(CMakePackageConfigHelpers)
 # --------------------------------------------------------------------------
 # Options
 # --------------------------------------------------------------------------
-option(ENABLE_TRACY "Enable Tracy Profiler support" OFF)
+option(ENABLE_TRACY "Enable Tracy Profiler support" ON)
 
 # Scalar precision of blast::real. ON = double (default), OFF = float.
 option(BLAST_USE_DOUBLES "Use double precision for blast::real (OFF = float)" ON)

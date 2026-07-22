@@ -1,6 +1,7 @@
 #pragma once
 
 #include <blast>
+#include "tracy/Tracy.hpp"
 
 namespace blast {
 
@@ -911,6 +912,7 @@ host_fn real distmin_origin(EPA_hull face) {
 }
 
 host_fn real solve_EPA_algorithm(ComplexSimplex simplex, std::vector<Vec3> v1, std::vector<Vec3> v2) {
+  ZoneScoped;
   // create a face vector that has three points and a normal
   std::vector<EPA_hull> faces;
 
@@ -1032,6 +1034,7 @@ host_fn real solve_EPA_algorithm(ComplexSimplex simplex, std::vector<Vec3> v1, s
 }
 
 host_fn gjkresult solve_general_GJK(const std::vector<Vec3>& v1, const std::vector<Vec3>& v2) {
+  ZoneScoped;
   ComplexSimplex simplex;
   gjkresult      results;
 
@@ -1157,7 +1160,8 @@ host_fn gjkresult solve_general_GJK(const std::vector<Vec3>& v1, const std::vect
   return results;
 }
 
-host_fn real distance_GJK_simple(Capsule caps, Box box) {
+host_fn real distance_GJK_simple(const Capsule& caps, const Box& box) {
+  ZoneScoped;
   Vec3 size_x_org = {box.extents.x, 0, 0};
   Vec3 size_y_org = {0, box.extents.y, 0};
   Vec3 size_z_org = {0, 0, box.extents.z};
@@ -1179,28 +1183,28 @@ host_fn real distance_GJK_simple(Capsule caps, Box box) {
   v2[6] = box.center - size_x - size_y + size_z;
   v2[7] = box.center - size_x - size_y - size_z;
 
-  std::cout << "(0.35, 0.35, 0.02)" << std::endl;
-  print_vec(v2[0]);
-  std::cout << "(-0.35, 0.35, 0.02)" << std::endl;
-  print_vec(v2[4]);
+  // std::cout << "(0.35, 0.35, 0.02)" << std::endl;
+  // print_vec(v2[0]);
+  // std::cout << "(-0.35, 0.35, 0.02)" << std::endl;
+  // print_vec(v2[4]);
 
   auto result = solve_general_GJK(v1, v2);
 
   // print simplex points here
-  std::cout << "Simplex" << std::endl;
-  print_vec(result.final_simplex.a1, "a1");
-  print_vec(result.final_simplex.a2, "a2");
-  print_vec(result.final_simplex.a, "a");
-  print_vec(result.final_simplex.b1, "b1");
-  print_vec(result.final_simplex.b2, "b2");
-  print_vec(result.final_simplex.b, "b");
-  print_vec(result.final_simplex.c1, "c1");
-  print_vec(result.final_simplex.c2, "c2");
-  print_vec(result.final_simplex.c, "c");
-  print_vec(result.final_simplex.d1, "d1");
-  print_vec(result.final_simplex.d2, "d2");
-  print_vec(result.final_simplex.d, "d");
-  std::cout << "count = " << result.final_simplex.count << std::endl;
+  // std::cout << "Simplex" << std::endl;
+  // print_vec(result.final_simplex.a1, "a1");
+  // print_vec(result.final_simplex.a2, "a2");
+  // print_vec(result.final_simplex.a, "a");
+  // print_vec(result.final_simplex.b1, "b1");
+  // print_vec(result.final_simplex.b2, "b2");
+  // print_vec(result.final_simplex.b, "b");
+  // print_vec(result.final_simplex.c1, "c1");
+  // print_vec(result.final_simplex.c2, "c2");
+  // print_vec(result.final_simplex.c, "c");
+  // print_vec(result.final_simplex.d1, "d1");
+  // print_vec(result.final_simplex.d2, "d2");
+  // print_vec(result.final_simplex.d, "d");
+  // std::cout << "count = " << result.final_simplex.count << std::endl;
 
   return (result.minimal_distance - caps.radius);
 }
@@ -1469,6 +1473,7 @@ host_fn void GJK_solve_simplex4_Ericson(Simplex* simplex) {
 // }
 
 host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vector<Vec3> v2) {
+  ZoneScoped;
   // create a face vector that has three points and a normal
   std::vector<EPA_hull> faces;
 
@@ -1591,6 +1596,7 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
 
 // Tests 2 sets of points using GJK
 host_fn real general_GJK(const std::vector<Vec3>& set1, const std::vector<Vec3>& set2) {
+  ZoneScoped;
   // This version of the GJK algorithm is implemented from the basic algorithm described in Collision Detection
   // manual by Ericson.
 
@@ -1664,19 +1670,20 @@ host_fn real general_GJK(const std::vector<Vec3>& set1, const std::vector<Vec3>&
   }
 
   // print simplex points here
-  std::cout << "Simplex (ericson)" << std::endl;
-  print_vec(simplex.a, "a");
-  print_vec(simplex.b, "b");
-  print_vec(simplex.c, "c");
-  print_vec(simplex.d, "d");
-  print_vec(simplex.P, "P");
-  std::cout << "count = " << simplex.size << std::endl;
+  // std::cout << "Simplex (ericson)" << std::endl;
+  // print_vec(simplex.a, "a");
+  // print_vec(simplex.b, "b");
+  // print_vec(simplex.c, "c");
+  // print_vec(simplex.d, "d");
+  // print_vec(simplex.P, "P");
+  // std::cout << "count = " << simplex.size << std::endl;
 
 
   return norm(simplex.P);
 }
 
 host_fn real distance_GJK(Capsule caps, Box box) {
+  ZoneScoped;
   // Initialization of the eight OBB points
   Vec3 size_x_org = {box.extents.x, 0, 0};
   Vec3 size_y_org = {0, box.extents.y, 0};
@@ -1699,10 +1706,14 @@ host_fn real distance_GJK(Capsule caps, Box box) {
   v2[6] = box.center - size_x - size_y + size_z;
   v2[7] = box.center - size_x - size_y - size_z;
 
-  std::cout << "(0.35, 0.35, 0.02)" << std::endl;
-  print_vec(v2[0]);
-  std::cout << "(-0.35, 0.35, 0.02)" << std::endl;
-  print_vec(v2[4]);
+  // for (int i = 0; i < v2.size(); i++) {
+  //   std::cout << "A" << i + 1 << " = (" << v2[i].x << ", " << v2[i].y << ", " << v2[i].z << ")" << std::endl;
+  // }
+
+  // std::cout << "(0.35, 0.35, 0.02)" << std::endl;
+  // print_vec(v2[0]);
+  // std::cout << "(-0.35, 0.35, 0.02)" << std::endl;
+  // print_vec(v2[4]);
 
   real dist = general_GJK(v1, v2) - caps.radius;
   return dist;

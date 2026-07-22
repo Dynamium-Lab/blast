@@ -256,10 +256,11 @@ inline blast_fn real distance(Segment segment, Vec3 point) {
 }
 
 inline blast_fn void print_vec(Vec3 v, std::string name = "") {
-  printf("%s = [% 0.4f, % 0.4f, % 0.4f]\n", name.c_str(), v.x, v.y, v.z);
+  printf("%s = [% 0.6f, % 0.6f, % 0.6f]\n", name.c_str(), v.x, v.y, v.z);
 }
 
 inline blast_fn real distance(const Capsule& capsule, const Box& box) {
+  ZoneScoped;
   // Transferring points to OBB frame
   Mat3 R_trans = transpose(box.rotation);
 

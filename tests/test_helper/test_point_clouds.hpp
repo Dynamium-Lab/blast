@@ -2,7 +2,7 @@
 #include <blast>
 
 namespace blast {
-PointCloud point_cloud_from_box(Box box) {
+PointCloud point_cloud_from_box(Box box, bool add_points = false) {
   PointCloud cloud;
 
   // Initialization of the eight OBB points
@@ -24,21 +24,19 @@ PointCloud point_cloud_from_box(Box box) {
   v2[7] = box.center - size_x - size_y - size_z;
 
   cloud.points = v2;
+  if (add_points) {
+    cloud.points.reserve(16);
+    for (int i = 0; i < 8; i++) {
+      cloud.points.push_back(box.center + random_real() * size_x + random_real() * size_y + random_real() * size_z);
+    }
+  }
   // // Add box corners
   // for (int i = 0; i < 8; i++) {
   //   Vec3 rotated_corner = box.rotation * corners[i];
   //   cloud.set.push_back(box.center + rotated_corner);
   // }
 
-  // // Add random points inside box
-  // for (int i = 0; i < 0; i++) { // can be up to 8 extra points
-  //   Vec3 scaled_corner = corners[i];
-  //   for (int j = 0; j < 3; j++) {
-  //     scaled_corner[j] *= random_real();
-  //   }
-  //   scaled_corner = box.rotation * scaled_corner;
-  //   cloud.set.push_back(box.center + scaled_corner);
-  // }
+  // Add random points inside box
 
   return cloud;
 }
