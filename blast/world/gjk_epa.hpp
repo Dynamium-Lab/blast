@@ -1682,8 +1682,14 @@ host_fn real general_GJK(const std::vector<Vec3>& set1, const std::vector<Vec3>&
   return norm(simplex.P);
 }
 
-host_fn real distance_GJK(Capsule caps, Box box) {
-  ZoneScoped;
+host_fn real distance_GJK(const Capsule& caps, const Box& box) {
+  Assert(norm(box.rotation.col_copy(0)) == 1.0);
+  Assert(norm(box.rotation.col_copy(1)) == 1.0);
+  Assert(norm(box.rotation.col_copy(2)) == 1.0);
+  Assert(norm(Vec3(box.rotation(0, 0), box.rotation(0, 1), box.rotation(0, 2))) == 1.0);
+  Assert(norm(Vec3(box.rotation(1, 0), box.rotation(1, 1), box.rotation(1, 2))) == 1.0);
+  Assert(norm(Vec3(box.rotation(2, 0), box.rotation(2, 1), box.rotation(2, 2))) == 1.0);
+
   // Initialization of the eight OBB points
   Vec3 size_x_org = {box.extents.x, 0, 0};
   Vec3 size_y_org = {0, box.extents.y, 0};
