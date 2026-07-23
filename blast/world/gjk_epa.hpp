@@ -780,7 +780,7 @@ host_fn closeface find_closest_face(std::vector<Triangle> faces) {
 }
 
 // there is a bug in this EPA !!
-// host_fn real solve_EPA_algorithm(ComplexSimplex simplex, std::vector<Vec3> v1, std::vector<Vec3> v2) {
+// host_fn real solve_EPA(ComplexSimplex simplex, std::vector<Vec3> v1, std::vector<Vec3> v2) {
 //   std::vector<Triangle> s{4}; // convex hull (no longer simplex)
 //   s[0] = {simplex.a, simplex.b, simplex.c};
 //   s[1] = {simplex.a, simplex.b, simplex.d};
@@ -911,10 +911,11 @@ host_fn real distmin_origin(EPA_hull face) {
   return norm(u * a + v * b + w * c);
 }
 
-host_fn real solve_EPA_algorithm(ComplexSimplex simplex, std::vector<Vec3> v1, std::vector<Vec3> v2) {
-  ZoneScoped;
+real solve_EPA(ComplexSimplex simplex, std::vector<Vec3> v1, std::vector<Vec3> v2) {
+  ZoneScopedN("Messy EPA");
   // create a face vector that has three points and a normal
   std::vector<EPA_hull> faces;
+  faces.reserve(v1.size() * v2.size());
 
   Vec3 ab = simplex.b - simplex.a;
   Vec3 ac = simplex.c - simplex.a;
@@ -922,30 +923,29 @@ host_fn real solve_EPA_algorithm(ComplexSimplex simplex, std::vector<Vec3> v1, s
   Vec3 bc = simplex.c - simplex.b;
   Vec3 bd = simplex.d - simplex.b;
 
-  Vec3 n1 = cross(ab, ac);
-  Vec3 n2 = cross(ab, ad);
-  Vec3 n3 = cross(ac, ad);
-  Vec3 n4 = cross(bc, bd);
+  Vec3 n       = cross(ab, ac);
+  real dot_a_n = dot(simplex.a, n);
+  n            = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.d) >= 0 ? -n : n));
+  n            = (1 / norm(n)) * n;
+  faces.push_back({simplex.a, simplex.b, simplex.c, n});
 
-  real dot_a_n1 = dot(simplex.a, n1);
-  real dot_a_n2 = dot(simplex.a, n2);
-  real dot_a_n3 = dot(simplex.a, n3);
-  real dot_d_n4 = dot(simplex.d, n4);
+  n       = cross(ab, ad);
+  dot_a_n = dot(simplex.a, n);
+  n       = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.d) >= 0 ? -n : n));
+  n       = (1 / norm(n)) * n;
+  faces.push_back({simplex.a, simplex.b, simplex.d, n});
 
-  n1 = dot_a_n1 > 0 ? n1 : (dot_a_n1 < 0 ? -n1 : (dot(n1, simplex.d) >= 0 ? -n1 : n1));
-  n2 = dot_a_n2 > 0 ? n2 : (dot_a_n2 < 0 ? -n2 : (dot(n2, simplex.d) >= 0 ? -n2 : n2));
-  n3 = dot_a_n3 > 0 ? n3 : (dot_a_n3 < 0 ? -n3 : (dot(n3, simplex.d) >= 0 ? -n3 : n3));
-  n4 = dot_d_n4 > 0 ? n4 : (dot_d_n4 < 0 ? -n4 : (dot(n4, simplex.a) >= 0 ? -n4 : n4));
+  n       = cross(ac, ad);
+  dot_a_n = dot(simplex.a, n);
+  n       = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.d) >= 0 ? -n : n));
+  n       = (1 / norm(n)) * n;
+  faces.push_back({simplex.a, simplex.c, simplex.d, n});
 
-  n1 = (1 / norm(n1)) * n1;
-  n2 = (1 / norm(n2)) * n2;
-  n3 = (1 / norm(n3)) * n3;
-  n4 = (1 / norm(n4)) * n4;
-
-  faces.push_back({simplex.a, simplex.b, simplex.c, n1});
-  faces.push_back({simplex.a, simplex.b, simplex.d, n2});
-  faces.push_back({simplex.a, simplex.c, simplex.d, n3});
-  faces.push_back({simplex.b, simplex.c, simplex.d, n4});
+  n       = cross(bc, bd);
+  dot_a_n = dot(simplex.d, n);
+  n       = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.d) >= 0 ? -n : n));
+  n       = (1 / norm(n)) * n;
+  faces.push_back({simplex.b, simplex.c, simplex.d, n});
 
   real min_dist;
   int  idx;
@@ -976,11 +976,15 @@ host_fn real solve_EPA_algorithm(ComplexSimplex simplex, std::vector<Vec3> v1, s
 
     // Get all the faces which are "seen" by the new point, add them to deleted_faces and delete them.
     std::vector<EPA_hull> deleted_faces;
-    for (int i = 0; i < size(faces); i++) {
+    deleted_faces.reserve(faces.size());
+    for (int i = 0; i < size(faces);) {
       if (dot(faces[i].n, p - faces[i].p1) > 0) {
-        deleted_faces.push_back(faces[i]);
-        faces.erase(faces.begin() + i);
-        i--; // bug fix maybe
+        deleted_faces.push_back(std::move(faces[i]));
+        faces[i] = std::move(faces.back());
+        faces.pop_back();
+        // i--; // bug fix maybe
+      } else {
+        i++;
       }
     }
 
@@ -989,18 +993,21 @@ host_fn real solve_EPA_algorithm(ComplexSimplex simplex, std::vector<Vec3> v1, s
     // as parts of the new faces (with the new point forming the remaining two line segments).
     TwoPts              current_edge[3];
     std::vector<TwoPts> loose_edges;
-    for (int i = 0; i < size(deleted_faces); i++) { // for all deleted faces found
-      current_edge[0] = {deleted_faces[i].p1, deleted_faces[i].p2};
-      current_edge[1] = {deleted_faces[i].p1, deleted_faces[i].p3};
-      current_edge[2] = {deleted_faces[i].p2, deleted_faces[i].p3};
+    loose_edges.reserve(deleted_faces.size() * 3);
+    // for (int i = 0; i < size(deleted_faces); i++) { // for all deleted faces found
+    for (const auto& deleted_face: deleted_faces) { // for all deleted faces found
+      current_edge[0] = {deleted_face.p1, deleted_face.p2};
+      current_edge[1] = {deleted_face.p1, deleted_face.p3};
+      current_edge[2] = {deleted_face.p2, deleted_face.p3};
 
       int  loose_edge_idx = 0;
       bool found_edge     = false;
-      for (int j = 0; j < 3; j++) {                    // for all three edges of each face
+      // for (int j = 0; j < 3; j++) {                    // for all three edges of each face
+      for (const auto& edge: current_edge) {
         found_edge = false;
         for (int k = 0; k < loose_edges.size(); k++) { // Is the current edge already in loose_edges ?
-          if ((current_edge[j].p1 == loose_edges[k].p1 && current_edge[j].p2 == loose_edges[k].p2) ||
-              (current_edge[j].p2 == loose_edges[k].p1 && current_edge[j].p1 == loose_edges[k].p2)) {
+          if ((edge.p1 == loose_edges[k].p1 && edge.p2 == loose_edges[k].p2) ||
+              (edge.p2 == loose_edges[k].p1 && edge.p1 == loose_edges[k].p2)) {
             // edge is already in list
             found_edge     = true;
             loose_edge_idx = k;
@@ -1009,32 +1016,31 @@ host_fn real solve_EPA_algorithm(ComplexSimplex simplex, std::vector<Vec3> v1, s
         }
 
         if (found_edge == false)
-          loose_edges.push_back(current_edge[j]);
+          loose_edges.push_back(edge);
         else {
-          loose_edges.erase(loose_edges.begin() + loose_edge_idx);
+          loose_edges[loose_edge_idx] = std::move(loose_edges.back());
+          loose_edges.pop_back();
         }
       }
     }
 
     // rebuild simplex with new faces
-    EPA_hull new_face;
-    Vec3     n;
-    real     dot_p1_n;
+    Vec3 n;
+    real dot_p1_n;
     for (int i = 0; i < loose_edges.size(); i++) {
       n        = cross(p - loose_edges[i].p1, p - loose_edges[i].p2);
       dot_p1_n = dot(loose_edges[i].p1, n);
       n        = dot_p1_n > 0 ? n : -n;
       n        = (1 / norm(n)) * n;
 
-      new_face = {loose_edges[i].p1, loose_edges[i].p2, p, n};
-      faces.push_back(new_face);
+      faces.push_back({loose_edges[i].p1, loose_edges[i].p2, p, n});
     }
   }
   return -std::abs(min_dist);
 }
 
 host_fn gjkresult solve_general_GJK(const std::vector<Vec3>& v1, const std::vector<Vec3>& v2) {
-  ZoneScoped;
+  ZoneScopedN("Messy GJK");
   ComplexSimplex simplex;
   gjkresult      results;
 
@@ -1070,7 +1076,7 @@ host_fn gjkresult solve_general_GJK(const std::vector<Vec3>& v1, const std::vect
       results.final_simplex    = simplex;
       results.A_closept        = {};
       results.B_closept        = {};
-      results.minimal_distance = solve_EPA_algorithm(simplex, v1, v2);
+      results.minimal_distance = solve_EPA(simplex, v1, v2);
       Assert(isnan(results.minimal_distance) == false);
       break;
     }
@@ -1161,7 +1167,7 @@ host_fn gjkresult solve_general_GJK(const std::vector<Vec3>& v1, const std::vect
 }
 
 host_fn real distance_GJK_simple(const Capsule& caps, const Box& box) {
-  ZoneScoped;
+  ZoneScopedN("Messy GJK initialization");
   Vec3 size_x_org = {box.extents.x, 0, 0};
   Vec3 size_y_org = {0, box.extents.y, 0};
   Vec3 size_z_org = {0, 0, box.extents.z};
@@ -1229,7 +1235,7 @@ host_fn void GJK_solve_simplex2_Ericson(Simplex* simplex) {
   return;
 }
 
-host_fn void GJK_solve_simplex3_Ericson(Simplex* simplex) {
+host_fn void GJK_solve_simplex3_Ericson_old(Simplex* simplex) {
   // Check if P in vertex region outside A
   Vec3 a = (*simplex).a;
   Vec3 b = (*simplex).b;
@@ -1308,6 +1314,87 @@ host_fn void GJK_solve_simplex3_Ericson(Simplex* simplex) {
   return;
 }
 
+host_fn void GJK_solve_simplex3_Ericson(Simplex* simplex) {
+  Vec3 a = simplex->a;
+  Vec3 b = simplex->b;
+  Vec3 c = simplex->c;
+
+  Vec3 ab = b - a;
+  Vec3 ac = c - a;
+
+  real d1 = dot(ab, -a);
+  real d2 = dot(ac, -a);
+
+  // Check if P in vertex region outside A
+  if (d1 <= 0.0f && d2 <= 0.0f) {
+    simplex->size = 1;
+    // simplex->a    = a;
+    simplex->P = a;
+    return;
+  }
+
+  // Check if P in vertex region outside B
+  real d3 = dot(ab, -b);
+  real d4 = dot(ac, -b);
+  if (d3 >= 0.0f && d4 <= d3) {
+    simplex->size = 1;
+    simplex->a    = b;
+    simplex->P    = b;
+    return;
+  }
+
+  // Check if P in edge region of AB (return projection of P onto AB)
+  real vc = d1 * d4 - d3 * d2;
+  if (vc <= 0.0f && d1 >= 0.0f && d3 <= 0.0f) {
+    real v        = d1 / (d1 - d3);
+    simplex->size = 2;
+    // simplex->a    = a;
+    // simplex->b    = b;
+    simplex->P = a + v * ab;
+    return;
+  }
+
+  // Check if P in vertex region outside C
+  real d5 = dot(ab, -c);
+  real d6 = dot(ac, -c);
+  if (d6 >= 0.0f && d5 <= d6) {
+    simplex->size = 1;
+    simplex->a    = c;
+    simplex->P    = c;
+    return;
+  }
+
+  // Check if P in edge region of BC (return projection of P onto BC)
+  real va = d3 * d6 - d5 * d4;
+  if (va <= 0.0f && (d4 - d3) >= 0.0f && (d5 - d6) >= 0.0f) {
+    real w        = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+    simplex->size = 2;
+    simplex->a    = b;
+    simplex->b    = c;
+    simplex->P    = b + w * (c - b);
+    return;
+  }
+
+  // Check if P in edge region of AC (return projection of P onto AC)
+  real vb = d5 * d2 - d1 * d6;
+  if (vb <= 0.0f && d2 >= 0.0f && d6 <= 0.0f) {
+    real w        = d2 / (d2 - d6);
+    simplex->size = 2;
+    // simplex->a    = a;
+    simplex->b = c;
+    simplex->P = a + w * ac;
+    return;
+  }
+
+  // P is inside face region
+  real denom = 1.0f / (va + vb + vc);
+  real v     = vb * denom;
+  real w     = vc * denom;
+
+  simplex->P = a + ab * v + ac * w;
+  return;
+}
+
 host_fn int point_outside_plane(Vec3 p, Vec3 a, Vec3 b, Vec3 c, Vec3 d) {
   // The last input (d) is the one that will be tested
   real signp = dot(p - a, cross(b - a, c - a)); // [AP AB AC]
@@ -1336,6 +1423,10 @@ host_fn void GJK_solve_simplex4_Ericson(Simplex* simplex) {
   Vec3 d_temp;
   // If point outside face bdc then compute closest point on bcd
   if (point_outside_plane(p, b, c, d, a)) {
+    simplex_temp.a    = b;
+    simplex_temp.b    = c;
+    simplex_temp.c    = d;
+    simplex_temp.size = 3;
     GJK_solve_simplex3_Ericson(&simplex_temp);
     real sqDist = dot(simplex_temp.P, simplex_temp.P);
     if (sqDist < bestSqDist) {
@@ -1347,10 +1438,14 @@ host_fn void GJK_solve_simplex4_Ericson(Simplex* simplex) {
       bestSqDist = sqDist;
       closestPt  = simplex_temp.P;
     }
-    simplex_temp = *simplex;
+    simplex_temp = *simplex; // resets to original simplex
   }
   // Repeat test for face acd
   if (point_outside_plane(p, a, c, d, b)) {
+    // simplex_temp.a    = a;
+    simplex_temp.b    = c;
+    simplex_temp.c    = d;
+    simplex_temp.size = 3;
     GJK_solve_simplex3_Ericson(&simplex_temp);
     real sqDist = dot(simplex_temp.P, simplex_temp.P);
     if (sqDist < bestSqDist) {
@@ -1367,6 +1462,10 @@ host_fn void GJK_solve_simplex4_Ericson(Simplex* simplex) {
   }
   // Repeat test for face adb
   if (point_outside_plane(p, a, b, d, c)) {
+    // simplex_temp.a    = a;
+    // simplex_temp.b    = b;
+    simplex_temp.c    = d;
+    simplex_temp.size = 3;
     GJK_solve_simplex3_Ericson(&simplex_temp);
     real sqDist = dot(simplex_temp.P, simplex_temp.P);
     if (sqDist < bestSqDist) {
@@ -1383,6 +1482,10 @@ host_fn void GJK_solve_simplex4_Ericson(Simplex* simplex) {
   }
   // Repeat test for face abc
   if (point_outside_plane(p, a, b, c, d)) {
+    // simplex_temp.a    = a;
+    // simplex_temp.b    = b;
+    // simplex_temp.c    = c;
+    simplex_temp.size = 3;
     GJK_solve_simplex3_Ericson(&simplex_temp);
     real sqDist = dot(simplex_temp.P, simplex_temp.P);
     // Update best closest point if (squared) distance is less than current best
@@ -1407,7 +1510,7 @@ host_fn void GJK_solve_simplex4_Ericson(Simplex* simplex) {
     (*simplex).d    = d_temp;
     (*simplex).P    = closestPt;
 
-    GJK_solve_simplex3_Ericson(simplex);
+    // GJK_solve_simplex3_Ericson(simplex);
   }
   return;
 }
@@ -1472,10 +1575,11 @@ host_fn void GJK_solve_simplex4_Ericson(Simplex* simplex) {
 //   return norm(u * a + v * b + w * c);
 // }
 
-host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vector<Vec3> v2) {
-  ZoneScoped;
+real solve_EPA(Simplex simplex, std::vector<Vec3> v1, std::vector<Vec3> v2) {
+  ZoneScopedN("Ericson EPA");
   // create a face vector that has three points and a normal
   std::vector<EPA_hull> faces;
+  faces.reserve(v1.size() * v2.size());
 
   Vec3 ab = simplex.b - simplex.a;
   Vec3 ac = simplex.c - simplex.a;
@@ -1483,30 +1587,54 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
   Vec3 bc = simplex.c - simplex.b;
   Vec3 bd = simplex.d - simplex.b;
 
-  Vec3 n1 = cross(ab, ac);
-  Vec3 n2 = cross(ab, ad);
-  Vec3 n3 = cross(ac, ad);
-  Vec3 n4 = cross(bc, bd);
+  Vec3 n       = cross(ab, ac);
+  real dot_a_n = dot(simplex.a, n);
+  n            = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.d) >= 0 ? -n : n));
+  n            = (1 / norm(n)) * n;
+  faces.push_back({simplex.a, simplex.b, simplex.c, n});
 
-  real dot_a_n1 = dot(simplex.a, n1);
-  real dot_a_n2 = dot(simplex.a, n2);
-  real dot_a_n3 = dot(simplex.a, n3);
-  real dot_d_n4 = dot(simplex.d, n4);
+  n       = cross(ab, ad);
+  dot_a_n = dot(simplex.a, n);
+  n       = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.d) >= 0 ? -n : n));
+  n       = (1 / norm(n)) * n;
+  faces.push_back({simplex.a, simplex.b, simplex.d, n});
 
-  n1 = dot_a_n1 > 0 ? n1 : (dot_a_n1 < 0 ? -n1 : (dot(n1, simplex.d) >= 0 ? -n1 : n1));
-  n2 = dot_a_n2 > 0 ? n2 : (dot_a_n2 < 0 ? -n2 : (dot(n2, simplex.d) >= 0 ? -n2 : n2));
-  n3 = dot_a_n3 > 0 ? n3 : (dot_a_n3 < 0 ? -n3 : (dot(n3, simplex.d) >= 0 ? -n3 : n3));
-  n4 = dot_d_n4 > 0 ? n4 : (dot_d_n4 < 0 ? -n4 : (dot(n4, simplex.a) >= 0 ? -n4 : n4));
+  n       = cross(ac, ad);
+  dot_a_n = dot(simplex.a, n);
+  n       = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.d) >= 0 ? -n : n));
+  n       = (1 / norm(n)) * n;
+  faces.push_back({simplex.a, simplex.c, simplex.d, n});
 
-  n1 = (1 / norm(n1)) * n1;
-  n2 = (1 / norm(n2)) * n2;
-  n3 = (1 / norm(n3)) * n3;
-  n4 = (1 / norm(n4)) * n4;
+  n       = cross(bc, bd);
+  dot_a_n = dot(simplex.d, n);
+  n       = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.d) >= 0 ? -n : n));
+  n       = (1 / norm(n)) * n;
+  faces.push_back({simplex.b, simplex.c, simplex.d, n});
 
-  faces.push_back({simplex.a, simplex.b, simplex.c, n1});
-  faces.push_back({simplex.a, simplex.b, simplex.d, n2});
-  faces.push_back({simplex.a, simplex.c, simplex.d, n3});
-  faces.push_back({simplex.b, simplex.c, simplex.d, n4});
+  // Vec3 n1 = cross(ab, ac);
+  // Vec3 n2 = cross(ab, ad);
+  // Vec3 n3 = cross(ac, ad);
+  // Vec3 n4 = cross(bc, bd);
+
+  // real dot_a_n1 = dot(simplex.a, n1);
+  // real dot_a_n2 = dot(simplex.a, n2);
+  // real dot_a_n3 = dot(simplex.a, n3);
+  // real dot_d_n4 = dot(simplex.d, n4);
+
+  // n1 = dot_a_n1 > 0 ? n1 : (dot_a_n1 < 0 ? -n1 : (dot(n1, simplex.d) >= 0 ? -n1 : n1));
+  // n2 = dot_a_n2 > 0 ? n2 : (dot_a_n2 < 0 ? -n2 : (dot(n2, simplex.d) >= 0 ? -n2 : n2));
+  // n3 = dot_a_n3 > 0 ? n3 : (dot_a_n3 < 0 ? -n3 : (dot(n3, simplex.d) >= 0 ? -n3 : n3));
+  // n4 = dot_d_n4 > 0 ? n4 : (dot_d_n4 < 0 ? -n4 : (dot(n4, simplex.a) >= 0 ? -n4 : n4));
+
+  // n1 = (1 / norm(n1)) * n1;
+  // n2 = (1 / norm(n2)) * n2;
+  // n3 = (1 / norm(n3)) * n3;
+  // n4 = (1 / norm(n4)) * n4;
+
+  // faces.push_back({simplex.a, simplex.b, simplex.c, n1});
+  // faces.push_back({simplex.a, simplex.b, simplex.d, n2});
+  // faces.push_back({simplex.a, simplex.c, simplex.d, n3});
+  // faces.push_back({simplex.b, simplex.c, simplex.d, n4});
 
   real min_dist;
   int  idx;
@@ -1537,11 +1665,17 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
 
     // Get all the faces which are "seen" by the new point, add them to deleted_faces and delete them.
     std::vector<EPA_hull> deleted_faces;
-    for (int i = 0; i < size(faces); i++) {
+    deleted_faces.reserve(faces.size());
+    for (int i = 0; i < size(faces);) {
       if (dot(faces[i].n, p - faces[i].p1) > 0) {
-        deleted_faces.push_back(faces[i]);
-        faces.erase(faces.begin() + i);
-        i--; // bug fix maybe
+        deleted_faces.push_back(std::move(faces[i]));
+        faces[i] = std::move(faces.back());
+        faces.pop_back();
+        // deleted_faces.push_back(faces[i]);
+        // faces.erase(faces.begin() + i);
+        // i--; // bug fix maybe
+      } else {
+        i++;
       }
     }
 
@@ -1550,18 +1684,19 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
     // as parts of the new faces (with the new point forming the remaining two line segments).
     TwoPts              current_edge[3];
     std::vector<TwoPts> loose_edges;
-    for (int i = 0; i < size(deleted_faces); i++) { // for all deleted faces found
-      current_edge[0] = {deleted_faces[i].p1, deleted_faces[i].p2};
-      current_edge[1] = {deleted_faces[i].p1, deleted_faces[i].p3};
-      current_edge[2] = {deleted_faces[i].p2, deleted_faces[i].p3};
+    loose_edges.reserve(deleted_faces.size() * 3);
+    for (const auto& deleted_face: deleted_faces) {
+      current_edge[0] = {deleted_face.p1, deleted_face.p2};
+      current_edge[1] = {deleted_face.p1, deleted_face.p3};
+      current_edge[2] = {deleted_face.p2, deleted_face.p3};
 
       int  loose_edge_idx = 0;
       bool found_edge     = false;
-      for (int j = 0; j < 3; j++) {                    // for all three edges of each face
+      for (const auto& edge: current_edge) {
         found_edge = false;
         for (int k = 0; k < loose_edges.size(); k++) { // Is the current edge already in loose_edges ?
-          if ((current_edge[j].p1 == loose_edges[k].p1 && current_edge[j].p2 == loose_edges[k].p2) ||
-              (current_edge[j].p2 == loose_edges[k].p1 && current_edge[j].p1 == loose_edges[k].p2)) {
+          if ((edge.p1 == loose_edges[k].p1 && edge.p2 == loose_edges[k].p2) ||
+              (edge.p2 == loose_edges[k].p1 && edge.p1 == loose_edges[k].p2)) {
             // edge is already in list
             found_edge     = true;
             loose_edge_idx = k;
@@ -1570,33 +1705,160 @@ host_fn real solve_EPA_algorithm(Simplex simplex, std::vector<Vec3> v1, std::vec
         }
 
         if (found_edge == false)
-          loose_edges.push_back(current_edge[j]);
+          loose_edges.push_back(edge);
         else {
-          loose_edges.erase(loose_edges.begin() + loose_edge_idx);
+          loose_edges[loose_edge_idx] = std::move(loose_edges.back());
+          loose_edges.pop_back();
+          // loose_edges.erase(loose_edges.begin() + loose_edge_idx);
         }
       }
     }
 
     // rebuild simplex with new faces
-    EPA_hull new_face;
-    Vec3     n;
-    real     dot_p1_n;
+    // EPA_hull new_face;
+    Vec3 n;
+    real dot_p1_n;
     for (int i = 0; i < loose_edges.size(); i++) {
       n        = cross(p - loose_edges[i].p1, p - loose_edges[i].p2);
       dot_p1_n = dot(loose_edges[i].p1, n);
       n        = dot_p1_n > 0 ? n : -n;
       n        = (1 / norm(n)) * n;
 
-      new_face = {loose_edges[i].p1, loose_edges[i].p2, p, n};
-      faces.push_back(new_face);
+      faces.push_back({loose_edges[i].p1, loose_edges[i].p2, p, n});
+      // new_face = {loose_edges[i].p1, loose_edges[i].p2, p, n};
+      // faces.push_back(new_face);
     }
   }
   return -std::abs(min_dist);
 }
 
+// host_fn real solve_EPA(Simplex simplex, std::vector<Vec3> v1, std::vector<Vec3> v2) {
+//   ZoneScopedN("Ericson EPA");
+//   // create a face vector that has three points and a normal
+//   std::vector<EPA_hull> faces;
+//   faces.reserve(v1.size() * v2.size());
+
+//   Vec3 ab = simplex.b - simplex.a;
+//   Vec3 ac = simplex.c - simplex.a;
+//   Vec3 ad = simplex.d - simplex.a;
+//   Vec3 bc = simplex.c - simplex.b;
+//   Vec3 bd = simplex.d - simplex.b;
+
+//   Vec3 n1 = cross(ab, ac);
+//   Vec3 n2 = cross(ab, ad);
+//   Vec3 n3 = cross(ac, ad);
+//   Vec3 n4 = cross(bc, bd);
+
+//   real dot_a_n1 = dot(simplex.a, n1);
+//   real dot_a_n2 = dot(simplex.a, n2);
+//   real dot_a_n3 = dot(simplex.a, n3);
+//   real dot_d_n4 = dot(simplex.d, n4);
+
+//   n1 = dot_a_n1 > 0 ? n1 : (dot_a_n1 < 0 ? -n1 : (dot(n1, simplex.d) >= 0 ? -n1 : n1));
+//   n2 = dot_a_n2 > 0 ? n2 : (dot_a_n2 < 0 ? -n2 : (dot(n2, simplex.d) >= 0 ? -n2 : n2));
+//   n3 = dot_a_n3 > 0 ? n3 : (dot_a_n3 < 0 ? -n3 : (dot(n3, simplex.d) >= 0 ? -n3 : n3));
+//   n4 = dot_d_n4 > 0 ? n4 : (dot_d_n4 < 0 ? -n4 : (dot(n4, simplex.a) >= 0 ? -n4 : n4));
+
+//   n1 = (1 / norm(n1)) * n1;
+//   n2 = (1 / norm(n2)) * n2;
+//   n3 = (1 / norm(n3)) * n3;
+//   n4 = (1 / norm(n4)) * n4;
+
+//   faces.push_back({simplex.a, simplex.b, simplex.c, n1});
+//   faces.push_back({simplex.a, simplex.b, simplex.d, n2});
+//   faces.push_back({simplex.a, simplex.c, simplex.d, n3});
+//   faces.push_back({simplex.b, simplex.c, simplex.d, n4});
+
+//   real min_dist;
+//   int  idx;
+//   real dist;
+
+//   while (true) {
+//     // Find closest face
+//     min_dist = INF_REAL;
+//     for (int i = 0; i < size(faces); i++) {
+//       real current_dist = distmin_origin(faces[i]);
+//       if (current_dist < min_dist) {
+//         min_dist = current_dist;
+//         idx      = i;
+//       }
+//     }
+
+//     // obtain a new support point in the direction of the edge normal
+//     Vec3 support1 = GJK_get_support(v1, -faces[idx].n);
+//     Vec3 support2 = GJK_get_support(v2, faces[idx].n);
+//     Vec3 p        = support2 - support1;
+
+//     // If the vertex does not expand the polytope in the direction of the normal, the minimum distance
+//     // is with the closest face (unchanged). Compute and return.
+//     dist = dot(p - faces[idx].p1, faces[idx].n);
+//     if (dist < COLLISION_EPSILON) { // previously 1e-2
+//       break;
+//     }
+
+//     // Get all the faces which are "seen" by the new point, add them to deleted_faces and delete them.
+//     std::vector<EPA_hull> deleted_faces;
+//     deleted_faces.reserve(faces.size());
+//     for (int i = 0; i < size(faces); i++) {
+//       if (dot(faces[i].n, p - faces[i].p1) > 0) {
+//         deleted_faces.push_back(faces[i]);
+//         faces.erase(faces.begin() + i);
+//         i--; // bug fix maybe
+//       }
+//     }
+
+//     // Create new convex hull by determining which line segments are contained in the deleted faces.
+//     // These segments must be deleted and the ones which are only contained in one face will be added
+//     // as parts of the new faces (with the new point forming the remaining two line segments).
+//     TwoPts              current_edge[3];
+//     std::vector<TwoPts> loose_edges;
+//     for (int i = 0; i < size(deleted_faces); i++) { // for all deleted faces found
+//       current_edge[0] = {deleted_faces[i].p1, deleted_faces[i].p2};
+//       current_edge[1] = {deleted_faces[i].p1, deleted_faces[i].p3};
+//       current_edge[2] = {deleted_faces[i].p2, deleted_faces[i].p3};
+
+//       int  loose_edge_idx = 0;
+//       bool found_edge     = false;
+//       for (int j = 0; j < 3; j++) {                    // for all three edges of each face
+//         found_edge = false;
+//         for (int k = 0; k < loose_edges.size(); k++) { // Is the current edge already in loose_edges ?
+//           if ((current_edge[j].p1 == loose_edges[k].p1 && current_edge[j].p2 == loose_edges[k].p2) ||
+//               (current_edge[j].p2 == loose_edges[k].p1 && current_edge[j].p1 == loose_edges[k].p2)) {
+//             // edge is already in list
+//             found_edge     = true;
+//             loose_edge_idx = k;
+//             break;
+//           }
+//         }
+
+//         if (found_edge == false)
+//           loose_edges.push_back(current_edge[j]);
+//         else {
+//           loose_edges.erase(loose_edges.begin() + loose_edge_idx);
+//         }
+//       }
+//     }
+
+//     // rebuild simplex with new faces
+//     EPA_hull new_face;
+//     Vec3     n;
+//     real     dot_p1_n;
+//     for (int i = 0; i < loose_edges.size(); i++) {
+//       n        = cross(p - loose_edges[i].p1, p - loose_edges[i].p2);
+//       dot_p1_n = dot(loose_edges[i].p1, n);
+//       n        = dot_p1_n > 0 ? n : -n;
+//       n        = (1 / norm(n)) * n;
+
+//       new_face = {loose_edges[i].p1, loose_edges[i].p2, p, n};
+//       faces.push_back(new_face);
+//     }
+//   }
+//   return -std::abs(min_dist);
+// }
+
 // Tests 2 sets of points using GJK
 host_fn real general_GJK(const std::vector<Vec3>& set1, const std::vector<Vec3>& set2) {
-  ZoneScoped;
+  ZoneScopedN("Ericson GJK");
   // This version of the GJK algorithm is implemented from the basic algorithm described in Collision Detection
   // manual by Ericson.
 
@@ -1634,8 +1896,8 @@ host_fn real general_GJK(const std::vector<Vec3>& set1, const std::vector<Vec3>&
 
     // 3. If P is the origin itself, the origin is clearly contained in the Minkowski difference of A and B.
     // Stop and return A and B as intersecting.
-    if (dot(simplex.P, simplex.P) < COLLISION_EPSILON) {
-      real dist = solve_EPA_algorithm(simplex, set1, set2);
+    if (dot(simplex.P, simplex.P) < COLLISION_EPSILON && simplex.size == 4) {
+      real dist = solve_EPA(simplex, set1, set2);
       return dist;
     }
 
@@ -1683,12 +1945,13 @@ host_fn real general_GJK(const std::vector<Vec3>& set1, const std::vector<Vec3>&
 }
 
 host_fn real distance_GJK(const Capsule& caps, const Box& box) {
-  Assert(norm(box.rotation.col_copy(0)) == 1.0);
-  Assert(norm(box.rotation.col_copy(1)) == 1.0);
-  Assert(norm(box.rotation.col_copy(2)) == 1.0);
-  Assert(norm(Vec3(box.rotation(0, 0), box.rotation(0, 1), box.rotation(0, 2))) == 1.0);
-  Assert(norm(Vec3(box.rotation(1, 0), box.rotation(1, 1), box.rotation(1, 2))) == 1.0);
-  Assert(norm(Vec3(box.rotation(2, 0), box.rotation(2, 1), box.rotation(2, 2))) == 1.0);
+  ZoneScopedN("Ericson GJK initialization");
+  Assert(is_close(norm(box.rotation.col_copy(0)), 1.0, 1e-6));
+  Assert(is_close(norm(box.rotation.col_copy(1)), 1.0, 1e-6));
+  Assert(is_close(norm(box.rotation.col_copy(2)), 1.0, 1e-6));
+  Assert(is_close(norm(Vec3(box.rotation(0, 0), box.rotation(0, 1), box.rotation(0, 2))), 1.0, 1e-6));
+  Assert(is_close(norm(Vec3(box.rotation(1, 0), box.rotation(1, 1), box.rotation(1, 2))), 1.0, 1e-6));
+  Assert(is_close(norm(Vec3(box.rotation(2, 0), box.rotation(2, 1), box.rotation(2, 2))), 1.0, 1e-6));
 
   // Initialization of the eight OBB points
   Vec3 size_x_org = {box.extents.x, 0, 0};

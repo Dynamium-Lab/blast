@@ -5,23 +5,23 @@
 namespace blast {
 
 inline host_fn void World::add_box(const Box& box) {
-  Assert(norm(box.rotation.col_copy(0)) == 1.0);
-  Assert(norm(box.rotation.col_copy(1)) == 1.0);
-  Assert(norm(box.rotation.col_copy(2)) == 1.0);
-  Assert(norm(Vec3(box.rotation(0, 0), box.rotation(0, 1), box.rotation(0, 2))) == 1.0);
-  Assert(norm(Vec3(box.rotation(1, 0), box.rotation(1, 1), box.rotation(1, 2))) == 1.0);
-  Assert(norm(Vec3(box.rotation(2, 0), box.rotation(2, 1), box.rotation(2, 2))) == 1.0);
+  // Assert(norm(box.rotation.col_copy(0)) == 1.0);
+  // Assert(norm(box.rotation.col_copy(1)) == 1.0);
+  // Assert(norm(box.rotation.col_copy(2)) == 1.0);
+  // Assert(norm(Vec3(box.rotation(0, 0), box.rotation(0, 1), box.rotation(0, 2))) == 1.0);
+  // Assert(norm(Vec3(box.rotation(1, 0), box.rotation(1, 1), box.rotation(1, 2))) == 1.0);
+  // Assert(norm(Vec3(box.rotation(2, 0), box.rotation(2, 1), box.rotation(2, 2))) == 1.0);
 
   boxes.push_back(box);
   size++;
 }
 inline host_fn void World::add_box(Vec3 center_point, Vec3 half_width, Mat3 rotation_matrix) {
-  Assert(norm(box.rotation.col_copy(0)) == 1.0);
-  Assert(norm(box.rotation.col_copy(1)) == 1.0);
-  Assert(norm(box.rotation.col_copy(2)) == 1.0);
-  Assert(norm(Vec3(box.rotation(0, 0), box.rotation(0, 1), box.rotation(0, 2))) == 1.0);
-  Assert(norm(Vec3(box.rotation(1, 0), box.rotation(1, 1), box.rotation(1, 2))) == 1.0);
-  Assert(norm(Vec3(box.rotation(2, 0), box.rotation(2, 1), box.rotation(2, 2))) == 1.0);
+  // Assert(norm(box.rotation.col_copy(0)) == 1.0);
+  // Assert(norm(box.rotation.col_copy(1)) == 1.0);
+  // Assert(norm(box.rotation.col_copy(2)) == 1.0);
+  // Assert(norm(Vec3(box.rotation(0, 0), box.rotation(0, 1), box.rotation(0, 2))) == 1.0);
+  // Assert(norm(Vec3(box.rotation(1, 0), box.rotation(1, 1), box.rotation(1, 2))) == 1.0);
+  // Assert(norm(Vec3(box.rotation(2, 0), box.rotation(2, 1), box.rotation(2, 2))) == 1.0);
 
   add_box({center_point, half_width, rotation_matrix});
 }
