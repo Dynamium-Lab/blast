@@ -230,7 +230,7 @@ TEST_CASE("Test - GJK Box vs Capsule (random generation)") {
   Mat3              rotation;
 
 
-  int                num_tests = 3;
+  int                num_tests = 4;
   std::vector<float> epa(num_tests);
   for (int i = 0; i < num_tests; i++) {
     // std::cout << i << std::endl;
@@ -289,32 +289,32 @@ TEST_CASE("Test - GJK Box vs Capsule (random generation)") {
       epa[i] = 0.0f;
     }
 
-    // {
-    //   ZoneScopedN("sleep_for");
-    //   std::this_thread::sleep_for(std::chrono::microseconds(10));
-    // }
+    {
+      ZoneScopedN("sleep_for");
+      std::this_thread::sleep_for(std::chrono::microseconds(10));
+    }
 
     // Benchmarking
-    // if (real_dist < capsule.radius)
-    //   std::cout << "EPA reached" << std::endl;
-    // else
-    //   std::cout << "GJK only" << std::endl;
-    // BENCHMARK("distance") {
-    //   real dist = distance(capsule, box);
-    // };
-    // BENCHMARK("distance_GJK (ericson)") {
-    //   real dist = distance_GJK(capsule, box);
-    // };
-    // BENCHMARK("general_GJK (ericson)") {
-    //   real dist = general_GJK(line, cloud.points) - capsule.radius;
-    // };
-    // BENCHMARK("distance_GJK_simple") {
-    //   real dist = distance_GJK_simple(capsule, box);
-    // };
-    // BENCHMARK("solve_general_GJK") {
-    //   real dist = solve_general_GJK(line, cloud.points).minimal_distance - capsule.radius;
-    // };
-    // std::cout << "\n--------------------------------------------" << std::endl;
+    if (real_dist + capsule.radius < 0)
+      std::cout << "EPA reached" << std::endl;
+    else
+      std::cout << "GJK only" << std::endl;
+    BENCHMARK("distance") {
+      real dist = distance(capsule, box);
+    };
+    BENCHMARK("distance_GJK (ericson)") {
+      real dist = distance_GJK(capsule, box);
+    };
+    BENCHMARK("general_GJK (ericson)") {
+      real dist = general_GJK(line, cloud.points) - capsule.radius;
+    };
+    BENCHMARK("distance_GJK_simple") {
+      real dist = distance_GJK_simple(capsule, box);
+    };
+    BENCHMARK("solve_general_GJK") {
+      real dist = solve_general_GJK(line, cloud.points).minimal_distance - capsule.radius;
+    };
+    std::cout << "\n--------------------------------------------" << std::endl;
   }
 
   real sum = 0.0;
