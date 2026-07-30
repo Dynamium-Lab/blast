@@ -229,7 +229,32 @@ TEST_CASE("Test - GJK Box vs Capsule (random generation)") {
   Vec3              center, extents, rpy;
   Mat3              rotation;
 
+  // Run GJKs to warm up
+  for (int i = 0; i < 20; i++) {
+    real a         = 3.0;
+    capsule.radius = 0.5;
+    capsule.p1     = {a * random_real(), a * random_real(), a * random_real()};
+    capsule.p2     = {a * random_real(), a * random_real(), a * random_real()};
 
+    // Random box
+    real b  = 3.0;
+    real c  = 5.0;
+    center  = {b * random_real(), b * random_real(), b * random_real()};
+    extents = {c * random_real(), c * random_real(), c * random_real()};
+    // center -= Vec3{20, 20, 20}; // enforce never reaching EPA
+    for (int j = 0; j < 3; j++) {
+      extents[j] = std::abs(extents[j]) + 0.1; // enforce positive non zero extents
+    }
+    rpy      = {180 * random_real(), 180 * random_real(), 180 * random_real()};
+    rotation = rpy2rotation(rpy);
+    box      = {center, extents, rotation};
+
+    distance(capsule, box);
+    distance_GJK(capsule, box);
+    distance_GJK_simple(capsule, box);
+  }
+
+  // int num_tests = 5;
   int                num_tests = 1e3;
   std::vector<float> epa(num_tests);
   for (int i = 0; i < num_tests; i++) {
@@ -273,31 +298,15 @@ TEST_CASE("Test - GJK Box vs Capsule (random generation)") {
       CHECK(is_close(real_dist, dist));
       if (!is_close(real_dist, dist)) {
         std::cout << "Fail - " << function.second << ": " << dist << "!=" << real_dist << std::endl;
+        // printf("capsule = {{%.6f,%.6f,%.6f},{%.6f,%.6f,%.6f},%.2f}\n", capsule.p1.x, capsule.p1.y, capsule.p1.z, capsule.p2.x, capsule.p2.y, capsule.p2.z, capsule.radius);
+        // printf("box = {{%.6f,%.6f,%.6f},{%.6f,%.6f,%.6f},{%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f}}\n",
+        //        box.center.x, box.center.y, box.center.z,
+        //        box.extents.x, box.extents.y, box.extents.z,
+        //        box.rotation[0], box.rotation[1], box.rotation[2],
+        //        box.rotation[3], box.rotation[4], box.rotation[5],
+        //        box.rotation[6], box.rotation[7], box.rotation[8]);
       }
     }
-    // { // switched spots
-    //   real dist = distance_GJK_simple(capsule, box);
-    //   CHECK(is_close(real_dist, dist));
-    //   // CHECK(is_close(real_dist, general_GJK(line, cloud.points) - capsule.radius));
-    //   if (!is_close(dist, real_dist)) {
-    //     std::cout << "FAIL simple : " << dist << "!=" << real_dist << std::endl;
-    //   }
-    // }
-    // {
-    //   real dist = distance_GJK(capsule, box);
-    //   CHECK(is_close(real_dist, dist));
-    //   // CHECK(is_close(real_dist, solve_general_GJK(line, cloud.points).minimal_distance - capsule.radius));
-    //   if (!is_close(dist, real_dist)) {
-    //     std::cout << "FAIL ericson : " << dist << "!=" << real_dist << std::endl;
-    //     // printf("capsule = {{%.6f,%.6f,%.6f},{%.6f,%.6f,%.6f},%.2f}\n", capsule.p1.x, capsule.p1.y, capsule.p1.z, capsule.p2.x, capsule.p2.y, capsule.p2.z, capsule.radius);
-    //     // printf("box = {{%.6f,%.6f,%.6f},{%.6f,%.6f,%.6f},{%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f}}\n",
-    //     //        box.center.x, box.center.y, box.center.z,
-    //     //        box.extents.x, box.extents.y, box.extents.z,
-    //     //        box.rotation[0], box.rotation[1], box.rotation[2],
-    //     //        box.rotation[3], box.rotation[4], box.rotation[5],
-    //     //        box.rotation[6], box.rotation[7], box.rotation[8]);
-    //   }
-    // }
 
     if (real_dist + capsule.radius < 0) {
       epa[i] = 1.0f;
@@ -307,7 +316,7 @@ TEST_CASE("Test - GJK Box vs Capsule (random generation)") {
 
     {
       ZoneScopedN("sleep_for");
-      std::this_thread::sleep_for(std::chrono::microseconds(1));
+      std::this_thread::sleep_for(std::chrono::nanoseconds(1));
     }
 
     // Benchmarking
@@ -324,7 +333,7 @@ TEST_CASE("Test - GJK Box vs Capsule (random generation)") {
     //   return;
     // };
     // BENCHMARK("general_GJK (ericson)") {
-    //   real dist = general_GJK(line, cloud.points) - capsule.radius;
+    //   real dist = general_GJK(&line[0], line.size(), &cloud.points[0], cloud.points.size()) - capsule.radius;
     //   return;
     // };
     // BENCHMARK("distance_GJK_simple") {
@@ -332,7 +341,7 @@ TEST_CASE("Test - GJK Box vs Capsule (random generation)") {
     //   return;
     // };
     // BENCHMARK("solve_general_GJK") {
-    //   real dist = solve_general_GJK(line, cloud.points).minimal_distance - capsule.radius;
+    //   real dist = solve_general_GJK(&line[0], line.size(), &cloud.points[0], cloud.points.size()) - capsule.radius;
     //   return;
     // };
     // std::cout << "\n--------------------------------------------" << std::endl;
