@@ -160,7 +160,7 @@ void bind_manipulator(nb::module_& m) {
           .def("set_kinematics", &Manipulator::set_kinematics, nb::arg("kinematics"))
           .def("set_dynamics", &Manipulator::set_dynamics, nb::arg("dynamics"))
           .def("set_capsules", &Manipulator::set_capsules, nb::arg("capsules"))
-          .def("add_tool", &Manipulator::add_tool, nb::arg("tool"))
+          .def("set_tool", &Manipulator::add_tool, nb::arg("tool"))
           .def("set_payload", &Manipulator::set_payload, nb::arg("mass"), nb::arg("cog"), nb::arg("inertia"))
           // Expose a few internal fields for inspection
           .def_ro("base_position", &Manipulator::base_position)
