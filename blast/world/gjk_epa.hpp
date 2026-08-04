@@ -1,13 +1,14 @@
 #pragma once
 
 #include <blast>
-#include "tracy/Tracy.hpp"
+// #include "tracy/Tracy.hpp"
 
 namespace blast {
 
-#define COLLISION_EPSILON 1e-9
-#define TRACY_ACTIVE 2 // 0 nothing, 1 big functions, 2 medium functions, 3 all functions
-#define GJK_ACTIVE 2   // 0 nothing, 1 ericson, 2 messy, 3 both
+#define COLLISION_EPSILON_SQ 1e-12
+#define COLLISION_EPSILON 1e-7
+#define TRACY_ACTIVE 0 // 0 nothing, 1 big functions, 2 medium functions, 3 all functions
+#define GJK_ACTIVE 0   // 0 nothing, 1 ericson, 2 messy, 3 both
 int MAX_ITERATIONS = 64;
 
 // structs
@@ -50,6 +51,7 @@ struct PolytopeFace {
 // ======================================
 // This version of the GJK algorithm is adapted from : https://www.youtube.com/watch?v=DGVZYdlw_uo
 
+// these functions currently not used ////////////////////////////////////////////////////////////
 inline host_fn real GJK_triangle_area_2d(real x1, real y1, real x2, real y2, real x3, real y3) {
 #if TRACY_ACTIVE >= 3 && GJK_ACTIVE >= 2
   ZoneScoped;
@@ -164,6 +166,7 @@ host_fn TwoPts GJK_get_local_points(const ComplexSimplex& simplex, Vec3 p) {
   Assert(isnan(loc.p1.x) == false);
   return loc;
 }
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 inline host_fn Vec3 GJK_get_support(Vec3* vertices, size_t count, Vec3 direction) {
 #if TRACY_ACTIVE >= 2
@@ -298,6 +301,65 @@ host_fn TwoPts GJK_solve_simplex3(ComplexSimplex& simplex) {
   }
 }
 
+host_fn TwoPts GJK_solve_simplex4(ComplexSimplex& simplex) {
+#if TRACY_ACTIVE >= 2 && GJK_ACTIVE >= 2
+  ZoneScoped;
+#endif
+  Vec3 ab = simplex.b - simplex.a;
+  Vec3 ac = simplex.c - simplex.a;
+  Vec3 ad = simplex.d - simplex.a;
+  Vec3 ao = -simplex.a;
+
+  if (dot(cross(ab, ac), ad) > 0) { // proper winding
+    std::cout << "incorrect" << std::endl;
+  }
+
+  // face normals
+  Vec3 abc = cross(ab, ac);
+  Vec3 acd = cross(ac, ad);
+  Vec3 adb = cross(ad, ab);
+
+  // check face abc
+  if (dot(abc, ao) > 0) {
+    // drop d
+    simplex.count = 3;
+    return GJK_solve_simplex3(simplex);
+  }
+
+  // 2. check face acd
+  if (dot(acd, ao) > 0) {
+    // b = c, c = d
+    simplex.b  = simplex.c;
+    simplex.b1 = simplex.c1;
+    simplex.b2 = simplex.c2;
+
+    simplex.c  = simplex.d;
+    simplex.c1 = simplex.d1;
+    simplex.c2 = simplex.d2;
+
+    simplex.count = 3;
+    return GJK_solve_simplex3(simplex);
+  }
+
+  // check face adb
+  if (dot(adb, ao) > 0) {
+    // b = d, c = b
+    simplex.c  = simplex.b;
+    simplex.c1 = simplex.b1;
+    simplex.c2 = simplex.b2;
+
+    simplex.b  = simplex.d;
+    simplex.b1 = simplex.d1;
+    simplex.b2 = simplex.d2;
+
+    simplex.count = 3;
+    return GJK_solve_simplex3(simplex);
+  }
+
+  // origin inside simplex
+  return {{0, 0, 0}, {0, 0, 0}};
+}
+
 // host_fn TwoPts GJK_solve_simplex4(ComplexSimplex& simplex) {
 // #if TRACY_ACTIVE >= 2 && GJK_ACTIVE >= 2
 //   ZoneScoped;
@@ -413,61 +475,6 @@ host_fn TwoPts GJK_solve_simplex3(ComplexSimplex& simplex) {
 //   return {{0, 0, 0}, {0, 0, 0}};
 // }
 
-host_fn TwoPts GJK_solve_simplex4(ComplexSimplex& simplex) {
-#if TRACY_ACTIVE >= 2 && GJK_ACTIVE >= 2
-  ZoneScoped;
-#endif
-  Vec3 ab = simplex.b - simplex.a;
-  Vec3 ac = simplex.c - simplex.a;
-  Vec3 ad = simplex.d - simplex.a;
-  Vec3 ao = -simplex.a;
-
-  // face normals
-  Vec3 abc = cross(ab, ac);
-  Vec3 acd = cross(ac, ad);
-  Vec3 adb = cross(ad, ab);
-
-  // check face abc
-  if (dot(abc, ao) > 0) {
-    // drop d
-    simplex.count = 3;
-    return GJK_solve_simplex3(simplex);
-  }
-
-  // 2. check face acd
-  if (dot(acd, ao) > 0) {
-    // b = c, c = d
-    simplex.b  = simplex.c;
-    simplex.b1 = simplex.c1;
-    simplex.b2 = simplex.c2;
-
-    simplex.c  = simplex.d;
-    simplex.c1 = simplex.d1;
-    simplex.c2 = simplex.d2;
-
-    simplex.count = 3;
-    return GJK_solve_simplex3(simplex);
-  }
-
-  // check face adb
-  if (dot(adb, ao) > 0) {
-    // b = d, c = b
-    simplex.c  = simplex.b;
-    simplex.c1 = simplex.b1;
-    simplex.c2 = simplex.b2;
-
-    simplex.b  = simplex.d;
-    simplex.b1 = simplex.d1;
-    simplex.b2 = simplex.d2;
-
-    simplex.count = 3;
-    return GJK_solve_simplex3(simplex);
-  }
-
-  // origin inside simplex
-  return {{0, 0, 0}, {0, 0, 0}};
-}
-
 // ======================================
 //            EPA algorithm
 // ======================================
@@ -576,9 +583,6 @@ real solve_EPA(ComplexSimplex simplex, Vec3* v1, size_t count1, Vec3* v2, size_t
   int  idx;
 
   for (int j = 0; j < MAX_ITERATIONS; j++) {
-    if (j == MAX_ITERATIONS - 1) {
-      std::cout << "Max iterations reached - messy EPA" << std::endl;
-    }
     // Find closest face
     min_dist = INF_REAL;
     for (int k = 0; k < n_faces; k++) {
@@ -596,7 +600,7 @@ real solve_EPA(ComplexSimplex simplex, Vec3* v1, size_t count1, Vec3* v2, size_t
     // If the vertex does not expand the polytope in the direction of the normal, the minimum distance
     // is with the closest face (unchanged). Compute and return.
     dist = dot(p - faces[idx].p1, faces[idx].n);
-    if (dist < COLLISION_EPSILON) { // previously 1e-2
+    if (dist < COLLISION_EPSILON_SQ) { // squared distance or no?
       break;
     }
 
@@ -657,6 +661,9 @@ real solve_EPA(ComplexSimplex simplex, Vec3* v1, size_t count1, Vec3* v2, size_t
       faces[n_faces++] = {loose_edges[i].p1, loose_edges[i].p2, p, n, dist};
     }
     Assert(n_faces > 0);
+    // if (j == MAX_ITERATIONS - 1) {
+    //   std::cout << "Max iterations reached - messy EPA" << std::endl;
+    // }
   }
   return -std::abs(min_dist);
 }
@@ -681,9 +688,6 @@ host_fn real solve_general_GJK(Vec3* v1, size_t count1, Vec3* v2, size_t count2)
 
   // while (true) {
   for (int i = 0; i < MAX_ITERATIONS; i++) {
-    if (i == MAX_ITERATIONS - 1) {
-      std::cout << "Max iterations reached - messy GJK" << std::endl;
-    }
     old_simplex_count = simplex.count;
 
     if (simplex.count == 1) {
@@ -695,7 +699,7 @@ host_fn real solve_general_GJK(Vec3* v1, size_t count1, Vec3* v2, size_t count2)
       direction = solved.p2;
     }
 
-    if (dot(p, p) < COLLISION_EPSILON && old_simplex_count == 4) {
+    if (dot(p, p) < COLLISION_EPSILON_SQ && old_simplex_count == 4) {
       dist_min = solve_EPA(simplex, v1, count1, v2, count2);
       Assert(isnan(dist_min) == false);
       break;
@@ -709,7 +713,7 @@ host_fn real solve_general_GJK(Vec3* v1, size_t count1, Vec3* v2, size_t count2)
     real new_support = dot(support, direction);
 
     // if no improvement, terminate
-    if (new_support - old_support <= COLLISION_EPSILON) {
+    if (new_support - old_support <= COLLISION_EPSILON_SQ) {
       if (simplex.count == 3 && norm(cross(simplex.b - simplex.a, simplex.c - simplex.a)) < 1e-9) { // if 3 pt simplex is line when it should be triangle
         Segment seg_test;
         // Calculate all points in minkowski difference and find the two points which are the most extreme
@@ -724,7 +728,7 @@ host_fn real solve_general_GJK(Vec3* v1, size_t count1, Vec3* v2, size_t count2)
         for (int i = 0; i < count1; i++) {
           for (int j = 0; j < count2; j++) {
             Vec3 new_pt = v2[j] - v1[i];
-            if (std::abs(old_support - dot(new_pt, direction)) < COLLISION_EPSILON) {
+            if (std::abs(old_support - dot(new_pt, direction)) < COLLISION_EPSILON_SQ) {
               real current_dot = dot(new_pt, new_dir);
               if (current_dot > max_dot) {
                 max_dot     = current_dot;
@@ -753,9 +757,7 @@ host_fn real solve_general_GJK(Vec3* v1, size_t count1, Vec3* v2, size_t count2)
         simplex.count = 2;
       }
 
-      TwoPts local = GJK_get_local_points(simplex, p);
-
-      dist_min = norm(local.p1 - local.p2);
+      dist_min = norm(p);
       Assert(isnan(dist_min) == false);
       break;
     }
@@ -779,6 +781,9 @@ host_fn real solve_general_GJK(Vec3* v1, size_t count1, Vec3* v2, size_t count2)
     simplex.a1 = support1;
     simplex.a2 = support2;
     simplex.a  = support;
+    // if (i == MAX_ITERATIONS - 1) {
+    //   std::cout << "Max iterations reached - messy GJK" << std::endl;
+    // }
   }
 
   return dist_min;
@@ -1026,10 +1031,21 @@ host_fn void GJK_solve_simplex4_Ericson(Simplex* simplex) {
 
   if (std::abs(volume) < 1e-6) {
     // drop oldest point (a) and treat as simplex3
-    simplex->pts[0] = b;
-    simplex->pts[1] = c;
-    simplex->pts[2] = d;
-    simplex->size   = 3;
+    if (dot(da, da) == 0) {
+      simplex->pts[0] = b;
+      simplex->pts[1] = c;
+      simplex->pts[2] = d;
+    } else if (dot(db, db) == 0) {
+      simplex->pts[1] = c;
+      simplex->pts[2] = d;
+    } else if (dot(dc, dc) == 0) {
+      simplex->pts[2] = d;
+    } else {
+      simplex->pts[0] = b;
+      simplex->pts[1] = c;
+      simplex->pts[2] = d;
+    }
+    simplex->size = 3;
     GJK_simplex3_from4_Ericson(simplex);
     return;
   }
@@ -1130,9 +1146,9 @@ real solve_EPA(Simplex simplex, Vec3* v1, size_t count1, Vec3* v2, size_t count2
   int  idx;
 
   for (int j = 0; j < MAX_ITERATIONS; j++) {
-    if (j == MAX_ITERATIONS - 1) {
-      std::cout << "Max iterations reached - ericson EPA" << std::endl;
-    }
+    // if (j == MAX_ITERATIONS - 1) {
+    //   std::cout << "Max iterations reached - ericson EPA" << std::endl;
+    // }
     // Find closest face
     min_dist = INF_REAL;
     for (int k = 0; k < n_faces; k++) {
@@ -1150,7 +1166,7 @@ real solve_EPA(Simplex simplex, Vec3* v1, size_t count1, Vec3* v2, size_t count2
     // If the vertex does not expand the polytope in the direction of the normal, the minimum distance
     // is with the closest face (unchanged). Compute and return.
     dist = dot(p - faces[idx].p1, faces[idx].n);
-    if (dist < COLLISION_EPSILON) { // previously 1e-2
+    if (dist < COLLISION_EPSILON_SQ) { // previously 1e-2
       break;
     }
 
@@ -1234,10 +1250,6 @@ host_fn real general_GJK(Vec3* set1, size_t count1, Vec3* set2, size_t count2) {
 
   // while (true) {
   for (int i = 0; i < MAX_ITERATIONS; i++) { // max iteration count
-    if (i == MAX_ITERATIONS - 1) {
-      std::cout << "max iterations reached - ericson GJK" << std::endl;
-      break;
-    }
     // 2. Computing the point P of minimum norm in CH(simplex)
     switch (simplex.size) {
       case 1:
@@ -1259,7 +1271,7 @@ host_fn real general_GJK(Vec3* set1, size_t count1, Vec3* set2, size_t count2) {
     dot_P = dot(simplex.P, simplex.P);
 
     // 3. If P is the origin itself, stop and return A and B as intersecting.
-    if (dot_P < COLLISION_EPSILON && simplex.size == 4) {
+    if (dot_P < COLLISION_EPSILON_SQ && simplex.size == 4) {
       real dist = solve_EPA(simplex, set1, count1, set2, count2);
       return dist;
     }
@@ -1283,6 +1295,11 @@ host_fn real general_GJK(Vec3* set1, size_t count1, Vec3* set2, size_t count2) {
 
     simplex.pts[simplex.size] = V;
     simplex.size++;
+
+    // if (i == MAX_ITERATIONS - 1) {
+    //   std::cout << "Max iterations reached - ericson GJK" << std::endl;
+    //   break;
+    // }
   }
 
   return std::sqrt(dot_P);

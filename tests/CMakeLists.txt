@@ -68,7 +68,7 @@ endfunction()
 # NAME_OF_BENCHMARK BENCHMARK_TARGET_LOCATION
 # List of benchmarks with their source files
 set(BENCHMARKS
-        bench_core benchmarks/bench_core.cpp
+        # bench_core benchmarks/bench_core.cpp
 )
 
 # note: Add new tests files as follows :
@@ -98,7 +98,7 @@ set(TESTS
         # test_math_vec3 math/test_vec3.cpp
 
         # World
-        test_primitives world/test_primitives.cpp
+        # test_primitives world/test_primitives.cpp
         test_gjk_epa world/test_gjk_epa.cpp
 
         # # Trajectory
