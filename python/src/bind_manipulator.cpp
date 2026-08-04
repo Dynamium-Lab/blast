@@ -144,12 +144,12 @@ void bind_manipulator(nb::module_& m) {
           .def_rw("mass", &Tool::mass, "Tool mass (kg).")
           .def_rw("inertia_tensor", &Tool::inertia_tensor, "Tool inertia tensor (Mat3).")
           .def_rw("cog_offset", &Tool::cog_offset, "Tool center-of-gravity offset (Vec3).")
-          .def_rw("collision_model", &Tool::collision_model, "Collision model for the tool.")
+          .def_rw("collision_model", &Tool::collision_model, "Collision model for the tool.");
 
-          // ------------------------------------------------------------------
-          // Manipulator
-          // ------------------------------------------------------------------
-          nb::class_<Manipulator>(m, "Manipulator")
+  // ------------------------------------------------------------------
+  // Manipulator
+  // ------------------------------------------------------------------
+  nb::class_<Manipulator>(m, "Manipulator")
           .def(nb::init<u32, const ManipulatorLimits&, const ManipulatorKinematics&>(),
                nb::arg("n_joints"), nb::arg("limits"), nb::arg("kinematics"),
                "Construct a manipulator with kinematics only (no dynamics or collision model).")
