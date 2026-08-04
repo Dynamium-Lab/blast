@@ -766,6 +766,9 @@ inline blast_fn void nlopt_constraints_with_segments(unsigned m, real* result, u
   Array xv;
   xv.alias(x, x_len);
 
+  std::cout << "x at iteration " << std::endl;
+  print(xv);
+
   Array constraints;
   constraints.alias(result, m);
 

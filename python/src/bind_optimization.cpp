@@ -136,54 +136,73 @@ void bind_optimization(nb::module_& m) {
             return "<Optimization n_joints=" + std::to_string(o.manip.n_joints) +
                    " x_len=" + std::to_string(o.x_len()) + ">";
           });
-
   // ------------------------------------------------------------------
   // Result
   // ------------------------------------------------------------------
-  // Note: Result::opt (raw Optimization*) is intentionally not exposed —
-  // it is marked with "// todo: fix this" in the C++ source and can
-  // dangle easily from Python.
   nb::class_<Result>(m, "Result")
           .def_ro("success", &Result::success,
                   "True if the optimizer found a feasible trajectory.")
+
+          .def_ro("success_false", &Result::success_false,
+                  "True if the optimizer succeeded at coarse validation but failed dense validation.")
+
           .def_ro("compute_time", &Result::compute_time,
                   "Wall time for the optimization (milliseconds).")
+
           .def_ro("num_eval", &Result::num_eval,
                   "Number of NLopt function evaluations.")
+
           .def_ro("num_tries", &Result::num_tries,
                   "Number of optimization retries performed.")
+
+          .def_ro("nlopt_exit_criteria", &Result::nlopt_exit_criteria,
+                  "NLopt termination status.")
+
           .def_ro("max_constraint_value", &Result::max_constraint_value,
                   "Maximum constraint violation in the final solution.")
+
           .def_ro("max_constraint_idx", &Result::max_constraint_idx,
                   "Index of the most-violated constraint.")
-          .def_prop_ro("x", [](Result& r) { return array_to_view(&r.x); }, "Optimized B-spline control vector (float64 view).")
-          .def_prop_ro("x0", [](Result& r) { return array_to_view(&r.x0); }, "Initial guess vector that was used (float64 view).")
-          .def_prop_ro("trajectory", [](Result& self) -> Trajectory& { return self.trajectory; }, nb::rv_policy::reference_internal, "Computed Trajectory (pos/vel/acc/t). The views it returns keep "
-                                                                                                                                     "the Result alive.")
-          .def("__repr__", [](const Result& r) { return "<Result success=" + std::string(r.success ? "True" : "False") +
-                                                        " compute_time=" + std::to_string(r.compute_time) + "ms>"; });
 
+          .def_ro("max_constraint_more_points_value",
+                  &Result::max_constraint_more_points_value,
+                  "Maximum constraint violation after dense validation.")
+
+          .def_ro("max_constraint_more_points_idx",
+                  &Result::max_constraint_more_points_idx,
+                  "Index of dense validation violation.")
+
+          // Return copies. Avoid possible lifetime/view problems.
+          .def_prop_ro("x", [](const Result& r) {
+              nb::ndarray<nb::numpy, real> out({r.x.size});
+              if (r.x.size > 0)
+                  std::memcpy(out.data(), r.x.data, r.x.size * sizeof(real));
+              return out; }, "Optimized B-spline control vector.")
+
+          .def_prop_ro("x0", [](const Result& r) {
+              nb::ndarray<nb::numpy, real> out({r.x0.size});
+              if (r.x0.size > 0)
+                  std::memcpy(out.data(), r.x0.data, r.x0.size * sizeof(real));
+              return out; }, "Initial guess vector.")
+
+          .def_prop_ro("trajectory", [](Result& self) -> Trajectory& { return self.trajectory; }, nb::rv_policy::reference_internal, "Computed trajectory.")
+
+          .def("__repr__", [](const Result& r) { return "<Result success=" +
+                                                        std::string(r.success ? "True" : "False") +
+                                                        " compute_time=" +
+                                                        std::to_string(r.compute_time) +
+                                                        "ms>"; });
   // ------------------------------------------------------------------
-  // optimize()  — main entry point
+  // optimize() — main entry point
   // ------------------------------------------------------------------
-  m.def("optimize", [](Optimization* opt, u32 output_steps_ms) -> Result {
+
+  m.def(
+          "optimize",
+          [](Optimization* opt, u32 output_steps_ms) -> Result {
             nb::gil_scoped_release release;
-            return blast::optimize(opt, output_steps_ms); }, nb::arg("opt"), nb::arg("output_steps_ms") = 1u, "Run trajectory optimization.\n\n"
-                                                                                                                               "Parameters\n"
-                                                                                                                               "----------\n"
-                                                                                                                               "opt : Optimization\n"
-                                                                                                                               "    Fully configured optimization problem. Do NOT access opt from\n"
-                                                                                                                               "    another thread while this call is in progress.\n"
-                                                                                                                               "method : OptimizationMethod\n"
-                                                                                                                               "    Gradient/constraint evaluation strategy.\n"
-                                                                                                                               "output_steps_ms : int\n"
-                                                                                                                               "    Print progress every N milliseconds (0 = silent).\n\n"
-                                                                                                                               "Returns\n"
-                                                                                                                               "-------\n"
-                                                                                                                               "Result\n"
-                                                                                                                               "    Optimization result including trajectory and diagnostics.\n\n"
-                                                                                                                               "Notes\n"
-                                                                                                                               "-----\n"
-                                                                                                                               "The GIL is released for the duration of the NLopt call, allowing\n"
-                                                                                                                               "other Python threads to run concurrently.");
+            return blast::optimize(opt, output_steps_ms);
+          },
+          nb::arg("opt"),
+          nb::arg("output_steps_ms") = 1u,
+          "Run trajectory optimization.");
 }

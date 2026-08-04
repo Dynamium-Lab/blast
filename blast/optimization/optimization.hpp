@@ -439,6 +439,8 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
   initialize_optimization_with_segments(opt);
   n_con_with_segments(opt);
 
+  std::cout << "ncon with segments = " << opt->constraints.n_constraints << std::endl;
+
   Result result(opt); // todo: this is expensive
   result.opt->task = opt->task;
 
