@@ -51,6 +51,7 @@ void bind_manipulator(nb::module_& m) {
           .def_prop_rw("position_min", [](const ManipulatorLimits& l) { return array_to_copy(l.position_min); }, [](ManipulatorLimits& l, nb::ndarray<nb::numpy, real, nb::ndim<1>, nb::c_contig> a) { l.position_min = array_from_numpy(a); }, nb::rv_policy::move, "Minimum joint positions (rad).")
           .def_prop_rw("velocity_max", [](const ManipulatorLimits& l) { return array_to_copy(l.velocity_max); }, [](ManipulatorLimits& l, nb::ndarray<nb::numpy, real, nb::ndim<1>, nb::c_contig> a) { l.velocity_max = array_from_numpy(a); }, nb::rv_policy::move, "Maximum joint velocities (rad/s).")
           .def_prop_rw("acceleration_max", [](const ManipulatorLimits& l) { return array_to_copy(l.acceleration_max); }, [](ManipulatorLimits& l, nb::ndarray<nb::numpy, real, nb::ndim<1>, nb::c_contig> a) { l.acceleration_max = array_from_numpy(a); }, nb::rv_policy::move, "Maximum joint accelerations (rad/s²).")
+          .def_prop_rw("jerk_max", [](const ManipulatorLimits& l) { return array_to_copy(l.jerk_max); }, [](ManipulatorLimits& l, nb::ndarray<nb::numpy, real, nb::ndim<1>, nb::c_contig> a) { l.jerk_max = array_from_numpy(a); })
           .def_prop_rw("torque_max", [](const ManipulatorLimits& l) { return array_to_copy(l.torque_max); }, [](ManipulatorLimits& l, nb::ndarray<nb::numpy, real, nb::ndim<1>, nb::c_contig> a) { l.torque_max = array_from_numpy(a); }, nb::rv_policy::move, "Maximum joint torques (N·m).")
           .def_rw("tool_speed_max", &ManipulatorLimits::tool_speed_max, "Maximum tool-center-point speed (m/s).");
 
@@ -110,10 +111,8 @@ void bind_manipulator(nb::module_& m) {
   // ------------------------------------------------------------------
   nb::class_<ManipulatorCapsules>(m, "ManipulatorCapsules")
           .def(nb::init<>())
-          .def_rw("_base_sphere", &ManipulatorCapsules::base_sphere,
-                  "Collision sphere around the robot base.")
-          .def_rw("_capsule_list", &ManipulatorCapsules::capsule_list,
-                  "List of CollisionModelCapsule objects.")
+          .def_rw("base_sphere", &ManipulatorCapsules::base_sphere)
+          .def_rw("capsule_list", &ManipulatorCapsules::capsule_list)
           .def_prop_rw("collision_base", [](const ManipulatorCapsules& c) { return array_to_copy(c.collision_base); }, [](ManipulatorCapsules& c, nb::ndarray<nb::numpy, real, nb::ndim<1>, nb::c_contig> a) { c.collision_base = array_from_numpy(a); }, nb::rv_policy::move, "Boolean-like array: 1 if capsule[i] can collide with the base sphere.")
           .def_prop_rw("collision_matrix", [](const ManipulatorCapsules& c) -> nb::ndarray<nb::numpy, uint8_t> {
                 auto& mat = c.collision_matrix;
@@ -141,10 +140,23 @@ void bind_manipulator(nb::module_& m) {
           .def(nb::init<>())
           .def_rw("position", &Tool::position, "Offset vector to the tool (Vec3).")
           .def_rw("rotation", &Tool::rotation, "Rotation to the tool frame (Mat3).")
+          .def_rw("tool_center_position", &Tool::tool_center_position)
           .def_rw("mass", &Tool::mass, "Tool mass (kg).")
           .def_rw("inertia_tensor", &Tool::inertia_tensor, "Tool inertia tensor (Mat3).")
           .def_rw("cog_offset", &Tool::cog_offset, "Tool center-of-gravity offset (Vec3).")
           .def_rw("collision_model", &Tool::collision_model, "Collision model for the tool.");
+
+  // ------------------------------------------------------------------
+  // Payload
+  // ------------------------------------------------------------------
+  nb::class_<Payload>(m, "Payload")
+          .def(nb::init<>())
+          .def_rw("position", &Payload::position)
+          .def_rw("rotation", &Payload::rotation)
+          .def_rw("mass", &Payload::mass)
+          .def_rw("inertia_tensor", &Payload::inertia_tensor)
+          .def_rw("cog_offset", &Payload::cog_offset)
+          .def_rw("collision_model", &Payload::collision_model);
 
   // ------------------------------------------------------------------
   // Manipulator
@@ -161,10 +173,13 @@ void bind_manipulator(nb::module_& m) {
           .def("set_dynamics", &Manipulator::set_dynamics, nb::arg("dynamics"))
           .def("set_capsules", &Manipulator::set_capsules, nb::arg("capsules"))
           .def("set_tool", &Manipulator::set_tool, nb::arg("tool"))
-          .def("set_payload", &Manipulator::set_payload, nb::arg("mass"), nb::arg("cog"), nb::arg("inertia"))
+          .def("remove_tool", &Manipulator::remove_tool)
+          .def("set_payload", &Manipulator::set_payload, nb::arg("payload"))
+          .def("remove_payload", &Manipulator::remove_payload)
           // Expose a few internal fields for inspection
           .def_ro("base_position", &Manipulator::base_position)
           .def_ro("base_rotation", &Manipulator::base_rotation)
           .def_ro("has_tool", &Manipulator::has_tool)
+          .def_ro("has_payload", &Manipulator::has_payload)
           .def("__repr__", [](const Manipulator& manip) { return "<Manipulator n_joints=" + std::to_string(manip.n_joints) + ">"; });
 }
