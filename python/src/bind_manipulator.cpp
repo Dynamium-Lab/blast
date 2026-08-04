@@ -110,12 +110,14 @@ void bind_manipulator(nb::module_& m) {
   // ------------------------------------------------------------------
   nb::class_<ManipulatorCapsules>(m, "ManipulatorCapsules")
           .def(nb::init<>())
-          .def_rw("base_sphere", &ManipulatorCapsules::base_sphere,
+          .def_rw("_base_sphere", &ManipulatorCapsules::base_sphere,
                   "Collision sphere around the robot base.")
-          .def_rw("capsule_list", &ManipulatorCapsules::capsule_list,
+          .def_rw("_capsule_list", &ManipulatorCapsules::capsule_list,
                   "List of CollisionModelCapsule objects.")
-          .def_prop_rw("collision_base", [](const ManipulatorCapsules& c) { return array_to_copy(c.collision_base); }, [](ManipulatorCapsules& c, nb::ndarray<nb::numpy, real, nb::ndim<1>, nb::c_contig> a) { c.collision_base = array_from_numpy(a); }, nb::rv_policy::move, "Boolean-like array: 1 if capsule[i] can collide with the base sphere.")
-          .def_prop_rw("collision_matrix", [](const ManipulatorCapsules& c) -> nb::ndarray<nb::numpy, uint8_t> {
+          .def_prop_rw("_collision_base", [](const ManipulatorCapsules& c) { return array_to_copy(c._collision_base); }, [](ManipulatorCapsules& c, nb::ndarray<nb::numpy, real, nb::ndim<1>, nb::c_contig> a) { c._collision_base = array_from_numpy(a); }, nb::rv_policy::move, "Boolean-like array: 1 if capsule[i] can collide with the base sphere.")
+          .def_prop_rw("_collision_tool", [](const ManipulatorCapsules& c) { return array_to_copy(c._collision_tool); }, [](ManipulatorCapsules& c, nb::ndarray<nb::numpy, real, nb::ndim<1>, nb::c_contig> a) { c._collision_tool = array_from_numpy(a); }, nb::rv_policy::move, "Boolean-like array: 1 if capsule[i] can collide with the tool.")
+          .def_prop_rw("_collision_payload", [](const ManipulatorCapsules& c) { return array_to_copy(c._collision_payload); }, [](ManipulatorCapsules& c, nb::ndarray<nb::numpy, real, nb::ndim<1>, nb::c_contig> a) { c._collision_payload = array_from_numpy(a); }, nb::rv_policy::move, "Boolean-like array: 1 if capsule[i] can collide with the payload.")
+          .def_prop_rw("_collision_matrix", [](const ManipulatorCapsules& c) -> nb::ndarray<nb::numpy, uint8_t> {
                 auto& mat = c.collision_matrix;
                 int n = mat.rows * mat.cols;
                 uint8_t* buf = new uint8_t[n];
@@ -133,38 +135,23 @@ void bind_manipulator(nb::module_& m) {
                     for (int col = 0; col < cols; col++)
                         c.collision_matrix(r, col) = a(r, col); }, nb::rv_policy::move, "Symmetric adjacency matrix (uint8): collision_matrix[i,j]=1 means capsule i and j can collide.");
 
+
   // ------------------------------------------------------------------
   // Tool
   // ------------------------------------------------------------------
   nb::class_<Tool>(m, "Tool")
           .def(nb::init<>())
-          .def_rw("tool_offset", &Tool::tool_offset, "Offset vector to the tool (Vec3).")
-          .def_rw("tool_rotation", &Tool::tool_rotation, "Rotation to the tool frame (Mat3).")
+          .def_rw("position", &Tool::position, "Offset vector to the tool (Vec3).")
+          .def_rw("rotation", &Tool::rotation, "Rotation to the tool frame (Mat3).")
           .def_rw("mass", &Tool::mass, "Tool mass (kg).")
           .def_rw("inertia_tensor", &Tool::inertia_tensor, "Tool inertia tensor (Mat3).")
           .def_rw("cog_offset", &Tool::cog_offset, "Tool center-of-gravity offset (Vec3).")
-          .def_rw("capsule_list", &Tool::capsule_list, "Collision capsules for the tool.")
-          .def_prop_rw("collision_matrix", [](const Tool& t) -> nb::ndarray<nb::numpy, uint8_t> {
-                auto& mat = t.collision_matrix;
-                int n = mat.rows * mat.cols;
-                uint8_t* buf = new uint8_t[n];
-                std::memcpy(buf, mat.data.data(), (size_t)n);
-                nb::capsule owner(buf, [](void* p) noexcept {
-                    delete[] static_cast<uint8_t*>(p);
-                });
-                size_t  shape[2]   = {(size_t)mat.rows, (size_t)mat.cols};
-                int64_t strides[2] = {1, (int64_t)mat.rows};
-                return nb::ndarray<nb::numpy, uint8_t>(buf, 2, shape, owner, strides); }, [](Tool& t, nb::ndarray<nb::numpy, uint8_t, nb::ndim<2>> a) {
-                int rows = (int)a.shape(0), cols = (int)a.shape(1);
-                t.collision_matrix.resize(rows, cols);
-                for (int r = 0; r < rows; r++)
-                    for (int col = 0; col < cols; col++)
-                        t.collision_matrix(r, col) = a(r, col); }, nb::rv_policy::move);
+          .def_rw("collision_model", &Tool::collision_model, "Collision model for the tool.")
 
-  // ------------------------------------------------------------------
-  // Manipulator
-  // ------------------------------------------------------------------
-  nb::class_<Manipulator>(m, "Manipulator")
+          // ------------------------------------------------------------------
+          // Manipulator
+          // ------------------------------------------------------------------
+          nb::class_<Manipulator>(m, "Manipulator")
           .def(nb::init<u32, const ManipulatorLimits&, const ManipulatorKinematics&>(),
                nb::arg("n_joints"), nb::arg("limits"), nb::arg("kinematics"),
                "Construct a manipulator with kinematics only (no dynamics or collision model).")
