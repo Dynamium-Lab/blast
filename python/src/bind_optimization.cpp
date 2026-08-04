@@ -173,17 +173,15 @@ void bind_optimization(nb::module_& m) {
                   "Index of dense validation violation.")
 
           // Return copies. Avoid possible lifetime/view problems.
-          .def_prop_ro("x", [](const Result& r) {
-              nb::ndarray<nb::numpy, real> out({r.x.size});
-              if (r.x.size > 0)
-                  std::memcpy(out.data(), r.x.data, r.x.size * sizeof(real));
-              return out; }, "Optimized B-spline control vector.")
+          .def_prop_ro("x", [](Result& r) {
+                if (r.x.size == 0)
+                        return nb::ndarray<nb::numpy, real>{};
+                return array_to_view(&r.x); }, "Optimized B-spline control vector (float64 view).")
 
-          .def_prop_ro("x0", [](const Result& r) {
-              nb::ndarray<nb::numpy, real> out({r.x0.size});
-              if (r.x0.size > 0)
-                  std::memcpy(out.data(), r.x0.data, r.x0.size * sizeof(real));
-              return out; }, "Initial guess vector.")
+          .def_prop_ro("x0", [](Result& r) {
+                if (r.x0.size == 0)
+                        return nb::ndarray<nb::numpy, real>{};
+                return array_to_view(&r.x0); }, "Initial guess vector that was used (float64 view).")
 
           .def_prop_ro("trajectory", [](Result& self) -> Trajectory& { return self.trajectory; }, nb::rv_policy::reference_internal, "Computed trajectory.")
 
