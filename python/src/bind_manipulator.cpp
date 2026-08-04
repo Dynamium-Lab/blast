@@ -115,8 +115,6 @@ void bind_manipulator(nb::module_& m) {
           .def_rw("_capsule_list", &ManipulatorCapsules::capsule_list,
                   "List of CollisionModelCapsule objects.")
           .def_prop_rw("collision_base", [](const ManipulatorCapsules& c) { return array_to_copy(c.collision_base); }, [](ManipulatorCapsules& c, nb::ndarray<nb::numpy, real, nb::ndim<1>, nb::c_contig> a) { c.collision_base = array_from_numpy(a); }, nb::rv_policy::move, "Boolean-like array: 1 if capsule[i] can collide with the base sphere.")
-          .def_prop_rw("collision_tool", [](const ManipulatorCapsules& c) { return array_to_copy(c.collision_tool); }, [](ManipulatorCapsules& c, nb::ndarray<nb::numpy, real, nb::ndim<1>, nb::c_contig> a) { c.collision_tool = array_from_numpy(a); }, nb::rv_policy::move, "Boolean-like array: 1 if capsule[i] can collide with the tool.")
-          .def_prop_rw("collision_payload", [](const ManipulatorCapsules& c) { return array_to_copy(c.collision_payload); }, [](ManipulatorCapsules& c, nb::ndarray<nb::numpy, real, nb::ndim<1>, nb::c_contig> a) { c.collision_payload = array_from_numpy(a); }, nb::rv_policy::move, "Boolean-like array: 1 if capsule[i] can collide with the payload.")
           .def_prop_rw("collision_matrix", [](const ManipulatorCapsules& c) -> nb::ndarray<nb::numpy, uint8_t> {
                 auto& mat = c.collision_matrix;
                 int n = mat.rows * mat.cols;
