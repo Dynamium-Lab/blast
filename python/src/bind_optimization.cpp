@@ -112,6 +112,7 @@ void bind_optimization(nb::module_& m) {
           .def(nb::init<const Manipulator&, const Task&, const Bspline&>(),
                nb::arg("manip"), nb::arg("task"), nb::arg("bspline"),
                "Construct with an explicit B-spline parametrisation.")
+          .def_rw("method", &Optimization::method)
           .def_rw("bspline", &Optimization::bspline)
           .def_rw("guess", &Optimization::guess)
           .def_rw("constraints", &Optimization::constraints)
