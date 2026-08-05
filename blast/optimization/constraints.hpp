@@ -238,6 +238,9 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           // check every internal collision
           auto self_collision_distances = get_internal_collisions(opt.manip, manip_data);
           std::cout << "print self collision distances: " << std::endl;
+          for (int i = 0; i < self_collision_distances.size; i++) {
+            std::cout << self_collision_distances[i] << ", " << std::endl;
+          }
           print(self_collision_distances);
           if (const auto c = -min(self_collision_distances);
               c > max_internal_col_constraints) {
