@@ -90,7 +90,7 @@ struct ManipulatorDynamics {
 struct ManipulatorCapsules {
   Sphere                             base_sphere;
   std::vector<CollisionModelCapsule> capsule_list;
-  ObjMatrix<bool>                    collision_matrix = {}; // which capsules collide
+  ObjMatrix<u8>                      collision_matrix = {}; // which capsules collide
   Array                              collision_base;        // collisions with base sphere
 };
 
@@ -208,7 +208,7 @@ struct Manipulator {
   int                                             _n_caps                = 0;
   int                                             _n_internal_collisions = 0;
   std::array<CollisionModelCapsule, MAX_CAPSULES> _collision_model{};
-  ObjMatrix<bool>                                 _collision_matrix{};
+  ObjMatrix<u8>                                   _collision_matrix{};
   Array                                           _collision_base{};
   Array                                           _collision_tool{};
   Array                                           _collision_payload{};
