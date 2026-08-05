@@ -114,18 +114,18 @@ void bind_manipulator(nb::module_& m) {
           .def_rw("base_sphere", &ManipulatorCapsules::base_sphere)
           .def_rw("capsule_list", &ManipulatorCapsules::capsule_list)
           .def_prop_rw("collision_base", [](const ManipulatorCapsules& c) { return array_to_copy(c.collision_base); }, [](ManipulatorCapsules& c, nb::ndarray<nb::numpy, real, nb::ndim<1>, nb::c_contig> a) { c.collision_base = array_from_numpy(a); }, nb::rv_policy::move, "Boolean-like array: 1 if capsule[i] can collide with the base sphere.")
-          .def_prop_rw("collision_matrix", [](const ManipulatorCapsules& c) -> nb::ndarray<nb::numpy, uint8_t> {
+          .def_prop_rw("collision_matrix", [](const ManipulatorCapsules& c) -> nb::ndarray<nb::numpy, bool> {
                 auto& mat = c.collision_matrix;
                 int n = mat.rows * mat.cols;
-                uint8_t* buf = new uint8_t[n];
+                bool* buf = new bool[n];
                 std::memcpy(buf, mat.data.data(), (size_t)n);
                 nb::capsule owner(buf, [](void* p) noexcept {
-                    delete[] static_cast<uint8_t*>(p);
+                    delete[] static_cast<bool*>(p);
                 });
                 size_t  shape[2]   = {(size_t)mat.rows, (size_t)mat.cols};
                 // column-major strides (uint8 = 1 byte)
                 int64_t strides[2] = {1, (int64_t)mat.rows};
-                return nb::ndarray<nb::numpy, uint8_t>(buf, 2, shape, owner, strides); }, [](ManipulatorCapsules& c, nb::ndarray<nb::numpy, uint8_t, nb::ndim<2>> a) {
+                return nb::ndarray<nb::numpy, bool>(buf, 2, shape, owner, strides); }, [](ManipulatorCapsules& c, nb::ndarray<nb::numpy, bool, nb::ndim<2>> a) {
                 int rows = (int)a.shape(0), cols = (int)a.shape(1);
                 c.collision_matrix.resize(rows, cols);
                 for (int r = 0; r < rows; r++)
