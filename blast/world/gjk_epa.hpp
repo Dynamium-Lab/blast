@@ -5,8 +5,6 @@
 
 namespace blast {
 
-#define COLLISION_EPSILON_SQ 1e-12
-#define COLLISION_EPSILON 1e-7
 #define TRACY_ACTIVE 0 // 0 nothing, 1 big functions, 2 medium functions, 3 all functions
 #define GJK_ACTIVE 0   // 0 nothing, 1 ericson, 2 messy, 3 both
 int MAX_ITERATIONS = 64;
@@ -600,7 +598,7 @@ real solve_EPA(ComplexSimplex simplex, Vec3* v1, size_t count1, Vec3* v2, size_t
     // If the vertex does not expand the polytope in the direction of the normal, the minimum distance
     // is with the closest face (unchanged). Compute and return.
     dist = dot(p - faces[idx].p1, faces[idx].n);
-    if (dist < COLLISION_EPSILON_SQ) { // squared distance or no?
+    if (dist < BLAST_GJK_EPSILON) {
       break;
     }
 
@@ -659,6 +657,10 @@ real solve_EPA(ComplexSimplex simplex, Vec3* v1, size_t count1, Vec3* v2, size_t
 
       dist             = distmin_origin({loose_edges[i].p1, loose_edges[i].p2, p, n});
       faces[n_faces++] = {loose_edges[i].p1, loose_edges[i].p2, p, n, dist};
+      if (n_faces == 64) { // remove?
+        break;
+      }
+      // Assert(n_faces < 64);
     }
     Assert(n_faces > 0);
     // if (j == MAX_ITERATIONS - 1) {
@@ -699,7 +701,7 @@ host_fn real solve_general_GJK(Vec3* v1, size_t count1, Vec3* v2, size_t count2)
       direction = solved.p2;
     }
 
-    if (dot(p, p) < COLLISION_EPSILON_SQ && old_simplex_count == 4) {
+    if (dot(p, p) < BLAST_GJK_EPSILON_SQ && old_simplex_count == 4) {
       dist_min = solve_EPA(simplex, v1, count1, v2, count2);
       Assert(isnan(dist_min) == false);
       break;
@@ -709,11 +711,12 @@ host_fn real solve_general_GJK(Vec3* v1, size_t count1, Vec3* v2, size_t count2)
     Vec3 support2 = GJK_get_support(v2, count2, direction);
 
     Vec3 support     = support2 - support1;
-    real old_support = dot(p, direction); // (in direction)
+    direction        = (1 / norm(direction)) * direction; // necessary in CI-float build
+    real old_support = dot(p, direction);
     real new_support = dot(support, direction);
 
     // if no improvement, terminate
-    if (new_support - old_support <= COLLISION_EPSILON_SQ) {
+    if (new_support - old_support <= BLAST_GJK_EPSILON) {
       if (simplex.count == 3 && norm(cross(simplex.b - simplex.a, simplex.c - simplex.a)) < 1e-9) { // if 3 pt simplex is line when it should be triangle
         Segment seg_test;
         // Calculate all points in minkowski difference and find the two points which are the most extreme
@@ -728,7 +731,7 @@ host_fn real solve_general_GJK(Vec3* v1, size_t count1, Vec3* v2, size_t count2)
         for (int i = 0; i < count1; i++) {
           for (int j = 0; j < count2; j++) {
             Vec3 new_pt = v2[j] - v1[i];
-            if (std::abs(old_support - dot(new_pt, direction)) < COLLISION_EPSILON_SQ) {
+            if (std::abs(old_support - dot(new_pt, direction)) < BLAST_GJK_EPSILON_SQ) {
               real current_dot = dot(new_pt, new_dir);
               if (current_dot > max_dot) {
                 max_dot     = current_dot;
@@ -781,11 +784,11 @@ host_fn real solve_general_GJK(Vec3* v1, size_t count1, Vec3* v2, size_t count2)
     simplex.a1 = support1;
     simplex.a2 = support2;
     simplex.a  = support;
-    // if (i == MAX_ITERATIONS - 1) {
-    //   std::cout << "Max iterations reached - messy GJK" << std::endl;
-    // }
+    if (i == MAX_ITERATIONS - 1) {
+      // std::cout << "Max iterations reached - messy GJK" << std::endl;
+      dist_min = norm(p); // figure this out
+    }
   }
-
   return dist_min;
 }
 
@@ -1146,9 +1149,6 @@ real solve_EPA(Simplex simplex, Vec3* v1, size_t count1, Vec3* v2, size_t count2
   int  idx;
 
   for (int j = 0; j < MAX_ITERATIONS; j++) {
-    // if (j == MAX_ITERATIONS - 1) {
-    //   std::cout << "Max iterations reached - ericson EPA" << std::endl;
-    // }
     // Find closest face
     min_dist = INF_REAL;
     for (int k = 0; k < n_faces; k++) {
@@ -1166,7 +1166,7 @@ real solve_EPA(Simplex simplex, Vec3* v1, size_t count1, Vec3* v2, size_t count2
     // If the vertex does not expand the polytope in the direction of the normal, the minimum distance
     // is with the closest face (unchanged). Compute and return.
     dist = dot(p - faces[idx].p1, faces[idx].n);
-    if (dist < COLLISION_EPSILON_SQ) { // previously 1e-2
+    if (dist < BLAST_GJK_EPSILON) {
       break;
     }
 
@@ -1225,8 +1225,16 @@ real solve_EPA(Simplex simplex, Vec3* v1, size_t count1, Vec3* v2, size_t count2
 
       dist             = distmin_origin({loose_edges[i].p1, loose_edges[i].p2, p, n});
       faces[n_faces++] = {loose_edges[i].p1, loose_edges[i].p2, p, n, dist};
+      Assert(n_faces < 64);
+      if (n_faces == 64) { // remove?
+        // std::cout << "Max capacity faces" << std::endl;
+        break;
+      }
     }
     Assert(n_faces > 0);
+    // if (j == MAX_ITERATIONS - 1) {
+    //   std::cout << "Max iterations reached - messy EPA" << std::endl;
+    // }
   }
   return -std::abs(min_dist);
 }
@@ -1271,7 +1279,7 @@ host_fn real general_GJK(Vec3* set1, size_t count1, Vec3* set2, size_t count2) {
     dot_P = dot(simplex.P, simplex.P);
 
     // 3. If P is the origin itself, stop and return A and B as intersecting.
-    if (dot_P < COLLISION_EPSILON_SQ && simplex.size == 4) {
+    if (dot_P < BLAST_GJK_EPSILON_SQ && simplex.size == 4) {
       real dist = solve_EPA(simplex, set1, count1, set2, count2);
       return dist;
     }
@@ -1286,9 +1294,15 @@ host_fn real general_GJK(Vec3* set1, size_t count1, Vec3* set2, size_t count2) {
 
     // 6. If V is no more exremal in direction -P than P itself, stop and return A and B as not intersecting.
     // The length of the vector from the origin to P is the separation distance of A and B.
-    real ans1 = dot(V, -simplex.P) / dot_P;
-    if (ans1 + 1 <= COLLISION_EPSILON) // No more progress is being made
+    Vec3 direction   = -simplex.P;
+    direction        = (1 / norm(direction)) * direction; // necessary in CI-float build
+    real old_support = dot(simplex.P, direction);
+    real new_support = dot(V, direction);
+    if (new_support - old_support <= BLAST_GJK_EPSILON)
       break;
+    // real ans1 = dot(V, -simplex.P) / dot_P; // mistake here (division by zero?)
+    // if (ans1 + 1 <= BLAST_GJK_EPSILON)      // No more progress is being made
+    //   break;
 
     // 7. Add V to simplex and go to 2.
     Assert(simplex.size <= 3);
@@ -1298,7 +1312,6 @@ host_fn real general_GJK(Vec3* set1, size_t count1, Vec3* set2, size_t count2) {
 
     // if (i == MAX_ITERATIONS - 1) {
     //   std::cout << "Max iterations reached - ericson GJK" << std::endl;
-    //   break;
     // }
   }
 

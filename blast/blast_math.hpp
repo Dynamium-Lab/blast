@@ -42,10 +42,14 @@ constexpr real PI            = 3.141592653589793;
 constexpr real BLAST_GEOMETRY_EPSILON = 1e-9; // near-zero threshold in geometry/collision math
 constexpr real BLAST_SOLVER_TOL       = 1e-8; // iterative-solver convergence (e.g. eigenvalues)
 constexpr real BLAST_FD_STEP          = 1e-5; // finite-difference gradient step
+constexpr real BLAST_GJK_EPSILON      = 1e-7;
+constexpr real BLAST_GJK_EPSILON_SQ   = 1e-14;
 #else
 constexpr real BLAST_GEOMETRY_EPSILON = 1e-6f;
 constexpr real BLAST_SOLVER_TOL       = 1e-5f;
 constexpr real BLAST_FD_STEP          = 3e-4f;
+constexpr real BLAST_GJK_EPSILON      = 1e-4;
+constexpr real BLAST_GJK_EPSILON_SQ   = 1e-8;
 #endif
 #ifdef __CUDA_ARCH__
 #if BLAST_USE_DOUBLES
