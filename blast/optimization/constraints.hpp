@@ -120,13 +120,13 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
   }
 
   ManipulatorTempData                         manip_data;
-  std::array<u8, MAX_JOINTS>                  max_pos_indices{};
-  std::array<u8, MAX_JOINTS>                  max_vel_indices{};
-  std::array<u8, MAX_JOINTS>                  max_acc_indices{};
-  std::array<u8, MAX_JOINTS>                  max_tor_indices{};
+  std::array<int, MAX_JOINTS>                 max_pos_indices{};
+  std::array<int, MAX_JOINTS>                 max_vel_indices{};
+  std::array<int, MAX_JOINTS>                 max_acc_indices{};
+  std::array<int, MAX_JOINTS>                 max_tor_indices{};
   std::array<CollisionEntities, MAX_CAPSULES> max_collision_entities{};
-  u8                                          max_internal_collision_index = 0;
-  u8                                          max_tool_index               = 0;
+  int                                         max_internal_collision_index = 0;
+  int                                         max_tool_index               = 0;
 
   opt.bspline.compute_trajectory(x, opt.task);
 
