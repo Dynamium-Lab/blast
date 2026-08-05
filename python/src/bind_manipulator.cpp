@@ -112,7 +112,24 @@ void bind_manipulator(nb::module_& m) {
   nb::class_<ManipulatorCapsules>(m, "ManipulatorCapsules")
           .def(nb::init<>())
           .def_rw("base_sphere", &ManipulatorCapsules::base_sphere)
-          .def_rw("capsule_list", &ManipulatorCapsules::capsule_list)
+          .def_prop_rw(
+                  "capsule_list",
+                  [](const ManipulatorCapsules& c) {
+                    nb::list lst;
+                    for (const auto& capsule: c._collision_model)
+                      lst.append(capsule);
+                    return lst;
+                  },
+                  [](ManipulatorCapsules& c, nb::list lst) {
+                    size_t i = 0;
+
+                    for (auto item: lst) {
+                      if (i >= MAX_CAPSULES)
+                        throw nb::value_error("Too many capsules");
+
+                      c._collision_model[i++] = nb::cast<CollisionModelCapsule>(item);
+                    }
+                  })
           .def_prop_rw("collision_base", [](const ManipulatorCapsules& c) { return array_to_copy(c.collision_base); }, [](ManipulatorCapsules& c, nb::ndarray<nb::numpy, real, nb::ndim<1>, nb::c_contig> a) { c.collision_base = array_from_numpy(a); }, nb::rv_policy::move, "Boolean-like array: 1 if capsule[i] can collide with the base sphere.")
           .def_prop_rw("collision_matrix", [](const ManipulatorCapsules& c) -> nb::ndarray<nb::numpy, uint8_t> {
                 auto& mat = c.collision_matrix;
