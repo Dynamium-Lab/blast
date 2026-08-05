@@ -168,6 +168,7 @@ void bind_manipulator(nb::module_& m) {
           .def("__init__", [](Manipulator* self, u32 n, const ManipulatorLimits& l, const ManipulatorKinematics& k, const ManipulatorDynamics& d) { new (self) Manipulator(n, l, k, &d, nullptr); }, nb::arg("n_joints"), nb::arg("limits"), nb::arg("kinematics"), nb::arg("dynamics"), "Construct with kinematics and dynamics.")
           .def("__init__", [](Manipulator* self, u32 n, const ManipulatorLimits& l, const ManipulatorKinematics& k, const ManipulatorDynamics& d, const ManipulatorCapsules& c) { new (self) Manipulator(n, l, k, &d, &c); }, nb::arg("n_joints"), nb::arg("limits"), nb::arg("kinematics"), nb::arg("dynamics"), nb::arg("capsules"), "Construct with kinematics, dynamics, and collision capsules.")
           .def_ro("n_joints", &Manipulator::n_joints, "Number of joints.")
+          .def_ro("_n_caps", &Manipulator::_n_caps, "Number of capsules.")
           .def("set_limits", &Manipulator::set_limits, nb::arg("limits"))
           .def("set_kinematics", &Manipulator::set_kinematics, nb::arg("kinematics"))
           .def("set_dynamics", &Manipulator::set_dynamics, nb::arg("dynamics"))
