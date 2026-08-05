@@ -91,12 +91,13 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
     Assert(grad.rows == x.size);
     Assert(grad.cols == constraints.size);
   }
-  const int n_segments                = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
-  const int n_points_per_segment      = (int) opt.bspline.n_points / n_segments; // todo: check if fine?
-  const int n_joints                  = (int) opt.manip.n_joints;
-  const int n_ctrl                    = (int) opt.bspline.n_ctrl;
-  const int x_len                     = (int) x.size;
-  const int n_capsules                = opt.manip._n_caps;
+  const int n_segments           = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
+  const int n_points_per_segment = (int) opt.bspline.n_points / n_segments; // todo: check if fine?
+  const int n_joints             = (int) opt.manip.n_joints;
+  const int n_ctrl               = (int) opt.bspline.n_ctrl;
+  const int x_len                = (int) x.size;
+  const int n_capsules           = opt.manip._n_caps;
+  std::cout << "n_capsules = " << n_capsules << std::endl;
   const int n_constraints_per_segment = opt.constraints.n_constraints_per_segment;
   Assert(constraints.size == n_segments * n_constraints_per_segment);
 
@@ -262,6 +263,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 
           // check every capsule with world
           for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++) {
+            std::cout << "capsule " << capsule_id << " internal collisions " << std::endl;
             real       dist_min = INF_REAL;
             const auto capsule  = manip_data.capsule_list[capsule_id];
 
