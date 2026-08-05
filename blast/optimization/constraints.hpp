@@ -91,13 +91,12 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
     Assert(grad.rows == x.size);
     Assert(grad.cols == constraints.size);
   }
-  const int n_segments           = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
-  const int n_points_per_segment = (int) opt.bspline.n_points / n_segments; // todo: check if fine?
-  const int n_joints             = (int) opt.manip.n_joints;
-  const int n_ctrl               = (int) opt.bspline.n_ctrl;
-  const int x_len                = (int) x.size;
-  const int n_capsules           = opt.manip._n_caps;
-  std::cout << "n_capsules = " << n_capsules << std::endl;
+  const int n_segments                = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
+  const int n_points_per_segment      = (int) opt.bspline.n_points / n_segments; // todo: check if fine?
+  const int n_joints                  = (int) opt.manip.n_joints;
+  const int n_ctrl                    = (int) opt.bspline.n_ctrl;
+  const int x_len                     = (int) x.size;
+  const int n_capsules                = opt.manip._n_caps;
   const int n_constraints_per_segment = opt.constraints.n_constraints_per_segment;
   Assert(constraints.size == n_segments * n_constraints_per_segment);
 
@@ -238,16 +237,6 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 #endif
           // check every internal collision
           auto self_collision_distances = get_internal_collisions(opt.manip, manip_data);
-          std::cout << "manip n_caps: " << opt.manip._n_caps << std::endl;
-          std::cout << "manip._n_internal_collisions: " << opt.manip._n_internal_collisions << std::endl;
-          std::cout << "print self collision base: " << std::endl;
-          print(opt.manip._collision_base);
-          std::cout << "print self collision size: " << self_collision_distances.size << std::endl;
-          std::cout << "print self collision distances: " << std::endl;
-          for (int i = 0; i < self_collision_distances.size; i++) {
-            std::cout << self_collision_distances[i] << ", " << std::endl;
-          }
-          print(self_collision_distances);
           if (const auto c = -min(self_collision_distances);
               c > max_internal_col_constraints) {
             max_internal_col_constraints = c;
@@ -263,7 +252,6 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 
           // check every capsule with world
           for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++) {
-            std::cout << "capsule " << capsule_id << " internal collisions " << std::endl;
             real       dist_min = INF_REAL;
             const auto capsule  = manip_data.capsule_list[capsule_id];
 
@@ -781,7 +769,6 @@ inline blast_fn void nlopt_constraints_with_segments(unsigned m, real* result, u
 
   std::cout << "x at iteration " << std::endl;
   print(xv);
-  std::cout << "Self collision activated? " << opt->constraints.self_collisions << std::endl;
 
   Array constraints;
   constraints.alias(result, m);
@@ -1073,8 +1060,7 @@ inline blast_fn bool validate_task(Optimization* opt) {
         }
       }
       if (constraints.self_collisions) {
-        if (auto tmp_coll = get_internal_collisions(manip, manip_data); min(tmp_coll) < 0) { // min because collisions constraints are -d < 0
-          std::cout << "Self-collision at start/end position." << std::endl;
+        if (auto tmp_coll = get_internal_collisions(manip, manip_data); min(tmp_coll) < 0) { // min because collisions constraints are -d <0
           return false;
         }
       }

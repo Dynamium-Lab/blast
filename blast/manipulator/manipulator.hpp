@@ -316,13 +316,10 @@ inline host_fn void Manipulator::set_dynamics(const ManipulatorDynamics& dynamic
 
 inline host_fn void Manipulator::set_capsules(const ManipulatorCapsules& capsules) {
   _n_caps = 0;
-  std::cout << "n_caps in set_capsules: " << _n_caps << std::endl;
   for (auto& cap: capsules.capsule_list) {
     Assert(cap.joint_frame < n_joints + 1);
     _collision_model[_n_caps++] = cap;
-    std::cout << "n_caps in set_capsules: " << _n_caps << std::endl;
   }
-  std::cout << "n_caps in set_capsules: " << _n_caps << std::endl;
 
   if (capsules.collision_base.size != 0 && capsules.collision_matrix.size != 0) { // todo: fix this... (we need a fail safe)
     _collision_base.resize(_n_caps);
