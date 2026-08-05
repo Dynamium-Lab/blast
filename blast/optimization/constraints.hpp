@@ -231,7 +231,6 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
         }
 
         // self collision
-        std::cout << "Self collision activated? " << opt.constraints.self_collisions << std::endl;
         if (opt.constraints.self_collisions) {
 #if BLAST_TRACE_LEVEL >= 3
           PROFILE_SCOPE("Self Constraints");
@@ -772,6 +771,7 @@ inline blast_fn void nlopt_constraints_with_segments(unsigned m, real* result, u
 
   std::cout << "x at iteration " << std::endl;
   print(xv);
+  std::cout << "Self collision activated? " << opt->constraints.self_collisions << std::endl;
 
   Array constraints;
   constraints.alias(result, m);
