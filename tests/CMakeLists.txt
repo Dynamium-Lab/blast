@@ -99,6 +99,7 @@ set(TESTS
 
         # World
         test_primitives world/test_primitives.cpp
+        test_broadphase world/test_broadphase.cpp
 
         # Trajectory
         test_bspline trajectory/test_bsplines.cpp
