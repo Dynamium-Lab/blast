@@ -767,9 +767,6 @@ inline blast_fn void nlopt_constraints_with_segments(unsigned m, real* result, u
   Array xv;
   xv.alias(x, x_len);
 
-  std::cout << "x at iteration " << std::endl;
-  print(xv);
-
   Array constraints;
   constraints.alias(result, m);
 
@@ -1061,6 +1058,7 @@ inline blast_fn bool validate_task(Optimization* opt) {
       }
       if (constraints.self_collisions) {
         if (auto tmp_coll = get_internal_collisions(manip, manip_data); min(tmp_coll) < 0) { // min because collisions constraints are -d <0
+          std::cout << "External collision at start position." << std::endl;
           return false;
         }
       }
