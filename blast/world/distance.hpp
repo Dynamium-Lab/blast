@@ -293,15 +293,9 @@ inline blast_fn real distance(const Capsule& capsule, const Box& box) {
   origin_vertices.vert[2] = {box.extents.x, -box.extents.y, -box.extents.z};
   origin_vertices.vert[3] = {box.extents.x, box.extents.y, -box.extents.z};
   origin_vertices.vert[4] = {-box.extents.x, -box.extents.y, box.extents.z};
-  origin_vertices.vert[5] = {-box.extents.x, box.extents.y, box.extents.z}; // this one
+  origin_vertices.vert[5] = {-box.extents.x, box.extents.y, box.extents.z};
   origin_vertices.vert[6] = {box.extents.x, -box.extents.y, box.extents.z};
-  origin_vertices.vert[7] = {box.extents.x, box.extents.y, box.extents.z};  // this one
-
-
-  // std::cout << "(0.35, 0.35, 0.02)" << std::endl;
-  // print_vec(origin_vertices.vert[7]);
-  // std::cout << "(-0.35, 0.35, 0.02)" << std::endl;
-  // print_vec(origin_vertices.vert[5]);
+  origin_vertices.vert[7] = {box.extents.x, box.extents.y, box.extents.z};
 
   // Thus, we get the three main directions
   Directions directions;

@@ -9,7 +9,6 @@ struct World;
 struct Box;
 struct Capsule;
 struct Sphere;
-struct Cylinder;
 struct DynamicBox;
 struct DynamicSphere;
 struct DynamicCapsule;
@@ -81,12 +80,6 @@ struct Capsule {
 struct Sphere {
   Vec3 center;
   real radius = 0;
-};
-
-struct Cylinder {
-  Vec3 p1;
-  Vec3 p2;
-  real radius;
 };
 
 struct DynamicBox {

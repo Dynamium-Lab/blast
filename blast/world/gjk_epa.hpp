@@ -358,121 +358,6 @@ host_fn TwoPts GJK_solve_simplex4(ComplexSimplex& simplex) {
   return {{0, 0, 0}, {0, 0, 0}};
 }
 
-// host_fn TwoPts GJK_solve_simplex4(ComplexSimplex& simplex) {
-// #if TRACY_ACTIVE >= 2 && GJK_ACTIVE >= 2
-//   ZoneScoped;
-// #endif
-//   Vec3 abc = cross(simplex.b - simplex.a, simplex.c - simplex.a);
-//   Vec3 acd = cross(simplex.c - simplex.a, simplex.d - simplex.a);
-//   Vec3 adb = cross(simplex.d - simplex.a, simplex.b - simplex.a);
-//
-//   Vec3 ao = -simplex.a;
-//
-//   bool abc_dir = dot(abc, ao) > 0;
-//   bool acd_dir = dot(acd, ao) > 0;
-//   bool adb_dir = dot(adb, ao) > 0;
-//
-//   if (!abc_dir && !acd_dir && !adb_dir) {
-//     // the origin is inside the simplex
-//     return {{0, 0, 0}, {0, 0, 0}};
-//   }
-//   if (abc_dir && !acd_dir && !adb_dir) {
-//     // the origin is near abc
-//     simplex.count = 3;
-//     return GJK_solve_simplex3(simplex);
-//   }
-//   if (!abc_dir && acd_dir && !adb_dir) {
-//     // the origin is near acd
-//     // simplex.b_all = simplex.c_all;
-//     simplex.b  = simplex.c;
-//     simplex.b1 = simplex.c1;
-//     simplex.b2 = simplex.c2;
-//     // simplex.c_all = simplex.d_all;
-//     simplex.c  = simplex.d;
-//     simplex.c1 = simplex.d1;
-//     simplex.c2 = simplex.d2;
-//
-//     simplex.count = 3;
-//     return GJK_solve_simplex3(simplex);
-//   }
-//   if (!abc_dir && !acd_dir && adb_dir) {
-//     // the origin is near adb
-//     // simplex.c_all = simplex.b_all;
-//     simplex.c  = simplex.b;
-//     simplex.c1 = simplex.b1;
-//     simplex.c2 = simplex.b2;
-//
-//     // simplex.b_all = simplex.d_all;
-//     simplex.b  = simplex.d;
-//     simplex.b1 = simplex.d1;
-//     simplex.b2 = simplex.d2;
-//
-//     simplex.count = 3;
-//     return GJK_solve_simplex3(simplex);
-//   }
-//
-//   // the origin potentially falls on multiple triangles
-//   ComplexSimplex simplex_abc = simplex;
-//   simplex_abc.count          = 3;
-//
-//   // There may be a better way to do this.
-//
-//   ComplexSimplex simplex_acd = simplex;
-//   // simplex_acd.b_all = simplex_acd.c_all;
-//   simplex_acd.b  = simplex.c;
-//   simplex_acd.b1 = simplex.c1;
-//   simplex_acd.b2 = simplex.c2;
-//   // simplex_acd.c_all = simplex_acd.d_all;
-//   simplex_acd.c  = simplex.d;
-//   simplex_acd.c1 = simplex.d1;
-//   simplex_acd.c2 = simplex.d2;
-//
-//   simplex_acd.count = 3;
-//
-//   ComplexSimplex simplex_adb = simplex;
-//   // simplex_adb.c_all = simplex_adb.b_all;
-//   simplex_adb.c  = simplex.b;
-//   simplex_adb.c1 = simplex.b1;
-//   simplex_adb.c2 = simplex.b2;
-//   // simplex_adb.c_all = simplex_adb.d_all;
-//   simplex_adb.b  = simplex.d;
-//   simplex_adb.b1 = simplex.d1;
-//   simplex_adb.b2 = simplex.d2;
-//
-//   simplex_adb.count = 3;
-//
-//   TwoPts solved;
-//   solved       = GJK_solve_simplex3(simplex_abc);
-//   Vec3 p_abc   = solved.p1;
-//   Vec3 dir_abc = solved.p2;
-//   solved       = GJK_solve_simplex3(simplex_adb);
-//   Vec3 p_adb   = solved.p1;
-//   Vec3 dir_adb = solved.p2;
-//   solved       = GJK_solve_simplex3(simplex_acd);
-//   Vec3 p_acd   = solved.p1;
-//   Vec3 dir_acd = solved.p2;
-//
-//   real abc_d2 = dot(p_abc, p_abc);
-//   real acd_d2 = dot(p_acd, p_acd);
-//   real adb_d2 = dot(p_adb, p_adb);
-//
-//   if ((abc_d2 <= acd_d2) && (abc_d2 <= adb_d2)) {
-//     simplex = simplex_abc;
-//     return {p_abc, dir_abc};
-//   } else if ((acd_d2 <= abc_d2) && (acd_d2 <= adb_d2)) {
-//     simplex = simplex_acd;
-//     return {p_acd, dir_acd};
-//   } else if ((adb_d2 <= abc_d2) && (adb_d2 <= acd_d2)) {
-//     simplex = simplex_adb;
-//     return {p_adb, dir_adb};
-//   }
-//
-//   Assert(false); // This souldn't be reachable
-//
-//   // the origin isn't outside of any plane, so it's inside the tetrahedron
-//   return {{0, 0, 0}, {0, 0, 0}};
-// }
-
 // ======================================
 //            EPA algorithm
 // ======================================
@@ -537,7 +422,7 @@ real solve_EPA(ComplexSimplex simplex, Vec3* v1, size_t count1, Vec3* v2, size_t
   ZoneScopedN("Messy EPA");
 #endif
   // create a face vector that has three points and a normal
-  PolytopeFace faces[64]; // change size probably
+  PolytopeFace faces[64];
   int          n_faces = 0;
   TwoPts       loose_edges[32];
   int          n_edges = 0;
@@ -646,7 +531,6 @@ real solve_EPA(ComplexSimplex simplex, Vec3* v1, size_t count1, Vec3* v2, size_t
     }
 
     // rebuild simplex with new faces
-    // PolytopeFace new_face;
     Vec3 n;
     real dot_p1_n;
     for (int i = 0; i < n_edges; i++) {
@@ -660,21 +544,16 @@ real solve_EPA(ComplexSimplex simplex, Vec3* v1, size_t count1, Vec3* v2, size_t
       if (n_faces == 64) { // remove?
         break;
       }
-      // Assert(n_faces < 64);
     }
     Assert(n_faces > 0);
-    // if (j == MAX_ITERATIONS - 1) {
-    //   std::cout << "Max iterations reached - messy EPA" << std::endl;
-    // }
+    if (j == MAX_ITERATIONS - 1) {
+      std::cout << "Max iterations reached - messy EPA" << std::endl;
+    }
   }
   return -std::abs(min_dist);
 }
 
 host_fn real solve_general_GJK(Vec3* v1, size_t count1, Vec3* v2, size_t count2) {
-  // #if TRACY_ACTIVE >= 1
-  //   ZoneScoped;
-  //   // ZoneScopedN("Messy GJK");
-  // #endif
   ComplexSimplex simplex;
   real           dist_min;
 
@@ -785,8 +664,8 @@ host_fn real solve_general_GJK(Vec3* v1, size_t count1, Vec3* v2, size_t count2)
     simplex.a2 = support2;
     simplex.a  = support;
     if (i == MAX_ITERATIONS - 1) {
-      // std::cout << "Max iterations reached - messy GJK" << std::endl;
-      dist_min = norm(p); // figure this out
+      std::cout << "Max iterations reached - messy GJK" << std::endl;
+      dist_min = norm(p);
     }
   }
   return dist_min;
@@ -857,37 +736,16 @@ host_fn void GJK_solve_simplex3_Ericson(Simplex* simplex) {
   Vec3 ab = b - a;
   Vec3 ac = c - a;
 
+  // P in vertex region outside A not possible unless coming from simplex4 (hence GJK_solve_simplex3_from4_Ericson())
   real d1 = dot(ab, -a);
   real d2 = dot(ac, -a);
 
-  // // Check if P in vertex region outside A
-  // if (d1 <= 0.0f && d2 <= 0.0f) {
-  //   simplex->size = 1;
-  //   // simplex->a    = a;
-  //   simplex->P = a;
-  //   return;
-  // }
-
-  // // Check if P in vertex region outside B
+  // P in vertex region outside B not possible unless coming from simplex4
   real d3 = dot(ab, -b);
   real d4 = dot(ac, -b);
-  // if (d3 >= 0.0f && d4 <= d3) {
-  //   simplex->size   = 1;
-  //   simplex->pts[0] = b;
-  //   simplex->P      = b;
-  //   return;
-  // }
 
-  // // Check if P in edge region of AB (return projection of P onto AB)
+  // P in edge region of AB not possible unless coming from simplex4
   real vc = d1 * d4 - d3 * d2;
-  // if (vc <= 0.0f && d1 >= 0.0f && d3 <= 0.0f) {
-  //   real v        = d1 / (d1 - d3);
-  //   simplex->size = 2;
-  //   // simplex->a    = a;
-  //   // simplex->b    = b;
-  //   simplex->P = a + v * ab;
-  //   return;
-  // }
 
   // Check if P in vertex region outside C
   real d5 = dot(ab, -c);
@@ -913,9 +771,8 @@ host_fn void GJK_solve_simplex3_Ericson(Simplex* simplex) {
   // Check if P in edge region of AC (return projection of P onto AC)
   real vb = d5 * d2 - d1 * d6;
   if (vb <= 0.0f && d2 >= 0.0f && d6 <= 0.0f) {
-    real w        = d2 / (d2 - d6);
-    simplex->size = 2;
-    // simplex->pts[0]    = a;
+    real w          = d2 / (d2 - d6);
+    simplex->size   = 2;
     simplex->pts[1] = c;
     simplex->P      = a + w * ac;
     return;
@@ -947,8 +804,7 @@ host_fn void GJK_simplex3_from4_Ericson(Simplex* simplex) {
   // Check if P in vertex region outside A
   if (d1 <= 0.0f && d2 <= 0.0f) {
     simplex->size = 1;
-    // simplex->a    = a;
-    simplex->P = a;
+    simplex->P    = a;
     return;
   }
 
@@ -967,9 +823,7 @@ host_fn void GJK_simplex3_from4_Ericson(Simplex* simplex) {
   if (vc <= 0.0f && d1 >= 0.0f && d3 <= 0.0f) {
     real v        = d1 / (d1 - d3);
     simplex->size = 2;
-    // simplex->a    = a;
-    // simplex->b    = b;
-    simplex->P = a + v * ab;
+    simplex->P    = a + v * ab;
     return;
   }
 
@@ -997,9 +851,8 @@ host_fn void GJK_simplex3_from4_Ericson(Simplex* simplex) {
   // Check if P in edge region of AC (return projection of P onto AC)
   real vb = d5 * d2 - d1 * d6;
   if (vb <= 0.0f && d2 >= 0.0f && d6 <= 0.0f) {
-    real w        = d2 / (d2 - d6);
-    simplex->size = 2;
-    // simplex->pts[0]    = a;
+    real w          = d2 / (d2 - d6);
+    simplex->size   = 2;
     simplex->pts[1] = c;
     simplex->P      = a + w * ac;
     return;
@@ -1226,22 +1079,20 @@ real solve_EPA(Simplex simplex, Vec3* v1, size_t count1, Vec3* v2, size_t count2
       dist             = distmin_origin({loose_edges[i].p1, loose_edges[i].p2, p, n});
       faces[n_faces++] = {loose_edges[i].p1, loose_edges[i].p2, p, n, dist};
       Assert(n_faces < 64);
-      if (n_faces == 64) { // remove?
-        // std::cout << "Max capacity faces" << std::endl;
+      if (n_faces == 64) {
+        std::cout << "Max capacity faces" << std::endl;
         break;
       }
     }
     Assert(n_faces > 0);
-    // if (j == MAX_ITERATIONS - 1) {
-    //   std::cout << "Max iterations reached - messy EPA" << std::endl;
-    // }
+    if (j == MAX_ITERATIONS - 1) {
+      std::cout << "Max iterations reached - messy EPA" << std::endl;
+    }
   }
   return -std::abs(min_dist);
 }
 
 host_fn real general_GJK(Vec3* set1, size_t count1, Vec3* set2, size_t count2) {
-  // #if TRACY_ACtracy
-  // ZoneScopedN("Ericson GJK");
   // Implemented from the basic algorithm described in Collision Detection manual by Ericson.
 
   // 1. Initializing simplex to a point from a random direction
@@ -1256,7 +1107,6 @@ host_fn real general_GJK(Vec3* set1, size_t count1, Vec3* set2, size_t count2) {
   simplex.size   = 1;
   real dot_P;
 
-  // while (true) {
   for (int i = 0; i < MAX_ITERATIONS; i++) { // max iteration count
     // 2. Computing the point P of minimum norm in CH(simplex)
     switch (simplex.size) {
@@ -1300,9 +1150,6 @@ host_fn real general_GJK(Vec3* set1, size_t count1, Vec3* set2, size_t count2) {
     real new_support = dot(V, direction);
     if (new_support - old_support <= BLAST_GJK_EPSILON)
       break;
-    // real ans1 = dot(V, -simplex.P) / dot_P; // mistake here (division by zero?)
-    // if (ans1 + 1 <= BLAST_GJK_EPSILON)      // No more progress is being made
-    //   break;
 
     // 7. Add V to simplex and go to 2.
     Assert(simplex.size <= 3);
@@ -1310,9 +1157,9 @@ host_fn real general_GJK(Vec3* set1, size_t count1, Vec3* set2, size_t count2) {
     simplex.pts[simplex.size] = V;
     simplex.size++;
 
-    // if (i == MAX_ITERATIONS - 1) {
-    //   std::cout << "Max iterations reached - ericson GJK" << std::endl;
-    // }
+    if (i == MAX_ITERATIONS - 1) {
+      std::cout << "Max iterations reached - ericson GJK" << std::endl;
+    }
   }
 
   return std::sqrt(dot_P);

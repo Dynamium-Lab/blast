@@ -68,7 +68,7 @@ endfunction()
 # NAME_OF_BENCHMARK BENCHMARK_TARGET_LOCATION
 # List of benchmarks with their source files
 set(BENCHMARKS
-        # bench_core benchmarks/bench_core.cpp
+        bench_core benchmarks/bench_core.cpp
 )
 
 # note: Add new tests files as follows :
@@ -76,34 +76,34 @@ set(BENCHMARKS
 # List of tests with their source files
 set(TESTS
 
-        # # Container
-        # test_objmatrix container/test_objmatrix.cpp
+        # Container
+        test_objmatrix container/test_objmatrix.cpp
 
-        # # Manipulator
-        # test_generic_gen3 manipulators/test_generic_gen3.cpp
-        # test_generic_ur5e manipulators/test_generic_ur5e.cpp
-        # test_manipulator_constructor manipulators/test_manipulator_constructor.cpp
+        # Manipulator
+        test_generic_gen3 manipulators/test_generic_gen3.cpp
+        test_generic_ur5e manipulators/test_generic_ur5e.cpp
+        test_manipulator_constructor manipulators/test_manipulator_constructor.cpp
 
-        # # Optimization
-        # test_constraints optimization/test_constraints.cpp
-        # test_task optimization/test_task.cpp
-        # test_optimization_basic optimization/test_optimization_basic.cpp
-        # test_optimization_task_violation optimization/test_optimization_task_violation.cpp
+        # Optimization
+        test_constraints optimization/test_constraints.cpp
+        test_task optimization/test_task.cpp
+        test_optimization_basic optimization/test_optimization_basic.cpp
+        test_optimization_task_violation optimization/test_optimization_task_violation.cpp
 
-        # # Math
-        # test_math_matrix math/test_matrix.cpp
-        # test_math_mat3 math/test_mat3.cpp
-        # test_math_array math/test_array.cpp
-        # test_misc math/test_misc.cpp
-        # test_math_vec3 math/test_vec3.cpp
+        # Math
+        test_math_matrix math/test_matrix.cpp
+        test_math_mat3 math/test_mat3.cpp
+        test_math_array math/test_array.cpp
+        test_misc math/test_misc.cpp
+        test_math_vec3 math/test_vec3.cpp
 
         # World
-        # test_primitives world/test_primitives.cpp
+        test_primitives world/test_primitives.cpp
         test_gjk_epa world/test_gjk_epa.cpp
 
-        # # Trajectory
-        # test_bspline trajectory/test_bsplines.cpp
-        # test_polynomial trajectory/test_polynomial.cpp
+        # Trajectory
+        test_bspline trajectory/test_bsplines.cpp
+        test_polynomial trajectory/test_polynomial.cpp
 )
 
 # Loop through and add benchmarks (opt-in via BLAST_BUILD_BENCHMARKS)
