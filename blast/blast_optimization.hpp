@@ -120,7 +120,7 @@ struct Optimization {
   Matrix              task;
   World               world;
 
-  std::array<BoundingVolumeHierarchy, MAX_CAPSULES> time_bounding_volume_hierarchies; // should be std::array<> ? Never changes size
+  std::array<BoundingVolumeHierarchy<AABBPair>, MAX_CAPSULES> time_bounding_volume_hierarchies; // should be std::array<> ? Never changes size
 
   real trajectory_start_time = 0.0;
   real success_tolerance     = 0.01; // constraint violation after optimization that is still considered a success

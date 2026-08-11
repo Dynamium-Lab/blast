@@ -15,6 +15,7 @@ struct DynamicSphere;
 struct DynamicCapsule;
 struct DynamicDoor;
 struct AxisAlignedBoundingBox;
+template<typename T>
 struct BoundingVolumeHierarchy;
 
 
@@ -110,7 +111,25 @@ struct AxisAlignedBoundingBox {
   real                dist             = 0.0;
 };
 
+struct AABBPair {
+  int  aabb_obj;
+  int  aabb_cap;
+  real dist;
+};
+
 // (Gemini did this)
+struct Compare {
+  const std::vector<AxisAlignedBoundingBox>* leaves = nullptr;
+
+  bool operator()(int id1, int id2) const {
+    return (*leaves)[id1].dist > (*leaves)[id2].dist;
+  }
+
+  bool operator()(const AABBPair& a, const AABBPair& b) const {
+    return a.dist > b.dist;
+  }
+};
+template<typename T = int>
 struct BoundingVolumeHierarchy {
 
   std::vector<AxisAlignedBoundingBox> leaves{};
@@ -119,20 +138,17 @@ struct BoundingVolumeHierarchy {
   int  num_objects = 0;
   real time        = 0.0;
 
-  struct Compare {
-    const std::vector<AxisAlignedBoundingBox>* leaves = nullptr;
-
-    bool operator()(int id1, int id2) const {
-      return (*leaves)[id1].dist > (*leaves)[id2].dist;
-    }
-  };
-  struct PriorityQueue : public std::priority_queue<int, std::vector<int>, Compare> {
+  struct PriorityQueue : public std::priority_queue<T, std::vector<T>, Compare> {
     PriorityQueue(const std::vector<AxisAlignedBoundingBox>* leaves_ptr = nullptr) :
-        std::priority_queue<int, std::vector<int>, Compare>(Compare{leaves_ptr}) {}
+        std::priority_queue<T, std::vector<T>, Compare>(Compare{leaves_ptr}) {}
 
     void clear_and_reserve(size_t capacity) {
       this->c.clear();           // Clears elements without deallocating vector capacity
       this->c.reserve(capacity); // Ensures internal buffer is pre-allocated
+    }
+    void rebind(const std::vector<AxisAlignedBoundingBox>* leaves_ptr) {
+      this->c.clear();
+      this->comp = Compare{leaves_ptr};
     }
   };
   PriorityQueue queue{&leaves};
@@ -141,6 +157,7 @@ struct BoundingVolumeHierarchy {
       queue(&leaves) {}
 
   // Ensure copy/move operations rebind the comparator's pointer to the local leaves vector
+
   BoundingVolumeHierarchy(const BoundingVolumeHierarchy& other) :
       leaves(other.leaves),
       root(other.root),
@@ -148,29 +165,30 @@ struct BoundingVolumeHierarchy {
       time(other.time),
       queue(&leaves) {}
 
+  // Fixed Copy Assignment
   BoundingVolumeHierarchy& operator=(const BoundingVolumeHierarchy& other) {
     if (this != &other) {
       leaves      = other.leaves;
       root        = other.root;
       num_objects = other.num_objects;
       time        = other.time;
-      queue       = PriorityQueue(&leaves);
+      queue.rebind(&leaves); // Update comparator to point to local leaves
     }
     return *this;
   }
 };
 
 struct World {
-  std::vector<Box>            boxes;
-  std::vector<Sphere>         spheres;
-  std::vector<Capsule>        capsules;
-  std::vector<DynamicBox>     dynamic_boxes;
-  std::vector<DynamicSphere>  dynamic_spheres;
-  std::vector<DynamicCapsule> dynamic_capsules;
-  std::vector<DynamicDoor>    dynamic_doors;
-  BoundingVolumeHierarchy     static_bounding_volume_hierarchy;
-  BoundingVolumeHierarchy     dynamic_bounding_volume_hierarchy;
-  u32                         size = 0;
+  std::vector<Box>             boxes;
+  std::vector<Sphere>          spheres;
+  std::vector<Capsule>         capsules;
+  std::vector<DynamicBox>      dynamic_boxes;
+  std::vector<DynamicSphere>   dynamic_spheres;
+  std::vector<DynamicCapsule>  dynamic_capsules;
+  std::vector<DynamicDoor>     dynamic_doors;
+  BoundingVolumeHierarchy<int> static_bounding_volume_hierarchy;
+  BoundingVolumeHierarchy<int> dynamic_bounding_volume_hierarchy;
+  u32                          size = 0;
   // ...
   host_fn void add_box(const Box& box);
   host_fn void add_box(Vec3 center_point, Vec3 half_width, Mat3 rotation_matrix);

@@ -1527,7 +1527,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
       create_time_bvh_dynamic_objects(opt.world, dynamic_bvh, segment * n_points_per_segment, n_points_per_segment, x.back(), n_segments, opt.trajectory_start_time);
       for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++) {
         CollisionEntities collision_objects{};
-        double            dist_min = INF_REAL;
+        real              dist_min = INF_REAL;
 
         // static objects
         if (static_bvh.num_objects > 0)
@@ -1535,7 +1535,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
 
         // dynamic objects
         if (dynamic_bvh.num_objects > 0)
-          minimum_distance_double_time_bvh(dynamic_bvh, opt.time_bounding_volume_hierarchies[capsule_id], dist_min, collision_objects, segment * n_points_per_segment, n_points_per_segment, x.back(), n_segments, opt.trajectory_start_time);
+          minimum_distance_dynamic_objects_time(dynamic_bvh, opt.time_bounding_volume_hierarchies[capsule_id], dist_min, collision_objects, segment * n_points_per_segment, n_points_per_segment, x.back(), n_segments, opt.trajectory_start_time);
 
         dist_min = -dist_min;
         // add worst position for current capsule if necessary

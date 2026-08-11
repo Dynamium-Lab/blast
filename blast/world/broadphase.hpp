@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <blast>
 
 #if ENABLE_TRACY
@@ -8,30 +9,30 @@
 
 namespace blast {
 
-struct AABBPair {
-  int  aabb_obj;
-  int  aabb_cap;
-  real dist;
-};
+// struct AABBPair {
+//   int  aabb_obj;
+//   int  aabb_cap;
+//   real dist;
+// };
 
-struct ComparePair {
-  inline bool operator()(const AABBPair& aabb1, const AABBPair& aabb2) {
-    return aabb1.dist > aabb2.dist;
-  }
-};
+// struct ComparePair {
+//   inline bool operator()(const AABBPair& aabb1, const AABBPair& aabb2) {
+//     return aabb1.dist > aabb2.dist;
+//   }
+// };
 
-struct QueuePair : public std::priority_queue<AABBPair, std::vector<AABBPair>, ComparePair> {
-  QueuePair(size_t reserve_capacity = 0) {
-    if (reserve_capacity > 0) {
-      this->c.reserve(reserve_capacity);
-    }
-  }
+// struct QueuePair : public std::priority_queue<AABBPair, std::vector<AABBPair>, ComparePair> {
+//   QueuePair(size_t reserve_capacity = 0) {
+//     if (reserve_capacity > 0) {
+//       this->c.reserve(reserve_capacity);
+//     }
+//   }
 
-  void clear_and_reserve(size_t capacity) {
-    this->c.clear();
-    this->c.reserve(capacity);
-  }
-};
+//   void clear_and_reserve(size_t capacity) {
+//     this->c.clear();
+//     this->c.reserve(capacity);
+//   }
+// };
 
 inline host_fn void create_AABB_from_sphere(const Sphere& sphere, AxisAlignedBoundingBox& aabb, const void* ptr, int point_in_segment = -1) {
   aabb.center           = sphere.center;
@@ -113,7 +114,8 @@ inline host_fn void create_AABB_from_AABBs(AxisAlignedBoundingBox& b1, AxisAlign
   aabb.child_type = CollisionObjectType::aabb;
 }
 
-inline host_fn void find_boxes_to_merge(const BoundingVolumeHierarchy& BVH, std::vector<int>& boxes, int& box1, int& box2, int num_boxes) {
+template<typename T>
+inline host_fn void find_boxes_to_merge(const BoundingVolumeHierarchy<T>& BVH, std::vector<int>& boxes, int& box1, int& box2, int num_boxes) {
   real closest_dist, dist; // squared distances
   closest_dist = INF_REAL;
   Vec3 diff;
@@ -132,7 +134,8 @@ inline host_fn void find_boxes_to_merge(const BoundingVolumeHierarchy& BVH, std:
 }
 
 // Use if worlds regularly contain more than 50 obstacles
-inline host_fn void find_boxes_to_merge_sap(const BoundingVolumeHierarchy& BVH, std::vector<int>& boxes, int& box1, int& box2, int num_boxes) {
+template<typename T>
+inline host_fn void find_boxes_to_merge_sap(const BoundingVolumeHierarchy<T>& BVH, std::vector<int>& boxes, int& box1, int& box2, int num_boxes) {
   if (num_boxes == 2) {
     box1 = 0;
     box2 = 1;
@@ -169,7 +172,8 @@ inline host_fn void find_boxes_to_merge_sap(const BoundingVolumeHierarchy& BVH, 
   }
 }
 
-inline host_fn void create_bounding_volume_hierarchy(std::vector<int>& objects, BoundingVolumeHierarchy& BVH, int n_leaves) {
+template<typename T>
+inline host_fn void create_bounding_volume_hierarchy(std::vector<int>& objects, BoundingVolumeHierarchy<T>& BVH, int n_leaves) {
   int num = objects.size();
   int i, j, min, max;
   while (num > 1) {
@@ -191,7 +195,8 @@ inline host_fn void create_bounding_volume_hierarchy(std::vector<int>& objects, 
   BVH.root = 2 * BVH.num_objects - 2;
 }
 
-inline host_fn void create_bounding_volume_hierarchy_sap(std::vector<int>& objects, BoundingVolumeHierarchy& BVH, int n_leaves) {
+template<typename T>
+inline host_fn void create_bounding_volume_hierarchy_sap(std::vector<int>& objects, BoundingVolumeHierarchy<T>& BVH, int n_leaves) {
   int num = objects.size();
   int i, j, min, max;
   while (num > 1) {
@@ -212,7 +217,8 @@ inline host_fn void create_bounding_volume_hierarchy_sap(std::vector<int>& objec
   BVH.root = 2 * BVH.num_objects - 2;
 }
 
-inline host_fn void create_static_bounding_volume_hierarchy(World& world, BoundingVolumeHierarchy& BVH) {
+template<typename T>
+inline host_fn void create_static_bounding_volume_hierarchy(World& world, BoundingVolumeHierarchy<T>& BVH) {
   // Create leaves
   BVH.num_objects = world.boxes.size() + world.spheres.size() + world.capsules.size();
   BVH.leaves.resize(2 * BVH.num_objects - 1);
@@ -241,7 +247,8 @@ inline host_fn void create_static_bounding_volume_hierarchy(World& world, Boundi
   create_bounding_volume_hierarchy(objects, BVH, n_leaves);
 }
 
-inline host_fn void create_static_bounding_volume_hierarchy_sap(World& world, BoundingVolumeHierarchy& BVH) {
+template<typename T>
+inline host_fn void create_static_bounding_volume_hierarchy_sap(World& world, BoundingVolumeHierarchy<T>& BVH) {
   // Create leaves
   BVH.num_objects = world.boxes.size() + world.spheres.size() + world.capsules.size();
   BVH.leaves.resize(2 * BVH.num_objects - 1);
@@ -270,7 +277,8 @@ inline host_fn void create_static_bounding_volume_hierarchy_sap(World& world, Bo
   create_bounding_volume_hierarchy_sap(objects, BVH, n_leaves);
 }
 
-inline host_fn void create_dynamic_bounding_volume_hierarchy(World& world, BoundingVolumeHierarchy& BVH, real time = 0.0) {
+template<typename T>
+inline host_fn void create_dynamic_bounding_volume_hierarchy(World& world, BoundingVolumeHierarchy<T>& BVH, real time = 0.0) {
   // Create leaves
   BVH.num_objects = world.dynamic_boxes.size() + world.dynamic_spheres.size() + world.dynamic_capsules.size() + world.dynamic_doors.size();
   BVH.time        = time;
@@ -308,7 +316,8 @@ inline host_fn void create_dynamic_bounding_volume_hierarchy(World& world, Bound
   create_bounding_volume_hierarchy(objects, BVH, n_leaves);
 }
 
-inline host_fn void create_time_bvh_dynamic_objects(World& world, BoundingVolumeHierarchy& BVH, int start_point_in_segment, int n_points_per_segment,
+template<typename T>
+inline host_fn void create_time_bvh_dynamic_objects(World& world, BoundingVolumeHierarchy<T>& BVH, int start_point_in_segment, int n_points_per_segment,
                                                     real opt_time, int n_segments, int trajectory_start_time) {
   // Create leaves
   BVH.num_objects = (world.dynamic_boxes.size() + world.dynamic_spheres.size() + world.dynamic_capsules.size() + world.dynamic_doors.size()) * n_points_per_segment;
@@ -354,7 +363,7 @@ inline host_fn void create_time_bvh_dynamic_objects(World& world, BoundingVolume
 }
 
 // One BVH per capsule because one collision constraint needed per capsule
-inline host_fn void create_time_bounding_volume_hierarchies(std::array<BoundingVolumeHierarchy, MAX_CAPSULES>& BVH, std::vector<std::array<Capsule, MAX_CAPSULES>>& capsules,
+inline host_fn void create_time_bounding_volume_hierarchies(std::array<BoundingVolumeHierarchy<AABBPair>, MAX_CAPSULES>& BVH, std::vector<std::array<Capsule, MAX_CAPSULES>>& capsules,
                                                             const int num_capsules, const int num_points_in_segment) {
   std::vector<int> objects(num_points_in_segment);
 
@@ -372,7 +381,7 @@ inline host_fn void create_time_bounding_volume_hierarchies(std::array<BoundingV
   }
 }
 
-inline host_fn void minimum_distance(const Capsule& capsule, BoundingVolumeHierarchy& BVH, real& dist_min, CollisionEntities& collision_objects, int point_in_segment) {
+inline host_fn void minimum_distance(const Capsule& capsule, BoundingVolumeHierarchy<int>& BVH, real& dist_min, CollisionEntities& collision_objects, int point_in_segment) {
   BVH.queue.clear_and_reserve(BVH.num_objects);
 
   real                   dist = INF_REAL;
@@ -441,7 +450,7 @@ inline host_fn void minimum_distance(const Capsule& capsule, BoundingVolumeHiera
   }
 }
 
-inline host_fn void minimum_distance_dynamic(const Capsule& capsule, BoundingVolumeHierarchy& BVH, real& dist_min, CollisionEntities& collision_objects, int point_in_segment) {
+inline host_fn void minimum_distance_dynamic(const Capsule& capsule, BoundingVolumeHierarchy<int>& BVH, real& dist_min, CollisionEntities& collision_objects, int point_in_segment) {
   BVH.queue.clear_and_reserve(BVH.num_objects);
 
   real                   dist = INF_REAL;
@@ -520,10 +529,11 @@ inline host_fn void minimum_distance_dynamic(const Capsule& capsule, BoundingVol
   }
 }
 
-inline host_fn void minimum_distance_static_objects_time(BoundingVolumeHierarchy& BVH_obj, BoundingVolumeHierarchy& BVH_time, real& dist_min,
+inline host_fn void minimum_distance_static_objects_time(BoundingVolumeHierarchy<int>& BVH_obj, BoundingVolumeHierarchy<AABBPair>& BVH_time, real& dist_min,
                                                          CollisionEntities& collision_objects) {
-  QueuePair queue(BVH_obj.num_objects * BVH_time.num_objects * 4);
-  dist_min  = INF_REAL;
+
+  BVH_time.queue.clear_and_reserve(BVH_time.num_objects * BVH_obj.num_objects);
+
   real dist = INF_REAL;
 
   std::vector<AxisAlignedBoundingBox>& leaves_obj  = BVH_obj.leaves;
@@ -538,30 +548,30 @@ inline host_fn void minimum_distance_static_objects_time(BoundingVolumeHierarchy
   pair.aabb_obj = object1->children[0];
   pair.aabb_cap = object2->children[0];
   pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-  queue.push(pair);
+  BVH_time.queue.push(pair);
 
   pair.aabb_cap = object2->children[1];
   pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-  queue.push(pair);
+  BVH_time.queue.push(pair);
 
   pair.aabb_obj = object1->children[1];
   pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-  queue.push(pair);
+  BVH_time.queue.push(pair);
 
   pair.aabb_cap = object2->children[0];
   pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-  queue.push(pair);
+  BVH_time.queue.push(pair);
 
   CollisionObjectType child_type1;
   CollisionObjectType child_type2;
 
-  while (queue.size() > 0) {
-    pair        = queue.top();
+  while (BVH_time.queue.size() > 0) {
+    pair        = BVH_time.queue.top();
     object1     = &leaves_obj[pair.aabb_obj];
     child_type1 = object1->child_type;
     object2     = &leaves_time[pair.aabb_cap];
     child_type2 = object2->child_type;
-    queue.pop();
+    BVH_time.queue.pop();
 
     // STOPPING CRITERIA: NO FURTHER IMPROVEMENT POSSIBLE
     if (pair.dist >= dist_min) {
@@ -571,11 +581,11 @@ inline host_fn void minimum_distance_static_objects_time(BoundingVolumeHierarchy
     if (child_type1 == CollisionObjectType::aabb && child_type2 == CollisionObjectType::capsule) {
       pair.aabb_obj = object1->children[0];
       pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-      queue.push(pair);
+      BVH_time.queue.push(pair);
 
       pair.aabb_obj = object1->children[1];
       pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-      queue.push(pair);
+      BVH_time.queue.push(pair);
     } else if (child_type1 == CollisionObjectType::box && child_type2 == CollisionObjectType::capsule) {
       Box&           box  = *((Box*) object1->child_ptr);
       const Capsule& caps = *((Capsule*) object2->child_ptr);
@@ -591,28 +601,28 @@ inline host_fn void minimum_distance_static_objects_time(BoundingVolumeHierarchy
       if ((object1->extents.x * object1->extents.y * object1->extents.z) > (object2->extents.x * object2->extents.y * object2->extents.z)) {
         pair.aabb_obj = object1->children[0];
         pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-        queue.push(pair);
+        BVH_time.queue.push(pair);
 
         pair.aabb_obj = object1->children[1];
         pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-        queue.push(pair);
+        BVH_time.queue.push(pair);
       } else {
         pair.aabb_cap = object2->children[0];
         pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-        queue.push(pair);
+        BVH_time.queue.push(pair);
 
         pair.aabb_cap = object2->children[1];
         pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-        queue.push(pair);
+        BVH_time.queue.push(pair);
       }
     } else if (child_type1 != CollisionObjectType::aabb && child_type2 == CollisionObjectType::aabb) {
       pair.aabb_cap = object2->children[0];
       pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-      queue.push(pair);
+      BVH_time.queue.push(pair);
 
       pair.aabb_cap = object2->children[1];
       pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-      queue.push(pair);
+      BVH_time.queue.push(pair);
     } else if (child_type1 == CollisionObjectType::capsule && child_type2 == CollisionObjectType::capsule) {
       Capsule& caps1 = *((Capsule*) object1->child_ptr);
       Capsule& caps2 = *((Capsule*) object2->child_ptr);
@@ -637,9 +647,10 @@ inline host_fn void minimum_distance_static_objects_time(BoundingVolumeHierarchy
   }
 }
 
-inline host_fn void minimum_distance_dynamic_objects_time(BoundingVolumeHierarchy& BVH_obj, BoundingVolumeHierarchy& BVH_time, real& dist_min,
-                                                          CollisionEntities& collision_objects) {
-  QueuePair queue(BVH_obj.num_objects * BVH_time.num_objects * 4);
+inline host_fn void minimum_distance_dynamic_objects_time(BoundingVolumeHierarchy<int>& BVH_obj, BoundingVolumeHierarchy<AABBPair>& BVH_time, real& dist_min, CollisionEntities& collision_objects,
+                                                          int start_point_in_segment, int n_points_per_segment, real opt_time, int n_segments, int trajectory_start_time) {
+
+  BVH_time.queue.clear_and_reserve(BVH_obj.num_objects * BVH_time.num_objects * 4);
 
   real dist = INF_REAL;
 
@@ -655,31 +666,31 @@ inline host_fn void minimum_distance_dynamic_objects_time(BoundingVolumeHierarch
   pair.aabb_obj = object1->children[0];
   pair.aabb_cap = object2->children[0];
   pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-  queue.push(pair);
+  BVH_time.queue.push(pair);
 
   pair.aabb_cap = object2->children[1];
   pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-  queue.push(pair);
+  BVH_time.queue.push(pair);
 
   pair.aabb_obj = object1->children[1];
   pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-  queue.push(pair);
+  BVH_time.queue.push(pair);
 
   pair.aabb_cap = object2->children[0];
   pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-  queue.push(pair);
-  queue.push(pair);
+  BVH_time.queue.push(pair);
+  BVH_time.queue.push(pair);
 
   CollisionObjectType child_type1;
   CollisionObjectType child_type2;
 
-  while (queue.size() > 0) {
-    pair        = queue.top();
+  while (BVH_time.queue.size() > 0) {
+    pair        = BVH_time.queue.top();
     object1     = &leaves_obj[pair.aabb_obj];
     child_type1 = object1->child_type;
     object2     = &leaves_time[pair.aabb_cap];
     child_type2 = object2->child_type;
-    queue.pop();
+    BVH_time.queue.pop();
 
     // STOPPING CRITERIA: NO FURTHER IMPROVEMENT POSSIBLE
     if (pair.dist >= dist_min) {
@@ -689,157 +700,39 @@ inline host_fn void minimum_distance_dynamic_objects_time(BoundingVolumeHierarch
     if (child_type1 == CollisionObjectType::aabb && child_type2 == CollisionObjectType::capsule) {
       pair.aabb_obj = object1->children[0];
       pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-      queue.push(pair);
+      BVH_time.queue.push(pair);
 
       pair.aabb_obj = object1->children[1];
       pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-      queue.push(pair);
-    } else if (child_type1 == CollisionObjectType::box && child_type2 == CollisionObjectType::capsule && object1->point_in_segment == object2->point_in_segment) {
-      Box&     box  = *((Box*) object1->child_ptr);
-      Capsule& caps = *((Capsule*) object2->child_ptr);
-      dist          = distance(caps, box);
-      if (dist < dist_min) {
-        dist_min                            = dist;
-        collision_objects.other_object_type = CollisionObjectType::box;
-        collision_objects.box               = box;
-        collision_objects.point_in_segment  = object2->point_in_segment;
-      }
-    } else if (child_type1 == CollisionObjectType::aabb && child_type2 == CollisionObjectType::aabb) {
-      if ((object1->extents.x * object1->extents.y * object1->extents.z) > (object2->extents.x * object2->extents.y * object2->extents.z)) {
-        pair.aabb_obj = object1->children[0];
-        pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-        queue.push(pair);
-
-        pair.aabb_obj = object1->children[1];
-        pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-        queue.push(pair);
-      } else {
-        pair.aabb_cap = object2->children[0];
-        pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-        queue.push(pair);
-
-        pair.aabb_cap = object2->children[1];
-        pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-        queue.push(pair);
-      }
-    } else if (child_type1 != CollisionObjectType::aabb && child_type2 == CollisionObjectType::aabb) {
-      pair.aabb_cap = object2->children[0];
-      pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-      queue.push(pair);
-
-      pair.aabb_cap = object2->children[1];
-      pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-      queue.push(pair);
-    } else if (child_type1 == CollisionObjectType::capsule && child_type2 == CollisionObjectType::capsule && object1->point_in_segment == object2->point_in_segment) {
-      Capsule& caps1 = *((Capsule*) object1->child_ptr);
-      Capsule& caps2 = *((Capsule*) object2->child_ptr);
-      dist           = distance(caps1, caps2);
-      if (dist < dist_min) {
-        dist_min                            = dist;
-        collision_objects.other_object_type = CollisionObjectType::capsule;
-        collision_objects.capsule           = caps1;
-        collision_objects.point_in_segment  = object2->point_in_segment;
-      }
-    } else if (child_type1 == CollisionObjectType::sphere && child_type2 == CollisionObjectType::capsule && object1->point_in_segment == object2->point_in_segment) {
-      Sphere&  sphere = *((Sphere*) object1->child_ptr);
-      Capsule& caps   = *((Capsule*) object2->child_ptr);
-      dist            = distance(caps, sphere);
-      if (dist < dist_min) {
-        dist_min                            = dist;
-        collision_objects.other_object_type = CollisionObjectType::sphere;
-        collision_objects.sphere            = sphere;
-        collision_objects.point_in_segment  = object2->point_in_segment;
-      }
-    }
-  }
-}
-
-inline host_fn void minimum_distance_double_time_bvh(BoundingVolumeHierarchy& BVH_obj, BoundingVolumeHierarchy& BVH_time, real& dist_min, CollisionEntities& collision_objects,
-                                                     int start_point_in_segment, int n_points_per_segment, real opt_time, int n_segments, int trajectory_start_time) {
-
-  QueuePair queue(BVH_obj.num_objects * BVH_time.num_objects * 4);
-
-  real dist = INF_REAL;
-
-  std::vector<AxisAlignedBoundingBox>& leaves_obj  = BVH_obj.leaves;
-  std::vector<AxisAlignedBoundingBox>& leaves_time = BVH_time.leaves;
-
-  AxisAlignedBoundingBox* object1 = &leaves_obj[BVH_obj.root];
-  AxisAlignedBoundingBox* object2 = &leaves_time[BVH_time.root];
-
-  AABBPair pair;
-
-  // Test BVHs' children against eachother and add to priority queue
-  pair.aabb_obj = object1->children[0];
-  pair.aabb_cap = object2->children[0];
-  pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-  queue.push(pair);
-
-  pair.aabb_cap = object2->children[1];
-  pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-  queue.push(pair);
-
-  pair.aabb_obj = object1->children[1];
-  pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-  queue.push(pair);
-
-  pair.aabb_cap = object2->children[0];
-  pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-  queue.push(pair);
-  queue.push(pair);
-
-  CollisionObjectType child_type1;
-  CollisionObjectType child_type2;
-
-  while (queue.size() > 0) {
-    pair        = queue.top();
-    object1     = &leaves_obj[pair.aabb_obj];
-    child_type1 = object1->child_type;
-    object2     = &leaves_time[pair.aabb_cap];
-    child_type2 = object2->child_type;
-    queue.pop();
-
-    // STOPPING CRITERIA: NO FURTHER IMPROVEMENT POSSIBLE
-    if (pair.dist >= dist_min) {
-      return;
-    }
-
-    if (child_type1 == CollisionObjectType::aabb && child_type2 == CollisionObjectType::capsule) {
-      pair.aabb_obj = object1->children[0];
-      pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-      queue.push(pair);
-
-      pair.aabb_obj = object1->children[1];
-      pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-      queue.push(pair);
+      BVH_time.queue.push(pair);
     } else if (child_type1 == CollisionObjectType::aabb && child_type2 == CollisionObjectType::aabb) {
       // Faster to only enter bigger AABB
       if ((object1->extents.x * object1->extents.y * object1->extents.z) > (object2->extents.x * object2->extents.y * object2->extents.z)) {
         pair.aabb_obj = object1->children[0];
         pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-        queue.push(pair);
+        BVH_time.queue.push(pair);
 
         pair.aabb_obj = object1->children[1];
         pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-        queue.push(pair);
+        BVH_time.queue.push(pair);
       } else {
         pair.aabb_cap = object2->children[0];
         pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-        queue.push(pair);
+        BVH_time.queue.push(pair);
 
         pair.aabb_cap = object2->children[1];
         pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-        queue.push(pair);
+        BVH_time.queue.push(pair);
       }
       // }
     } else if (child_type1 != CollisionObjectType::aabb && child_type2 == CollisionObjectType::aabb) {
       pair.aabb_cap = object2->children[0];
       pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-      queue.push(pair);
+      BVH_time.queue.push(pair);
 
       pair.aabb_cap = object2->children[1];
       pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
-      queue.push(pair);
+      BVH_time.queue.push(pair);
     } else if (leaves_obj[pair.aabb_obj].point_in_segment == leaves_time[pair.aabb_cap].point_in_segment) {
       int  current_point = start_point_in_segment + leaves_obj[pair.aabb_obj].point_in_segment;
       int  max_point     = n_segments * n_points_per_segment - 1;
@@ -881,7 +774,7 @@ inline host_fn void minimum_distance_double_time_bvh(BoundingVolumeHierarchy& BV
         dist          = distance(caps, door);
         if (dist < dist_min) {
           dist_min                            = dist;
-          collision_objects.other_object_type = CollisionObjectType::capsule;
+          collision_objects.other_object_type = CollisionObjectType::box;
           collision_objects.box               = door;
           collision_objects.point_in_segment  = object2->point_in_segment;
         }

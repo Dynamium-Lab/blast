@@ -531,12 +531,12 @@ inline host_fn real distance(const AxisAlignedBoundingBox& aabb1, const AxisAlig
   d.z = std::max((aabb1.center.z - aabb1.extents.z - aabb2.center.z - aabb2.extents.z), (aabb2.center.z - aabb2.extents.z - aabb1.center.z - aabb1.extents.z));
 
   if (d.x > 0 || d.y > 0 || d.z > 0) {
-    d.x = std::max(0.0, d.x);
-    d.y = std::max(0.0, d.y);
-    d.z = std::max(0.0, d.z);
-    return std::sqrt(dot(d, d));
+    d.x = std::max((real) 0.0, d.x);
+    d.y = std::max((real) 0.0, d.y);
+    d.z = std::max((real) 0.0, d.z);
+    return sqrt(dot(d, d));
   } else {
-    return -std::sqrt(dot(d, d));
+    return -sqrt(dot(d, d));
   }
 }
 
