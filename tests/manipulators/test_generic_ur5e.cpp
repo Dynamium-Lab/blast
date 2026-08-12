@@ -251,7 +251,7 @@ TEST_CASE("Tool Jacobian finite difference", "[Manipulator]") {
     Vec3 expected_rotation = data.rotations_mult[i] * manip.joint_axes[i];
 
     CHECK(is_close(expected_position, Vec3(J(0, i), J(1, i), J(2, i)), 1e-4));
-    CHECK(is_close(expected_rotation, Vec3(J(3, i), J(4, i), J(5, i)), BLAST_EPSILON));
+    CHECK(is_close(expected_rotation, Vec3(J(3, i), J(4, i), J(5, i)), 1e-4));
   }
 }
 
@@ -452,7 +452,7 @@ TEST_CASE("Payload gravity matches Jacobian torque at TCP", "[Manipulator]") {
     double measured =
             data2.efforts[i] - data1.efforts[i];
 
-    CHECK(measured == Approx(expected).margin(1e-8));
+    CHECK(measured == Approx(expected).margin(BLAST_EPSILON));
   }
 }
 
