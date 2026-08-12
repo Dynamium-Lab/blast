@@ -315,6 +315,7 @@ inline host_fn void Manipulator::set_dynamics(const ManipulatorDynamics& dynamic
 }
 
 inline host_fn void Manipulator::set_capsules(const ManipulatorCapsules& capsules) {
+  _n_caps = 0;
   for (auto& cap: capsules.capsule_list) {
     Assert(cap.joint_frame < n_joints + 1);
     _collision_model[_n_caps++] = cap;
@@ -334,7 +335,6 @@ inline host_fn void Manipulator::set_capsules(const ManipulatorCapsules& capsule
     }
     _base_sphere = capsules.base_sphere;
     _base_sphere.center += base_position;
-    // _n_internal_collisions = 0;
   }
 }
 
