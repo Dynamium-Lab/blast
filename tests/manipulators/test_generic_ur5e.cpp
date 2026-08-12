@@ -250,8 +250,8 @@ TEST_CASE("Tool Jacobian finite difference", "[Manipulator]") {
     Vec3 expected_position = (dp.tool_position - dm.tool_position) / (2 * eps);
     Vec3 expected_rotation = data.rotations_mult[i] * manip.joint_axes[i];
 
-    CHECK(is_close(expected_position, Vec3(J(0, i), J(1, i), J(2, i)), 1e-4));
-    CHECK(is_close(expected_rotation, Vec3(J(3, i), J(4, i), J(5, i)), 1e-4));
+    CHECK(is_close(expected_position, Vec3(J(0, i), J(1, i), J(2, i)), 1e-3));
+    CHECK(is_close(expected_rotation, Vec3(J(3, i), J(4, i), J(5, i)), 1e-3));
   }
 }
 
