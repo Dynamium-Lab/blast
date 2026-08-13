@@ -2,7 +2,7 @@
 
 
 // check the output of a cuda function call and abort if there was an error
-#define cuda_check(expr)                                                                                   \
+#define CUDA_CHECK(expr)                                                                                   \
   {                                                                                                        \
     auto code = (expr);                                                                                    \
     if (code != cudaSuccess) {                                                                             \
@@ -11,4 +11,4 @@
     }                                                                                                      \
   }
 
-#define cuda_check_kernel cuda_check(cudaPeekAtLastError())
+#define CUDA_CHECK_KERNEL CUDA_CHECK(cudaPeekAtLastError())

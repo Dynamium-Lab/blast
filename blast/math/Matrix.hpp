@@ -349,7 +349,7 @@ inline blast_fn Matrix& constant(Matrix& m, real val) {
 }
 
 inline blast_fn Matrix& fill_random(Matrix& m, real A) {
-#if defined(__CUDA_ARCH__)
+#if defined(__CUDA_ARCH__) && !defined(BLAST_NO_CURAND)
   curandState        state;
   unsigned long long seed = clock64() + blockIdx.x * blockDim.x + threadIdx.x;
   curand_init(seed, 0, 0, &state);

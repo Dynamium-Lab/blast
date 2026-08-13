@@ -409,7 +409,7 @@ inline host_fn void Manipulator::remove_payload() {
   payload     = {};
 }
 
-inline host_fn real clamped_root(real slope, real h0, real h1) {
+inline blast_fn real clamped_root(real slope, real h0, real h1) {
   // note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
   real r;
   if (h0 < 0) {
@@ -424,7 +424,7 @@ inline host_fn real clamped_root(real slope, real h0, real h1) {
   return r;
 }
 
-inline host_fn void compute_intersection(const real sValue[2], const i32 classify[2], real b, real f00, real f10, i32* edge, real end[][2]) {
+inline blast_fn void compute_intersection(const real sValue[2], const i32 classify[2], real b, real f00, real f10, i32* edge, real end[][2]) {
   // note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
   constexpr real zero = 0;
   constexpr real half = (real) 0.5;
@@ -487,7 +487,7 @@ inline host_fn void compute_intersection(const real sValue[2], const i32 classif
   }
 }
 
-inline host_fn void compute_minimum_parameters(const i32 edge[2], const real end[][2], real b, real c, real e, real g00, real g10, real g01, real g11, real* parameter) {
+inline blast_fn void compute_minimum_parameters(const i32 edge[2], const real end[][2], real b, real c, real e, real g00, real g10, real g01, real g11, real* parameter) {
   // note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
   constexpr real zero  = 0;
   constexpr real one   = 1;
@@ -524,7 +524,7 @@ inline host_fn void compute_minimum_parameters(const i32 edge[2], const real end
   }
 }
 
-inline host_fn real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
+inline blast_fn real two_segment_distance_sqr(Vec3 P0, Vec3 P1, Vec3 Q0, Vec3 Q1) {
   // note: adapted from https://www.geometrictools.com/GTE/Mathematics/DistSegmentSegment.h
   auto const P1mP0        = P1 - P0;
   auto const Q1mQ0        = Q1 - Q0;

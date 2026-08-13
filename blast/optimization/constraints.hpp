@@ -1,10 +1,40 @@
 #pragma once
 
 #include <blast>
+#include <chrono>
 #include "optimization/optimization.hpp"
 
 namespace blast {
 
+// ---------------------------------------------------------------------
+// TEMPORARY profiling instrumentation (not for permanent inclusion):
+// measures wall-clock time spent inside the finite-difference gradient
+// sweeps for torque/tool_speed/self_collisions/external_collisions in
+// constraints_and_gradients_with_segments, vs. total solve time, to
+// answer "how much of a solve is the GPU-parallelizable FD work."
+// ---------------------------------------------------------------------
+namespace fd_profile {
+inline u64 torque_ns              = 0;
+inline u64 tool_speed_ns          = 0;
+inline u64 self_collisions_ns     = 0;
+inline u64 external_collisions_ns = 0;
+
+struct ScopedTimer {
+  u64&                                          accumulator;
+  std::chrono::high_resolution_clock::time_point start;
+  explicit ScopedTimer(u64& acc) :
+      accumulator(acc), start(std::chrono::high_resolution_clock::now()) {}
+  ~ScopedTimer() {
+    accumulator += std::chrono::duration_cast<std::chrono::nanoseconds>(
+                           std::chrono::high_resolution_clock::now() - start)
+                           .count();
+  }
+};
+
+inline void reset() {
+  torque_ns = tool_speed_ns = self_collisions_ns = external_collisions_ns = 0;
+}
+} // namespace fd_profile
 
 inline blast_fn void ConstraintSelection::add_constraint(ConstraintFunction constraint, int n_con) {
   extra_constraints.push_back(constraint);
@@ -516,6 +546,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
       // [.
       // [.
       if (opt.constraints.torque) {
+        fd_profile::ScopedTimer _fd_timer(fd_profile::torque_ns);
         for (int joint = 0; joint < n_joints; joint++) {
           Array fill_column = grad_segment.col(con);
           Assert(con == con_idx + joint);
@@ -594,6 +625,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 
       // tool speed
       if (opt.constraints.tool_speed) {
+        fd_profile::ScopedTimer _fd_timer(fd_profile::tool_speed_ns);
         constexpr real eps    = BLAST_FD_STEP;
         const auto     point  = max_tool_index;
         const auto     p      = opt.bspline.traj.pos.col(start_point_for_segment + point);
@@ -650,6 +682,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 
       // internal collisions
       if (opt.constraints.self_collisions) {
+        fd_profile::ScopedTimer _fd_timer(fd_profile::self_collisions_ns);
         constexpr real eps    = BLAST_FD_STEP;
         const auto     point  = max_internal_collision_index;
         const auto     p      = opt.bspline.traj.pos.col(start_point_for_segment + point);
@@ -691,6 +724,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 
       // collisions
       if (opt.constraints.external_collisions) {
+        fd_profile::ScopedTimer _fd_timer(fd_profile::external_collisions_ns);
         for (int capsule_id = 0; capsule_id < opt.manip._n_caps; capsule_id++) {
           constexpr real eps    = BLAST_FD_STEP;
           const auto     point  = max_collision_entities[capsule_id].point_in_segment;

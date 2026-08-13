@@ -7,6 +7,18 @@ project(
     LANGUAGES CXX
 )
 
+# --------------------------------------------------------------------------
+# Optional CUDA support
+# Enable with: cmake -DBLAST_ENABLE_CUDA=ON ..
+# Requires the CUDA Toolkit (nvcc) to be installed on the build machine.
+# --------------------------------------------------------------------------
+option(BLAST_ENABLE_CUDA "Enable CUDA GPU targets" OFF)
+if(BLAST_ENABLE_CUDA)
+    enable_language(CUDA)
+    find_package(CUDAToolkit REQUIRED)
+    message(STATUS "CUDA enabled — nvcc: ${CMAKE_CUDA_COMPILER}")
+endif()
+
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 

@@ -120,3 +120,113 @@ while (TESTS)
     list(POP_FRONT TESTS source_file)
     add_blast_target(${target_name} ${source_file} "TEST")
 endwhile ()
+
+# --------------------------------------------------------------------------
+# GPU tests (only built when BLAST_ENABLE_CUDA=ON)
+# --------------------------------------------------------------------------
+if(BLAST_ENABLE_CUDA)
+    # add_blast_gpu_target(target_name source_file)
+    # Compiles a .cu file with nvcc, links blast + Catch2 + CUDA::cudart,
+    # and registers it as a CTest test.
+    function(add_blast_gpu_target target_name source_file)
+        add_executable(${target_name} ${source_file})
+
+        # Require C++17 for both host and device code
+        target_compile_features(${target_name} PRIVATE cxx_std_17)
+        set_target_properties(${target_name} PROPERTIES
+            CUDA_STANDARD 17
+            CUDA_STANDARD_REQUIRED ON
+            # Separate compilation lets .cu files call device functions
+            # defined in other translation units (not needed today, but
+            # avoids a painful retrofit later).
+            # NOTE: CUDA_SEPARABLE_COMPILATION is intentionally disabled: with
+            # GCC 11/12 on Ubuntu 22.04 + CUDA 12.3, enabling it triggers a bug
+            # where the cudafe-generated stub references CUDA RNG globals
+            # (precalc_xorwow_matrix, mrg32k3aM1, etc.) that GCC fails to find.
+            # Since all device code lives in a single .cu file, we don't need it.
+            CUDA_SEPARABLE_COMPILATION OFF
+        )
+
+        # nvcc flags:
+        #   --expt-relaxed-constexpr  — allows constexpr functions in device code
+        #                               (blast headers mark helpers constexpr)
+        #   -lineinfo                 — embeds source line info for cuda-memcheck /
+        #                               Nsight without the full -G overhead
+        #   -allow-unsupported-compiler — suppress warnings about GCC 12 with CUDA 12.3
+        #   -DBLAST_NO_CURAND         — prevents curand_kernel.h from being included via
+        #                               Array.hpp; without this guard CUDA 12.3 generates
+        #                               an invalid host stub referencing ::precalc_xorwow_matrix
+        #                               etc. that GCC 11/12 cannot resolve (CUDA bug).
+        target_compile_options(${target_name} PRIVATE
+            $<$<COMPILE_LANGUAGE:CUDA>:
+                --expt-relaxed-constexpr
+                -lineinfo
+                -allow-unsupported-compiler
+                -DBLAST_NO_CURAND
+            >
+        )
+
+        # tests/ is the include root for test_helper.hpp etc.
+        target_include_directories(${target_name} PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            # blast/gpu/*.cuh uses #include <blast> which resolves through
+            # the blast INTERFACE include dirs, but nvcc also needs the
+            # project root so that #include "blast/gpu/..." paths resolve
+            # correctly — the "blast" segment in the path is the source
+            # subdirectory, so the root must be one level above it.
+            ${CMAKE_SOURCE_DIR}
+        )
+
+        target_link_libraries(${target_name} PRIVATE
+            blast
+            Catch2::Catch2
+            CUDA::cudart
+        )
+
+        # Tracy (if enabled globally)
+        if(ENABLE_TRACY)
+            target_link_libraries(${target_name} PRIVATE TracyClient)
+            target_compile_definitions(${target_name} PRIVATE TRACY_ENABLE TRACY_NO_EXIT)
+        endif()
+
+        # Copy nlopt DLL next to the executable (external-NLopt backend only)
+        if(NOT BLAST_USE_NATIVE_SQP)
+            add_custom_command(TARGET ${target_name} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:nlopt> $<TARGET_FILE_DIR:${target_name}>)
+        endif()
+
+        add_test(NAME ${target_name}_test COMMAND ${target_name})
+    endfunction()
+
+    # ----- GPU test targets -----
+    # Add new GPU tests here in the same NAME  SOURCE_FILE pattern.
+    add_blast_gpu_target(test_gpu_trajectory gpu/test_gpu_trajectory.cu)
+    add_blast_gpu_target(test_gpu_manipulator gpu/test_gpu_manipulator.cu)
+    add_blast_gpu_target(test_gpu_manipulator_ur5e gpu/test_gpu_manipulator_ur5e.cu)
+
+    # ----- GPU benchmark (not a CTest test, just run directly) -----
+    add_executable(bench_gpu_trajectory gpu/bench_gpu_trajectory.cu)
+    target_compile_features(bench_gpu_trajectory PRIVATE cxx_std_17)
+    set_target_properties(bench_gpu_trajectory PROPERTIES
+        CUDA_STANDARD 17
+        CUDA_STANDARD_REQUIRED ON
+        CUDA_SEPARABLE_COMPILATION OFF
+    )
+    target_compile_options(bench_gpu_trajectory PRIVATE
+        $<$<COMPILE_LANGUAGE:CUDA>:
+            --expt-relaxed-constexpr
+            -lineinfo
+            -allow-unsupported-compiler
+            -DBLAST_NO_CURAND
+        >
+    )
+    target_include_directories(bench_gpu_trajectory PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}
+    )
+    target_link_libraries(bench_gpu_trajectory PRIVATE
+        blast
+        CUDA::cudart
+    )
+endif() # BLAST_ENABLE_CUDA

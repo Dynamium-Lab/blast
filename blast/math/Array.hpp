@@ -5,7 +5,7 @@
 // #include <immintrin.h>
 #include "vectorclass.h"
 
-#if defined(__CUDA_ARCH__)
+#if defined(__CUDA_ARCH__) && !defined(BLAST_NO_CURAND)
 #include <curand.h>
 #include <curand_kernel.h>
 #endif
@@ -486,7 +486,7 @@ inline blast_fn Array& clamp_inplace(Array& a, const Array& lb, const Array& ub)
 
 inline blast_fn Array random_array(u32 n, real A) {
   Array result(n);
-#if defined(__CUDA_ARCH__)
+#if defined(__CUDA_ARCH__) && !defined(BLAST_NO_CURAND)
   curandState        state;
   unsigned long long seed = clock64() + blockIdx.x * blockDim.x + threadIdx.x;
   curand_init(seed, 0, 0, &state);
@@ -500,7 +500,7 @@ inline blast_fn Array random_array(u32 n, real A) {
 }
 
 inline blast_fn Array& fill_random(Array& a, real A) {
-#if defined(__CUDA_ARCH__)
+#if defined(__CUDA_ARCH__) && !defined(BLAST_NO_CURAND)
   curandState        state;
   unsigned long long seed = clock64() + blockIdx.x * blockDim.x + threadIdx.x;
   curand_init(seed, 0, 0, &state);
