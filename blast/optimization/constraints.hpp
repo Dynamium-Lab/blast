@@ -102,13 +102,13 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
   }
 
   ManipulatorTempData                         manip_data;
-  std::array<u8, MAX_JOINTS>                  max_pos_indices{};
-  std::array<u8, MAX_JOINTS>                  max_vel_indices{};
-  std::array<u8, MAX_JOINTS>                  max_acc_indices{};
-  std::array<u8, MAX_JOINTS>                  max_tor_indices{};
+  std::array<int, MAX_JOINTS>                 max_pos_indices{};
+  std::array<int, MAX_JOINTS>                 max_vel_indices{};
+  std::array<int, MAX_JOINTS>                 max_acc_indices{};
+  std::array<int, MAX_JOINTS>                 max_tor_indices{};
   std::array<CollisionEntities, MAX_CAPSULES> max_collision_entities{};
-  u8                                          max_internal_collision_index = 0;
-  u8                                          max_tool_index               = 0;
+  int                                         max_internal_collision_index = 0;
+  int                                         max_tool_index               = 0;
 
   opt.bspline.compute_trajectory(x, opt.task);
 
@@ -218,7 +218,8 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           PROFILE_SCOPE("Self Constraints");
 #endif
           // check every internal collision
-          if (const auto c = max(-get_internal_collisions(opt.manip, manip_data));
+          auto self_collision_distances = get_internal_collisions(opt.manip, manip_data);
+          if (const auto c = -min(self_collision_distances);
               c > max_internal_col_constraints) {
             max_internal_col_constraints = c;
             max_internal_collision_index = point_in_segment;
@@ -2289,8 +2290,8 @@ inline blast_fn bool validate_task(Optimization* opt) {
         }
       }
       if (constraints.self_collisions) {
-        if (auto tmp_coll = get_internal_collisions(manip, manip_data); min(tmp_coll) < 0) { // min because collisions constraints are -d < 0
-          std::cout << "Self-collision at start/end position." << std::endl;
+        if (auto tmp_coll = get_internal_collisions(manip, manip_data); min(tmp_coll) < 0) { // min because collisions constraints are -d <0
+          std::cout << "External collision at start position." << std::endl;
           return false;
         }
       }
