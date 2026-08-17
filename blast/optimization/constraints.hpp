@@ -920,23 +920,33 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
 
           // find worst collision
           for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++) {
-            real              dist_min = INF_REAL;
-            const auto        capsule  = manip_data.capsule_list[capsule_id];
-            CollisionEntities collision_objects{};
+            real dist_min         = INF_REAL;
+            real dist_min_static  = INF_REAL;
+            real dist_min_dynamic = INF_REAL;
+
+            const auto         capsule = manip_data.capsule_list[capsule_id];
+            CollisionEntities  collision_object_static{}, collision_object_dynamic{};
+            CollisionEntities* collision_object;
 
             if (static_bvh.num_objects > 0) {
-              minimum_distance(capsule, static_bvh, dist_min, collision_objects, point_in_segment); // static objects
+              dist_min_static = minimum_distance_static(capsule, static_bvh, collision_object_static, point_in_segment); // static objects
             }
             if (dynamic_bvh.num_objects > 0) {
-              minimum_distance_dynamic(capsule, dynamic_bvh, dist_min, collision_objects, point_in_segment); // dynamic objects
+              dist_min_dynamic = minimum_distance_dynamic(capsule, dynamic_bvh, dist_min_static, collision_object_dynamic, point_in_segment); // dynamic objects
             }
 
-            dist_min = -dist_min; // negative distance is positive constraint
+            if (dist_min_static <= dist_min_dynamic) {
+              dist_min         = -dist_min_static; // negative distance is positive constraint
+              collision_object = &collision_object_static;
+            } else {
+              dist_min         = -dist_min_dynamic;
+              collision_object = &collision_object_dynamic;
+            }
 
             // update worst position for the current capsule if necessary
             if (dist_min > max_col_constraints[capsule_id]) {
               max_col_constraints[capsule_id]    = dist_min;
-              max_collision_entities[capsule_id] = collision_objects;
+              max_collision_entities[capsule_id] = *collision_object;
             }
           }
         }
@@ -1526,22 +1536,27 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
       create_time_bounding_volume_hierarchies(opt.time_bounding_volume_hierarchies, capsules, n_capsules, n_points_per_segment);
       create_time_bvh_dynamic_objects(opt.world, dynamic_bvh, segment * n_points_per_segment, n_points_per_segment, x.back(), n_segments, opt.trajectory_start_time);
       for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++) {
-        CollisionEntities collision_objects{};
-        real              dist_min = INF_REAL;
+        CollisionEntities  collision_object_static{}, collision_object_dynamic{};
+        CollisionEntities* collision_object;
+
+        real dist_min_static  = INF_REAL;
+        real dist_min_dynamic = INF_REAL;
 
         // static objects
         if (static_bvh.num_objects > 0)
-          minimum_distance_static_objects_time(static_bvh, opt.time_bounding_volume_hierarchies[capsule_id], dist_min, collision_objects);
+          dist_min_static = minimum_distance_static_objects_time(static_bvh, opt.time_bounding_volume_hierarchies[capsule_id], collision_object_static);
 
         // dynamic objects
         if (dynamic_bvh.num_objects > 0)
-          minimum_distance_dynamic_objects_time(dynamic_bvh, opt.time_bounding_volume_hierarchies[capsule_id], dist_min, collision_objects, segment * n_points_per_segment, n_points_per_segment, x.back(), n_segments, opt.trajectory_start_time);
+          dist_min_dynamic = minimum_distance_dynamic_objects_time(dynamic_bvh, opt.time_bounding_volume_hierarchies[capsule_id], dist_min_static, collision_object_dynamic, segment * n_points_per_segment, n_points_per_segment, x.back(), n_segments, opt.trajectory_start_time);
 
-        dist_min = -dist_min;
-        // add worst position for current capsule if necessary
-        if (dist_min > max_col_constraints[capsule_id]) {
-          max_col_constraints[capsule_id]    = dist_min;
-          max_collision_entities[capsule_id] = collision_objects;
+        // add constraint
+        if (dist_min_static <= dist_min_dynamic) {
+          max_col_constraints[capsule_id]    = -dist_min_static;
+          max_collision_entities[capsule_id] = collision_object_static;
+        } else {
+          max_col_constraints[capsule_id]    = -dist_min_dynamic;
+          max_collision_entities[capsule_id] = collision_object_dynamic;
         }
       }
     }

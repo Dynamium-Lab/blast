@@ -534,9 +534,10 @@ inline host_fn real distance(const AxisAlignedBoundingBox& aabb1, const AxisAlig
     d.x = std::max((real) 0.0, d.x);
     d.y = std::max((real) 0.0, d.y);
     d.z = std::max((real) 0.0, d.z);
-    return sqrt(dot(d, d));
+    return norm(d);
   } else {
-    return -sqrt(dot(d, d));
+    return std::max(d.x, std::max(d.y, d.z)); // todo: check this
+    // return -sqrt(dot(d, d));
   }
 }
 

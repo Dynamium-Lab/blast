@@ -9,31 +9,6 @@
 
 namespace blast {
 
-// struct AABBPair {
-//   int  aabb_obj;
-//   int  aabb_cap;
-//   real dist;
-// };
-
-// struct ComparePair {
-//   inline bool operator()(const AABBPair& aabb1, const AABBPair& aabb2) {
-//     return aabb1.dist > aabb2.dist;
-//   }
-// };
-
-// struct QueuePair : public std::priority_queue<AABBPair, std::vector<AABBPair>, ComparePair> {
-//   QueuePair(size_t reserve_capacity = 0) {
-//     if (reserve_capacity > 0) {
-//       this->c.reserve(reserve_capacity);
-//     }
-//   }
-
-//   void clear_and_reserve(size_t capacity) {
-//     this->c.clear();
-//     this->c.reserve(capacity);
-//   }
-// };
-
 inline host_fn void create_AABB_from_sphere(const Sphere& sphere, AxisAlignedBoundingBox& aabb, const void* ptr, int point_in_segment = -1) {
   aabb.center           = sphere.center;
   aabb.extents.x        = sphere.radius;
@@ -333,7 +308,7 @@ inline host_fn void create_time_bvh_dynamic_objects(World& world, BoundingVolume
   // Add objects
   for (int point_in_segment = 0; point_in_segment < n_points_per_segment; point_in_segment++) {
     int  current_point = start_point_in_segment + point_in_segment;
-    real current_time  = opt_time * ((real) current_point / (real) max_point) + trajectory_start_time; // trajectory time * progression along trajectory
+    real current_time  = opt_time * ((real) current_point / (real) (max_point - 1)) + trajectory_start_time; // trajectory time * progression along trajectory
 
     for (const auto& box: world.dynamic_boxes) {
       create_AABB_from_box(box.lookup(current_time), BVH.leaves[n_leaves], &box, point_in_segment);
@@ -381,10 +356,12 @@ inline host_fn void create_time_bounding_volume_hierarchies(std::array<BoundingV
   }
 }
 
-inline host_fn void minimum_distance(const Capsule& capsule, BoundingVolumeHierarchy<int>& BVH, real& dist_min, CollisionEntities& collision_objects, int point_in_segment) {
+inline host_fn real minimum_distance_static(const Capsule& capsule, BoundingVolumeHierarchy<int>& BVH, CollisionEntities& collision_objects, int point_in_segment) {
   BVH.queue.clear_and_reserve(BVH.num_objects);
 
-  real                   dist = INF_REAL;
+  real dist_min = INF_REAL;
+  real dist     = INF_REAL;
+
   AxisAlignedBoundingBox arm;
   create_AABB_from_capsule(capsule, arm, &capsule);
 
@@ -402,7 +379,7 @@ inline host_fn void minimum_distance(const Capsule& capsule, BoundingVolumeHiera
 
     // STOPPING CRITERIA: NO FURTHER IMPROVEMENT POSSIBLE
     if (object->dist >= dist_min) {
-      return;
+      return dist_min;
     }
 
     switch (object->child_type) {
@@ -448,12 +425,15 @@ inline host_fn void minimum_distance(const Capsule& capsule, BoundingVolumeHiera
       }
     }
   }
+  return dist_min;
 }
 
-inline host_fn void minimum_distance_dynamic(const Capsule& capsule, BoundingVolumeHierarchy<int>& BVH, real& dist_min, CollisionEntities& collision_objects, int point_in_segment) {
+inline host_fn real minimum_distance_dynamic(const Capsule& capsule, BoundingVolumeHierarchy<int>& BVH, real dist_min_old, CollisionEntities& collision_objects, int point_in_segment) {
   BVH.queue.clear_and_reserve(BVH.num_objects);
 
-  real                   dist = INF_REAL;
+  real dist_min = dist_min_old;
+  real dist     = INF_REAL;
+
   AxisAlignedBoundingBox arm;
   create_AABB_from_capsule(capsule, arm, &capsule);
 
@@ -471,7 +451,7 @@ inline host_fn void minimum_distance_dynamic(const Capsule& capsule, BoundingVol
 
     // STOPPING CRITERIA: NO FURTHER IMPROVEMENT POSSIBLE
     if (object->dist >= dist_min) {
-      return;
+      return dist_min;
     }
 
     switch (object->child_type) {
@@ -527,14 +507,16 @@ inline host_fn void minimum_distance_dynamic(const Capsule& capsule, BoundingVol
       }
     }
   }
+  return dist_min;
 }
 
-inline host_fn void minimum_distance_static_objects_time(BoundingVolumeHierarchy<int>& BVH_obj, BoundingVolumeHierarchy<AABBPair>& BVH_time, real& dist_min,
+inline host_fn real minimum_distance_static_objects_time(BoundingVolumeHierarchy<int>& BVH_obj, BoundingVolumeHierarchy<AABBPair>& BVH_time,
                                                          CollisionEntities& collision_objects) {
 
   BVH_time.queue.clear_and_reserve(BVH_time.num_objects * BVH_obj.num_objects);
 
-  real dist = INF_REAL;
+  real dist_min = INF_REAL;
+  real dist     = INF_REAL;
 
   std::vector<AxisAlignedBoundingBox>& leaves_obj  = BVH_obj.leaves;
   std::vector<AxisAlignedBoundingBox>& leaves_time = BVH_time.leaves;
@@ -575,7 +557,7 @@ inline host_fn void minimum_distance_static_objects_time(BoundingVolumeHierarchy
 
     // STOPPING CRITERIA: NO FURTHER IMPROVEMENT POSSIBLE
     if (pair.dist >= dist_min) {
-      return;
+      return dist_min;
     }
 
     if (child_type1 == CollisionObjectType::aabb && child_type2 == CollisionObjectType::capsule) {
@@ -645,14 +627,16 @@ inline host_fn void minimum_distance_static_objects_time(BoundingVolumeHierarchy
       }
     }
   }
+  return dist_min;
 }
 
-inline host_fn void minimum_distance_dynamic_objects_time(BoundingVolumeHierarchy<int>& BVH_obj, BoundingVolumeHierarchy<AABBPair>& BVH_time, real& dist_min, CollisionEntities& collision_objects,
+inline host_fn real minimum_distance_dynamic_objects_time(BoundingVolumeHierarchy<int>& BVH_obj, BoundingVolumeHierarchy<AABBPair>& BVH_time, real dist_min_old, CollisionEntities& collision_objects,
                                                           int start_point_in_segment, int n_points_per_segment, real opt_time, int n_segments, int trajectory_start_time) {
 
   BVH_time.queue.clear_and_reserve(BVH_obj.num_objects * BVH_time.num_objects * 4);
 
-  real dist = INF_REAL;
+  real dist_min = dist_min_old;
+  real dist     = INF_REAL;
 
   std::vector<AxisAlignedBoundingBox>& leaves_obj  = BVH_obj.leaves;
   std::vector<AxisAlignedBoundingBox>& leaves_time = BVH_time.leaves;
@@ -694,7 +678,7 @@ inline host_fn void minimum_distance_dynamic_objects_time(BoundingVolumeHierarch
 
     // STOPPING CRITERIA: NO FURTHER IMPROVEMENT POSSIBLE
     if (pair.dist >= dist_min) {
-      return;
+      return dist_min;
     }
 
     if (child_type1 == CollisionObjectType::aabb && child_type2 == CollisionObjectType::capsule) {
@@ -781,5 +765,6 @@ inline host_fn void minimum_distance_dynamic_objects_time(BoundingVolumeHierarch
       }
     }
   }
+  return dist_min;
 }
 } // namespace blast

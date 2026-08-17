@@ -157,7 +157,6 @@ struct BoundingVolumeHierarchy {
       queue(&leaves) {}
 
   // Ensure copy/move operations rebind the comparator's pointer to the local leaves vector
-
   BoundingVolumeHierarchy(const BoundingVolumeHierarchy& other) :
       leaves(other.leaves),
       root(other.root),
@@ -165,14 +164,13 @@ struct BoundingVolumeHierarchy {
       time(other.time),
       queue(&leaves) {}
 
-  // Fixed Copy Assignment
   BoundingVolumeHierarchy& operator=(const BoundingVolumeHierarchy& other) {
     if (this != &other) {
       leaves      = other.leaves;
       root        = other.root;
       num_objects = other.num_objects;
       time        = other.time;
-      queue.rebind(&leaves); // Update comparator to point to local leaves
+      queue.rebind(&leaves);
     }
     return *this;
   }
