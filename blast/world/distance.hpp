@@ -255,7 +255,19 @@ inline blast_fn real distance(Segment segment, Vec3 point) {
   return norm(d - point);
 }
 
+inline blast_fn void print_vec(Vec3 v, std::string name = "") {
+  printf("%s = [% 0.6f, % 0.6f, % 0.6f]\n", name.c_str(), v.x, v.y, v.z);
+}
+
 inline blast_fn real distance(const Capsule& capsule, const Box& box) {
+  // ZoneScopedN("distance");
+  Assert(is_close(norm(box.rotation.col_copy(0)), 1.0, 1e-6));
+  Assert(is_close(norm(box.rotation.col_copy(1)), 1.0, 1e-6));
+  Assert(is_close(norm(box.rotation.col_copy(2)), 1.0, 1e-6));
+  Assert(is_close(norm(Vec3(box.rotation(0, 0), box.rotation(0, 1), box.rotation(0, 2))), 1.0, 1e-6));
+  Assert(is_close(norm(Vec3(box.rotation(1, 0), box.rotation(1, 1), box.rotation(1, 2))), 1.0, 1e-6));
+  Assert(is_close(norm(Vec3(box.rotation(2, 0), box.rotation(2, 1), box.rotation(2, 2))), 1.0, 1e-6));
+
   // Transferring points to OBB frame
   Mat3 R_trans = transpose(box.rotation);
 

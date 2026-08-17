@@ -9,7 +9,6 @@ struct World;
 struct Box;
 struct Capsule;
 struct Sphere;
-struct Cylinder;
 struct DynamicBox;
 struct DynamicSphere;
 struct DynamicCapsule;
@@ -267,3 +266,5 @@ inline blast_fn Vec3 get_point(const Array& x, const Matrix& capsule_list);
 #include "world/broadphase.hpp"
 
 #include "world/scenes.hpp"
+
+#include "world/gjk_epa.hpp"
