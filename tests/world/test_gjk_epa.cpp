@@ -124,8 +124,8 @@ TEST_CASE("Test - GJK Box vs Capsule (random generation)") {
 
     for (const auto& function: functions) {
       real dist = function.first(capsule, box);
-      CHECK(is_close(real_dist, dist, std::max(BLAST_GJK_EPSILON, 1e-5)));
-      if (!is_close(real_dist, dist, std::max(BLAST_GJK_EPSILON, 1e-5))) {
+      CHECK(is_close(real_dist, dist, std::max(BLAST_GJK_EPSILON, (real) 1e-5)));
+      if (!is_close(real_dist, dist, std::max(BLAST_GJK_EPSILON, (real) 1e-5))) {
         std::cout << "// Fail - " << function.second << ": " << std::fixed << std::setprecision(10) << dist << "!=" << real_dist << std::endl;
         printf("capsule = {{%.10f,%.10f,%.10f},{%.10f,%.10f,%.10f},%.2f};\n", capsule.p1.x, capsule.p1.y, capsule.p1.z, capsule.p2.x, capsule.p2.y, capsule.p2.z, capsule.radius);
         printf("box = {{%.10f,%.10f,%.10f},{%.10f,%.10f,%.10f},{%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%.10f}};\n",
