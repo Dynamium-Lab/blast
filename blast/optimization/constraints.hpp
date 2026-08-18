@@ -280,7 +280,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 
             // --- Dynamic tests --- todo: check & fix gradients
             int  current_point = segment * n_points_per_segment + point_in_segment;
-            int  max_point     = n_segments * n_points_per_segment - 1;                                            // todo: check -1 ?
+            int  max_point     = n_segments * n_points_per_segment - 1;
             real current_time  = x.back() * ((real) current_point / (real) max_point) + opt.trajectory_start_time; // trajectory time * progression along trajectory
 
             count = 0;
@@ -911,7 +911,7 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
           PROFILE_SCOPE("Ext Constraints");
 #endif
           int  current_point = segment * n_points_per_segment + point_in_segment;
-          int  max_point     = n_segments * n_points_per_segment - 1;                                            // todo: check -1 ?
+          int  max_point     = n_segments * n_points_per_segment - 1;
           real current_time  = x.back() * ((real) current_point / (real) max_point) + opt.trajectory_start_time; // trajectory time * progression along trajectory
 
                                                                                                                  // dynamic BVH doesn't have to be created inside capsule for-loop since its the same for every capsule

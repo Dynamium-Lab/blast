@@ -196,6 +196,10 @@ template<typename T>
 inline host_fn void create_static_bounding_volume_hierarchy(World& world, BoundingVolumeHierarchy<T>& BVH) {
   // Create leaves
   BVH.num_objects = world.boxes.size() + world.spheres.size() + world.capsules.size();
+
+  if (BVH.num_objects == 0)
+    return;
+
   BVH.leaves.resize(2 * BVH.num_objects - 1);
   std::vector<int> objects;
 
@@ -226,6 +230,10 @@ template<typename T>
 inline host_fn void create_static_bounding_volume_hierarchy_sap(World& world, BoundingVolumeHierarchy<T>& BVH) {
   // Create leaves
   BVH.num_objects = world.boxes.size() + world.spheres.size() + world.capsules.size();
+
+  if (BVH.num_objects == 0)
+    return;
+
   BVH.leaves.resize(2 * BVH.num_objects - 1);
   std::vector<int> objects;
 
@@ -293,7 +301,7 @@ inline host_fn void create_dynamic_bounding_volume_hierarchy(World& world, Bound
 
 template<typename T>
 inline host_fn void create_time_bvh_dynamic_objects(World& world, BoundingVolumeHierarchy<T>& BVH, int start_point_in_segment, int n_points_per_segment,
-                                                    real opt_time, int n_segments, int trajectory_start_time) {
+                                                    real opt_time, int n_segments, real trajectory_start_time) {
   // Create leaves
   BVH.num_objects = (world.dynamic_boxes.size() + world.dynamic_spheres.size() + world.dynamic_capsules.size() + world.dynamic_doors.size()) * n_points_per_segment;
 
@@ -308,7 +316,7 @@ inline host_fn void create_time_bvh_dynamic_objects(World& world, BoundingVolume
   // Add objects
   for (int point_in_segment = 0; point_in_segment < n_points_per_segment; point_in_segment++) {
     int  current_point = start_point_in_segment + point_in_segment;
-    real current_time  = opt_time * ((real) current_point / (real) (max_point - 1)) + trajectory_start_time; // trajectory time * progression along trajectory
+    real current_time  = opt_time * ((real) current_point / (real) max_point) + trajectory_start_time; // trajectory time * progression along trajectory
 
     for (const auto& box: world.dynamic_boxes) {
       create_AABB_from_box(box.lookup(current_time), BVH.leaves[n_leaves], &box, point_in_segment);
@@ -663,7 +671,6 @@ inline host_fn real minimum_distance_dynamic_objects_time(BoundingVolumeHierarch
   pair.aabb_cap = object2->children[0];
   pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
   BVH_time.queue.push(pair);
-  BVH_time.queue.push(pair);
 
   CollisionObjectType child_type1;
   CollisionObjectType child_type2;
@@ -708,7 +715,6 @@ inline host_fn real minimum_distance_dynamic_objects_time(BoundingVolumeHierarch
         pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
         BVH_time.queue.push(pair);
       }
-      // }
     } else if (child_type1 != CollisionObjectType::aabb && child_type2 == CollisionObjectType::aabb) {
       pair.aabb_cap = object2->children[0];
       pair.dist     = distance(leaves_obj[pair.aabb_obj], leaves_time[pair.aabb_cap]);
