@@ -49,7 +49,7 @@ constexpr real BLAST_GEOMETRY_EPSILON = 1e-6f;
 constexpr real BLAST_SOLVER_TOL       = 1e-5f;
 constexpr real BLAST_FD_STEP          = 3e-4f;
 constexpr real BLAST_GJK_EPSILON      = 1e-4;
-constexpr real BLAST_GJK_EPSILON_SQ   = 1e-8;
+constexpr real BLAST_GJK_EPSILON_SQ   = 1e-9;
 #endif
 #ifdef __CUDA_ARCH__
 #if BLAST_USE_DOUBLES
