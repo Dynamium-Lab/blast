@@ -116,7 +116,6 @@ struct AABBPair {
   real dist;
 };
 
-// (Gemini did this)
 struct Compare {
   const std::vector<AxisAlignedBoundingBox>* leaves = nullptr;
 

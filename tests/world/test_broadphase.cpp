@@ -687,7 +687,7 @@ TEST_CASE("Benchmark - Broadphase vs Blast (min_dist computation + only static o
   std::uniform_int_distribution<std::size_t> rand_int(0, worlds.size() - 1);
   auto                                       world = worlds[rand_int(gen)].first;
 
-  std::cout << worlds[rand_int(gen)].second << std::endl;
+  // std::cout << worlds[rand_int(gen)].second << std::endl;
 
   const int                                 n_capsules       = 20;
   const int                                 point_in_segment = 0;
@@ -699,83 +699,82 @@ TEST_CASE("Benchmark - Broadphase vs Blast (min_dist computation + only static o
   }
 
   BoundingVolumeHierarchy BVH;
-  BENCHMARK("BVH construction") {
-    create_static_bounding_volume_hierarchy(world, BVH);
-    return BVH;
-  };
+  // BENCHMARK("BVH construction") {
+  create_static_bounding_volume_hierarchy(world, BVH);
+  //   return BVH;
+  // };
   create_static_bounding_volume_hierarchy(world, BVH);
   CollisionObjectType collision_object_type;
 
   real dist_min;
-  BENCHMARK("Blast - find closest object") {
-    // check every capsule with world
-    for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++) {
-      dist_min           = INF_REAL;
-      const auto capsule = capsule_list[capsule_id];
+  // BENCHMARK("Blast - find closest object") {
+  // check every capsule with world
+  for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++) {
+    dist_min           = INF_REAL;
+    const auto capsule = capsule_list[capsule_id];
 
-      CollisionEntities collision_objects{};
+    CollisionEntities collision_objects{};
 
-      // check against boxes
-      int count = 0;
-      for (const auto& box: world.boxes) {
-        if (const auto dist = distance(capsule, box);
-            dist < dist_min) {
-          dist_min                            = dist;
-          collision_objects.other_object_type = CollisionObjectType::box;
-          collision_objects.box               = box;
-          collision_objects.point_in_segment  = point_in_segment;
-        }
-        count++;
+    // check against boxes
+    int count = 0;
+    for (const auto& box: world.boxes) {
+      if (const auto dist = distance(capsule, box);
+          dist < dist_min) {
+        dist_min                            = dist;
+        collision_objects.other_object_type = CollisionObjectType::box;
+        collision_objects.box               = box;
+        collision_objects.point_in_segment  = point_in_segment;
       }
+      count++;
+    }
 
-      // check against capsules
-      count = 0;
-      for (const auto caps: world.capsules) {
-        if (const auto dist = distance(capsule, caps);
-            dist < dist_min) {
-          dist_min                            = dist;
-          collision_objects.other_object_type = CollisionObjectType::capsule;
-          collision_objects.capsule           = capsule;
-          collision_objects.point_in_segment  = point_in_segment;
-        }
-        count++;
+    // check against capsules
+    count = 0;
+    for (const auto caps: world.capsules) {
+      if (const auto dist = distance(capsule, caps);
+          dist < dist_min) {
+        dist_min                            = dist;
+        collision_objects.other_object_type = CollisionObjectType::capsule;
+        collision_objects.capsule           = capsule;
+        collision_objects.point_in_segment  = point_in_segment;
       }
+      count++;
+    }
 
-      // check against spheres
-      count = 0;
-      for (const auto sphere: world.spheres) {
-        if (const auto dist = distance(capsule, sphere);
-            dist < dist_min) {
-          dist_min                            = dist;
-          collision_objects.other_object_type = CollisionObjectType::sphere;
-          collision_objects.sphere            = sphere;
-          collision_objects.point_in_segment  = point_in_segment;
-        }
-        count++;
+    // check against spheres
+    count = 0;
+    for (const auto sphere: world.spheres) {
+      if (const auto dist = distance(capsule, sphere);
+          dist < dist_min) {
+        dist_min                            = dist;
+        collision_objects.other_object_type = CollisionObjectType::sphere;
+        collision_objects.sphere            = sphere;
+        collision_objects.point_in_segment  = point_in_segment;
       }
+      count++;
+    }
 
-      // update worst position for the current capsule if necessary
-      if (dist_min > max_col_constraints[capsule_id]) {
-        max_col_constraints[capsule_id]    = dist_min;
-        max_collision_entities[capsule_id] = collision_objects;
-      }
-    } // end of for-loop
-    return dist_min;
-  };
+    // update worst position for the current capsule if necessary
+    if (dist_min > max_col_constraints[capsule_id]) {
+      max_col_constraints[capsule_id]    = dist_min;
+      max_collision_entities[capsule_id] = collision_objects;
+    }
+  } // end of for-loop
+  // return dist_min;
+  // };
 
   // broadphase benchmark
   real              dist_min_broadphase;
   CollisionEntities collision_objects{};
   Array             max_col_constraints_broadphase(n_capsules, -INF_REAL);
-  BENCHMARK("Broad phase - find closest object") {
-    for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++) {
-      max_col_constraints_broadphase[capsule_id] = minimum_distance_static(capsule_list[capsule_id], BVH, collision_objects, 1);
-    }
-    return max_col_constraints_broadphase[n_capsules - 1];
-  };
+  // BENCHMARK("Broad phase - find closest object") {
+  for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++) {
+    max_col_constraints_broadphase[capsule_id] = minimum_distance_static(capsule_list[capsule_id], BVH, collision_objects, 1);
+  }
+  // return max_col_constraints_broadphase[n_capsules - 1];
+  // };
   for (int i = 0; i < n_capsules; i++) {
     CHECK(is_close(max_col_constraints[i], max_col_constraints_broadphase[i], 1e-5));
-    // std::cout << max_col_constraints[i] << std::endl;
   }
 }
 
@@ -1185,6 +1184,7 @@ TEST_CASE("Constraints calculation", "[World]") {
           {get_kitchen_no_doors(), "get_kitchen_no_doors()"},
           {get_lab_world(), "get_lab_world()"},
   };
+  int num_tests_per_world = 1e3;
 
   for (int worlds_id = 0; worlds_id < worlds.size(); worlds_id++) {
     Optimization opt                          = get_generic_link6_opt();
@@ -1196,37 +1196,60 @@ TEST_CASE("Constraints calculation", "[World]") {
     opt.world = worlds[worlds_id].first;
     add_dynamic_obstacles(opt.world);
     create_static_bounding_volume_hierarchy(opt.world, opt.world.static_bounding_volume_hierarchy);
+    for (int test = 0; test < num_tests_per_world; test++) {
+      Array x = guess_random(opt.bspline, opt.task);
 
-    Array x = guess_random(opt.bspline, opt.task);
+      // std::cout << "\n"
+      //           << worlds[worlds_id].second << "=====================================" << std::endl;
 
-    std::cout << "\n"
-              << worlds[worlds_id].second << "=====================================" << std::endl;
-
-    Array  constraints(opt.constraints.n_constraints);
-    Matrix gradient;
-    BENCHMARK("_with_segments") {
+      Array  constraints(opt.constraints.n_constraints);
+      Matrix gradient;
+      // BENCHMARK("_with_segments") {
       constraints_and_gradients_with_segments(x, opt, constraints, gradient);
-      return constraints;
-    };
+      // return constraints;
+      // };
 
-    Array  constraints_broadphase(opt.constraints.n_constraints);
-    Matrix gradient_broadphase;
-    BENCHMARK("Broadphase") {
+      Array  constraints_broadphase(opt.constraints.n_constraints);
+      Matrix gradient_broadphase;
+      // BENCHMARK("Broadphase") {
       constraints_and_gradients_with_broadphase(x, opt, constraints_broadphase, gradient_broadphase);
-      return constraints_broadphase;
-    };
+      // return constraints_broadphase;
+      // };
 
-    Array  constraints_double_bvh(opt.constraints.n_constraints);
-    Matrix gradient_double_bvh;
-    BENCHMARK("Broadphase - double BVH") {
+      Array  constraints_double_bvh(opt.constraints.n_constraints);
+      Matrix gradient_double_bvh;
+      // BENCHMARK("Broadphase - double BVH") {
       constraints_and_gradients_with_double_broadphase(x, opt, constraints_double_bvh, gradient_double_bvh);
-      return constraints_double_bvh;
-    };
+      // return constraints_double_bvh;
+      // };
 
-    CHECK(is_close(constraints, constraints_broadphase));
-    CHECK(is_close(constraints, constraints_double_bvh));
-    CHECK(is_close(gradient, gradient_broadphase));
-    CHECK(is_close(gradient, gradient_double_bvh));
+      CHECK(is_close(constraints, constraints_broadphase));
+      CHECK(is_close(constraints, constraints_double_bvh));
+      CHECK(is_close(gradient, gradient_broadphase));
+      CHECK(is_close(gradient, gradient_double_bvh));
+
+      if (!is_close(constraints, constraints_broadphase)) {
+        std::cout << "Fail broadphase" << std::endl;
+        std::cout << worlds[worlds_id].second << std::endl;
+        std::cout << "x = {";
+        for (int i = 0; i < x.size; i++) {
+          std::cout << std::fixed << std::setprecision(10) << x[i] << ", ";
+        }
+        std::cout << "};" << std::endl;
+        for (int i = 0; i < constraints.size; i++) {
+          std::cout << std::fixed << std::setprecision(7) << constraints[i] << ", " << constraints_broadphase[i] << std::endl;
+        }
+      }
+      if (!is_close(constraints, constraints_double_bvh)) {
+        std::cout << "Fail double bvh" << std::endl;
+        std::cout << worlds[worlds_id].second << std::endl;
+        std::cout << "x = {";
+        for (int i = 0; i < x.size; i++) {
+          std::cout << std::fixed << std::setprecision(10) << x[i] << ", ";
+        }
+        std::cout << "};" << std::endl;
+      }
+    }
   }
 }
 
@@ -1240,7 +1263,7 @@ TEST_CASE("Optimization benchmark", "[World]") {
   };
 
   std::vector<Array> x0;
-  for (int task_id = 0; task_id < 1 /*task_list.size()*/; task_id++) {
+  for (int task_id = 0; task_id < 2 /*task_list.size()*/; task_id++) {
     std::cout << "Task " << task_id << std::endl;
     for (int method_id = 0; method_id < method.size(); method_id++) {
       Manipulator ur5e   = get_generic_ur5e();
@@ -1262,24 +1285,21 @@ TEST_CASE("Optimization benchmark", "[World]") {
       opt.success_tolerance = 0.01;
       create_static_bounding_volume_hierarchy(opt.world, opt.world.static_bounding_volume_hierarchy);
 
-      const int max_attempts = 2;
+      const int max_attempts = 3;
       Result    result(&opt); // initialise with a pointer to opt
 
       std::cout << "\nMethod: " << method[method_id].second << "\n"
                 << std::endl;
-      for (int attempt = 1; attempt <= max_attempts; ++attempt) {
+      for (size_t attempt = 1; attempt <= max_attempts; ++attempt) {
 
         // Draw a fresh random initial guess for each attempt.
-        // opt.guess.type           = Guess::random;
-        // opt.guess.n_random_shots = 30;
-        opt.guess.type      = Guess::custom;
-        opt.guess.initial_x = {-0.3633, 0.3082, -0.2982, 0.6000, 0.4329, 0.7048, 0.8955, 0.4380, 0.8345, -0.8969, 0.5225, -0.2994, 0.2847, -0.0098, -0.7194, -0.2828, 0.2514, 0.6480, -0.1603, -0.8380, -0.0657, 0.4228, 0.3920, 0.1259, 0.0456, -0.8978, 0.5514, 0.1373, -0.4126, -0.7439, 0.1674, 0.2462, 0.0702, -0.6618, 0.0679, 0.3672, -0.9830, 0.6454, -0.8045, -0.8666, 0.1798, -0.3659, -0.3014, 0.4703, -0.5157, 0.4481, 0.4301, -0.7270, -0.0874, -0.3888, 0.1898, -0.5387, 0.5006, -0.1357, 0.2501, 0.3918, 0.3208, -0.0432, -0.3098, 0.1222, 0.4110};
-
-
-        // BENCHMARK("Benchmark") {
-        opt.method = method[method_id].first;
-        result     = optimize(&opt);
-        // };
+        opt.guess.type = Guess::custom;
+        if (method_id == 0) {
+          x0.push_back(guess_random(opt.bspline, opt.task));
+        }
+        opt.guess.initial_x = x0[std::min(attempt - 1, x0.size())];
+        opt.method          = method[method_id].first;
+        result              = optimize(&opt);
 
         if (result.success)
           break;
@@ -1387,7 +1407,6 @@ inline MethodStats run_trials(OptimizationMethod method, int n_trials, Task task
   return s;
 }
 
-// int main()
 TEST_CASE("Test", "[World]") {
   constexpr int n_trials = 2;
 
