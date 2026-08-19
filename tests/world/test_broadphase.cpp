@@ -4,6 +4,8 @@
 #include <blast>
 #include "catch2/catch.hpp"
 
+#define BENCHMARKING_ON 0
+
 using namespace blast;
 
 // Helper functions -> skip around 600 lines to reach TEST_CASES
@@ -599,64 +601,6 @@ std::vector<std::pair<World, std::string>> worlds = {
         {get_lab_world(), "get_lab_world()"},
 };
 
-TEST_CASE("Test - BVH construction", "[World]") {
-  World                   world;
-  BoundingVolumeHierarchy BVH;
-
-  BoundingVolumeHierarchy expected_BVH;
-  AxisAlignedBoundingBox  temporary;
-
-  Sphere spheres_for_leaves[] = {
-          {{2, 2, 0}, 1},
-          {{6, 4, 0}, 1},
-          {{5, -2, -1}, 1},
-          {{-1, -2, 1}, 1},
-          {{4, 0, 2}, 1}};
-  expected_BVH.leaves = {
-          {{2, 2, 0}, {1, 1, 1}, {}, CollisionObjectType::sphere, &spheres_for_leaves[0]},
-          {{6, 4, 0}, {1, 1, 1}, {}, CollisionObjectType::sphere, &spheres_for_leaves[1]},
-          {{5, -2, -1}, {1, 1, 1}, {}, CollisionObjectType::sphere, &spheres_for_leaves[2]},
-          {{-1, -2, 1}, {1, 1, 1}, {}, CollisionObjectType::sphere, &spheres_for_leaves[3]},
-          {{4, 0, 2}, {1, 1, 1}, {}, CollisionObjectType::sphere, &spheres_for_leaves[4]}};
-  expected_BVH.num_objects = expected_BVH.leaves.size();
-  expected_BVH.leaves.reserve(2 * expected_BVH.leaves.size() - 1);
-
-  temporary = {{3, 1, 1}, {2, 2, 2}, {0, 4}, CollisionObjectType::aabb, {}, -1, 0.0};
-  expected_BVH.leaves.push_back(temporary);
-  temporary = {{3.5, 0, 0.5}, {2.5, 3, 2.5}, {2, expected_BVH.leaves.size() - 1}, CollisionObjectType::aabb, {}};
-  expected_BVH.leaves.push_back(temporary);
-  temporary = {{4, 1, 0.5}, {3, 4, 2.5}, {1, expected_BVH.leaves.size() - 1}, CollisionObjectType::aabb, {}};
-  expected_BVH.leaves.push_back(temporary);
-  temporary = {{2.5, 1, 0.5}, {4.5, 4, 2.5}, {3, expected_BVH.leaves.size() - 1}, CollisionObjectType::aabb, {}};
-  expected_BVH.leaves.push_back(temporary);
-  expected_BVH.root = expected_BVH.leaves.size() - 1;
-
-  std::vector<Vec3> centers = {{2, 2, 0}, {6, 4, 0}, {5, -2, -1}, {-1, -2, 1}, {4, 0, 2}};
-  Sphere            sphere;
-  sphere.radius = 1;
-  for (Vec3 c: centers) {
-    sphere.center = c;
-    world.add_sphere(sphere);
-  }
-
-  create_static_bounding_volume_hierarchy(world, BVH);
-  // CHECK(is_close(BVH, expected_BVH, 1e-5));
-  // Currently no checks !!!!!!! todo: add is_close(BVH, BVH, eps)
-
-  // Expected result
-  /*
-       8
-      / \
-     3   7
-       / \
-      1   6
-         / \
-        2   5
-           / \
-          0   4
-  */
-}
-
 std::vector<Capsule> capsules = {
         {{0.42, -0.30, 0.60}, {0.52, -0.20, 0.60}, 0.05},
         {{1.00, -0.30, 1.20}, {1.00, -0.10, 1.30}, 0.04},
@@ -699,80 +643,79 @@ TEST_CASE("Benchmark - Broadphase vs Blast (min_dist computation + only static o
   }
 
   BoundingVolumeHierarchy BVH;
-  // BENCHMARK("BVH construction") {
-  create_static_bounding_volume_hierarchy(world, BVH);
-  //   return BVH;
-  // };
-  create_static_bounding_volume_hierarchy(world, BVH);
+  BENCHMARK("BVH construction") {
+    create_static_bounding_volume_hierarchy(world, BVH);
+    return BVH;
+  };
   CollisionObjectType collision_object_type;
 
   real dist_min;
-  // BENCHMARK("Blast - find closest object") {
-  // check every capsule with world
-  for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++) {
-    dist_min           = INF_REAL;
-    const auto capsule = capsule_list[capsule_id];
+  BENCHMARK("Blast - find closest object") {
+    // check every capsule with world
+    for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++) {
+      dist_min           = INF_REAL;
+      const auto capsule = capsule_list[capsule_id];
 
-    CollisionEntities collision_objects{};
+      CollisionEntities collision_objects{};
 
-    // check against boxes
-    int count = 0;
-    for (const auto& box: world.boxes) {
-      if (const auto dist = distance(capsule, box);
-          dist < dist_min) {
-        dist_min                            = dist;
-        collision_objects.other_object_type = CollisionObjectType::box;
-        collision_objects.box               = box;
-        collision_objects.point_in_segment  = point_in_segment;
+      // check against boxes
+      int count = 0;
+      for (const auto& box: world.boxes) {
+        if (const auto dist = distance(capsule, box);
+            dist < dist_min) {
+          dist_min                            = dist;
+          collision_objects.other_object_type = CollisionObjectType::box;
+          collision_objects.box               = box;
+          collision_objects.point_in_segment  = point_in_segment;
+        }
+        count++;
       }
-      count++;
-    }
 
-    // check against capsules
-    count = 0;
-    for (const auto caps: world.capsules) {
-      if (const auto dist = distance(capsule, caps);
-          dist < dist_min) {
-        dist_min                            = dist;
-        collision_objects.other_object_type = CollisionObjectType::capsule;
-        collision_objects.capsule           = capsule;
-        collision_objects.point_in_segment  = point_in_segment;
+      // check against capsules
+      count = 0;
+      for (const auto caps: world.capsules) {
+        if (const auto dist = distance(capsule, caps);
+            dist < dist_min) {
+          dist_min                            = dist;
+          collision_objects.other_object_type = CollisionObjectType::capsule;
+          collision_objects.capsule           = capsule;
+          collision_objects.point_in_segment  = point_in_segment;
+        }
+        count++;
       }
-      count++;
-    }
 
-    // check against spheres
-    count = 0;
-    for (const auto sphere: world.spheres) {
-      if (const auto dist = distance(capsule, sphere);
-          dist < dist_min) {
-        dist_min                            = dist;
-        collision_objects.other_object_type = CollisionObjectType::sphere;
-        collision_objects.sphere            = sphere;
-        collision_objects.point_in_segment  = point_in_segment;
+      // check against spheres
+      count = 0;
+      for (const auto sphere: world.spheres) {
+        if (const auto dist = distance(capsule, sphere);
+            dist < dist_min) {
+          dist_min                            = dist;
+          collision_objects.other_object_type = CollisionObjectType::sphere;
+          collision_objects.sphere            = sphere;
+          collision_objects.point_in_segment  = point_in_segment;
+        }
+        count++;
       }
-      count++;
-    }
 
-    // update worst position for the current capsule if necessary
-    if (dist_min > max_col_constraints[capsule_id]) {
-      max_col_constraints[capsule_id]    = dist_min;
-      max_collision_entities[capsule_id] = collision_objects;
-    }
-  } // end of for-loop
-  // return dist_min;
-  // };
+      // update worst position for the current capsule if necessary
+      if (dist_min > max_col_constraints[capsule_id]) {
+        max_col_constraints[capsule_id]    = dist_min;
+        max_collision_entities[capsule_id] = collision_objects;
+      }
+    } // end of for-loop
+    return dist_min;
+  };
 
   // broadphase benchmark
   real              dist_min_broadphase;
   CollisionEntities collision_objects{};
   Array             max_col_constraints_broadphase(n_capsules, -INF_REAL);
-  // BENCHMARK("Broad phase - find closest object") {
-  for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++) {
-    max_col_constraints_broadphase[capsule_id] = minimum_distance_static(capsule_list[capsule_id], BVH, collision_objects, 1);
-  }
-  // return max_col_constraints_broadphase[n_capsules - 1];
-  // };
+  BENCHMARK("Broad phase - find closest object") {
+    for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++) {
+      max_col_constraints_broadphase[capsule_id] = minimum_distance_static(capsule_list[capsule_id], BVH, collision_objects, 1);
+    }
+    return max_col_constraints_broadphase[n_capsules - 1];
+  };
   for (int i = 0; i < n_capsules; i++) {
     CHECK(is_close(max_col_constraints[i], max_col_constraints_broadphase[i], 1e-5));
   }
@@ -1184,7 +1127,11 @@ TEST_CASE("Constraints calculation", "[World]") {
           {get_kitchen_no_doors(), "get_kitchen_no_doors()"},
           {get_lab_world(), "get_lab_world()"},
   };
+#if BENCHMARKING_ON
+  int num_tests_per_world = 1;
+#else
   int num_tests_per_world = 1e3;
+#endif
 
   for (int worlds_id = 0; worlds_id < worlds.size(); worlds_id++) {
     Optimization opt                          = get_generic_link6_opt();
@@ -1199,29 +1146,33 @@ TEST_CASE("Constraints calculation", "[World]") {
     for (int test = 0; test < num_tests_per_world; test++) {
       Array x = guess_random(opt.bspline, opt.task);
 
-      // std::cout << "\n"
-      //           << worlds[worlds_id].second << "=====================================" << std::endl;
-
       Array  constraints(opt.constraints.n_constraints);
       Matrix gradient;
-      // BENCHMARK("_with_segments") {
-      constraints_and_gradients_with_segments(x, opt, constraints, gradient);
-      // return constraints;
-      // };
-
       Array  constraints_broadphase(opt.constraints.n_constraints);
       Matrix gradient_broadphase;
-      // BENCHMARK("Broadphase") {
-      constraints_and_gradients_with_broadphase(x, opt, constraints_broadphase, gradient_broadphase);
-      // return constraints_broadphase;
-      // };
-
       Array  constraints_double_bvh(opt.constraints.n_constraints);
       Matrix gradient_double_bvh;
-      // BENCHMARK("Broadphase - double BVH") {
+
+#if BENCHMARKING_ON
+      std::cout << "\n"
+                << worlds[worlds_id].second << "=====================================" << std::endl;
+      BENCHMARK("_with_segments") {
+        constraints_and_gradients_with_segments(x, opt, constraints, gradient);
+        return constraints;
+      };
+      BENCHMARK("Broadphase") {
+        constraints_and_gradients_with_broadphase(x, opt, constraints_broadphase, gradient_broadphase);
+        return constraints_broadphase;
+      };
+      BENCHMARK("Broadphase - double BVH") {
+        constraints_and_gradients_with_double_broadphase(x, opt, constraints_double_bvh, gradient_double_bvh);
+        return constraints_double_bvh;
+      };
+#else
+      constraints_and_gradients_with_segments(x, opt, constraints, gradient);
+      constraints_and_gradients_with_broadphase(x, opt, constraints_broadphase, gradient_broadphase);
       constraints_and_gradients_with_double_broadphase(x, opt, constraints_double_bvh, gradient_double_bvh);
-      // return constraints_double_bvh;
-      // };
+#endif
 
       CHECK(is_close(constraints, constraints_broadphase));
       CHECK(is_close(constraints, constraints_double_bvh));
@@ -1251,6 +1202,7 @@ TEST_CASE("Constraints calculation", "[World]") {
       }
     }
   }
+  std::cout << std::endl;
 }
 
 TEST_CASE("Optimization benchmark", "[World]") {
@@ -1263,7 +1215,7 @@ TEST_CASE("Optimization benchmark", "[World]") {
   };
 
   std::vector<Array> x0;
-  for (int task_id = 0; task_id < 2 /*task_list.size()*/; task_id++) {
+  for (int task_id = 0; task_id < 1; task_id++) {
     std::cout << "Task " << task_id << std::endl;
     for (int method_id = 0; method_id < method.size(); method_id++) {
       Manipulator ur5e   = get_generic_ur5e();
@@ -1290,14 +1242,16 @@ TEST_CASE("Optimization benchmark", "[World]") {
 
       std::cout << "\nMethod: " << method[method_id].second << "\n"
                 << std::endl;
-      for (size_t attempt = 1; attempt <= max_attempts; ++attempt) {
+      for (int attempt = 1; attempt <= max_attempts; ++attempt) {
 
-        // Draw a fresh random initial guess for each attempt.
+        // Keep initial guesses consistent across methods
         opt.guess.type = Guess::custom;
         if (method_id == 0) {
           x0.push_back(guess_random(opt.bspline, opt.task));
         }
-        opt.guess.initial_x = x0[std::min(attempt - 1, x0.size())];
+
+        int n               = attempt - 1 <= x0.size() ? attempt - 1 : x0.size();
+        opt.guess.initial_x = x0[n];
         opt.method          = method[method_id].first;
         result              = optimize(&opt);
 
