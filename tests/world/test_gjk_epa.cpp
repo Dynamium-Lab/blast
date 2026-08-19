@@ -4,10 +4,51 @@
 #include <blast>
 #include "catch2/catch.hpp"
 
-#include "test_helper/test_dynamic_objects.hpp"
-#include "test_helper/test_point_clouds.hpp"
-
 using namespace blast;
+
+PointCloud point_cloud_from_box(Box box, int n_extra = 0) {
+  PointCloud cloud;
+
+  // Initialization of the eight OBB points
+  Vec3 size_x_org = {box.extents.x, 0, 0};
+  Vec3 size_y_org = {0, box.extents.y, 0};
+  Vec3 size_z_org = {0, 0, box.extents.z};
+  Vec3 size_x     = box.rotation * size_x_org;
+  Vec3 size_y     = box.rotation * size_y_org;
+  Vec3 size_z     = box.rotation * size_z_org;
+
+  std::vector<Vec3> v2(8);
+  v2[0] = box.center + size_x + size_y + size_z;
+  v2[1] = box.center + size_x + size_y - size_z;
+  v2[2] = box.center + size_x - size_y + size_z;
+  v2[3] = box.center + size_x - size_y - size_z;
+  v2[4] = box.center - size_x + size_y + size_z;
+  v2[5] = box.center - size_x + size_y - size_z;
+  v2[6] = box.center - size_x - size_y + size_z;
+  v2[7] = box.center - size_x - size_y - size_z;
+
+
+  // Add random points inside box
+  cloud.points = v2;
+  if (n_extra) {
+    cloud.points.reserve(cloud.points.size() + n_extra);
+    for (int i = 0; i < n_extra; i++) {
+      cloud.points.push_back(box.center + random_real() * size_x + random_real() * size_y + random_real() * size_z);
+    }
+  }
+
+  return cloud;
+}
+
+std::vector<std::pair<Box, PointCloud>> get_boxes_and_point_clouds(World world) {
+  std::vector<std::pair<Box, PointCloud>> pairs;
+
+  for (auto box: world.boxes) {
+    pairs.push_back({box, point_cloud_from_box(box)});
+  }
+
+  return pairs;
+}
 
 TEST_CASE("Test - GJK Box vs Capsule (random generation)") {
   Capsule           capsule;
@@ -43,7 +84,7 @@ TEST_CASE("Test - GJK Box vs Capsule (random generation)") {
   }
 
   // Tests
-  int                num_tests = 1e3;
+  int                num_tests = 1e5;
   std::vector<float> epa(num_tests);
   for (int i = 0; i < num_tests; i++) {
 
@@ -83,9 +124,9 @@ TEST_CASE("Test - GJK Box vs Capsule (random generation)") {
 
     for (const auto& function: functions) {
       real dist = function.first(capsule, box);
-      CHECK(is_close(real_dist, dist));
-      if (!is_close(real_dist, dist, 1e-4)) {
-        std::cout << "Fail - " << function.second << ": " << std::fixed << std::setprecision(10) << dist << "!=" << real_dist << std::endl;
+      CHECK(is_close(real_dist, dist, std::max(BLAST_GJK_EPSILON, (real) 1e-5)));
+      if (!is_close(real_dist, dist, std::max(BLAST_GJK_EPSILON, (real) 1e-5))) {
+        std::cout << "// Fail - " << function.second << ": " << std::fixed << std::setprecision(10) << dist << "!=" << real_dist << std::endl;
         printf("capsule = {{%.10f,%.10f,%.10f},{%.10f,%.10f,%.10f},%.2f};\n", capsule.p1.x, capsule.p1.y, capsule.p1.z, capsule.p2.x, capsule.p2.y, capsule.p2.z, capsule.radius);
         printf("box = {{%.10f,%.10f,%.10f},{%.10f,%.10f,%.10f},{%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%.10f,%.10f}};\n",
                box.center.x, box.center.y, box.center.z,
@@ -185,27 +226,27 @@ TEST_CASE("Benchmark - GJK computation time vs point cloud size") {
     }
 
     // Benchmarking
-    if (real_dist < capsule.radius)
-      std::cout << "EPA reached" << std::endl;
-    else
-      std::cout << "GJK only" << std::endl;
-    for (int i = 0; i < 8; i++) {
-      cloud = point_cloud_from_box(box, i * 10);
-      std::cout << "\nPoints: " << 8 + i * 10 << std::endl;
-      BENCHMARK("general_GJK()") {
-        real dist = general_GJK(&line[0], line.size(), &cloud.points[0], cloud.points.size()) - capsule.radius;
-        return dist;
-      };
-    }
-    for (int i = 0; i < 8; i++) {
-      cloud = point_cloud_from_box(box, i * 10);
-      std::cout << "\nPoints: " << 8 + i * 10 << std::endl;
-      BENCHMARK("solve_general_GJK()") {
-        real dist = solve_general_GJK(&line[0], line.size(), &cloud.points[0], cloud.points.size()) - capsule.radius;
-        return dist;
-      };
-    }
-    std::cout << "\n--------------------------------------------" << std::endl;
+    // if (real_dist < capsule.radius)
+    //   std::cout << "EPA reached" << std::endl;
+    // else
+    //   std::cout << "GJK only" << std::endl;
+    // for (int i = 0; i < 8; i++) {
+    //   cloud = point_cloud_from_box(box, i * 10);
+    //   std::cout << "\nPoints: " << 8 + i * 10 << std::endl;
+    //   BENCHMARK("general_GJK()") {
+    //     real dist = general_GJK(&line[0], line.size(), &cloud.points[0], cloud.points.size()) - capsule.radius;
+    //     return dist;
+    //   };
+    // }
+    // for (int i = 0; i < 8; i++) {
+    //   cloud = point_cloud_from_box(box, i * 10);
+    //   std::cout << "\nPoints: " << 8 + i * 10 << std::endl;
+    //   BENCHMARK("solve_general_GJK()") {
+    //     real dist = solve_general_GJK(&line[0], line.size(), &cloud.points[0], cloud.points.size()) - capsule.radius;
+    //     return dist;
+    //   };
+    // }
+    // std::cout << "\n--------------------------------------------" << std::endl;
   }
 
   real sum = 0.0;
