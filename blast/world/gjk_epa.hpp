@@ -57,7 +57,7 @@ inline host_fn real GJK_triangle_area_2d(real x1, real y1, real x2, real y2, rea
   return (x1 - x2) * (y2 - y3) - (x2 - x3) * (y1 - y2);
 }
 
-host_fn Vec3 GJK_convert_barycentric(Vec3 a, Vec3 b, Vec3 c, Vec3 p) {
+inline host_fn Vec3 GJK_convert_barycentric(Vec3 a, Vec3 b, Vec3 c, Vec3 p) {
 #if TRACY_ACTIVE >= 3 && GJK_ACTIVE >= 2
   ZoneScoped;
 #endif
@@ -131,7 +131,7 @@ inline host_fn Vec3 GJK_convert_cartesian(Vec3 a, Vec3 b, Vec3 c, Vec3 barycentr
   return result;
 }
 
-host_fn TwoPts GJK_get_local_points(const ComplexSimplex& simplex, Vec3 p) {
+inline host_fn TwoPts GJK_get_local_points(const ComplexSimplex& simplex, Vec3 p) {
 #if TRACY_ACTIVE >= 3 && GJK_ACTIVE >= 2
   ZoneScoped;
 #endif
@@ -203,7 +203,7 @@ inline host_fn TwoPts GJK_solve_simplex2(ComplexSimplex& simplex) { // finds nex
   return {ab, ao};
 }
 
-host_fn TwoPts GJK_solve_simplex3(ComplexSimplex& simplex) {
+inline host_fn TwoPts GJK_solve_simplex3(ComplexSimplex& simplex) {
 #if TRACY_ACTIVE >= 2 && GJK_ACTIVE >= 2
   ZoneScoped;
 #endif
@@ -299,7 +299,7 @@ host_fn TwoPts GJK_solve_simplex3(ComplexSimplex& simplex) {
   }
 }
 
-host_fn TwoPts GJK_solve_simplex4(ComplexSimplex& simplex) {
+inline host_fn TwoPts GJK_solve_simplex4(ComplexSimplex& simplex) {
 #if TRACY_ACTIVE >= 2 && GJK_ACTIVE >= 2
   ZoneScoped;
 #endif
@@ -308,24 +308,24 @@ host_fn TwoPts GJK_solve_simplex4(ComplexSimplex& simplex) {
   Vec3 ad = simplex.d - simplex.a;
   Vec3 ao = -simplex.a;
 
-  if (dot(cross(ab, ac), ad) > 0) { // proper winding
-    std::cout << "incorrect" << std::endl;
-  }
-
   // face normals
   Vec3 abc = cross(ab, ac);
   Vec3 acd = cross(ac, ad);
   Vec3 adb = cross(ad, ab);
 
+  int abc_outside = dot(abc, ao) > 0;
+  int acd_outside = dot(acd, ao) > 0;
+  int adb_outside = dot(adb, ao) > 0;
+
   // check face abc
-  if (dot(abc, ao) > 0) {
+  if (abc_outside && !acd_outside && !adb_outside) {
     // drop d
     simplex.count = 3;
     return GJK_solve_simplex3(simplex);
   }
 
   // 2. check face acd
-  if (dot(acd, ao) > 0) {
+  if (acd_outside && !abc_outside && !adb_outside) {
     // b = c, c = d
     simplex.b  = simplex.c;
     simplex.b1 = simplex.c1;
@@ -340,7 +340,7 @@ host_fn TwoPts GJK_solve_simplex4(ComplexSimplex& simplex) {
   }
 
   // check face adb
-  if (dot(adb, ao) > 0) {
+  if (adb_outside && !abc_outside && !acd_outside) {
     // b = d, c = b
     simplex.c  = simplex.b;
     simplex.c1 = simplex.b1;
@@ -355,14 +355,73 @@ host_fn TwoPts GJK_solve_simplex4(ComplexSimplex& simplex) {
   }
 
   // origin inside simplex
-  return {{0, 0, 0}, {0, 0, 0}};
+  if (!abc_outside && !acd_outside && !adb_outside) {
+    return {{0, 0, 0}, {0, 0, 0}};
+  }
+
+  // Must check all the faces unfortunately // really really unfortunate
+  simplex.count              = 3;
+  ComplexSimplex simplex_abc = simplex;
+  // simplex_abc.count          = 3;
+
+  // There may be a better way to do this.
+
+  ComplexSimplex simplex_acd = simplex;
+  // simplex_acd.b_all = simplex_acd.c_all;
+  simplex_acd.b  = simplex.c;
+  simplex_acd.b1 = simplex.c1;
+  simplex_acd.b2 = simplex.c2;
+  // simplex_acd.c_all = simplex_acd.d_all;
+  simplex_acd.c  = simplex.d;
+  simplex_acd.c1 = simplex.d1;
+  simplex_acd.c2 = simplex.d2;
+
+  // simplex_acd.count = 3;
+
+  ComplexSimplex simplex_adb = simplex;
+  // simplex_adb.c_all = simplex_adb.b_all;
+  simplex_adb.c  = simplex.b;
+  simplex_adb.c1 = simplex.b1;
+  simplex_adb.c2 = simplex.b2;
+  // simplex_adb.c_all = simplex_adb.d_all;
+  simplex_adb.b  = simplex.d;
+  simplex_adb.b1 = simplex.d1;
+  simplex_adb.b2 = simplex.d2;
+
+  // simplex_adb.count = 3;
+
+  TwoPts solved;
+  solved       = GJK_solve_simplex3(simplex_abc);
+  Vec3 p_abc   = solved.p1;
+  Vec3 dir_abc = solved.p2;
+  solved       = GJK_solve_simplex3(simplex_adb);
+  Vec3 p_adb   = solved.p1;
+  Vec3 dir_adb = solved.p2;
+  solved       = GJK_solve_simplex3(simplex_acd);
+  Vec3 p_acd   = solved.p1;
+  Vec3 dir_acd = solved.p2;
+
+  real abc_d2 = dot(p_abc, p_abc);
+  real acd_d2 = dot(p_acd, p_acd);
+  real adb_d2 = dot(p_adb, p_adb);
+
+  if (abc_d2 <= acd_d2 && abc_d2 <= adb_d2) {
+    simplex = simplex_abc;
+    return {p_abc, dir_abc};
+  } else if (acd_d2 <= adb_d2) {
+    simplex = simplex_acd;
+    return {p_acd, dir_acd};
+  } else {
+    simplex = simplex_adb;
+    return {p_adb, dir_adb};
+  }
 }
 
 // ======================================
 //            EPA algorithm
 // ======================================
 
-host_fn real distmin_origin(const PolytopeFace& face) {
+inline host_fn real distmin_origin(const PolytopeFace& face) {
 #if TRACY_ACTIVE >= 2
   ZoneScoped;
 #endif
@@ -417,7 +476,7 @@ host_fn real distmin_origin(const PolytopeFace& face) {
   return norm(u * a + v * b + w * c);
 }
 
-real solve_EPA(ComplexSimplex simplex, Vec3* v1, size_t count1, Vec3* v2, size_t count2) {
+inline host_fn real solve_EPA(ComplexSimplex simplex, Vec3* v1, size_t count1, Vec3* v2, size_t count2) {
 #if TRACY_ACTIVE >= 1 && GJK_ACTIVE >= 2
   ZoneScopedN("Messy EPA");
 #endif
@@ -434,34 +493,43 @@ real solve_EPA(ComplexSimplex simplex, Vec3* v1, size_t count1, Vec3* v2, size_t
   Vec3 bc = simplex.c - simplex.b;
   Vec3 bd = simplex.d - simplex.b;
 
-  Vec3 n           = cross(ab, ac);
-  real dot_a_n     = dot(simplex.a, n);
-  n                = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.d) >= 0 ? -n : n));
-  n                = (1 / norm(n)) * n;
-  real dist        = distmin_origin({simplex.a, simplex.b, simplex.c, n});
-  faces[n_faces++] = {simplex.a, simplex.b, simplex.c, n, dist};
+  Vec3 n;
+  real dot_a_n, dist;
+  if (simplex.count == 3) {
+    n                = cross(ab, ac);
+    n                = (1 / norm(n)) * n;
+    dist             = distmin_origin({simplex.a, simplex.b, simplex.c, n});
+    faces[n_faces++] = {simplex.a, simplex.b, simplex.c, n, dist};
+    faces[n_faces++] = {simplex.a, simplex.c, simplex.b, -n, dist};
+  } else {
+    n                = cross(ab, ac);
+    dot_a_n          = dot(simplex.a, n);
+    n                = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.d) >= 0 ? -n : n));
+    n                = (1 / norm(n)) * n;
+    dist             = distmin_origin({simplex.a, simplex.b, simplex.c, n});
+    faces[n_faces++] = {simplex.a, simplex.b, simplex.c, n, dist};
 
-  n                = cross(ab, ad);
-  dot_a_n          = dot(simplex.a, n);
-  n                = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.d) >= 0 ? -n : n));
-  n                = (1 / norm(n)) * n;
-  dist             = distmin_origin({simplex.a, simplex.b, simplex.d, n});
-  faces[n_faces++] = {simplex.a, simplex.b, simplex.d, n, dist};
+    n                = cross(ab, ad);
+    dot_a_n          = dot(simplex.a, n);
+    n                = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.d) >= 0 ? -n : n));
+    n                = (1 / norm(n)) * n;
+    dist             = distmin_origin({simplex.a, simplex.b, simplex.d, n});
+    faces[n_faces++] = {simplex.a, simplex.b, simplex.d, n, dist};
 
-  n                = cross(ac, ad);
-  dot_a_n          = dot(simplex.a, n);
-  n                = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.d) >= 0 ? -n : n));
-  n                = (1 / norm(n)) * n;
-  dist             = distmin_origin({simplex.a, simplex.c, simplex.d, n});
-  faces[n_faces++] = {simplex.a, simplex.c, simplex.d, n, dist};
+    n                = cross(ac, ad);
+    dot_a_n          = dot(simplex.a, n);
+    n                = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.d) >= 0 ? -n : n));
+    n                = (1 / norm(n)) * n;
+    dist             = distmin_origin({simplex.a, simplex.c, simplex.d, n});
+    faces[n_faces++] = {simplex.a, simplex.c, simplex.d, n, dist};
 
-  n                = cross(bc, bd);
-  dot_a_n          = dot(simplex.d, n);
-  n                = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.c) >= 0 ? -n : n)); // simplex.d -> [2]?
-  n                = (1 / norm(n)) * n;
-  dist             = distmin_origin({simplex.b, simplex.c, simplex.d, n});
-  faces[n_faces++] = {simplex.b, simplex.c, simplex.d, n, dist};
-
+    n                = cross(bc, bd);
+    dot_a_n          = dot(simplex.d, n);
+    n                = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.c) >= 0 ? -n : n)); // simplex.d -> [2]?
+    n                = (1 / norm(n)) * n;
+    dist             = distmin_origin({simplex.b, simplex.c, simplex.d, n});
+    faces[n_faces++] = {simplex.b, simplex.c, simplex.d, n, dist};
+  }
   real min_dist;
   int  idx;
 
@@ -553,11 +621,11 @@ real solve_EPA(ComplexSimplex simplex, Vec3* v1, size_t count1, Vec3* v2, size_t
   return -std::abs(min_dist);
 }
 
-host_fn real solve_general_GJK(Vec3* v1, size_t count1, Vec3* v2, size_t count2) {
+inline host_fn real solve_general_GJK(Vec3* v1, size_t count1, Vec3* v2, size_t count2) {
   ComplexSimplex simplex;
   real           dist_min;
 
-  Vec3 direction = v1[0] - v2[0];
+  Vec3 direction = v2[0] - v1[0];
   simplex.a1     = GJK_get_support(v1, count1, -direction);
   simplex.a2     = GJK_get_support(v2, count2, direction);
   simplex.a      = simplex.a2 - simplex.a1;
@@ -567,7 +635,6 @@ host_fn real solve_general_GJK(Vec3* v1, size_t count1, Vec3* v2, size_t count2)
   Vec3   p;
   int    old_simplex_count;
 
-  // while (true) {
   for (int i = 0; i < MAX_ITERATIONS; i++) {
     old_simplex_count = simplex.count;
 
@@ -577,8 +644,11 @@ host_fn real solve_general_GJK(Vec3* v1, size_t count1, Vec3* v2, size_t count2)
     } else {
       solved    = (simplex.count == 2) ? GJK_solve_simplex2(simplex) : ((simplex.count == 3) ? GJK_solve_simplex3(simplex) : GJK_solve_simplex4(simplex));
       p         = solved.p1; // current closest point on polytope
-      direction = solved.p2;
+      direction = solved.p2; // original
+      // direction = -solved.p1; // Try this
     }
+
+    real dot_P = dot(p, p); // just for debugging remove later
 
     if (dot(p, p) < BLAST_GJK_EPSILON_SQ && old_simplex_count == 4) {
       dist_min = solve_EPA(simplex, v1, count1, v2, count2);
@@ -671,7 +741,7 @@ host_fn real solve_general_GJK(Vec3* v1, size_t count1, Vec3* v2, size_t count2)
   return dist_min;
 }
 
-host_fn real distance_GJK_simple(const Capsule& caps, const Box& box) {
+inline host_fn real distance_GJK_simple(const Capsule& caps, const Box& box) {
 #if TRACY_ACTIVE >= 1 && GJK_ACTIVE >= 2
   ZoneScopedN("Messy GJK");
 #endif
@@ -706,7 +776,7 @@ host_fn real distance_GJK_simple(const Capsule& caps, const Box& box) {
 // ======================================
 // Adapted from Ericson
 
-host_fn void GJK_solve_simplex2_Ericson(Simplex* simplex) {
+inline host_fn void GJK_solve_simplex2_Ericson(Simplex* simplex) {
 #if TRACY_ACTIVE >= 2 && (GJK_ACTIVE == 1 || GJK_ACTIVE == 3)
   ZoneScoped;
 #endif
@@ -725,7 +795,7 @@ host_fn void GJK_solve_simplex2_Ericson(Simplex* simplex) {
   return;
 }
 
-host_fn void GJK_solve_simplex3_Ericson(Simplex* simplex) {
+inline host_fn void GJK_solve_simplex3_Ericson(Simplex* simplex) {
 #if TRACY_ACTIVE >= 2 && (GJK_ACTIVE == 1 || GJK_ACTIVE == 3)
   ZoneScoped;
 #endif
@@ -787,7 +857,7 @@ host_fn void GJK_solve_simplex3_Ericson(Simplex* simplex) {
   return;
 }
 
-host_fn void GJK_simplex3_from4_Ericson(Simplex* simplex) {
+inline host_fn void GJK_simplex3_from4_Ericson(Simplex* simplex) {
 #if TRACY_ACTIVE >= 2 && (GJK_ACTIVE == 1 || GJK_ACTIVE == 3)
   ZoneScoped;
 #endif
@@ -867,7 +937,7 @@ host_fn void GJK_simplex3_from4_Ericson(Simplex* simplex) {
   return;
 }
 
-host_fn void GJK_solve_simplex4_Ericson(Simplex* simplex) {
+inline host_fn void GJK_solve_simplex4_Ericson(Simplex* simplex) {
 #if TRACY_ACTIVE >= 2 && (GJK_ACTIVE == 1 || GJK_ACTIVE == 3)
   ZoneScoped;
 #endif
@@ -876,32 +946,58 @@ host_fn void GJK_solve_simplex4_Ericson(Simplex* simplex) {
   Vec3 c = simplex->pts[2];
   Vec3 d = simplex->pts[3]; // Most recently added support point in GJK
 
-  Vec3 da     = a - d;
-  Vec3 db     = b - d;
-  Vec3 dc     = c - d;
-  Vec3 do_vec = -d; // Vector from d to Origin (p = {0,0,0})
+  Vec3 da  = a - d;
+  Vec3 db  = b - d;
+  Vec3 dc  = c - d;
+  Vec3 do_ = -d; // Vector from d to Origin (p = {0,0,0})
 
-  // 1. Check whether simplex is coplanar
+  // 1. Check for duplicate points
   Vec3 dbc    = cross(db, dc);
   real volume = dot(da, dbc);
 
-  if (std::abs(volume) < 1e-6) {
-    // drop oldest point (a) and treat as simplex3
-    if (dot(da, da) == 0) {
+  if (std::abs(volume) < BLAST_GJK_EPSILON) {
+    simplex->size = 3;
+    if (dot(da, da) < BLAST_GJK_EPSILON) {
       simplex->pts[0] = b;
       simplex->pts[1] = c;
       simplex->pts[2] = d;
-    } else if (dot(db, db) == 0) {
+    } else if (dot(db, db) < BLAST_GJK_EPSILON) {
       simplex->pts[1] = c;
       simplex->pts[2] = d;
-    } else if (dot(dc, dc) == 0) {
+    } else if (dot(dc, dc) < BLAST_GJK_EPSILON) {
       simplex->pts[2] = d;
     } else {
-      simplex->pts[0] = b;
-      simplex->pts[1] = c;
-      simplex->pts[2] = d;
+      // simplex->pts[0] = b; // this is not right
+      // simplex->pts[1] = c;
+      // simplex->pts[2] = d;
+
+      Simplex simplex_abd = {{0, 0, 0}, {simplex->pts[0], simplex->pts[1], simplex->pts[3]}, 3};
+      Simplex simplex_acd = {{0, 0, 0}, {simplex->pts[0], simplex->pts[2], simplex->pts[3]}, 3};
+      Simplex simplex_bcd = {{0, 0, 0}, {simplex->pts[1], simplex->pts[2], simplex->pts[3]}, 3};
+
+      GJK_simplex3_from4_Ericson(&simplex_abd);
+      GJK_simplex3_from4_Ericson(&simplex_acd);
+      GJK_simplex3_from4_Ericson(&simplex_bcd);
+
+      real dotP     = dot(simplex->P, simplex->P);
+      real dotP_abd = dot(simplex_abd.P, simplex_abd.P);
+      real dotP_acd = dot(simplex_acd.P, simplex_acd.P);
+      real dotP_bcd = dot(simplex_bcd.P, simplex_bcd.P);
+
+      if (dotP <= dotP_abd && dotP <= dotP_acd && dotP <= dotP_bcd) {
+        simplex->size = 3;
+        return;
+      } else if (dotP_abd <= dotP_acd && dotP_abd <= dotP_bcd) {
+        *simplex = simplex_abd;
+        return;
+      } else if (dotP_acd <= dotP_bcd) {
+        *simplex = simplex_acd;
+        return;
+      } else {
+        *simplex = simplex_bcd;
+        return;
+      }
     }
-    simplex->size = 3;
     GJK_simplex3_from4_Ericson(simplex);
     return;
   }
@@ -911,14 +1007,14 @@ host_fn void GJK_solve_simplex4_Ericson(Simplex* simplex) {
   Vec3 dab = cross(da, db);
 
   // Determine if Origin is on the outer side of each face plane relative to the opposite vertex
-  int bcd_outside = (dot(dbc, do_vec) * dot(dbc, a - d)) <= 0; // face bcd
-  int acd_outside = (dot(dca, do_vec) * dot(dca, b - d)) <= 0; // face acd
-  int adb_outside = (dot(dab, do_vec) * dot(dab, c - d)) <= 0; // face abd
+  int bcd_outside = (dot(dbc, do_) * dot(dbc, a - d)) <= 0; // face bcd
+  int acd_outside = (dot(dca, do_) * dot(dca, b - d)) <= 0; // face acd
+  int adb_outside = (dot(dab, do_) * dot(dab, c - d)) <= 0; // face abd
 
   // 3. Outward Evaluation
-  // d is most recent point -> the origin cannot lie on the far side of face abc.
+  // d is most recent point -> the origin cannot lie on the far side of face abc. todo: is this true?
 
-  if (bcd_outside) {
+  if (bcd_outside && !acd_outside && !adb_outside) {
     // Origin is outside face bcd
     simplex->pts[0] = b;
     simplex->pts[1] = c;
@@ -928,32 +1024,62 @@ host_fn void GJK_solve_simplex4_Ericson(Simplex* simplex) {
     return;
   }
 
-  if (acd_outside) {
+  if (acd_outside && !bcd_outside && !adb_outside) {
     // Origin is outside face acd
-    simplex->pts[0] = a;
+    // simplex->pts[0] = a;
     simplex->pts[1] = c;
     simplex->pts[2] = d;
     simplex->size   = 3;
-    GJK_solve_simplex3_Ericson(simplex);
+    GJK_simplex3_from4_Ericson(simplex);
     return;
   }
 
-  if (adb_outside) {
+  if (adb_outside && !bcd_outside && !acd_outside) {
     // Origin is outside face adb
-    simplex->pts[0] = a;
-    simplex->pts[1] = b;
+    // simplex->pts[0] = a;
+    // simplex->pts[1] = b;
     simplex->pts[2] = d;
     simplex->size   = 3;
-    GJK_solve_simplex3_Ericson(simplex);
+    GJK_simplex3_from4_Ericson(simplex);
     return;
   }
 
-  // 4. Origin is inside all half-spaces -> intersection
-  simplex->size = 4;
-  simplex->P    = Vec3{0, 0, 0};
+  if (!bcd_outside && !acd_outside && !adb_outside) {
+    // 4. Origin is inside all half-spaces -> intersection
+    simplex->size = 4;
+    simplex->P    = Vec3{0, 0, 0};
+    return;
+  }
+
+  Simplex simplex_abd = {{0, 0, 0}, {simplex->pts[0], simplex->pts[1], simplex->pts[3]}, 3};
+  Simplex simplex_acd = {{0, 0, 0}, {simplex->pts[0], simplex->pts[2], simplex->pts[3]}, 3};
+  Simplex simplex_bcd = {{0, 0, 0}, {simplex->pts[1], simplex->pts[2], simplex->pts[3]}, 3};
+
+  GJK_simplex3_from4_Ericson(&simplex_abd);
+  GJK_simplex3_from4_Ericson(&simplex_acd);
+  GJK_simplex3_from4_Ericson(&simplex_bcd);
+
+  real dotP     = dot(simplex->P, simplex->P);
+  real dotP_abd = dot(simplex_abd.P, simplex_abd.P);
+  real dotP_acd = dot(simplex_acd.P, simplex_acd.P);
+  real dotP_bcd = dot(simplex_bcd.P, simplex_bcd.P);
+
+  if (dotP <= dotP_abd && dotP <= dotP_acd && dotP <= dotP_bcd) {
+    simplex->size = 3;
+    return;
+  } else if (dotP_abd <= dotP_acd && dotP_abd <= dotP_bcd) {
+    *simplex = simplex_abd;
+    return;
+  } else if (dotP_acd <= dotP_bcd) {
+    *simplex = simplex_acd;
+    return;
+  } else {
+    *simplex = simplex_bcd;
+    return;
+  }
 }
 
-real solve_EPA(Simplex simplex, Vec3* v1, size_t count1, Vec3* v2, size_t count2) {
+inline host_fn real solve_EPA(Simplex simplex, Vec3* v1, size_t count1, Vec3* v2, size_t count2) {
 #if TRACY_ACTIVE >= 1 && (GJK_ACTIVE == 1 || GJK_ACTIVE == 3)
   ZoneScopedN("Ericson EPA");
 #endif
@@ -970,34 +1096,44 @@ real solve_EPA(Simplex simplex, Vec3* v1, size_t count1, Vec3* v2, size_t count2
   Vec3 bc = simplex.pts[2] - simplex.pts[1];
   Vec3 bd = simplex.pts[3] - simplex.pts[1];
 
-  Vec3 n           = cross(ab, ac);
-  real dot_a_n     = dot(simplex.pts[0], n);
-  n                = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.pts[3]) >= 0 ? -n : n));
-  n                = (1 / norm(n)) * n;
-  real dist        = distmin_origin({simplex.pts[0], simplex.pts[1], simplex.pts[2], n});
-  faces[n_faces++] = {simplex.pts[0], simplex.pts[1], simplex.pts[2], n, dist};
+  Vec3 n;
+  real dot_a_n, dist;
+  if (simplex.size == 3) {
+    n                = cross(ab, ac);
+    n                = (1 / norm(n)) * n;
+    dist             = distmin_origin({simplex.pts[0], simplex.pts[1], simplex.pts[2], n});
+    faces[n_faces++] = {simplex.pts[0], simplex.pts[1], simplex.pts[2], n, dist};
+    faces[n_faces++] = {simplex.pts[0], simplex.pts[2], simplex.pts[1], -n, dist};
+  } else {
 
-  n                = cross(ab, ad);
-  dot_a_n          = dot(simplex.pts[0], n);
-  n                = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.pts[3]) >= 0 ? -n : n));
-  n                = (1 / norm(n)) * n;
-  dist             = distmin_origin({simplex.pts[0], simplex.pts[1], simplex.pts[3], n});
-  faces[n_faces++] = {simplex.pts[0], simplex.pts[1], simplex.pts[3], n, dist};
+    Vec3 n           = cross(ab, ac);
+    real dot_a_n     = dot(simplex.pts[0], n);
+    n                = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.pts[3]) >= 0 ? -n : n));
+    n                = (1 / norm(n)) * n;
+    real dist        = distmin_origin({simplex.pts[0], simplex.pts[1], simplex.pts[2], n});
+    faces[n_faces++] = {simplex.pts[0], simplex.pts[1], simplex.pts[2], n, dist};
 
-  n                = cross(ac, ad);
-  dot_a_n          = dot(simplex.pts[0], n);
-  n                = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.pts[3]) >= 0 ? -n : n));
-  n                = (1 / norm(n)) * n;
-  dist             = distmin_origin({simplex.pts[0], simplex.pts[2], simplex.pts[3], n});
-  faces[n_faces++] = {simplex.pts[0], simplex.pts[2], simplex.pts[3], n, dist};
+    n                = cross(ab, ad);
+    dot_a_n          = dot(simplex.pts[0], n);
+    n                = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.pts[3]) >= 0 ? -n : n));
+    n                = (1 / norm(n)) * n;
+    dist             = distmin_origin({simplex.pts[0], simplex.pts[1], simplex.pts[3], n});
+    faces[n_faces++] = {simplex.pts[0], simplex.pts[1], simplex.pts[3], n, dist};
 
-  n                = cross(bc, bd);
-  dot_a_n          = dot(simplex.pts[3], n);
-  n                = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.pts[2]) >= 0 ? -n : n)); // simplex.pts[3] -> [2]?
-  n                = (1 / norm(n)) * n;
-  dist             = distmin_origin({simplex.pts[1], simplex.pts[2], simplex.pts[3], n});
-  faces[n_faces++] = {simplex.pts[1], simplex.pts[2], simplex.pts[3], n, dist};
+    n                = cross(ac, ad);
+    dot_a_n          = dot(simplex.pts[0], n);
+    n                = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.pts[3]) >= 0 ? -n : n));
+    n                = (1 / norm(n)) * n;
+    dist             = distmin_origin({simplex.pts[0], simplex.pts[2], simplex.pts[3], n});
+    faces[n_faces++] = {simplex.pts[0], simplex.pts[2], simplex.pts[3], n, dist};
 
+    n                = cross(bc, bd);
+    dot_a_n          = dot(simplex.pts[3], n);
+    n                = dot_a_n > 0 ? n : (dot_a_n < 0 ? -n : (dot(n, simplex.pts[2]) >= 0 ? -n : n)); // simplex.pts[3] -> [2]?
+    n                = (1 / norm(n)) * n;
+    dist             = distmin_origin({simplex.pts[1], simplex.pts[2], simplex.pts[3], n});
+    faces[n_faces++] = {simplex.pts[1], simplex.pts[2], simplex.pts[3], n, dist};
+  }
   real min_dist;
   int  idx;
 
@@ -1092,11 +1228,11 @@ real solve_EPA(Simplex simplex, Vec3* v1, size_t count1, Vec3* v2, size_t count2
   return -std::abs(min_dist);
 }
 
-host_fn real general_GJK(Vec3* set1, size_t count1, Vec3* set2, size_t count2) {
+inline host_fn real general_GJK(Vec3* set1, size_t count1, Vec3* set2, size_t count2) {
   // Implemented from the basic algorithm described in Collision Detection manual by Ericson.
 
   // 1. Initializing simplex to a point from a random direction
-  Vec3 direction = set1[0] - set2[0];
+  Vec3 direction = set2[0] - set1[0];
 
   Vec3 a1 = GJK_get_support(set1, count1, -direction);
   Vec3 a2 = GJK_get_support(set2, count2, direction);
@@ -1129,7 +1265,7 @@ host_fn real general_GJK(Vec3* set1, size_t count1, Vec3* set2, size_t count2) {
     dot_P = dot(simplex.P, simplex.P);
 
     // 3. If P is the origin itself, stop and return A and B as intersecting.
-    if (dot_P < BLAST_GJK_EPSILON_SQ && simplex.size == 4) {
+    if (dot_P < BLAST_GJK_EPSILON_SQ && simplex.size >= 3) {
       real dist = solve_EPA(simplex, set1, count1, set2, count2);
       return dist;
     }
@@ -1165,7 +1301,7 @@ host_fn real general_GJK(Vec3* set1, size_t count1, Vec3* set2, size_t count2) {
   return std::sqrt(dot_P);
 }
 
-host_fn real distance_GJK(const Capsule& caps, const Box& box) {
+inline host_fn real distance_GJK(const Capsule& caps, const Box& box) {
 #if TRACY_ACTIVE >= 1 && (GJK_ACTIVE == 1 || GJK_ACTIVE == 3)
   ZoneScopedN("Ericson GJK");
 #endif
