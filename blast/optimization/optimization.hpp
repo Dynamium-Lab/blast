@@ -209,14 +209,14 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   const real ratio_div = 1 + tol;
 
   for (int j = 0; j < opt->manip.n_joints; j++) {
-    const real center      = (opt->manip.position_min[j] + opt->manip.position_max[j]) / 2;
-    const real range_tight = (opt->manip.position_max[j] - opt->manip.position_min[j]) / ratio_div;
+    const real center          = (opt->manip.position_min[j] + opt->manip.position_max[j]) / 2;
+    const real range_tight     = (opt->manip.position_max[j] - opt->manip.position_min[j]) / ratio_div;
     opt->manip.position_min[j] = center - range_tight / 2;
     opt->manip.position_max[j] = center + range_tight / 2;
 
-    opt->manip.velocity_max[j]     /= ratio_div;
+    opt->manip.velocity_max[j] /= ratio_div;
     opt->manip.acceleration_max[j] /= ratio_div;
-    opt->manip.torque_max[j]       /= ratio_div;
+    opt->manip.torque_max[j] /= ratio_div;
   }
   opt->manip.tool_speed_max /= ratio_div;
 
