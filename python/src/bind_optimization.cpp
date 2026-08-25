@@ -119,7 +119,7 @@ void bind_optimization(nb::module_& m) {
           .def_rw("objective", &Optimization::objective)
           .def_rw("world", &Optimization::world)
           .def_rw("success_tolerance", &Optimization::success_tolerance,
-                  "Fraction of constraint violation still considered a success (default 0.0).")
+                  "Fraction of constraint violation still considered a success (default 0.01).")
           .def_rw("max_tries", &Optimization::max_tries,
                   "Maximum number of optimization retries (default 1).")
           .def_rw("max_eval", &Optimization::max_eval,
