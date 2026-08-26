@@ -37,9 +37,21 @@ int main(int argc, char** argv) {
 
   Manipulator ur5e = make_UR5e();
 
+  // Defaults to ICRA task 0, the task this project was tuned against.
+  // Optionally overridden by 12 extra arguments (6 start joint positions then
+  // 6 end joint positions) so results for any of the benchmark's 64 tasks can
+  // be validated:
+  //     example_ur5e_pso_validate <result_file> s0..s5 e0..e5
   Array start = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
   Array end   = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.17328};
-  Task  task  = Task::stop_to_stop(start, end);
+  if (argc >= 14) {
+    for (u32 j = 0; j < 6; j++) {
+      start[j] = (real) atof(argv[2 + j]);
+      end[j]   = (real) atof(argv[8 + j]);
+    }
+    std::cout << "(task overridden from arguments)\n";
+  }
+  Task task = Task::stop_to_stop(start, end);
 
   Optimization opt(ur5e, task);
   opt.bspline = Bspline(24, 76, 5, ur5e.n_joints); // matches PSO exactly: ncontrol=24, points=76, degree=5
