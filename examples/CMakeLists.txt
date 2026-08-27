@@ -20,6 +20,7 @@ set(EXAMPLES
         example_ur5e_pso_warmstart example_ur5e_pso_warmstart.cpp
         example_ur5e_pso_validate example_ur5e_pso_validate.cpp
         example_ur5e_slsqp_all_tasks example_ur5e_slsqp_all_tasks.cpp
+        example_ur5e_slsqp_dump example_ur5e_slsqp_dump.cpp
 
         profile_fd_gradient profile_fd_gradient.cpp
 
