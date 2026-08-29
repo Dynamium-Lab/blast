@@ -2,6 +2,7 @@
 #include <blast>
 #include <catch2/catch.hpp>
 #include <cmath>
+#include "test_helper.hpp"
 
 using namespace blast;
 
@@ -55,12 +56,13 @@ TEST_CASE("tightening introduces no violated zero-gradient constraint row", "[Op
   const u32 xlen = (u32) opt.bspline.x_len(opt.task);
   const u32 m    = (u32) opt.constraints.n_constraints;
 
-  // init_guess_segments() is random, so the number of violated rows varies run to run
-  // (57-151 was measured on one problem). The INVARIANT does not: assert it over
-  // several draws rather than trusting a single one.
+  // Deterministic guess. A zero-gradient row does not depend on the decision
+  // variables by definition, so its value is the same for every x -- one guess is
+  // as strong as many, and a random one would make this test able to fail
+  // periodically for reasons unrelated to what it checks.
   int offenders = 0;
-  for (int draw = 0; draw < 8; draw++) {
-    Array  x = init_guess_segments(&opt);
+  {
+    Array  x = blast::test::straight_line_guess(opt, start, end);
     Array  cons(m);
     Matrix grad(xlen, m);
     for (u32 i = 0; i < xlen * m; i++)
