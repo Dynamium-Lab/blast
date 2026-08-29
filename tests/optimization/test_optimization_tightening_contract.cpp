@@ -148,7 +148,7 @@ TEST_CASE("a constraint within tolerance implies true clearance", "[Optimization
 // validate_task() and any caller-side compute_constraints() run there.
 // ---------------------------------------------------------------------------
 TEST_CASE("restore puts collision_scale back to 1", "[Optimization]") {
-  Array        q = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
+  Array        q     = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
   Manipulator  robot = mbm_like_UR5e();
   Task         task  = Task::stop_to_stop(q, q);
   Optimization opt(robot, task);
