@@ -275,7 +275,7 @@ inline void restore_from_tolerance(Optimization* opt, const ToleranceSnapshot& s
   opt->manip._base_sphere.radius = snap.base_sphere_radius;
   for (int i = 0; i < opt->manip._n_caps; i++)
     opt->manip._collision_model[i].radius = snap.capsule_radius[i];
-  opt->world = snap.world;
+  opt->world           = snap.world;
   opt->collision_scale = 1.0; // raw metres again outside the tightening window
 }
 
