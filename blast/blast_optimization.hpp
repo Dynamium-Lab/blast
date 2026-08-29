@@ -119,6 +119,33 @@ struct Optimization {
   World               world;
   real                trajectory_start_time = 0.0;
   real                success_tolerance     = 0.01; // constraint violation after optimization that is still considered a success
+  bool                tighten_for_tolerance = true;  // ABLATION SWITCH. false makes
+                                                      // tighten_for_success_tolerance() capture its snapshot and
+                                                      // return without modifying anything, so the solver sees the
+                                                      // TRUE limits and geometry and the gate is applied to
+                                                      // untightened constraints. Isolates the tightening from
+                                                      // everything else in a build -- the only way to attribute a
+                                                      // throughput change to it rather than to a neighbouring
+                                                      // commit. Not a production setting: with it off, an accepted
+                                                      // solve may violate the real limits by up to
+                                                      // success_tolerance.
+  real                collision_buffer      = 0.001; // HOW CLOSE, in metres, the trajectory may come to real
+                                                      // contact. This is the collision analogue of
+                                                      // success_tolerance, which is dimensionless (a fraction of a
+                                                      // limit) and so cannot express a distance: comparing it
+                                                      // against a raw metre value is what made the default bar 1 cm
+                                                      // of penetration. tighten_for_success_tolerance() adds
+                                                      // collision_buffer/2 to every capsule and every obstacle, so
+                                                      // a pairwise check carries exactly this much margin, and
+                                                      // derives the unit change below that makes success_tolerance
+                                                      // land on it. Set 0 (or negative) to fall back to
+                                                      // success_tolerance itself, which is the pre-buffer
+                                                      // behaviour exactly.
+  real                collision_scale       = 1.0;  // DERIVED -- do not set. tighten_for_success_tolerance() writes
+                                                      // success_tolerance/collision_buffer here and
+                                                      // restore_from_tolerance() puts it back to 1, so outside the
+                                                      // tightening window the collision constraint is raw metres.
+                                                      // constraints.hpp multiplies the collision rows by it.
   int                 max_tries             = 1;    // Maximum number of tries in the optimization loop.
   int                 max_eval              = 1000; // Maximum number of function evaluations for a single NLopt call.
   real                max_time              = 30.0; // Maximum time (seconds) for a single NLopt call.

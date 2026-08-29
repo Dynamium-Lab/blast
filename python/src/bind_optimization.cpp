@@ -120,6 +120,13 @@ void bind_optimization(nb::module_& m) {
           .def_rw("world", &Optimization::world)
           .def_rw("success_tolerance", &Optimization::success_tolerance,
                   "Fraction of constraint violation still considered a success (default 0.01).")
+          .def_rw("collision_buffer", &Optimization::collision_buffer,
+                  "How close, in metres, the trajectory may come to real contact (default 0.001). "
+                  "The collision analogue of success_tolerance, which is dimensionless and so "
+                  "cannot express a distance. 0 falls back to success_tolerance itself.")
+          .def_ro("collision_scale", &Optimization::collision_scale,
+                  "DERIVED, read-only: success_tolerance/collision_buffer while the optimizer "
+                  "holds tightened geometry, 1.0 otherwise.")
           .def_rw("max_tries", &Optimization::max_tries,
                   "Maximum number of optimization retries (default 1).")
           .def_rw("max_eval", &Optimization::max_eval,

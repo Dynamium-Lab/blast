@@ -192,6 +192,21 @@ struct ToleranceSnapshot {
 // so that whenever nlopt/native-SQP's own (unchanged) tolerance-based early-out triggers, the
 // original, untightened limits are still satisfied. Must be paired with restore_from_tolerance()
 // before the Optimization is returned or reused.
+//
+// SINGLE TOLERANCE. success_tolerance is the only bar: it is nlopt's con_tol, it sets the
+// tightening here, and it is the post-solve accept gate. The accept gate used to be
+// success_tolerance*2, which spent exactly twice the margin this function buys and left a
+// net allowance of tol/collision_scale of real penetration -- the tightening halved the
+// pre-fix 2*tol allowance, it never zeroed it. With the single gate the collision algebra
+// cancels exactly:
+//
+//   d_tight = d_true - 2*col_margin = d_true - tol/collision_scale
+//   c       = -d_tight * collision_scale = -d_true * collision_scale + tol
+//   c < tol  <=>  d_true > 0        for any tol and any collision_scale
+//
+// collision_scale therefore no longer moves the guarantee, only the geometric bloat carried
+// through the solve (combined pairwise = tol/collision_scale). That is the knob to turn when
+// the bloat itself is the problem: scale=10 at the 0.01 default bakes in 1mm instead of 1cm.
 inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   ToleranceSnapshot snap;
   snap.position_min       = opt->manip.position_min;
@@ -205,23 +220,55 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
     snap.capsule_radius[i] = opt->manip._collision_model[i].radius;
   snap.world = opt->world;
 
+  // Ablation: snapshot taken, nothing modified, so restore_from_tolerance() is a
+  // no-op that writes back identical values and every other code path is unchanged.
+  if (!opt->tighten_for_tolerance) {
+    opt->collision_scale = 1.0;
+    return snap;
+  }
+
   const real tol       = opt->success_tolerance;
   const real ratio_div = 1 + tol;
 
-  for (int j = 0; j < opt->manip.n_joints; j++) {
-    const real center          = (opt->manip.position_min[j] + opt->manip.position_max[j]) / 2;
-    const real range_tight     = (opt->manip.position_max[j] - opt->manip.position_min[j]) / ratio_div;
-    opt->manip.position_min[j] = center - range_tight / 2;
-    opt->manip.position_max[j] = center + range_tight / 2;
+  // The collision unit change, derived ONCE here rather than asked of the caller. The
+  // buffer is a length the user actually cares about (1 mm); the scale is the factor that
+  // makes the dimensionless success_tolerance land exactly on it, and nobody should have
+  // to work it out. A non-positive buffer means "no unit change": buffer = tol gives
+  // scale 1 and reproduces the pre-buffer behaviour exactly.
+  const real buffer      = opt->collision_buffer > 0 ? opt->collision_buffer : tol;
+  opt->collision_scale   = tol / buffer;
 
+  // POSITION IS DELIBERATELY NOT TIGHTENED.
+  //
+  // Task::stop_to_stop PINS the first and last control points, so the position rows of
+  // the boundary segments are constant in the decision variables -- gradient exactly 0.
+  // Shrinking the joint range moves the bound inside an endpoint the solver cannot move:
+  // measured on bookshelf_small_ur5/0001, joint 5 goes from -0.00050926 (feasible) to
+  // +0.00948565 (violated) with |grad| = 0. SLSQP linearizes that row as
+  // c + grad.d <= 0, i.e. 0.00948565 <= 0, which no step d can satisfy -- the QP
+  // subproblem is infeasible at every iterate. That is the ROUNDOFF_LIMITED epidemic,
+  // the max_con floor at 0.00949, and the runs that diverge to 1e18.
+  //
+  // Nothing is lost. MBM endpoints sit ~0.0016 rad inside a +/-3.1416 limit, and
+  // validate_task() has already checked start and goal against the TRUE bounds before
+  // this runs. Tightening cannot protect a value the optimizer is not allowed to change.
+  for (int j = 0; j < opt->manip.n_joints; j++) {
     opt->manip.velocity_max[j] /= ratio_div;
     opt->manip.acceleration_max[j] /= ratio_div;
     opt->manip.torque_max[j] /= ratio_div;
   }
   opt->manip.tool_speed_max /= ratio_div;
 
-  // split in half so a pairwise distance check (2 inflated objects) sums to exactly tol
-  const real col_margin = tol / 2;
+  // Split in half so a pairwise distance check (2 inflated objects) sums to exactly the
+  // buffer. No tol here: the unit change above is what ties the buffer to the tolerance.
+  //
+  //   d_tight = d_true - buffer
+  //   c       = -d_tight * (tol/buffer) = -d_true * (tol/buffer) + tol
+  //   c < tol  <=>  d_true > 0                for any tol > 0, any buffer > 0
+  //
+  // which is both nlopt's early-out test (con_tol = tol) and the post-solve gate, so a
+  // solve that stops the instant it is allowed to still clears the true geometry.
+  const real col_margin = buffer / 2;
   for (int i = 0; i < opt->manip._n_caps; i++)
     opt->manip._collision_model[i].radius += col_margin;
   opt->manip._base_sphere.radius += col_margin;
@@ -258,6 +305,9 @@ inline void restore_from_tolerance(Optimization* opt, const ToleranceSnapshot& s
   for (int i = 0; i < opt->manip._n_caps; i++)
     opt->manip._collision_model[i].radius = snap.capsule_radius[i];
   opt->world = snap.world;
+  // Back to raw metres: the scale is only meaningful against tightened geometry, and
+  // validate_task() and any caller-side compute_constraints() run outside that window.
+  opt->collision_scale = 1.0;
 }
 
 inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
@@ -391,7 +441,7 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
       auto max_con                = max(constraints_points);
       result.max_constraint_idx   = argmax(constraints_points);
       result.max_constraint_value = max_con;
-      is_valid                    = max_con < opt->success_tolerance * 2;
+      is_valid                    = max_con < opt->success_tolerance;
     }
 
     {
@@ -412,7 +462,7 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
       auto max_con_more                       = max(constraints_more_points);
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
-      is_valid_more                           = max_con_more < opt->success_tolerance * 2;
+      is_valid_more                           = max_con_more < opt->success_tolerance;
 
       result.x = x;
 
@@ -654,7 +704,7 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
       auto max_con                = max(constraints_points);
       result.max_constraint_idx   = argmax(constraints_points);
       result.max_constraint_value = max_con;
-      is_valid                    = max_con < opt->success_tolerance * 2;
+      is_valid                    = max_con < opt->success_tolerance;
     }
 
     {
@@ -676,7 +726,7 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
       auto max_con_more                       = max(constraints_more_points);
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
-      is_valid_more                           = max_con_more < opt->success_tolerance * 2;
+      is_valid_more                           = max_con_more < opt->success_tolerance;
 
       result.x = x;
 
@@ -845,7 +895,7 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
       auto max_con                = max(constraints_points);
       result.max_constraint_idx   = argmax(constraints_points);
       result.max_constraint_value = max_con;
-      is_valid                    = max_con < opt->success_tolerance * 2;
+      is_valid                    = max_con < opt->success_tolerance;
     }
 
     {
@@ -866,7 +916,7 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
       auto max_con_more                       = max(constraints_more_points);
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
-      is_valid_more                           = max_con_more < opt->success_tolerance * 2;
+      is_valid_more                           = max_con_more < opt->success_tolerance;
 
       result.x = x;
 
@@ -1033,7 +1083,7 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
       auto max_con                = max(constraints_points);
       result.max_constraint_idx   = argmax(constraints_points);
       result.max_constraint_value = max_con;
-      is_valid                    = max_con < opt->success_tolerance * 2;
+      is_valid                    = max_con < opt->success_tolerance;
     }
 
     {
@@ -1054,7 +1104,7 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
       auto max_con_more                       = max(constraints_more_points);
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
-      is_valid_more                           = max_con_more < opt->success_tolerance * 2;
+      is_valid_more                           = max_con_more < opt->success_tolerance;
 
       result.x = x;
 
