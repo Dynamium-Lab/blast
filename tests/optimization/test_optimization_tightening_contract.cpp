@@ -12,9 +12,10 @@ using namespace blast;
 // geometry in a scene whose solve ends far inside the constraints, so it passed
 // under the broken gate AND with an infeasible QP.
 
-// A UR5e whose joint limits are +/-pi, like the MotionBenchMaker robot -- make_UR5e()
-// uses +/-2pi, where an endpoint at 3.14 sits mid-range and the bug cannot appear.
-static Manipulator mbm_like_UR5e() {
+// A UR5e with +/-pi joint limits. make_UR5e() uses +/-2pi, where the endpoints below sit
+// mid-range and the failure cannot appear at all: it needs an endpoint closer to its limit
+// than the tightening moves that limit.
+static Manipulator UR5e_narrow_limits() {
   Manipulator m = make_UR5e();
   for (int j = 0; j < m.n_joints; j++) {
     m.position_min[j] = -3.1416;
@@ -29,16 +30,18 @@ static Manipulator mbm_like_UR5e() {
 // Task::stop_to_stop pins the first and last control points, so the boundary
 // segments' position rows are constant in the decision variables. Tightening the
 // joint range by 1+tol used to move the bound inside an endpoint the solver cannot
-// move: the row read +0.00948565 with |grad| = 0, and SLSQP linearises that as
-// 0.00948565 <= 0 -- false for every step. The QP is then infeasible at every
-// iterate and no step can fix it.
+// move. For the fixture below the row goes from -0.00050926 to
+// 2*3.14*(1+tol)/6.2832 - 1 = +0.00948565 with |grad| = 0, and SLSQP linearises
+// that as c + grad.d <= 0, i.e. 0.00948565 <= 0 -- false for every step. The QP is
+// then infeasible at every iterate and no step can fix it.
 // ---------------------------------------------------------------------------
 TEST_CASE("tightening introduces no violated zero-gradient constraint row", "[Optimization]") {
   // 3.14 against a +/-3.1416 limit: 0.0016 rad inside, which a 1% shrink puts outside.
+  // Any endpoint within tol*range/2 of its limit reproduces this.
   Array start = {3.14, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
   Array end   = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.14};
 
-  Manipulator  robot = mbm_like_UR5e();
+  Manipulator  robot = UR5e_narrow_limits();
   Task         task  = Task::stop_to_stop(start, end);
   Optimization opt(robot, task);
   opt.constraints.torque = true;
@@ -117,7 +120,7 @@ TEST_CASE("a constraint within tolerance implies true clearance", "[Optimization
       World w;
       w.add_sphere(Vec3{x, 0.0, 0.35}, 0.10);
 
-      Manipulator  robot = mbm_like_UR5e();
+      Manipulator  robot = UR5e_narrow_limits();
       Task         task  = Task::stop_to_stop(q, q);
       Optimization opt(robot, task);
       opt.world                           = w;
@@ -149,7 +152,7 @@ TEST_CASE("a constraint within tolerance implies true clearance", "[Optimization
 // ---------------------------------------------------------------------------
 TEST_CASE("restore puts collision_scale back to 1", "[Optimization]") {
   Array        q     = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
-  Manipulator  robot = mbm_like_UR5e();
+  Manipulator  robot = UR5e_narrow_limits();
   Task         task  = Task::stop_to_stop(q, q);
   Optimization opt(robot, task);
   opt.success_tolerance = 0.01;

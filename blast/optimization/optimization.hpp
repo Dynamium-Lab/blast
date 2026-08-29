@@ -242,16 +242,16 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   //
   // Task::stop_to_stop PINS the first and last control points, so the position rows of
   // the boundary segments are constant in the decision variables -- gradient exactly 0.
-  // Shrinking the joint range moves the bound inside an endpoint the solver cannot move:
-  // measured on bookshelf_small_ur5/0001, joint 5 goes from -0.00050926 (feasible) to
-  // +0.00948565 (violated) with |grad| = 0. SLSQP linearizes that row as
-  // c + grad.d <= 0, i.e. 0.00948565 <= 0, which no step d can satisfy -- the QP
-  // subproblem is infeasible at every iterate. That is the ROUNDOFF_LIMITED epidemic,
-  // the max_con floor at 0.00949, and the runs that diverge to 1e18.
+  // Shrinking the joint range moves the bound inside an endpoint the solver cannot move.
+  // For an endpoint sitting less than tol*range/2 inside its true limit, the row flips
+  // from feasible to violated while |grad| stays 0, and SLSQP linearizes it as
+  // c + grad.d <= 0 with grad = 0 -- which no step d can satisfy. The QP subproblem is
+  // then infeasible at every iterate: the solver cannot converge, exits ROUNDOFF_LIMITED,
+  // and max_constraint_value can diverge.
   //
-  // Nothing is lost. MBM endpoints sit ~0.0016 rad inside a +/-3.1416 limit, and
-  // validate_task() has already checked start and goal against the TRUE bounds before
-  // this runs. Tightening cannot protect a value the optimizer is not allowed to change.
+  // Nothing is lost: validate_task() has already checked start and goal against the TRUE
+  // bounds before this runs, and tightening cannot protect a value the optimizer is not
+  // allowed to change.
   for (int j = 0; j < opt->manip.n_joints; j++) {
     opt->manip.velocity_max[j] /= ratio_div;
     opt->manip.acceleration_max[j] /= ratio_div;
