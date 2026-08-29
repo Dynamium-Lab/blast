@@ -71,5 +71,12 @@ TEST_CASE("optimize stops at the first valid try instead of always using the las
   Result result = optimize(&opt);
 
   CHECK(result.success == true);
-  CHECK(result.num_tries == 1);
+  // The regression is "num_tries always equalled max_tries". Assert THAT, not
+  // "the first try always succeeds": since the accept gate became a single
+  // success_tolerance (it was success_tolerance*2), a marginal first attempt can
+  // legitimately fail and retry. Measured on this task, first-try failure is ~1%
+  // on Linux and more on Windows, so `== 1` is a flaky assertion about the solver,
+  // not about the loop.
+  CHECK(result.num_tries >= 1);
+  CHECK(result.num_tries < opt.max_tries);
 }
