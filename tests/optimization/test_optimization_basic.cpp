@@ -94,7 +94,7 @@ TEST_CASE("optimization stop-to-stop all constraints active", "[Optimization") {
 
   // the solver, not about this test. See straight_line_guess().
 
-  opt.guess.type      = Guess::custom;
+  opt.guess.type = Guess::custom;
 
   opt.guess.initial_x = blast::test::straight_line_guess(opt, kStart, kEnd);
 
