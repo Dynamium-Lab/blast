@@ -353,7 +353,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
               count++;
             }
 
-            dist_min = -dist_min * opt.collision_scale; // negative distance is positive constraint, scaled to success_tolerance's units
+            dist_min = -dist_min * opt.collision_scale; // negative distance is positive constraint
 
             // update worst position for the current capsule if necessary
             if (dist_min > max_col_constraints[capsule_id]) {
@@ -737,7 +737,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
               }
             }
 
-            distance_plus = -distance_plus * opt.collision_scale; // negative distance is positive constraint, scaled
+            distance_plus = -distance_plus * opt.collision_scale; // negative distance is positive constraint
 
             // partial difference d(collision)/dp
             const real dcoll_dp = (distance_plus - max_col_constraints[capsule_id]) / eps;
@@ -943,7 +943,7 @@ inline blast_fn void compute_constraints(real* result, const Array& x, Optimizat
           count++;
         }
 
-        dist_min = -dist_min * opt->collision_scale; // negative distance is positive constraint, scaled to success_tolerance's units
+        dist_min = -dist_min * opt->collision_scale; // negative distance is positive constraint
 
         // update worst position for the current capsule if necessary
         if (dist_min > max_col_constraints[capsule_id]) {
@@ -1343,7 +1343,7 @@ inline void compute_constraints_with_analytical_pva(ConstraintPerPoint& constrai
           count++;
         }
 
-        dist_min = -dist_min * opt->collision_scale; // negative distance is positive constraint, scaled to success_tolerance's units
+        dist_min = -dist_min * opt->collision_scale; // negative distance is positive constraint
 
         // update worst position for the current capsule if necessary
         if (dist_min > max_col_constraints[capsule_id]) {
@@ -1553,7 +1553,7 @@ blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& 
               count++;
             }
 
-            dist_min = -dist_min * opt->collision_scale; // negative distance is positive constraint, scaled to success_tolerance's units
+            dist_min = -dist_min * opt->collision_scale; // negative distance is positive constraint
 
             // update worst position for the current capsule if necessary
             if (dist_min > max_col_constraints[capsule_id]) {

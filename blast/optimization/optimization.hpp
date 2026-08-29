@@ -189,24 +189,16 @@ struct ToleranceSnapshot {
 };
 
 // Tightens the limits/collision geometry constraints are evaluated against by success_tolerance,
-// so that whenever nlopt/native-SQP's own (unchanged) tolerance-based early-out triggers, the
-// original, untightened limits are still satisfied. Must be paired with restore_from_tolerance()
-// before the Optimization is returned or reused.
+// so that whenever the solver's own tolerance-based early-out triggers, the original,
+// untightened limits are still satisfied. Must be paired with restore_from_tolerance() before
+// the Optimization is returned or reused.
 //
-// SINGLE TOLERANCE. success_tolerance is the only bar: it is nlopt's con_tol, it sets the
-// tightening here, and it is the post-solve accept gate. The accept gate used to be
-// success_tolerance*2, which spent exactly twice the margin this function buys and left a
-// net allowance of tol/collision_scale of real penetration -- the tightening halved the
-// pre-fix 2*tol allowance, it never zeroed it. With the single gate the collision algebra
-// cancels exactly:
+// success_tolerance is the only bar: it is the solver's con_tol, it sets the tightening here,
+// and it is the post-solve accept gate. The collision algebra then cancels exactly, for any
+// tolerance and any buffer:
 //
-//   d_tight = d_true - 2*col_margin = d_true - tol/collision_scale
-//   c       = -d_tight * collision_scale = -d_true * collision_scale + tol
-//   c < tol  <=>  d_true > 0        for any tol and any collision_scale
+//   c = -(d_true - buffer) * (tol/buffer) < tol   <=>   d_true > 0
 //
-// collision_scale therefore no longer moves the guarantee, only the geometric bloat carried
-// through the solve (combined pairwise = tol/collision_scale). That is the knob to turn when
-// the bloat itself is the problem: scale=10 at the 0.01 default bakes in 1mm instead of 1cm.
 inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   ToleranceSnapshot snap;
   snap.position_min       = opt->manip.position_min;
@@ -220,8 +212,7 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
     snap.capsule_radius[i] = opt->manip._collision_model[i].radius;
   snap.world = opt->world;
 
-  // Ablation: snapshot taken, nothing modified, so restore_from_tolerance() is a
-  // no-op that writes back identical values and every other code path is unchanged.
+  // Snapshot taken, nothing modified, so restore_from_tolerance() is a no-op.
   if (!opt->tighten_for_tolerance) {
     opt->collision_scale = 1.0;
     return snap;
@@ -230,28 +221,16 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   const real tol       = opt->success_tolerance;
   const real ratio_div = 1 + tol;
 
-  // The collision unit change, derived ONCE here rather than asked of the caller. The
-  // buffer is a length the user actually cares about (1 mm); the scale is the factor that
-  // makes the dimensionless success_tolerance land exactly on it, and nobody should have
-  // to work it out. A non-positive buffer means "no unit change": buffer = tol gives
-  // scale 1 and reproduces the pre-buffer behaviour exactly.
+  // The unit change that makes the dimensionless success_tolerance land on the buffer.
+  // A non-positive buffer means no unit change.
   const real buffer    = opt->collision_buffer > 0 ? opt->collision_buffer : tol;
   opt->collision_scale = tol / buffer;
 
-  // POSITION IS DELIBERATELY NOT TIGHTENED.
-  //
-  // Task::stop_to_stop PINS the first and last control points, so the position rows of
-  // the boundary segments are constant in the decision variables -- gradient exactly 0.
-  // Shrinking the joint range moves the bound inside an endpoint the solver cannot move.
-  // For an endpoint sitting less than tol*range/2 inside its true limit, the row flips
-  // from feasible to violated while |grad| stays 0, and SLSQP linearizes it as
-  // c + grad.d <= 0 with grad = 0 -- which no step d can satisfy. The QP subproblem is
-  // then infeasible at every iterate: the solver cannot converge, exits ROUNDOFF_LIMITED,
-  // and max_constraint_value can diverge.
-  //
-  // Nothing is lost: validate_task() has already checked start and goal against the TRUE
-  // bounds before this runs, and tightening cannot protect a value the optimizer is not
-  // allowed to change.
+  // Position is deliberately NOT tightened. Task::stop_to_stop pins the boundary control
+  // points, so the position rows of the boundary segments are constant in the decision
+  // variables -- gradient exactly 0. Shrinking the range can flip such a row to violated,
+  // and a violated row with no gradient makes the SQP subproblem infeasible at every
+  // iterate. validate_task() already checks start and goal against the true bounds.
   for (int j = 0; j < opt->manip.n_joints; j++) {
     opt->manip.velocity_max[j] /= ratio_div;
     opt->manip.acceleration_max[j] /= ratio_div;
@@ -259,15 +238,7 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   }
   opt->manip.tool_speed_max /= ratio_div;
 
-  // Split in half so a pairwise distance check (2 inflated objects) sums to exactly the
-  // buffer. No tol here: the unit change above is what ties the buffer to the tolerance.
-  //
-  //   d_tight = d_true - buffer
-  //   c       = -d_tight * (tol/buffer) = -d_true * (tol/buffer) + tol
-  //   c < tol  <=>  d_true > 0                for any tol > 0, any buffer > 0
-  //
-  // which is both nlopt's early-out test (con_tol = tol) and the post-solve gate, so a
-  // solve that stops the instant it is allowed to still clears the true geometry.
+  // Halved so a pairwise check between two inflated objects sums to exactly the buffer.
   const real col_margin = buffer / 2;
   for (int i = 0; i < opt->manip._n_caps; i++)
     opt->manip._collision_model[i].radius += col_margin;
@@ -305,9 +276,7 @@ inline void restore_from_tolerance(Optimization* opt, const ToleranceSnapshot& s
   for (int i = 0; i < opt->manip._n_caps; i++)
     opt->manip._collision_model[i].radius = snap.capsule_radius[i];
   opt->world = snap.world;
-  // Back to raw metres: the scale is only meaningful against tightened geometry, and
-  // validate_task() and any caller-side compute_constraints() run outside that window.
-  opt->collision_scale = 1.0;
+  opt->collision_scale = 1.0; // raw metres again outside the tightening window
 }
 
 inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
