@@ -235,8 +235,8 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   // makes the dimensionless success_tolerance land exactly on it, and nobody should have
   // to work it out. A non-positive buffer means "no unit change": buffer = tol gives
   // scale 1 and reproduces the pre-buffer behaviour exactly.
-  const real buffer      = opt->collision_buffer > 0 ? opt->collision_buffer : tol;
-  opt->collision_scale   = tol / buffer;
+  const real buffer    = opt->collision_buffer > 0 ? opt->collision_buffer : tol;
+  opt->collision_scale = tol / buffer;
 
   // POSITION IS DELIBERATELY NOT TIGHTENED.
   //
