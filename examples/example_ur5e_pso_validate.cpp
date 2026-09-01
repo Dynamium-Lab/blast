@@ -85,6 +85,14 @@ int main(int argc, char** argv) {
   }
   std::cout << "Read PSO answer (" << n << " values), T=" << x.back() << "\n\n";
 
+  // CRITICAL: optimize_with_segments_impl() calls this before evaluating
+  // anything, and it is not merely bookkeeping -- it WRAPS joint angles.
+  // Whenever |start - goal| for a joint exceeds PI it shifts one endpoint by
+  // +/-2*PI so the motion takes the short way round the circle. Skipping it
+  // means evaluating a solution against a DIFFERENT (longer-way) task than
+  // the one it was optimized for, which produced spurious violations of
+  // ~600x on tasks with a large joint displacement.
+  initialize_optimization_with_segments(&opt);
   n_con_with_segments(&opt);
 
   // ---- Coarse check: same resolution PSO itself checks against ----------
@@ -110,6 +118,7 @@ int main(int argc, char** argv) {
     bspline_val_more.compute_trajectory(x, opt.task);
     Optimization opt_val_more(opt);
     opt_val_more.set_bspline(bspline_val_more);
+    initialize_optimization_with_segments(&opt_val_more);
     n_con_with_segments(&opt_val_more);
 
     Array  constraints_more_points(opt_val_more.constraints.n_constraints);
