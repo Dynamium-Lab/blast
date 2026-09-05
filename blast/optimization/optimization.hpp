@@ -621,6 +621,386 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
   return result;
 }
 
+inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
+  auto T1 = get_tick_us();
+
+  // Initialization
+  // configure_internal_data(opt); // todo: Ensure we can remove
+  initialize_optimization_with_segments(opt);
+  n_con_with_segments(opt);
+
+  Result result(opt); // todo: this is expensive
+  result.opt->task = opt->task;
+
+  // Initial validation
+  if (!validate_task(opt)) { // todo: support validate_task when there are no capsules...
+    print(opt->task);
+    return result;
+  }
+
+  const auto n = opt->bspline.x_len(opt->task);
+
+  Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
+  Array x_tol(n, 0.001);
+
+#ifdef BLAST_USE_NATIVE_SQP
+  nlopt_stopping stop;
+  stop.n          = n;
+  stop.minf_max   = -HUGE_VAL;
+  stop.ftol_rel   = 0;
+  stop.ftol_abs   = 0.001;
+  stop.xtol_rel   = 0;
+  stop.xtol_abs   = x_tol.data;
+  stop.x_weights  = nullptr;
+  stop.nevals_p   = 0;
+  stop.maxeval    = opt->max_eval;
+  stop.maxtime    = opt->max_time;
+  stop.start      = nlopt_seconds();
+  stop.force_stop = false;
+  stop.stop_msg   = nullptr;
+
+  Array ub(n, INF_REAL);
+  Array lb(n, -INF_REAL);
+  ub.back() = 30.0;
+  lb.back() = 0.01;
+
+  nlopt_constraint fc{};
+  fc.m      = opt->constraints.n_constraints;
+  fc.f      = nullptr;
+  fc.mf     = nlopt_constraints_with_broadphase;
+  fc.pre    = nullptr;
+  fc.f_data = opt;
+  fc.tol    = con_tol.data;
+#else
+  nlopt_opt    o = nlopt_create(NLOPT_LD_SLSQP, n);
+  nlopt_result nlopt_res;
+  nlopt_res = nlopt_add_inequality_mconstraint(o, opt->constraints.n_constraints, nlopt_constraints_with_broadphase, opt, con_tol.data);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_min_objective(o, objective_function, opt);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_lower_bound(o, (int) n - 1, 0.01);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_upper_bound(o, (int) n - 1, 60.0);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_ftol_abs(o, 0.0001);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_xtol_abs(o, x_tol.data);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_maxtime(o, opt->max_time);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_maxeval(o, opt->max_eval);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+#endif
+
+
+  auto start_guess   = opt->guess; // save for restoration after restarts if necessary
+  int  try_count     = 0;
+  bool is_valid_more = false;
+  bool is_valid      = false;
+  for (; try_count < opt->max_tries; try_count++) { // todo: add nlopt stop criteria to list, add max_time for full loop
+#if BLAST_TRACE_LEVEL >= 1
+    PROFILE_SCOPE("Optimization");
+#endif
+
+    // initial guess
+    Array x;
+    {
+#if BLAST_TRACE_LEVEL >= 1
+      PROFILE_SCOPE("Initial guess");
+#endif
+      x         = init_guess_segments(opt);
+      result.x0 = x;
+    }
+
+    // launch optimization
+    {
+#if BLAST_TRACE_LEVEL >= 1
+      PROFILE_SCOPE("NLopt optimization");
+#endif
+
+      real f = HUGE_VAL;
+      // note: can we initialize grad to 0 here
+#ifdef BLAST_USE_NATIVE_SQP
+      stop.nevals_p              = 0;
+      result.nlopt_exit_criteria = sqp(
+              opt->bspline.x_len(opt->task),
+              objective_function,
+              opt,
+              1,
+              &fc,
+              0,
+              nullptr,
+              lb.data,
+              ub.data,
+              x.data,
+              &f,
+              &stop);
+      result.num_eval = stop.nevals_p;
+
+#else
+      result.nlopt_exit_criteria = nlopt_optimize(o, x.data, &f);
+      result.num_eval            = nlopt_get_numevals(o);
+#endif
+    }
+
+    // validate solution
+    {
+#if BLAST_TRACE_LEVEL >= 1
+      PROFILE_SCOPE("Solution validation");
+#endif
+      Array  constraints_points(opt->constraints.n_constraints);
+      Matrix gradient;
+      constraints_and_gradients_with_broadphase(x, *opt, constraints_points, gradient);
+      auto max_con                = max(constraints_points);
+      result.max_constraint_idx   = argmax(constraints_points);
+      result.max_constraint_value = max_con;
+      is_valid                    = max_con < opt->success_tolerance * 2;
+    }
+
+    {
+#if BLAST_TRACE_LEVEL >= 1
+      PROFILE_SCOPE("Solution validation (more points)");
+#endif
+      u64 steps_ms    = (u64) (std::ceil(x.back() * 1e3 / output_steps_ms));
+      x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
+      int points_more = (int) (steps_ms + 1);
+
+      Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints); // todo: this is expensive
+      bspline_val_more.compute_trajectory(x, opt->task);
+      auto opt_val_more(*opt);
+      opt_val_more.set_bspline(bspline_val_more);
+      n_con_with_segments(&opt_val_more);
+      Array  constraints_more_points(opt_val_more.constraints.n_constraints);
+      Matrix gradient;
+      constraints_and_gradients_with_broadphase(x, opt_val_more, constraints_more_points, gradient);
+      // is_valid_more = max(constraints_more_points) < opt->success_tolerance;
+      auto max_con_more                       = max(constraints_more_points);
+      result.max_constraint_more_points_idx   = argmax(constraints_more_points);
+      result.max_constraint_more_points_value = max_con_more;
+      is_valid_more                           = max_con_more < opt->success_tolerance * 2;
+
+      result.x = x;
+
+      if (is_valid && is_valid_more) {
+        result.trajectory = bspline_val_more.traj;
+        // break;
+      } else if (opt->guess.type != Guess::random && try_count == 0) {
+        opt->guess.type = Guess::random;
+      }
+    }
+#if BLAST_TRACE_LEVEL >= 1
+    FrameMark;
+#endif
+  }
+
+  opt->guess = start_guess; // reset to original
+
+  auto time = (real) (get_tick_us() - T1) / 1000.0;
+
+  // Output results
+  result.success       = is_valid && is_valid_more;
+  result.success_false = is_valid && !is_valid_more;
+  result.compute_time  = time;
+  result.opt           = opt;
+  result.num_tries     = try_count;
+
+#ifndef BLAST_USE_NATIVE_SQP
+  nlopt_destroy(o);
+#endif
+
+  return result;
+}
+
+inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
+  auto T1 = get_tick_us();
+
+  // Initialization
+  // configure_internal_data(opt); // todo: Ensure we can remove
+  initialize_optimization_with_segments(opt);
+  n_con_with_segments(opt);
+
+  Result result(opt); // todo: this is expensive
+  result.opt->task = opt->task;
+
+  // Initial validation
+  if (!validate_task(opt)) { // todo: support validate_task when there are no capsules...
+    print(opt->task);
+    return result;
+  }
+
+  const auto n = opt->bspline.x_len(opt->task);
+
+  Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
+  Array x_tol(n, 0.001);
+
+#ifdef BLAST_USE_NATIVE_SQP
+  nlopt_stopping stop;
+  stop.n          = n;
+  stop.minf_max   = -HUGE_VAL;
+  stop.ftol_rel   = 0;
+  stop.ftol_abs   = 0.001;
+  stop.xtol_rel   = 0;
+  stop.xtol_abs   = x_tol.data;
+  stop.x_weights  = nullptr;
+  stop.nevals_p   = 0;
+  stop.maxeval    = opt->max_eval;
+  stop.maxtime    = opt->max_time;
+  stop.start      = nlopt_seconds();
+  stop.force_stop = false;
+  stop.stop_msg   = nullptr;
+
+  Array ub(n, INF_REAL);
+  Array lb(n, -INF_REAL);
+  ub.back() = 30.0;
+  lb.back() = 0.01;
+
+  nlopt_constraint fc{};
+  fc.m      = opt->constraints.n_constraints;
+  fc.f      = nullptr;
+  fc.mf     = nlopt_constraints_with_double_broadphase;
+  fc.pre    = nullptr;
+  fc.f_data = opt;
+  fc.tol    = con_tol.data;
+#else
+  nlopt_opt    o = nlopt_create(NLOPT_LD_SLSQP, n);
+  nlopt_result nlopt_res;
+  nlopt_res = nlopt_add_inequality_mconstraint(o, opt->constraints.n_constraints, nlopt_constraints_with_double_broadphase, opt, con_tol.data);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_min_objective(o, objective_function, opt);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_lower_bound(o, (int) n - 1, 0.01);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_upper_bound(o, (int) n - 1, 60.0);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_ftol_abs(o, 0.0001);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_xtol_abs(o, x_tol.data);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_maxtime(o, opt->max_time);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+  nlopt_res = nlopt_set_maxeval(o, opt->max_eval);
+  Assert(nlopt_res == NLOPT_SUCCESS);
+#endif
+
+
+  auto start_guess   = opt->guess; // save for restoration after restarts if necessary
+  int  try_count     = 0;
+  bool is_valid_more = false;
+  bool is_valid      = false;
+  for (; try_count < opt->max_tries; try_count++) { // todo: add nlopt stop criteria to list, add max_time for full loop
+#if BLAST_TRACE_LEVEL >= 1
+    PROFILE_SCOPE("Optimization");
+#endif
+
+    // initial guess
+    Array x;
+    {
+#if BLAST_TRACE_LEVEL >= 1
+      PROFILE_SCOPE("Initial guess");
+#endif
+      x         = init_guess_segments(opt);
+      result.x0 = x;
+    }
+
+    // launch optimization
+    {
+#if BLAST_TRACE_LEVEL >= 1
+      PROFILE_SCOPE("NLopt optimization");
+#endif
+
+      real f = HUGE_VAL;
+      // note: can we initialize grad to 0 here
+#ifdef BLAST_USE_NATIVE_SQP
+      stop.nevals_p              = 0;
+      result.nlopt_exit_criteria = sqp(
+              opt->bspline.x_len(opt->task),
+              objective_function,
+              opt,
+              1,
+              &fc,
+              0,
+              nullptr,
+              lb.data,
+              ub.data,
+              x.data,
+              &f,
+              &stop);
+      result.num_eval = stop.nevals_p;
+
+#else
+      result.nlopt_exit_criteria = nlopt_optimize(o, x.data, &f);
+      result.num_eval            = nlopt_get_numevals(o);
+#endif
+    }
+
+    // validate solution
+    {
+#if BLAST_TRACE_LEVEL >= 1
+      PROFILE_SCOPE("Solution validation");
+#endif
+      Array  constraints_points(opt->constraints.n_constraints);
+      Matrix gradient;
+      constraints_and_gradients_with_double_broadphase(x, *opt, constraints_points, gradient);
+      auto max_con                = max(constraints_points);
+      result.max_constraint_idx   = argmax(constraints_points);
+      result.max_constraint_value = max_con;
+      is_valid                    = max_con < opt->success_tolerance * 2;
+    }
+
+    {
+#if BLAST_TRACE_LEVEL >= 1
+      PROFILE_SCOPE("Solution validation (more points)");
+#endif
+      u64 steps_ms    = (u64) (std::ceil(x.back() * 1e3 / output_steps_ms));
+      x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
+      int points_more = (int) (steps_ms + 1);
+
+      Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints); // todo: this is expensive
+      bspline_val_more.compute_trajectory(x, opt->task);
+      auto opt_val_more(*opt);
+      opt_val_more.set_bspline(bspline_val_more);
+      n_con_with_segments(&opt_val_more);
+      Array  constraints_more_points(opt_val_more.constraints.n_constraints);
+      Matrix gradient;
+      constraints_and_gradients_with_double_broadphase(x, opt_val_more, constraints_more_points, gradient);
+      // is_valid_more = max(constraints_more_points) < opt->success_tolerance;
+      auto max_con_more                       = max(constraints_more_points);
+      result.max_constraint_more_points_idx   = argmax(constraints_more_points);
+      result.max_constraint_more_points_value = max_con_more;
+      is_valid_more                           = max_con_more < opt->success_tolerance * 2;
+
+      result.x = x;
+
+      if (is_valid && is_valid_more) {
+        result.trajectory = bspline_val_more.traj;
+        // break;
+      } else if (opt->guess.type != Guess::random && try_count == 0) {
+        opt->guess.type = Guess::random;
+      }
+    }
+#if BLAST_TRACE_LEVEL >= 1
+    FrameMark;
+#endif
+  }
+
+  opt->guess = start_guess; // reset to original
+
+  auto time = (real) (get_tick_us() - T1) / 1000.0;
+
+  // Output results
+  result.success       = is_valid && is_valid_more;
+  result.success_false = is_valid && !is_valid_more;
+  result.compute_time  = time;
+  result.opt           = opt;
+  result.num_tries     = try_count;
+
+#ifndef BLAST_USE_NATIVE_SQP
+  nlopt_destroy(o);
+#endif
+
+  return result;
+}
+
 // ------------------------- Accelerated functions --------------------------------
 
 inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
@@ -1002,6 +1382,10 @@ inline Result optimize(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
       return optimize_with_analytical_dynamics_impl(opt, output_steps_ms);
     case OptimizationMethod::with_segments:
       return optimize_with_segments_impl(opt, output_steps_ms);
+    case OptimizationMethod::broadphase:
+      return optimize_with_broadphase_impl(opt, output_steps_ms);
+    case OptimizationMethod::double_broadphase:
+      return optimize_with_double_broadphase_impl(opt, output_steps_ms);
   }
   return optimize_with_segments_impl(opt, output_steps_ms); // unreachable
 }

@@ -13,51 +13,10 @@ struct DynamicBox;
 struct DynamicSphere;
 struct DynamicCapsule;
 struct DynamicDoor;
+struct AxisAlignedBoundingBox;
+template<typename T>
+struct BoundingVolumeHierarchy;
 
-struct World {
-  std::vector<Box>            boxes;
-  std::vector<Sphere>         spheres;
-  std::vector<Capsule>        capsules;
-  std::vector<DynamicBox>     dynamic_boxes;
-  std::vector<DynamicSphere>  dynamic_spheres;
-  std::vector<DynamicCapsule> dynamic_capsules;
-  std::vector<DynamicDoor>    dynamic_doors;
-  u32                         size = 0;
-
-  host_fn void add_box(const Box& box);
-  host_fn void add_box(Vec3 center_point, Vec3 half_width, Mat3 rotation_matrix);
-
-  host_fn void add_sphere(const Sphere& sphere);
-  host_fn void add_sphere(Vec3 center_point, real radius);
-
-  host_fn void add_capsule(const Capsule& capsule);
-  host_fn void add_capsule(Vec3 point1, Vec3 point2, real radius);
-
-  host_fn void add_dynamic_box(const DynamicBox& box);
-  host_fn void add_dynamic_box(const std::vector<Box>& new_boxes, u32 n_points, real start_time, real end_time);
-
-  host_fn void add_dynamic_sphere(const DynamicSphere& sphere);
-  host_fn void add_dynamic_sphere(const std::vector<Sphere>& new_spheres, u32 n_points, real start_time, real end_time);
-
-  host_fn void add_dynamic_capsule(const DynamicCapsule& capsule);
-  host_fn void add_dynamic_capsule(const std::vector<Capsule>& new_capsules, u32 n_points, real start_time, real end_time);
-};
-
-struct CollisionModel {
-  std::vector<Box>     boxes;
-  std::vector<Sphere>  spheres;
-  std::vector<Capsule> capsules;
-  u32                  size = 0;
-
-  host_fn void add_box(const Box& box);
-  host_fn void add_box(Vec3 center_point, Vec3 half_width, Mat3 rotation_matrix);
-
-  host_fn void add_sphere(const Sphere& sphere);
-  host_fn void add_sphere(Vec3 center_point, real radius);
-
-  host_fn void add_capsule(const Capsule& capsule);
-  host_fn void add_capsule(Vec3 point1, Vec3 point2, real radius);
-};
 
 struct PointCloud {
   Vec3              position;
@@ -122,6 +81,146 @@ struct DynamicDoor {
   inline blast_fn Box lookup(real t) const;
 };
 
+enum class CollisionObjectType {
+  box,
+  sphere,
+  capsule,
+  aabb,
+  door,
+};
+struct CollisionEntities {
+  CollisionObjectType other_object_type = CollisionObjectType::box;
+  union {
+    Box     box{};
+    Sphere  sphere;
+    Capsule capsule;
+  };
+
+  int point_in_segment = 0;
+};
+
+struct AxisAlignedBoundingBox {
+
+  Vec3                center{};
+  Vec3                extents{};
+  size_t              children[2];
+  CollisionObjectType child_type       = CollisionObjectType::aabb;
+  const void*         child_ptr        = nullptr;
+  int                 point_in_segment = -1;
+  real                dist             = 0.0;
+};
+
+struct AABBPair {
+  int  aabb_obj;
+  int  aabb_cap;
+  real dist;
+};
+
+struct Compare {
+  const std::vector<AxisAlignedBoundingBox>* leaves = nullptr;
+
+  bool operator()(int id1, int id2) const {
+    return (*leaves)[id1].dist > (*leaves)[id2].dist;
+  }
+
+  bool operator()(const AABBPair& a, const AABBPair& b) const {
+    return a.dist > b.dist;
+  }
+};
+template<typename T = int>
+struct BoundingVolumeHierarchy {
+
+  std::vector<AxisAlignedBoundingBox> leaves{};
+
+  int  root        = -1;
+  int  num_objects = 0;
+  real time        = 0.0;
+
+  struct PriorityQueue : public std::priority_queue<T, std::vector<T>, Compare> {
+    PriorityQueue(const std::vector<AxisAlignedBoundingBox>* leaves_ptr = nullptr) :
+        std::priority_queue<T, std::vector<T>, Compare>(Compare{leaves_ptr}) {}
+
+    void clear_and_reserve(size_t capacity) {
+      this->c.clear();           // Clears elements without deallocating vector capacity
+      this->c.reserve(capacity); // Ensures internal buffer is pre-allocated
+    }
+    void rebind(const std::vector<AxisAlignedBoundingBox>* leaves_ptr) {
+      this->c.clear();
+      this->comp = Compare{leaves_ptr};
+    }
+  };
+  PriorityQueue queue{&leaves};
+
+  BoundingVolumeHierarchy() :
+      queue(&leaves) {}
+
+  // Ensure copy/move operations rebind the comparator's pointer to the local leaves vector
+  BoundingVolumeHierarchy(const BoundingVolumeHierarchy& other) :
+      leaves(other.leaves),
+      root(other.root),
+      num_objects(other.num_objects),
+      time(other.time),
+      queue(&leaves) {}
+
+  BoundingVolumeHierarchy& operator=(const BoundingVolumeHierarchy& other) {
+    if (this != &other) {
+      leaves      = other.leaves;
+      root        = other.root;
+      num_objects = other.num_objects;
+      time        = other.time;
+      queue.rebind(&leaves);
+    }
+    return *this;
+  }
+};
+
+struct World {
+  std::vector<Box>             boxes;
+  std::vector<Sphere>          spheres;
+  std::vector<Capsule>         capsules;
+  std::vector<DynamicBox>      dynamic_boxes;
+  std::vector<DynamicSphere>   dynamic_spheres;
+  std::vector<DynamicCapsule>  dynamic_capsules;
+  std::vector<DynamicDoor>     dynamic_doors;
+  BoundingVolumeHierarchy<int> static_bounding_volume_hierarchy;
+  BoundingVolumeHierarchy<int> dynamic_bounding_volume_hierarchy;
+  u32                          size = 0;
+  // ...
+  host_fn void add_box(const Box& box);
+  host_fn void add_box(Vec3 center_point, Vec3 half_width, Mat3 rotation_matrix);
+
+  host_fn void add_sphere(const Sphere& sphere);
+  host_fn void add_sphere(Vec3 center_point, real radius);
+
+  host_fn void add_capsule(const Capsule& capsule);
+  host_fn void add_capsule(Vec3 point1, Vec3 point2, real radius);
+
+  host_fn void add_dynamic_box(const DynamicBox& box);
+  host_fn void add_dynamic_box(const std::vector<Box>& new_boxes, u32 n_points, real start_time, real end_time);
+
+  host_fn void add_dynamic_sphere(const DynamicSphere& sphere);
+  host_fn void add_dynamic_sphere(const std::vector<Sphere>& new_spheres, u32 n_points, real start_time, real end_time);
+
+  host_fn void add_dynamic_capsule(const DynamicCapsule& capsule);
+  host_fn void add_dynamic_capsule(const std::vector<Capsule>& new_capsules, u32 n_points, real start_time, real end_time);
+};
+
+struct CollisionModel {
+  std::vector<Box>     boxes;
+  std::vector<Sphere>  spheres;
+  std::vector<Capsule> capsules;
+  u32                  size = 0;
+
+  host_fn void add_box(const Box& box);
+  host_fn void add_box(Vec3 center_point, Vec3 half_width, Mat3 rotation_matrix);
+
+  host_fn void add_sphere(const Sphere& sphere);
+  host_fn void add_sphere(Vec3 center_point, real radius);
+
+  host_fn void add_capsule(const Capsule& capsule);
+  host_fn void add_capsule(Vec3 point1, Vec3 point2, real radius);
+};
+
 /**
  * @struct CollisionModelCapsule
  * @brief Simple capsule primitive for collision checking.
@@ -146,6 +245,7 @@ inline blast_fn real distance(const Capsule& capsule1, const Capsule& capsule2);
 inline blast_fn real distance(const Capsule& capsule, const Vec3& point);
 inline blast_fn real distance(const Box& box, const Vec3& point);
 inline blast_fn real distance(const Sphere& sphere, const Vec3& point);
+inline blast_fn real distance(const AxisAlignedBoundingBox& aabb1, const AxisAlignedBoundingBox& aabb2);
 
 inline blast_fn Vec3 get_point(const Array& x, const Matrix& capsule_list);
 
@@ -162,6 +262,7 @@ inline blast_fn Vec3 get_point(const Array& x, const Matrix& capsule_list);
 #include "world/dynamicsphere.hpp"
 
 #include "world/CoDO.hpp"
+#include "world/broadphase.hpp"
 
 #include "world/scenes.hpp"
 
