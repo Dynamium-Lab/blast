@@ -1,14 +1,16 @@
 #define CATCH_CONFIG_MAIN
 #include <blast>
 #include <catch2/catch.hpp>
+#include "test_helper.hpp"
 
 using namespace blast;
 
 // Returns a representative stop-to-stop task for the UR5e.
+static const blast::Array kStart = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
+static const blast::Array kEnd   = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.17328};
+
 inline blast::Task make_UR5e_task() {
-  blast::Array start = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
-  blast::Array end   = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.17328};
-  return blast::Task::stop_to_stop(start, end);
+  return blast::Task::stop_to_stop(kStart, kEnd);
 }
 
 TEST_CASE("optimize stop-to-stop default pva + tool_speed constraints active", "[Optimization]") {
@@ -17,6 +19,10 @@ TEST_CASE("optimize stop-to-stop default pva + tool_speed constraints active", "
 
   Optimization opt(robot, task); // default enables pva + tool_speed constraints
   opt.success_tolerance = 0.01f;
+  // Deterministic guess: Guess::random makes `success == true` a claim about
+  // the solver, not about this test. See straight_line_guess().
+  opt.guess.type      = Guess::custom;
+  opt.guess.initial_x = blast::test::straight_line_guess(opt, kStart, kEnd);
 
   Result result = optimize(&opt);
 
@@ -32,6 +38,10 @@ TEST_CASE("optimize stop-to-stop pva + tool_speed + torque constraints active", 
   Optimization opt(robot, task); // default enables pva + tool_speed constraints
   opt.constraints.torque = true;
   opt.success_tolerance  = 0.01f;
+  // Deterministic guess: Guess::random makes `success == true` a claim about
+  // the solver, not about this test. See straight_line_guess().
+  opt.guess.type      = Guess::custom;
+  opt.guess.initial_x = blast::test::straight_line_guess(opt, kStart, kEnd);
 
   Result result = optimize(&opt);
 
@@ -48,6 +58,10 @@ TEST_CASE("optimization stop-to-stop pva + tool_speed + torque + self_collisions
   opt.constraints.torque          = true;
   opt.constraints.self_collisions = true;
   opt.success_tolerance           = 0.01f;
+  // Deterministic guess: Guess::random makes `success == true` a claim about
+  // the solver, not about this test. See straight_line_guess().
+  opt.guess.type      = Guess::custom;
+  opt.guess.initial_x = blast::test::straight_line_guess(opt, kStart, kEnd);
 
   Result result = optimize(&opt);
 
@@ -75,6 +89,14 @@ TEST_CASE("optimization stop-to-stop all constraints active", "[Optimization") {
   opt.constraints.external_collisions = true; // avoid world obstacles
 
   opt.success_tolerance = 0.01f;
+
+  // Deterministic guess: Guess::random makes `success == true` a claim about
+
+  // the solver, not about this test. See straight_line_guess().
+
+  opt.guess.type = Guess::custom;
+
+  opt.guess.initial_x = blast::test::straight_line_guess(opt, kStart, kEnd);
 
 
   Result result = optimize(&opt);

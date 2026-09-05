@@ -205,7 +205,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 #endif
           const auto J_tool     = get_J_tool(&opt, manip_data); // todo: clean up get_J_tool to a get_tool_speed
           const auto tool_speed = norm(get_J_tool(&opt, manip_data) * v);
-          if (const auto c = bound_constraint(tool_speed, 0.0, tool_speed_max);
+          if (const auto c = abs_constraint(tool_speed, tool_speed_max);
               c > max_tool_speed_constraints) {
             max_tool_speed_constraints = c;
             max_tool_index             = point_in_segment;
@@ -219,7 +219,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 #endif
           // check every internal collision
           auto self_collision_distances = get_internal_collisions(opt.manip, manip_data);
-          if (const auto c = -min(self_collision_distances);
+          if (const auto c = -min(self_collision_distances) * opt.collision_scale;
               c > max_internal_col_constraints) {
             max_internal_col_constraints = c;
             max_internal_collision_index = point_in_segment;
@@ -335,7 +335,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
               count++;
             }
 
-            dist_min = -dist_min; // negative distance is positive constraint
+            dist_min = -dist_min * opt.collision_scale; // negative distance is positive constraint
 
             // update worst position for the current capsule if necessary
             if (dist_min > max_col_constraints[capsule_id]) {
@@ -605,7 +605,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           forward_kinematics(opt.manip, manip_data, p_plus);
           const auto J_tool_p         = get_J_tool(&opt, manip_data);
           const auto tool_speed_p     = norm(J_tool_p * v_plus);
-          const auto new_constraint_p = bound_constraint(tool_speed_p, 0.0, tool_speed_max);
+          const auto new_constraint_p = abs_constraint(tool_speed_p, tool_speed_max);
           // partial difference d(tool_speed)/dp
           const real dtool_speed_dp = (new_constraint_p - max_tool_speed_constraints) / eps;
           p_plus[j]                 = p[j]; // reset finite difference
@@ -614,7 +614,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           v_plus[j] += eps;
           const auto J_tool_v         = get_J_tool(&opt, manip_data);
           const auto tool_speed_v     = norm(J_tool_v * v_plus);
-          const auto new_constraint_v = bound_constraint(tool_speed_v, 0.0, tool_speed_max);
+          const auto new_constraint_v = abs_constraint(tool_speed_v, tool_speed_max);
           const real dtool_speed_dv   = (new_constraint_v - max_tool_speed_constraints) / eps;
           v_plus[j]                   = v[j];
 
@@ -656,7 +656,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           // recompute internal collisions at the worst point in segment
           forward_kinematics(opt.manip, manip_data, p_plus);
           compute_collision_model(opt.manip, manip_data);
-          const auto new_internal_collision_constraint = max(-get_internal_collisions(opt.manip, manip_data));
+          const auto new_internal_collision_constraint = max(-get_internal_collisions(opt.manip, manip_data)) * opt.collision_scale;
           // partial difference d(internal_collision)/dp
           const real dint_coll_dp = (new_internal_collision_constraint - max_internal_col_constraints) / eps;
 
@@ -719,7 +719,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
               }
             }
 
-            distance_plus = -distance_plus; // negative distance is positive constraint
+            distance_plus = -distance_plus * opt.collision_scale; // negative distance is positive constraint
 
             // partial difference d(collision)/dp
             const real dcoll_dp = (distance_plus - max_col_constraints[capsule_id]) / eps;
@@ -2140,14 +2140,14 @@ inline blast_fn void compute_constraints(real* result, const Array& x, Optimizat
 #endif
       auto J_tool      = get_J_tool(opt, manip_data);
       real tool_speed  = norm(J_tool * opt->bspline.traj.vel.col(i));
-      *moving_result++ = bound_constraint(tool_speed, 0.0, opt->manip.tool_speed_max);
+      *moving_result++ = abs_constraint(tool_speed, opt->manip.tool_speed_max);
     }
 
     if (opt->constraints.self_collisions) {
 #if BLAST_TRACE_LEVEL >= 3
       PROFILE_SCOPE("SelfCollisions");
 #endif
-      auto tmp_coll = max(-get_internal_collisions(opt->manip, manip_data));
+      auto tmp_coll = max(-get_internal_collisions(opt->manip, manip_data)) * opt->collision_scale;
       // for (u32 j = 0; j < tmp_coll.size; j++)
       *moving_result++ = tmp_coll; //*std::abs(tmp_coll[j]);
     }
@@ -2191,7 +2191,7 @@ inline blast_fn void compute_constraints(real* result, const Array& x, Optimizat
           count++;
         }
 
-        dist_min = -dist_min; // negative distance is positive constraint
+        dist_min = -dist_min * opt->collision_scale; // negative distance is positive constraint
 
         // update worst position for the current capsule if necessary
         if (dist_min > max_col_constraints[capsule_id]) {
@@ -2359,7 +2359,7 @@ inline blast_fn bool validate_task(Optimization* opt) {
     if (constraints.tool_speed) {
       auto J_tool     = get_J_tool(opt, manip_data);
       real tool_speed = norm(J_tool * vel.col(i));
-      result          = bound_constraint(tool_speed, -INF_REAL, manip.tool_speed_max);
+      result          = abs_constraint(tool_speed, manip.tool_speed_max);
       if (result > 0) {
         std::cout << "Tool speed outside bounds." << std::endl;
         return false;
@@ -2539,14 +2539,14 @@ inline void compute_constraints_with_analytical_pva(ConstraintPerPoint& constrai
 #endif
       auto J_tool                                                       = get_J_tool(opt, manip_data);
       real tool_speed                                                   = norm(J_tool * opt->bspline.traj.vel.col(i));
-      constraints.tool_constraint[i - opt->bspline.lower_bounds[x_idx]] = bound_constraint(tool_speed, 0.0, opt->manip.tool_speed_max);
+      constraints.tool_constraint[i - opt->bspline.lower_bounds[x_idx]] = abs_constraint(tool_speed, opt->manip.tool_speed_max);
     }
 
     if (opt->constraints.self_collisions) {
 #if BLAST_TRACE_LEVEL >= 3
       ZoneScopedN("SelfCollisions");
 #endif
-      auto tmp_coll = max(-get_internal_collisions(opt->manip, manip_data));
+      auto tmp_coll = max(-get_internal_collisions(opt->manip, manip_data)) * opt->collision_scale;
       // for (u32 j = 0; j < tmp_coll.size; j++)
       constraints.self_collision_constraint[i - opt->bspline.lower_bounds[x_idx]] = tmp_coll; //*std::abs(tmp_coll[j]);
     }
@@ -2591,7 +2591,7 @@ inline void compute_constraints_with_analytical_pva(ConstraintPerPoint& constrai
           count++;
         }
 
-        dist_min = -dist_min; // negative distance is positive constraint
+        dist_min = -dist_min * opt->collision_scale; // negative distance is positive constraint
 
         // update worst position for the current capsule if necessary
         if (dist_min > max_col_constraints[capsule_id]) {
@@ -2739,7 +2739,7 @@ blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& 
 #endif
           auto J_tool      = get_J_tool(opt, manip_data);
           real tool_speed  = norm(J_tool * vel);
-          tool_constraint  = bound_constraint(tool_speed, 0.0, opt->manip.tool_speed_max);
+          tool_constraint  = abs_constraint(tool_speed, opt->manip.tool_speed_max);
           *moving_result++ = tool_constraint;
         }
 
@@ -2747,7 +2747,7 @@ blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& 
 #if BLAST_TRACE_LEVEL >= 3
           ZoneScopedN("SelfCollisions");
 #endif
-          self_collision_constraint = max(-get_internal_collisions(opt->manip, manip_data));
+          self_collision_constraint = max(-get_internal_collisions(opt->manip, manip_data)) * opt->collision_scale;
           *moving_result++          = self_collision_constraint;
         }
 
@@ -2801,7 +2801,7 @@ blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& 
               count++;
             }
 
-            dist_min = -dist_min; // negative distance is positive constraint
+            dist_min = -dist_min * opt->collision_scale; // negative distance is positive constraint
 
             // update worst position for the current capsule if necessary
             if (dist_min > max_col_constraints[capsule_id]) {
@@ -2841,13 +2841,13 @@ blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& 
         if (opt->constraints.tool_speed) {
           auto J_tool_plus          = get_J_tool(opt, manip_data);
           real tool_speed_plus      = norm(J_tool_plus * vel_plus);
-          auto tool_constraint_plus = bound_constraint(tool_speed_plus, 0.0, opt->manip.tool_speed_max);
+          auto tool_constraint_plus = abs_constraint(tool_speed_plus, opt->manip.tool_speed_max);
           dtool_dp(j, i)            = (tool_constraint_plus - tool_constraint) / eps;
         }
 
         compute_collision_model(opt->manip, manip_data);
         if (opt->constraints.self_collisions) {
-          auto self_collision_constraint_plus = max(-get_internal_collisions(opt->manip, manip_data));
+          auto self_collision_constraint_plus = max(-get_internal_collisions(opt->manip, manip_data)) * opt->collision_scale;
           dselfcol_dp(j, i)                   = (self_collision_constraint_plus - self_collision_constraint) / eps;
         }
 
@@ -2870,7 +2870,7 @@ blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& 
                 break;
               }
             }
-            distance_plus = -distance_plus;
+            distance_plus = -distance_plus * opt->collision_scale;
             // auto external_collisions_plus = -test_collisions_per_point(manip_data.capsule_list, &(opt->world));
             dcol_dp[i].resize(n_capsules, joints);
             dcol_dp[i](capsule_id, j) = (distance_plus - max_col_constraints[capsule_id]) / eps;
@@ -2896,7 +2896,7 @@ blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& 
         if (opt->constraints.tool_speed) {
           auto J_tool_plus          = get_J_tool(opt, manip_data);
           real tool_speed_plus      = norm(J_tool_plus * vel_plus);
-          auto tool_constraint_plus = bound_constraint(tool_speed_plus, 0.0, opt->manip.tool_speed_max);
+          auto tool_constraint_plus = abs_constraint(tool_speed_plus, opt->manip.tool_speed_max);
           dtool_dv(j, i)            = (tool_constraint_plus - tool_constraint) / eps;
         }
 
@@ -2980,7 +2980,7 @@ inline blast_fn void compute_constraints_per_point(real* result, real& external_
 #endif
     auto J_tool      = get_J_tool(opt, manip_data);
     real tool_speed  = norm(J_tool * opt->bspline.traj.vel.col(i));
-    moving_result[0] = bound_constraint(tool_speed, 0.0, opt->manip.tool_speed_max);
+    moving_result[0] = abs_constraint(tool_speed, opt->manip.tool_speed_max);
     moving_result++;
   }
 

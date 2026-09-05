@@ -176,6 +176,109 @@ inline void initialize_optimization(Optimization* opt) {
   opt->task = task;
 }
 
+struct ToleranceSnapshot {
+  std::array<real, MAX_JOINTS>   position_min;
+  std::array<real, MAX_JOINTS>   position_max;
+  std::array<real, MAX_JOINTS>   velocity_max;
+  std::array<real, MAX_JOINTS>   acceleration_max;
+  std::array<real, MAX_JOINTS>   torque_max;
+  real                           tool_speed_max;
+  std::array<real, MAX_CAPSULES> capsule_radius; // [0, manip._n_caps)
+  real                           base_sphere_radius;
+  World                          world;
+};
+
+// Tightens the limits/collision geometry constraints are evaluated against by success_tolerance,
+// so that whenever the solver's own tolerance-based early-out triggers, the original,
+// untightened limits are still satisfied. Must be paired with restore_from_tolerance() before
+// the Optimization is returned or reused.
+//
+// success_tolerance is the only bar: it is the solver's con_tol, it sets the tightening here,
+// and it is the post-solve accept gate. The collision algebra then cancels exactly, for any
+// tolerance and any buffer:
+//
+//   c = -(d_true - buffer) * (tol/buffer) < tol   <=>   d_true > 0
+//
+inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
+  ToleranceSnapshot snap;
+  snap.position_min       = opt->manip.position_min;
+  snap.position_max       = opt->manip.position_max;
+  snap.velocity_max       = opt->manip.velocity_max;
+  snap.acceleration_max   = opt->manip.acceleration_max;
+  snap.torque_max         = opt->manip.torque_max;
+  snap.tool_speed_max     = opt->manip.tool_speed_max;
+  snap.base_sphere_radius = opt->manip._base_sphere.radius;
+  for (int i = 0; i < opt->manip._n_caps; i++)
+    snap.capsule_radius[i] = opt->manip._collision_model[i].radius;
+  snap.world = opt->world;
+
+  // Snapshot taken, nothing modified, so restore_from_tolerance() is a no-op.
+  if (!opt->tighten_for_tolerance) {
+    opt->collision_scale = 1.0;
+    return snap;
+  }
+
+  const real tol       = opt->success_tolerance;
+  const real ratio_div = 1 + tol;
+
+  // The unit change that makes the dimensionless success_tolerance land on the buffer.
+  // A non-positive buffer means no unit change.
+  const real buffer    = opt->collision_buffer > 0 ? opt->collision_buffer : tol;
+  opt->collision_scale = tol / buffer;
+
+  // Position is deliberately NOT tightened. Task::stop_to_stop pins the boundary control
+  // points, so the position rows of the boundary segments are constant in the decision
+  // variables -- gradient exactly 0. Shrinking the range can flip such a row to violated,
+  // and a violated row with no gradient makes the SQP subproblem infeasible at every
+  // iterate. validate_task() already checks start and goal against the true bounds.
+  for (int j = 0; j < opt->manip.n_joints; j++) {
+    opt->manip.velocity_max[j] /= ratio_div;
+    opt->manip.acceleration_max[j] /= ratio_div;
+    opt->manip.torque_max[j] /= ratio_div;
+  }
+  opt->manip.tool_speed_max /= ratio_div;
+
+  // Halved so a pairwise check between two inflated objects sums to exactly the buffer.
+  const real col_margin = buffer / 2;
+  for (int i = 0; i < opt->manip._n_caps; i++)
+    opt->manip._collision_model[i].radius += col_margin;
+  opt->manip._base_sphere.radius += col_margin;
+
+  for (auto& box: opt->world.boxes)
+    box.extents += Vec3(col_margin, col_margin, col_margin);
+  for (auto& sphere: opt->world.spheres)
+    sphere.radius += col_margin;
+  for (auto& capsule: opt->world.capsules)
+    capsule.radius += col_margin;
+  for (auto& dyn_box: opt->world.dynamic_boxes)
+    for (auto& box: dyn_box.trajectory)
+      box.extents += Vec3(col_margin, col_margin, col_margin);
+  for (auto& dyn_sphere: opt->world.dynamic_spheres)
+    for (auto& sphere: dyn_sphere.trajectory)
+      sphere.radius += col_margin;
+  for (auto& dyn_capsule: opt->world.dynamic_capsules)
+    for (auto& capsule: dyn_capsule.trajectory)
+      capsule.radius += col_margin;
+  for (auto& door: opt->world.dynamic_doors)
+    door.extents += Vec3(col_margin, col_margin, col_margin);
+
+  return snap;
+}
+
+inline void restore_from_tolerance(Optimization* opt, const ToleranceSnapshot& snap) {
+  opt->manip.position_min        = snap.position_min;
+  opt->manip.position_max        = snap.position_max;
+  opt->manip.velocity_max        = snap.velocity_max;
+  opt->manip.acceleration_max    = snap.acceleration_max;
+  opt->manip.torque_max          = snap.torque_max;
+  opt->manip.tool_speed_max      = snap.tool_speed_max;
+  opt->manip._base_sphere.radius = snap.base_sphere_radius;
+  for (int i = 0; i < opt->manip._n_caps; i++)
+    opt->manip._collision_model[i].radius = snap.capsule_radius[i];
+  opt->world           = snap.world;
+  opt->collision_scale = 1.0; // raw metres again outside the tightening window
+}
+
 inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
   auto   T1 = get_tick_us();
   Result result(opt); // todo: this is expensive
@@ -190,6 +293,8 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
     print(opt->task);
     return result;
   }
+
+  auto tolerance_snapshot = tighten_for_success_tolerance(opt); // restored below, next to opt->guess restore
 
   const auto n = opt->bspline.x_len(opt->task);
 
@@ -305,7 +410,7 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
       auto max_con                = max(constraints_points);
       result.max_constraint_idx   = argmax(constraints_points);
       result.max_constraint_value = max_con;
-      is_valid                    = max_con < opt->success_tolerance * 2;
+      is_valid                    = max_con < opt->success_tolerance;
     }
 
     {
@@ -326,13 +431,14 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
       auto max_con_more                       = max(constraints_more_points);
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
-      is_valid_more                           = max_con_more < opt->success_tolerance * 2;
+      is_valid_more                           = max_con_more < opt->success_tolerance;
 
       result.x = x;
 
       if (is_valid && is_valid_more) {
         result.trajectory = bspline_val_more.traj;
-        // break;
+        try_count++; // count this try before breaking, so num_tries reports tries made
+        break;
       } else if (opt->guess.type != Guess::random && try_count == 0) {
         opt->guess.type = Guess::random;
       }
@@ -343,6 +449,7 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
   }
 
   opt->guess = start_guess; // reset to original
+  restore_from_tolerance(opt, tolerance_snapshot);
 
   auto time = (real) (get_tick_us() - T1) / 1000.0;
 
@@ -447,6 +554,8 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
     print(opt->task);
     return result;
   }
+
+  auto tolerance_snapshot = tighten_for_success_tolerance(opt); // restored below, next to opt->guess restore
 
   const auto n = opt->bspline.x_len(opt->task);
 
@@ -564,7 +673,7 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
       auto max_con                = max(constraints_points);
       result.max_constraint_idx   = argmax(constraints_points);
       result.max_constraint_value = max_con;
-      is_valid                    = max_con < opt->success_tolerance * 2;
+      is_valid                    = max_con < opt->success_tolerance;
     }
 
     {
@@ -583,17 +692,17 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
       Array  constraints_more_points(opt_val_more.constraints.n_constraints);
       Matrix gradient;
       constraints_and_gradients_with_segments(x, opt_val_more, constraints_more_points, gradient);
-      // is_valid_more = max(constraints_more_points) < opt->success_tolerance;
       auto max_con_more                       = max(constraints_more_points);
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
-      is_valid_more                           = max_con_more < opt->success_tolerance * 2;
+      is_valid_more                           = max_con_more < opt->success_tolerance;
 
       result.x = x;
 
       if (is_valid && is_valid_more) {
         result.trajectory = bspline_val_more.traj;
-        // break;
+        try_count++; // count this try before breaking, so num_tries reports tries made
+        break;
       } else if (opt->guess.type != Guess::random && try_count == 0) {
         opt->guess.type = Guess::random;
       }
@@ -604,6 +713,7 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
   }
 
   opt->guess = start_guess; // reset to original
+  restore_from_tolerance(opt, tolerance_snapshot);
 
   auto time = (real) (get_tick_us() - T1) / 1000.0;
 
@@ -1018,6 +1128,8 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
     return result;
   }
 
+  auto tolerance_snapshot = tighten_for_success_tolerance(opt); // restored below, next to opt->guess restore
+
   const auto n = opt->bspline.x_len(opt->task);
 
   Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
@@ -1132,7 +1244,7 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
       auto max_con                = max(constraints_points);
       result.max_constraint_idx   = argmax(constraints_points);
       result.max_constraint_value = max_con;
-      is_valid                    = max_con < opt->success_tolerance * 2;
+      is_valid                    = max_con < opt->success_tolerance;
     }
 
     {
@@ -1153,13 +1265,14 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
       auto max_con_more                       = max(constraints_more_points);
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
-      is_valid_more                           = max_con_more < opt->success_tolerance * 2;
+      is_valid_more                           = max_con_more < opt->success_tolerance;
 
       result.x = x;
 
       if (is_valid && is_valid_more) {
         result.trajectory = bspline_val_more.traj;
-        // break;
+        try_count++; // count this try before breaking, so num_tries reports tries made
+        break;
       } else if (opt->guess.type != Guess::random && try_count == 0) {
         opt->guess.type = Guess::random;
       }
@@ -1170,6 +1283,7 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
   }
 
   opt->guess = start_guess; // reset to original
+  restore_from_tolerance(opt, tolerance_snapshot);
 
   auto time = (real) (get_tick_us() - T1) / 1000.0;
 
@@ -1201,6 +1315,8 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
     print(opt->task);
     return result;
   }
+
+  auto tolerance_snapshot = tighten_for_success_tolerance(opt); // restored below, next to opt->guess restore
 
   const auto n = opt->bspline.x_len(opt->task);
 
@@ -1316,7 +1432,7 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
       auto max_con                = max(constraints_points);
       result.max_constraint_idx   = argmax(constraints_points);
       result.max_constraint_value = max_con;
-      is_valid                    = max_con < opt->success_tolerance * 2;
+      is_valid                    = max_con < opt->success_tolerance;
     }
 
     {
@@ -1337,13 +1453,14 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
       auto max_con_more                       = max(constraints_more_points);
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
-      is_valid_more                           = max_con_more < opt->success_tolerance * 2;
+      is_valid_more                           = max_con_more < opt->success_tolerance;
 
       result.x = x;
 
       if (is_valid && is_valid_more) {
         result.trajectory = bspline_val_more.traj;
-        // break;
+        try_count++; // count this try before breaking, so num_tries reports tries made
+        break;
       } else if (opt->guess.type != Guess::random && try_count == 0) {
         opt->guess.type = Guess::random;
       }
@@ -1354,6 +1471,7 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
   }
 
   opt->guess = start_guess; // reset to original
+  restore_from_tolerance(opt, tolerance_snapshot);
 
   auto time = (real) (get_tick_us() - T1) / 1000.0;
 
