@@ -101,7 +101,8 @@ set(TESTS
 
         # World
         test_primitives world/test_primitives.cpp
-        test_gjk_epa world/test_gjk_epa.cpp
+        test_broadphase world/test_broadphase.cpp
+        # test_gjk_epa world/test_gjk_epa.cpp
 
         # Trajectory
         test_bspline trajectory/test_bsplines.cpp

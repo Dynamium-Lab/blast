@@ -5,8 +5,9 @@
 #include <cstdint>
 #include <cstring>
 #include <iostream>
-#include <vector>
+#include <queue>
 #include <tuple>
+#include <vector>
 
 namespace blast {
 
@@ -22,11 +23,11 @@ constexpr int32_t MAX_CAPSULES = BLAST_MAX_CAPSULES;
 constexpr int32_t MAX_CAPSULES = 7;
 #endif
 
-using u8 = uint8_t;
+using u8  = uint8_t;
 using u16 = uint16_t;
 using u32 = uint32_t;
 using u64 = uint64_t;
-using i8 = int8_t;
+using i8  = int8_t;
 using i16 = int16_t;
 using i32 = int32_t;
 using i64 = int64_t;
@@ -90,11 +91,12 @@ using i64 = int64_t;
 #include "blast_containers.hpp"
 #include "blast_utilities.hpp"
 
-#include "blast_task.hpp"
-#include "blast_world.hpp"
 #include "blast_manipulator.hpp"
+#include "blast_task.hpp"
+
 #include "blast_optimization.hpp"
 #include "blast_trajectory.hpp"
+#include "blast_world.hpp"
 
 #include "utilities/file_io.hpp"
 #include "utilities/is_close.hpp"

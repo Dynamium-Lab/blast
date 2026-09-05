@@ -83,6 +83,8 @@ enum class OptimizationMethod : u32 {
   baseline,                 // point-based constraints, finite-difference gradients
   with_analytical_pva,      // point-based, analytical gradients for position/velocity/acceleration
   with_analytical_dynamics, // point-based, analytical gradients for PVA + torque dynamics
+  broadphase,
+  double_broadphase,
 };
 
 struct ConstraintSelection {
@@ -131,6 +133,8 @@ struct Optimization {
   int  max_eval  = 1000;                            // Maximum number of function evaluations for a single NLopt call.
   real max_time  = 30.0;                            // Maximum time (seconds) for a single NLopt call.
 
+  std::array<BoundingVolumeHierarchy<AABBPair>, MAX_CAPSULES> time_bounding_volume_hierarchies; // should be std::array<> ? Never changes size
+
   void* custom_data;
 
   Array lb;
@@ -155,9 +159,17 @@ struct Optimization {
 
 inline void constraints_and_gradients_with_segments(const Array& x, Optimization& opt, Array& constraints,
                                                     Matrix& grad);
+inline void constraints_and_gradients_with_broadphase(const Array& x, Optimization& opt, Array& constraints,
+                                                      Matrix& grad);
+inline void constraints_and_gradients_with_double_broadphase(const Array& x, Optimization& opt, Array& constraints,
+                                                             Matrix& grad);
 // inline void compute_constraints_with_segments(const Array& x, Optimization& opt, Array& constraints);
 inline void nlopt_constraints_with_segments(unsigned m, real* result, unsigned x_len, const real* x, real* grad,
                                             void* f_data);
+inline void nlopt_constraints_with_broadphase(unsigned m, real* result, unsigned x_len, const real* x, real* grad,
+                                              void* f_data);
+inline void nlopt_constraints_with_double_broadphase(unsigned m, real* result, unsigned x_len, const real* x, real* grad,
+                                                     void* f_data);
 
 inline void compute_constraints(real* result, const Array& x, Optimization* opt);
 inline void nlopt_constraints(unsigned m, real* result, unsigned x_len, const real* x, real* grad,

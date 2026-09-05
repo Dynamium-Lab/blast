@@ -536,6 +536,23 @@ inline blast_fn real distance(const Capsule& capsule1, const Capsule& capsule2) 
   return dist_seg_seg - capsule1.radius - capsule2.radius;
 }
 
+inline host_fn real distance(const AxisAlignedBoundingBox& aabb1, const AxisAlignedBoundingBox& aabb2) {
+  Vec3 d;
+  d.x = std::max((aabb1.center.x - aabb1.extents.x - aabb2.center.x - aabb2.extents.x), (aabb2.center.x - aabb2.extents.x - aabb1.center.x - aabb1.extents.x));
+  d.y = std::max((aabb1.center.y - aabb1.extents.y - aabb2.center.y - aabb2.extents.y), (aabb2.center.y - aabb2.extents.y - aabb1.center.y - aabb1.extents.y));
+  d.z = std::max((aabb1.center.z - aabb1.extents.z - aabb2.center.z - aabb2.extents.z), (aabb2.center.z - aabb2.extents.z - aabb1.center.z - aabb1.extents.z));
+
+  if (d.x > 0 || d.y > 0 || d.z > 0) {
+    d.x = std::max((real) 0.0, d.x);
+    d.y = std::max((real) 0.0, d.y);
+    d.z = std::max((real) 0.0, d.z);
+    return norm(d);
+  } else {
+    return std::max(d.x, std::max(d.y, d.z)); // todo: check this
+    // return -sqrt(dot(d, d));
+  }
+}
+
 inline blast_fn Array test_collisions(const ObjMatrix<Capsule>& robot_capsules, const World* world, u32 n_lowest_distances, real start_time, real end_time) {
   Array dist_min(n_lowest_distances, INF_REAL);
   real  dist;
