@@ -83,6 +83,37 @@ inline Array get_best_x_segments(Optimization* opt) {
   return best_x;
 }
 
+// Deterministic guess: straight line start->goal, time from manip's vel/accel limits
+// (per-joint trapezoidal/triangular, max across joints). Requires fully specified task.
+inline Array guess_straight_line(Optimization* opt) {
+  Array     x(opt->bspline.x_len(opt->task));
+  const u32 n_free = opt->bspline.n_ctrl - 6;
+  Assert(x.size == (u32) opt->manip.n_joints * n_free + 1);
+
+  real total_time = 0.0;
+  u32  k          = 0;
+  for (int j = 0; j < opt->manip.n_joints; j++) {
+    const real start = opt->task(j, 0);
+    const real goal  = opt->task(j, 3);
+    const real dist  = std::abs(goal - start);
+
+    const real vmax = opt->manip.velocity_max[j];
+    const real amax = opt->manip.acceleration_max[j];
+    if (vmax > 0 && amax > 0) {
+      const real d_switch = vmax * vmax / amax; // dist covered while accelerating to vmax and back down
+      const real t_j      = (dist >= d_switch) ? dist / vmax + vmax / amax : 2.0 * std::sqrt(dist / amax);
+      total_time          = std::max(total_time, t_j);
+    }
+
+    for (u32 i = 0; i < n_free; i++) {
+      const real a = (real) (i + 1) / (real) (n_free + 1);
+      x[k++]       = start + a * (goal - start);
+    }
+  }
+  x.back() = total_time > 0 ? total_time : 2.0;
+  return x;
+}
+
 inline Array init_guess_segments(Optimization* opt) {
   Array x(opt->bspline.x_len(opt->task));
   switch (opt->guess.type) {
@@ -92,6 +123,10 @@ inline Array init_guess_segments(Optimization* opt) {
     }
     case Guess::shotgun: {
       x = guess_shot_mean_segments(opt);
+      break;
+    }
+    case Guess::straight_line: {
+      x = guess_straight_line(opt);
       break;
     }
     case Guess::custom: {
@@ -153,6 +188,10 @@ inline Array init_guess(Optimization* opt) {
     }
     case Guess::shotgun: {
       x = guess_shot_mean(opt);
+      break;
+    }
+    case Guess::straight_line: {
+      x = guess_straight_line(opt);
       break;
     }
     case Guess::custom: {
