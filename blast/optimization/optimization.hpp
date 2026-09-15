@@ -448,7 +448,7 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
 #endif
   }
 
-  opt->guess = start_guess; // reset to original
+  opt->guess = start_guess;                        // reset to original
   restore_from_tolerance(opt, tolerance_snapshot); // undo tighten_for_success_tolerance(): caller keeps the real limits
 
   auto time = (real) (get_tick_us() - T1) / 1000.0;
@@ -712,7 +712,7 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
 #endif
   }
 
-  opt->guess = start_guess; // reset to original
+  opt->guess = start_guess;                        // reset to original
   restore_from_tolerance(opt, tolerance_snapshot); // undo tighten_for_success_tolerance(): caller keeps the real limits
 
   auto time = (real) (get_tick_us() - T1) / 1000.0;
@@ -1282,7 +1282,7 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
 #endif
   }
 
-  opt->guess = start_guess; // reset to original
+  opt->guess = start_guess;                        // reset to original
   restore_from_tolerance(opt, tolerance_snapshot); // undo tighten_for_success_tolerance(): caller keeps the real limits
 
   auto time = (real) (get_tick_us() - T1) / 1000.0;
@@ -1470,7 +1470,7 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
 #endif
   }
 
-  opt->guess = start_guess; // reset to original
+  opt->guess = start_guess;                        // reset to original
   restore_from_tolerance(opt, tolerance_snapshot); // undo tighten_for_success_tolerance(): caller keeps the real limits
 
   auto time = (real) (get_tick_us() - T1) / 1000.0;
