@@ -1,7 +1,6 @@
 #define CATCH_CONFIG_MAIN
 #include <blast>
 #include <catch2/catch.hpp>
-#include "test_helper.hpp"
 
 using namespace blast;
 
@@ -39,10 +38,8 @@ TEST_CASE("large success_tolerance does not allow real constraint violation", "[
 
   opt.success_tolerance = 0.05f;
 
-  opt.guess.type = Guess::custom;                                            // deterministic; see straight_line_guess()
-
-  opt.guess.initial_x = blast::test::straight_line_guess(opt, kStart, kEnd); // deliberately large - well above the 0.01 default
-  opt.max_tries       = 10;                                                  // random initial guess; a tightened obstacle needs a few tries
+  opt.guess.type = Guess::straight_line; // deterministic first try; deliberately large - well above the 0.01 default
+  opt.max_tries  = 10;                   // optimize() falls back to random guesses after try 1; a tightened obstacle needs a few
 
   Result result = optimize(&opt);
 
@@ -71,10 +68,9 @@ TEST_CASE("optimize stops at the first valid try instead of always using the las
   Manipulator robot = make_UR5e();
   Task        task  = make_UR5e_task();
 
-  Optimization opt(robot, task);         // default enables pva + tool_speed constraints, no obstacles
+  Optimization opt(robot, task);                // default enables pva + tool_speed constraints, no obstacles
   opt.success_tolerance = 0.01f;
-  opt.guess.type        = Guess::custom; // deterministic; see straight_line_guess()
-  opt.guess.initial_x   = blast::test::straight_line_guess(opt, kStart, kEnd);
+  opt.guess.type        = Guess::straight_line; // deterministic
   opt.max_tries         = 5;
 
   Result result = optimize(&opt);

@@ -2,7 +2,6 @@
 #include <blast>
 #include <catch2/catch.hpp>
 #include <cmath>
-#include "test_helper.hpp"
 
 using namespace blast;
 
@@ -49,7 +48,7 @@ TEST_CASE("tightening introduces no violated zero-gradient constraint row", "[Op
   // guess is as strong as many.
   int offenders = 0;
   {
-    Array  x = blast::test::straight_line_guess(opt, start, end);
+    Array  x = blast::guess_straight_line(&opt);
     Array  cons(m);
     Matrix grad(xlen, m);
     for (u32 i = 0; i < xlen * m; i++)
@@ -138,4 +137,53 @@ TEST_CASE("restore puts collision_scale back to 1", "[Optimization]") {
   restore_from_tolerance(&opt, snap);
   CHECK(opt.collision_scale == Approx(1.0));
   CHECK(opt.manip.position_max[0] == Approx(3.1416)); // position is never tightened
+}
+
+// ---------------------------------------------------------------------------
+// 4. Every solve method must apply the same -d * collision_scale transform to a
+// self-collision constraint. with_segments (and compute_constraints) do; broadphase
+// and double_broadphase previously computed the raw, unscaled -d instead, so under
+// tightening they'd accept trajectories with self-collision margins the accept gate
+// never actually validated. A collision_scale of 1 (untightened) can't catch this --
+// the missing factor is a no-op -- so this must run under tightening.
+// ---------------------------------------------------------------------------
+TEST_CASE("tightened self-collision constraint matches across with_segments/broadphase/double_broadphase", "[Optimization]") {
+  Array start = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
+  Array end   = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.17328};
+
+  Manipulator  robot = make_UR5e();
+  Task         task  = Task::stop_to_stop(start, end);
+  Optimization opt(robot, task);
+  opt.constraints.self_collisions = true;
+  opt.success_tolerance           = 0.01;
+  opt.collision_buffer            = 0.001; // collision_scale = tol/buffer = 10
+
+  REQUIRE(validate_task(&opt) == true);    // legal on true geometry
+
+  initialize_optimization_with_segments(&opt);
+  n_con_with_segments(&opt);
+  auto snap = tighten_for_success_tolerance(&opt);
+
+  const u32 xlen = (u32) opt.bspline.x_len(opt.task);
+  const u32 m    = (u32) opt.constraints.n_constraints;
+  Array     x    = blast::guess_straight_line(&opt);
+
+  Array  cons_segments(m), cons_broadphase(m), cons_double(m);
+  Matrix grad_segments(xlen, m), grad_broadphase(xlen, m), grad_double(xlen, m);
+  for (u32 i = 0; i < xlen * m; i++) {
+    grad_segments.data[i]   = 0;
+    grad_broadphase.data[i] = 0;
+    grad_double.data[i]     = 0;
+  }
+
+  constraints_and_gradients_with_segments(x, opt, cons_segments, grad_segments);
+  constraints_and_gradients_with_broadphase(x, opt, cons_broadphase, grad_broadphase);
+  constraints_and_gradients_with_double_broadphase(x, opt, cons_double, grad_double);
+
+  CHECK(is_close(cons_segments, cons_broadphase));
+  CHECK(is_close(cons_segments, cons_double));
+  CHECK(is_close(grad_segments, grad_broadphase));
+  CHECK(is_close(grad_segments, grad_double));
+
+  restore_from_tolerance(&opt, snap);
 }

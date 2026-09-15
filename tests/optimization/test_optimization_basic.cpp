@@ -1,7 +1,6 @@
 #define CATCH_CONFIG_MAIN
 #include <blast>
 #include <catch2/catch.hpp>
-#include "test_helper.hpp"
 
 using namespace blast;
 
@@ -20,9 +19,8 @@ TEST_CASE("optimize stop-to-stop default pva + tool_speed constraints active", "
   Optimization opt(robot, task); // default enables pva + tool_speed constraints
   opt.success_tolerance = 0.01f;
   // Deterministic guess: Guess::random makes `success == true` a claim about
-  // the solver, not about this test. See straight_line_guess().
-  opt.guess.type      = Guess::custom;
-  opt.guess.initial_x = blast::test::straight_line_guess(opt, kStart, kEnd);
+  // the solver, not about this test.
+  opt.guess.type = Guess::straight_line;
 
   Result result = optimize(&opt);
 
@@ -39,9 +37,8 @@ TEST_CASE("optimize stop-to-stop pva + tool_speed + torque constraints active", 
   opt.constraints.torque = true;
   opt.success_tolerance  = 0.01f;
   // Deterministic guess: Guess::random makes `success == true` a claim about
-  // the solver, not about this test. See straight_line_guess().
-  opt.guess.type      = Guess::custom;
-  opt.guess.initial_x = blast::test::straight_line_guess(opt, kStart, kEnd);
+  // the solver, not about this test.
+  opt.guess.type = Guess::straight_line;
 
   Result result = optimize(&opt);
 
@@ -59,9 +56,8 @@ TEST_CASE("optimization stop-to-stop pva + tool_speed + torque + self_collisions
   opt.constraints.self_collisions = true;
   opt.success_tolerance           = 0.01f;
   // Deterministic guess: Guess::random makes `success == true` a claim about
-  // the solver, not about this test. See straight_line_guess().
-  opt.guess.type      = Guess::custom;
-  opt.guess.initial_x = blast::test::straight_line_guess(opt, kStart, kEnd);
+  // the solver, not about this test.
+  opt.guess.type = Guess::straight_line;
 
   Result result = optimize(&opt);
 
@@ -91,13 +87,8 @@ TEST_CASE("optimization stop-to-stop all constraints active", "[Optimization") {
   opt.success_tolerance = 0.01f;
 
   // Deterministic guess: Guess::random makes `success == true` a claim about
-
-  // the solver, not about this test. See straight_line_guess().
-
-  opt.guess.type = Guess::custom;
-
-  opt.guess.initial_x = blast::test::straight_line_guess(opt, kStart, kEnd);
-
+  // the solver, not about this test.
+  opt.guess.type = Guess::straight_line;
 
   Result result = optimize(&opt);
 

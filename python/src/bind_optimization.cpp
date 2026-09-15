@@ -19,6 +19,8 @@ void bind_optimization(nb::module_& m) {
                  "Try each column of the candidates matrix as an initial guess.")
           .value("shotgun", Guess::shotgun,
                  "Try n_random_shots random initial guesses and keep the best.")
+          .value("straight_line", Guess::straight_line,
+                 "Straight line start->goal; time from the manipulator's vel/accel limits.")
           .export_values();
 
   // ------------------------------------------------------------------

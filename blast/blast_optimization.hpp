@@ -41,6 +41,7 @@ struct Guess {
     custom,
     random,
     shotgun,
+    straight_line,
     from_list
   };
 

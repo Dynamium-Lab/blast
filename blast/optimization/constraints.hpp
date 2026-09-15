@@ -219,7 +219,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 #endif
           // check every internal collision
           auto self_collision_distances = get_internal_collisions(opt.manip, manip_data);
-          if (const auto c = -min(self_collision_distances) * opt.collision_scale;
+          if (const auto c = -min(self_collision_distances) * opt.collision_scale; // negative distance is positive constraint
               c > max_internal_col_constraints) {
             max_internal_col_constraints = c;
             max_internal_collision_index = point_in_segment;
@@ -656,7 +656,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           // recompute internal collisions at the worst point in segment
           forward_kinematics(opt.manip, manip_data, p_plus);
           compute_collision_model(opt.manip, manip_data);
-          const auto new_internal_collision_constraint = max(-get_internal_collisions(opt.manip, manip_data)) * opt.collision_scale;
+          const auto new_internal_collision_constraint = max(-get_internal_collisions(opt.manip, manip_data)) * opt.collision_scale; // negative distance is positive constraint
           // partial difference d(internal_collision)/dp
           const real dint_coll_dp = (new_internal_collision_constraint - max_internal_col_constraints) / eps;
 
@@ -885,7 +885,7 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
 #endif
           const auto J_tool     = get_J_tool(&opt, manip_data); // todo: clean up get_J_tool to a get_tool_speed
           const auto tool_speed = norm(get_J_tool(&opt, manip_data) * v);
-          if (const auto c = bound_constraint(tool_speed, 0.0, tool_speed_max);
+          if (const auto c = abs_constraint(tool_speed, tool_speed_max);
               c > max_tool_speed_constraints) {
             max_tool_speed_constraints = c;
             max_tool_index             = point_in_segment;
@@ -898,7 +898,7 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
           PROFILE_SCOPE("Self Constraints");
 #endif
           // check every internal collision
-          if (const auto c = max(-get_internal_collisions(opt.manip, manip_data));
+          if (const auto c = max(-get_internal_collisions(opt.manip, manip_data)) * opt.collision_scale; // negative distance is positive constraint
               c > max_internal_col_constraints) {
             max_internal_col_constraints = c;
             max_internal_collision_index = point_in_segment;
@@ -937,10 +937,10 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
             }
 
             if (dist_min_static <= dist_min_dynamic) {
-              dist_min         = -dist_min_static; // negative distance is positive constraint
+              dist_min         = -dist_min_static * opt.collision_scale; // negative distance is positive constraint
               collision_object = &collision_object_static;
             } else {
-              dist_min         = -dist_min_dynamic;
+              dist_min         = -dist_min_dynamic * opt.collision_scale;
               collision_object = &collision_object_dynamic;
             }
 
@@ -1212,7 +1212,7 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
           forward_kinematics(opt.manip, manip_data, p_plus);
           const auto J_tool_p         = get_J_tool(&opt, manip_data);
           const auto tool_speed_p     = norm(J_tool_p * v_plus);
-          const auto new_constraint_p = bound_constraint(tool_speed_p, 0.0, tool_speed_max);
+          const auto new_constraint_p = abs_constraint(tool_speed_p, tool_speed_max);
           // partial difference d(tool_speed)/dp
           const real dtool_speed_dp = (new_constraint_p - max_tool_speed_constraints) / eps;
           p_plus[j]                 = p[j]; // reset finite difference
@@ -1221,7 +1221,7 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
           v_plus[j] += eps;
           const auto J_tool_v         = get_J_tool(&opt, manip_data);
           const auto tool_speed_v     = norm(J_tool_v * v_plus);
-          const auto new_constraint_v = bound_constraint(tool_speed_v, 0.0, tool_speed_max);
+          const auto new_constraint_v = abs_constraint(tool_speed_v, tool_speed_max);
           const real dtool_speed_dv   = (new_constraint_v - max_tool_speed_constraints) / eps;
           v_plus[j]                   = v[j];
 
@@ -1263,7 +1263,7 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
           // recompute internal collisions at the worst point in segment
           forward_kinematics(opt.manip, manip_data, p_plus);
           compute_collision_model(opt.manip, manip_data);
-          const auto new_internal_collision_constraint = max(-get_internal_collisions(opt.manip, manip_data));
+          const auto new_internal_collision_constraint = max(-get_internal_collisions(opt.manip, manip_data)) * opt.collision_scale; // negative distance is positive constraint
           // partial difference d(internal_collision)/dp
           const real dint_coll_dp = (new_internal_collision_constraint - max_internal_col_constraints) / eps;
 
@@ -1326,7 +1326,7 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
               }
             }
 
-            distance_plus = -distance_plus; // negative distance is positive constraint
+            distance_plus = -distance_plus * opt.collision_scale; // negative distance is positive constraint
 
             // partial difference d(collision)/dp
             const real dcoll_dp = (distance_plus - max_col_constraints[capsule_id]) / eps;
@@ -1495,7 +1495,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
 #endif
           const auto J_tool     = get_J_tool(&opt, manip_data); // todo: clean up get_J_tool to a get_tool_speed
           const auto tool_speed = norm(get_J_tool(&opt, manip_data) * v);
-          if (const auto c = bound_constraint(tool_speed, 0.0, tool_speed_max);
+          if (const auto c = abs_constraint(tool_speed, tool_speed_max);
               c > max_tool_speed_constraints) {
             max_tool_speed_constraints = c;
             max_tool_index             = point_in_segment;
@@ -1508,7 +1508,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
           PROFILE_SCOPE("Self Constraints");
 #endif
           // check every internal collision
-          if (const auto c = max(-get_internal_collisions(opt.manip, manip_data));
+          if (const auto c = max(-get_internal_collisions(opt.manip, manip_data)) * opt.collision_scale; // negative distance is positive constraint
               c > max_internal_col_constraints) {
             max_internal_col_constraints = c;
             max_internal_collision_index = point_in_segment;
@@ -1553,10 +1553,10 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
 
         // add constraint
         if (dist_min_static <= dist_min_dynamic) {
-          max_col_constraints[capsule_id]    = -dist_min_static;
+          max_col_constraints[capsule_id]    = -dist_min_static * opt.collision_scale; // negative distance is positive constraint
           max_collision_entities[capsule_id] = collision_object_static;
         } else {
-          max_col_constraints[capsule_id]    = -dist_min_dynamic;
+          max_col_constraints[capsule_id]    = -dist_min_dynamic * opt.collision_scale;
           max_collision_entities[capsule_id] = collision_object_dynamic;
         }
       }
@@ -1821,7 +1821,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
           forward_kinematics(opt.manip, manip_data, p_plus);
           const auto J_tool_p         = get_J_tool(&opt, manip_data);
           const auto tool_speed_p     = norm(J_tool_p * v_plus);
-          const auto new_constraint_p = bound_constraint(tool_speed_p, 0.0, tool_speed_max);
+          const auto new_constraint_p = abs_constraint(tool_speed_p, tool_speed_max);
           // partial difference d(tool_speed)/dp
           const real dtool_speed_dp = (new_constraint_p - max_tool_speed_constraints) / eps;
           p_plus[j]                 = p[j]; // reset finite difference
@@ -1830,7 +1830,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
           v_plus[j] += eps;
           const auto J_tool_v         = get_J_tool(&opt, manip_data);
           const auto tool_speed_v     = norm(J_tool_v * v_plus);
-          const auto new_constraint_v = bound_constraint(tool_speed_v, 0.0, tool_speed_max);
+          const auto new_constraint_v = abs_constraint(tool_speed_v, tool_speed_max);
           const real dtool_speed_dv   = (new_constraint_v - max_tool_speed_constraints) / eps;
           v_plus[j]                   = v[j];
 
@@ -1872,7 +1872,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
           // recompute internal collisions at the worst point in segment
           forward_kinematics(opt.manip, manip_data, p_plus);
           compute_collision_model(opt.manip, manip_data);
-          const auto new_internal_collision_constraint = max(-get_internal_collisions(opt.manip, manip_data));
+          const auto new_internal_collision_constraint = max(-get_internal_collisions(opt.manip, manip_data)) * opt.collision_scale; // negative distance is positive constraint
           // partial difference d(internal_collision)/dp
           const real dint_coll_dp = (new_internal_collision_constraint - max_internal_col_constraints) / eps;
 
@@ -1935,7 +1935,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
               }
             }
 
-            distance_plus = -distance_plus; // negative distance is positive constraint
+            distance_plus = -distance_plus * opt.collision_scale; // negative distance is positive constraint
 
             // partial difference d(collision)/dp
             const real dcoll_dp = (distance_plus - max_col_constraints[capsule_id]) / eps;
@@ -2147,7 +2147,7 @@ inline blast_fn void compute_constraints(real* result, const Array& x, Optimizat
 #if BLAST_TRACE_LEVEL >= 3
       PROFILE_SCOPE("SelfCollisions");
 #endif
-      auto tmp_coll = max(-get_internal_collisions(opt->manip, manip_data)) * opt->collision_scale;
+      auto tmp_coll = max(-get_internal_collisions(opt->manip, manip_data)) * opt->collision_scale; // negative distance is positive constraint
       // for (u32 j = 0; j < tmp_coll.size; j++)
       *moving_result++ = tmp_coll; //*std::abs(tmp_coll[j]);
     }
@@ -2546,7 +2546,7 @@ inline void compute_constraints_with_analytical_pva(ConstraintPerPoint& constrai
 #if BLAST_TRACE_LEVEL >= 3
       ZoneScopedN("SelfCollisions");
 #endif
-      auto tmp_coll = max(-get_internal_collisions(opt->manip, manip_data)) * opt->collision_scale;
+      auto tmp_coll = max(-get_internal_collisions(opt->manip, manip_data)) * opt->collision_scale; // negative distance is positive constraint
       // for (u32 j = 0; j < tmp_coll.size; j++)
       constraints.self_collision_constraint[i - opt->bspline.lower_bounds[x_idx]] = tmp_coll; //*std::abs(tmp_coll[j]);
     }
@@ -2747,7 +2747,7 @@ blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& 
 #if BLAST_TRACE_LEVEL >= 3
           ZoneScopedN("SelfCollisions");
 #endif
-          self_collision_constraint = max(-get_internal_collisions(opt->manip, manip_data)) * opt->collision_scale;
+          self_collision_constraint = max(-get_internal_collisions(opt->manip, manip_data)) * opt->collision_scale; // negative distance is positive constraint
           *moving_result++          = self_collision_constraint;
         }
 
@@ -2847,7 +2847,7 @@ blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& 
 
         compute_collision_model(opt->manip, manip_data);
         if (opt->constraints.self_collisions) {
-          auto self_collision_constraint_plus = max(-get_internal_collisions(opt->manip, manip_data)) * opt->collision_scale;
+          auto self_collision_constraint_plus = max(-get_internal_collisions(opt->manip, manip_data)) * opt->collision_scale; // negative distance is positive constraint
           dselfcol_dp(j, i)                   = (self_collision_constraint_plus - self_collision_constraint) / eps;
         }
 
@@ -2870,7 +2870,7 @@ blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& 
                 break;
               }
             }
-            distance_plus = -distance_plus * opt->collision_scale;
+            distance_plus = -distance_plus * opt->collision_scale; // negative distance is positive constraint
             // auto external_collisions_plus = -test_collisions_per_point(manip_data.capsule_list, &(opt->world));
             dcol_dp[i].resize(n_capsules, joints);
             dcol_dp[i](capsule_id, j) = (distance_plus - max_col_constraints[capsule_id]) / eps;
