@@ -188,6 +188,18 @@ struct ToleranceSnapshot {
   World                          world;
 };
 
+// True when every sample of `pos` (n_joints x n_points) lies within the snapshot's TRUE
+// position bounds. The tightened bounds cannot guarantee this where they are clamped to a
+// task endpoint (see tighten_for_success_tolerance), so success is checked against these.
+inline bool position_within_limits(const Matrix& pos, const std::array<real, MAX_JOINTS>& position_min,
+                                   const std::array<real, MAX_JOINTS>& position_max) {
+  for (u32 point = 0; point < pos.cols; point++)
+    for (u32 joint = 0; joint < pos.rows; joint++)
+      if (pos(joint, point) > position_max[joint] || pos(joint, point) < position_min[joint])
+        return false;
+  return true;
+}
+
 // Tightens the limits/collision geometry constraints are evaluated against by success_tolerance,
 // so that whenever the solver's own tolerance-based early-out triggers, the original,
 // untightened limits are still satisfied. Must be paired with restore_from_tolerance() before
@@ -226,11 +238,23 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   const real buffer    = opt->collision_buffer > 0 ? opt->collision_buffer : tol;
   opt->collision_scale = tol / buffer;
 
-  // Position is deliberately NOT tightened. Task::stop_to_stop pins the boundary control
-  // points, so the position rows of the boundary segments are constant in the decision
-  // variables -- gradient exactly 0. Shrinking the range can flip such a row to violated,
-  // and a violated row with no gradient makes the SQP subproblem infeasible at every
-  // iterate. validate_task() already checks start and goal against the true bounds.
+  // Position is tightened like the rest, EXCEPT never past the task's own start or goal.
+  // Task::stop_to_stop pins the boundary control points, so the position rows at the
+  // trajectory's ends are constant in the decision variables -- gradient exactly 0. A
+  // tightened bound that cut off an endpoint would flip such a row to violated with no
+  // gradient, making the SQP subproblem infeasible at every iterate; clamping the bound to
+  // the endpoint keeps that row satisfied. Where the clamp binds, the (1 + tol) acceptance
+  // slack is no longer covered, which is why the optimizers also check the rendered
+  // trajectory against the TRUE bounds (position_within_limits) before reporting success.
+  // Untightened, an accepted solution could exceed a joint limit by up to tol * range / 2.
+  for (int joint = 0; joint < opt->manip.n_joints; joint++) {
+    const real center       = (opt->manip.position_max[joint] + opt->manip.position_min[joint]) / 2;
+    const real half_range   = (opt->manip.position_max[joint] - opt->manip.position_min[joint]) / 2 / ratio_div;
+    const real endpoint_max = std::max(opt->task(joint, 0), opt->task(joint, 3));
+    const real endpoint_min = std::min(opt->task(joint, 0), opt->task(joint, 3));
+    opt->manip.position_max[joint] = std::max(center + half_range, endpoint_max);
+    opt->manip.position_min[joint] = std::min(center - half_range, endpoint_min);
+  }
   for (int j = 0; j < opt->manip.n_joints; j++) {
     opt->manip.velocity_max[j] /= ratio_div;
     opt->manip.acceleration_max[j] /= ratio_div;
@@ -432,6 +456,10 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
       is_valid_more                           = max_con_more < opt->success_tolerance;
+      if (opt->tighten_for_tolerance && opt->constraints.position)
+        is_valid_more = is_valid_more && position_within_limits(bspline_val_more.traj.pos,
+                                                                tolerance_snapshot.position_min,
+                                                                tolerance_snapshot.position_max);
 
       result.x = x;
 
@@ -696,6 +724,10 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
       is_valid_more                           = max_con_more < opt->success_tolerance;
+      if (opt->tighten_for_tolerance && opt->constraints.position)
+        is_valid_more = is_valid_more && position_within_limits(bspline_val_more.traj.pos,
+                                                                tolerance_snapshot.position_min,
+                                                                tolerance_snapshot.position_max);
 
       result.x = x;
 
@@ -1266,6 +1298,10 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
       is_valid_more                           = max_con_more < opt->success_tolerance;
+      if (opt->tighten_for_tolerance && opt->constraints.position)
+        is_valid_more = is_valid_more && position_within_limits(bspline_val_more.traj.pos,
+                                                                tolerance_snapshot.position_min,
+                                                                tolerance_snapshot.position_max);
 
       result.x = x;
 
@@ -1454,6 +1490,10 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
       is_valid_more                           = max_con_more < opt->success_tolerance;
+      if (opt->tighten_for_tolerance && opt->constraints.position)
+        is_valid_more = is_valid_more && position_within_limits(bspline_val_more.traj.pos,
+                                                                tolerance_snapshot.position_min,
+                                                                tolerance_snapshot.position_max);
 
       result.x = x;
 

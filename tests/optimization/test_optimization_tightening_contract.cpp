@@ -136,7 +136,53 @@ TEST_CASE("restore puts collision_scale back to 1", "[Optimization]") {
   CHECK(opt.collision_scale == Approx(10.0)); // tol / buffer
   restore_from_tolerance(&opt, snap);
   CHECK(opt.collision_scale == Approx(1.0));
-  CHECK(opt.manip.position_max[0] == Approx(3.1416)); // position is never tightened
+  CHECK(opt.manip.position_max[0] == Approx(3.1416)); // restored to the true bound
+}
+
+// ---------------------------------------------------------------------------
+// 4. Position is tightened like every other limit, but never past a task endpoint, and a
+// reported success never leaves the TRUE position bounds. Untightened, the (1 + tol)
+// acceptance slack let a solution exceed a joint limit by up to tol * range / 2.
+// ---------------------------------------------------------------------------
+TEST_CASE("position is tightened up to the endpoints and success respects the true bounds",
+          "[Optimization]") {
+  Array start = {3.14, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
+  Array end   = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.14};
+
+  Manipulator  robot = UR5e_narrow_limits();
+  Task         task  = Task::stop_to_stop(start, end);
+  Optimization opt(robot, task);
+  opt.success_tolerance = 0.01;
+  opt.collision_buffer  = 0.001;
+  initialize_optimization_with_segments(&opt);
+
+  auto tolerance_snapshot = tighten_for_success_tolerance(&opt);
+  for (int joint = 0; joint < opt.manip.n_joints; joint++) {
+    const real endpoint_max = std::max(opt.task(joint, 0), opt.task(joint, 3));
+    const real endpoint_min = std::min(opt.task(joint, 0), opt.task(joint, 3));
+    CHECK(opt.manip.position_max[joint] >= endpoint_max); // never cuts off an endpoint
+    CHECK(opt.manip.position_min[joint] <= endpoint_min);
+    CHECK(opt.manip.position_max[joint] <= (real) 3.1416);
+    CHECK(opt.manip.position_min[joint] >= (real) -3.1416);
+  }
+  CHECK(opt.manip.position_max[2] < (real) 3.1416); // mid-range joint: really tightened
+  restore_from_tolerance(&opt, tolerance_snapshot);
+
+  Optimization run(robot, task);
+  run.success_tolerance      = 0.01;
+  run.collision_buffer       = 0.001;
+  run.guess.type             = Guess::custom;
+  run.guess.initial_x        = blast::guess_straight_line(&run);
+  run.guess.initial_x.back() = 2.0;
+  const Result result        = optimize(&run);
+  if (result.success) {
+    const Matrix& pos = result.trajectory.pos;
+    for (u32 point = 0; point < pos.cols; point++)
+      for (u32 joint = 0; joint < pos.rows; joint++) {
+        CHECK(pos(joint, point) <= robot.position_max[joint]);
+        CHECK(pos(joint, point) >= robot.position_min[joint]);
+      }
+  }
 }
 
 // ---------------------------------------------------------------------------
