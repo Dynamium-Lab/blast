@@ -331,6 +331,18 @@ TEST_CASE("collision rows at a pinned endpoint target what the endpoint achieves
   }
   CHECK(collision_row(opt, n_segments / 2, n_segments, tool_capsule).shift == 0);
 
+  // Point-based methods: the pinned start/goal samples take the boundary target, an interior
+  // sample the full buffer. At the start's own clearance its row is satisfied (<= 0).
+  {
+    const u32  n_points       = opt.bspline.n_points;
+    const real start_distance = start_clearance - buffer; // the start's distance in the buffered geometry
+    CHECK(collision_constraint_at_point(opt, 0, tool_capsule, start_distance) <= 1e-12);
+    CHECK(collision_constraint_at_point(opt, n_points / 2, tool_capsule, start_distance) > 0);
+    for (real distance: {-buffer - 1e-6, -buffer + 1e-6})
+      for (u32 point: {0u, n_points / 2, n_points - 1})
+        CHECK((collision_constraint_at_point(opt, point, tool_capsule, distance) < tolerance) == (distance + buffer > 0));
+  }
+
   restore_from_tolerance(&opt, tolerance_snapshot);
   CHECK_FALSE(opt.endpoint_targets_active);
 }
