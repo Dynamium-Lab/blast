@@ -93,6 +93,7 @@ set(TESTS
         test_optimization_tightening_contract optimization/test_optimization_tightening_contract.cpp
         test_collision_gradient_capsule optimization/test_collision_gradient_capsule.cpp
         test_gradients_with_segments optimization/test_gradients_with_segments.cpp
+        test_decision_bounds optimization/test_decision_bounds.cpp
 
         # Math
         test_math_matrix math/test_matrix.cpp
