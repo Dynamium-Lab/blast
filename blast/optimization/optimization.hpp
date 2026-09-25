@@ -200,6 +200,48 @@ inline bool position_within_limits(const Matrix& pos, const std::array<real, MAX
   return true;
 }
 
+// The collision analogue of clamping the position bounds at the task endpoints. The boundary
+// control points are pinned, so a collision row whose worst sample is the task start/goal has an
+// all-zero gradient. With the full buffer baked in, an endpoint that clears the planning geometry
+// by less than `buffer` makes that row violated with no way to fix it -- the SQP subproblem is
+// infeasible at every iterate, although the endpoint itself is acceptable (clearance > 0). So the
+// rows of the first/last segment target at most what the task's own start/goal achieves, per
+// capsule and for the self row; every other row keeps the full buffer. Called on the tightened
+// geometry. Static obstacles only: a dynamic obstacle's pose at the goal depends on the duration.
+inline void set_endpoint_collision_targets(Optimization* opt, real buffer) {
+  // Floor, as a fraction of the buffer: keeps tol / t finite for an endpoint at ~0 clearance.
+  constexpr real min_target_fraction = 0.01;
+
+  opt->endpoint_targets_active = false;
+  if (!opt->constraints.external_collisions && !opt->constraints.self_collisions)
+    return;
+  const real min_target = buffer * min_target_fraction;
+  // Measured in the buffered geometry, so the endpoint's planning clearance is distance + buffer.
+  const auto endpoint_target = [&](real buffered_distance) { return std::clamp(buffered_distance + buffer, min_target, buffer); };
+
+  ManipulatorTempData manip_data;
+  Array               endpoint_position(opt->manip.n_joints);
+  for (int endpoint_index = 0; endpoint_index < 2; endpoint_index++) {
+    for (int joint = 0; joint < opt->manip.n_joints; joint++)
+      endpoint_position[joint] = opt->task(joint, endpoint_index == 0 ? 0 : 3);
+    forward_kinematics(opt->manip, manip_data, endpoint_position);
+    compute_collision_model(opt->manip, manip_data);
+
+    opt->endpoint_self_target[endpoint_index] = opt->constraints.self_collisions
+                                                        ? endpoint_target(min(get_internal_collisions(opt->manip, manip_data)))
+                                                        : buffer;
+    for (int capsule_id = 0; capsule_id < opt->manip._n_caps; capsule_id++) {
+      const auto& capsule          = manip_data.capsule_list[capsule_id];
+      real        closest_distance = INF_REAL;
+      for (const auto& box: opt->world.boxes) closest_distance = std::min(closest_distance, distance(capsule, box));
+      for (const auto& world_capsule: opt->world.capsules) closest_distance = std::min(closest_distance, distance(capsule, world_capsule));
+      for (const auto& sphere: opt->world.spheres) closest_distance = std::min(closest_distance, distance(capsule, sphere));
+      opt->endpoint_collision_target[endpoint_index][capsule_id] = opt->constraints.external_collisions ? endpoint_target(closest_distance) : buffer;
+    }
+  }
+  opt->endpoint_targets_active = true;
+}
+
 // Tightens the limits/collision geometry constraints are evaluated against by success_tolerance,
 // so that whenever the solver's own tolerance-based early-out triggers, the original,
 // untightened limits are still satisfied. Must be paired with restore_from_tolerance() before
@@ -226,7 +268,8 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
 
   // Snapshot taken, nothing modified, so restore_from_tolerance() is a no-op.
   if (!opt->tighten_for_tolerance) {
-    opt->collision_scale = 1.0;
+    opt->collision_scale         = 1.0;
+    opt->endpoint_targets_active = false;
     return snap;
   }
 
@@ -286,6 +329,8 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   for (auto& door: opt->world.dynamic_doors)
     door.extents += Vec3(col_margin, col_margin, col_margin);
 
+  set_endpoint_collision_targets(opt, buffer);
+
   return snap;
 }
 
@@ -301,6 +346,7 @@ inline void restore_from_tolerance(Optimization* opt, const ToleranceSnapshot& s
     opt->manip._collision_model[i].radius = snap.capsule_radius[i];
   opt->world           = snap.world;
   opt->collision_scale = 1.0; // raw metres again outside the tightening window
+  opt->endpoint_targets_active = false;
 }
 
 inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {

@@ -62,6 +62,29 @@ inline blast_fn Matrix get_J_tool(const Optimization* opt, const ManipulatorTemp
   return J_tool;
 }
 
+// A with_segments collision row is c = -(d + shift) * scale, d the distance in the tightened geometry.
+// Every row away from the task endpoints is shift 0, scale collision_scale. A row of the first or
+// last segment gets its own target t <= collision_buffer (tighten_for_success_tolerance):
+// shift = buffer - t, scale = tol / t. Acceptance does not move with t:
+//   c < tol  <=>  d + buffer > 0  -- the untargeted row's condition, for any t > 0.
+struct CollisionRow {
+  real shift;
+  real scale;
+};
+inline blast_fn CollisionRow collision_row(const Optimization& opt, int segment, int n_segments, int capsule_id) {
+  if (!opt.endpoint_targets_active || (segment != 0 && segment != n_segments - 1))
+    return {0.0, opt.collision_scale};
+  const auto endpoint_target = [&](int endpoint_index) {
+    return capsule_id < 0 ? opt.endpoint_self_target[endpoint_index] : opt.endpoint_collision_target[endpoint_index][capsule_id];
+  };
+  real target_clearance = INF_REAL;
+  if (segment == 0) target_clearance = std::min(target_clearance, endpoint_target(0));
+  if (segment == n_segments - 1) target_clearance = std::min(target_clearance, endpoint_target(1));
+  const real tolerance = opt.success_tolerance;
+  const real buffer    = opt.collision_buffer > 0 ? opt.collision_buffer : tolerance;
+  return {buffer - target_clearance, tolerance / target_clearance};
+}
+
 inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Optimization& opt, Array& constraints, Matrix& grad) {
   // constraints (p,v,a,tor) for each joint, for each segment
   // [p1, p2,..., v1, v2,..., a1, a2,..., t1, t2,...]
@@ -135,6 +158,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
     real  max_tool_speed_constraints   = -INF_REAL;
     real  max_internal_col_constraints = -INF_REAL; // todo: worst or worst per capsule ?
     Array max_col_constraints(n_capsules, -INF_REAL);
+    const auto self_row = collision_row(opt, segment, n_segments, -1);
 
     for (int point_in_segment = 0; point_in_segment < n_points_per_segment; point_in_segment++) {
       {
@@ -219,7 +243,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 #endif
           // check every internal collision
           auto self_collision_distances = get_internal_collisions(opt.manip, manip_data);
-          if (const auto c = -min(self_collision_distances) * opt.collision_scale; // negative distance is positive constraint
+          if (const auto c = -(min(self_collision_distances) + self_row.shift) * self_row.scale; // negative distance is positive constraint
               c > max_internal_col_constraints) {
             max_internal_col_constraints = c;
             max_internal_collision_index = point_in_segment;
@@ -335,7 +359,8 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
               count++;
             }
 
-            dist_min = -dist_min * opt.collision_scale; // negative distance is positive constraint
+            const auto row = collision_row(opt, segment, n_segments, capsule_id);
+            dist_min       = -(dist_min + row.shift) * row.scale; // negative distance is positive constraint
 
             // update worst position for the current capsule if necessary
             if (dist_min > max_col_constraints[capsule_id]) {
@@ -656,7 +681,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           // recompute internal collisions at the worst point in segment
           forward_kinematics(opt.manip, manip_data, p_plus);
           compute_collision_model(opt.manip, manip_data);
-          const auto new_internal_collision_constraint = max(-get_internal_collisions(opt.manip, manip_data)) * opt.collision_scale; // negative distance is positive constraint
+          const auto new_internal_collision_constraint = -(min(get_internal_collisions(opt.manip, manip_data)) + self_row.shift) * self_row.scale; // negative distance is positive constraint
           // partial difference d(internal_collision)/dp
           const real dint_coll_dp = (new_internal_collision_constraint - max_internal_col_constraints) / eps;
 
@@ -719,7 +744,8 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
               }
             }
 
-            distance_plus = -distance_plus * opt.collision_scale; // negative distance is positive constraint
+            const auto row = collision_row(opt, segment, n_segments, capsule_id);
+            distance_plus  = -(distance_plus + row.shift) * row.scale; // negative distance is positive constraint
 
             // partial difference d(collision)/dp
             const real dcoll_dp = (distance_plus - max_col_constraints[capsule_id]) / eps;
