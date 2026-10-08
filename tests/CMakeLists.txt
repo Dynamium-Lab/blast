@@ -91,6 +91,7 @@ set(TESTS
         test_optimization_task_violation optimization/test_optimization_task_violation.cpp
         test_optimization_tolerance_no_penetration optimization/test_optimization_tolerance_no_penetration.cpp
         test_optimization_tightening_contract optimization/test_optimization_tightening_contract.cpp
+        test_collision_gradient_capsule optimization/test_collision_gradient_capsule.cpp
         test_gradients_with_segments optimization/test_gradients_with_segments.cpp
 
         # Math
