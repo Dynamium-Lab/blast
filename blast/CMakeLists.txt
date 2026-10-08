@@ -6,6 +6,8 @@ endif()
 
 include(GNUInstallDirs)
 
+option(BLAST_BUNDLED_NLOPT_SHARED "Build the bundled NLopt as a shared library (static by default)" OFF)
+
 # --------------------------------------------------------------------------
 # Vendored dependency: NLopt
 # Disable language bindings and tests — we only need the C library.
@@ -43,7 +45,16 @@ if(NOT TARGET nlopt)
     if(NOT DEFINED Python_VERSION_MINOR)
         set(Python_VERSION_MINOR "0")
     endif()
-    add_subdirectory(extern/nlopt EXCLUDE_FROM_ALL)
+
+    # Build the bundled NLopt statically so consumers never need nlopt.dll at
+    # runtime. Set inside a function so the override is scoped (a normal
+    # variable, honored by nlopt's option() under CMP0077) and never touches
+    # the outer project's BUILD_SHARED_LIBS or the cache.
+    function(blast_add_nlopt)
+        set(BUILD_SHARED_LIBS ${BLAST_BUNDLED_NLOPT_SHARED})
+        add_subdirectory(extern/nlopt EXCLUDE_FROM_ALL)
+    endfunction()
+    blast_add_nlopt()
 endif()
 endif() # NOT BLAST_USE_NATIVE_SQP
 
