@@ -8,6 +8,16 @@
 using namespace blast;
 
 // External-collision gradients against central finite differences, world made of capsules only.
+// Float differencing loses most significant digits to cancellation (as in test_helper.hpp), so
+// it takes a larger step and a looser bound.
+#if BLAST_USE_DOUBLES
+constexpr real finite_difference_step      = 1e-6;
+constexpr real finite_difference_tolerance = 1e-3;
+#else
+constexpr real finite_difference_step      = 1e-3;
+constexpr real finite_difference_tolerance = 1e-1;
+#endif
+
 using ConstraintsAndGradientsFunction = void (*)(const Array&, Optimization&, Array&, Matrix&);
 
 static World capsule_world() {
@@ -48,17 +58,17 @@ static void check_gradients(ConstraintsAndGradientsFunction constraints_and_grad
     for (u32 variable = 0; variable + 1 < n_variables; variable++) { // control points; the duration column has no collision term
       Array x_plus  = x;
       Array x_minus = x;
-      x_plus[variable] += 1e-6;
-      x_minus[variable] -= 1e-6;
+      x_plus[variable] += finite_difference_step;
+      x_minus[variable] -= finite_difference_step;
       Array  constraints_plus(n_constraints), constraints_minus(n_constraints);
       Matrix no_gradient;
       constraints_and_gradients(x_plus, opt, constraints_plus, no_gradient);
       constraints_and_gradients(x_minus, opt, constraints_minus, no_gradient);
       for (u32 row = 0; row < n_constraints; row++) {
-        const real finite_difference = (constraints_plus[row] - constraints_minus[row]) / 2e-6;
+        const real finite_difference = (constraints_plus[row] - constraints_minus[row]) / (2 * finite_difference_step);
         // Rows are a max over samples: where the argmax switches inside the step the finite
         // difference mixes two pieces, so allow a few, but a systematic error shows up in hundreds.
-        mismatched += std::abs(gradient(variable, row) - finite_difference) > 1e-3 * (std::abs(finite_difference) + 1e-3);
+        mismatched += std::abs(gradient(variable, row) - finite_difference) > finite_difference_tolerance * (std::abs(finite_difference) + finite_difference_tolerance);
         checked++;
       }
     }
@@ -97,14 +107,14 @@ TEST_CASE("analytical_dynamics collision gradients against world capsules match 
     for (u32 variable = 0; variable + 1 < n_variables; variable++) {
       Array x_plus  = x;
       Array x_minus = x;
-      x_plus[variable] += 1e-6;
-      x_minus[variable] -= 1e-6;
+      x_plus[variable] += finite_difference_step;
+      x_minus[variable] -= finite_difference_step;
       Array constraints_plus(n_constraints), constraints_minus(n_constraints);
       nlopt_constraints_with_analytical_dynamics(n_constraints, constraints_plus.data, n_variables, x_plus.data, nullptr, &opt);
       nlopt_constraints_with_analytical_dynamics(n_constraints, constraints_minus.data, n_variables, x_minus.data, nullptr, &opt);
       for (u32 row = 0; row < n_constraints; row++) {
-        const real finite_difference = (constraints_plus[row] - constraints_minus[row]) / 2e-6;
-        mismatched += std::abs(gradient[row * n_variables + variable] - finite_difference) > 1e-3 * (std::abs(finite_difference) + 1e-3);
+        const real finite_difference = (constraints_plus[row] - constraints_minus[row]) / (2 * finite_difference_step);
+        mismatched += std::abs(gradient[row * n_variables + variable] - finite_difference) > finite_difference_tolerance * (std::abs(finite_difference) + finite_difference_tolerance);
         checked++;
       }
     }
