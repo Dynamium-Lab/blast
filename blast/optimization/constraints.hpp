@@ -259,7 +259,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
                   dist < dist_min) {
                 dist_min                            = dist;
                 collision_objects.other_object_type = CollisionObjectType::capsule;
-                collision_objects.capsule           = capsule;
+                collision_objects.capsule           = caps;
                 collision_objects.point_in_segment  = point_in_segment;
               }
               count++;
@@ -2782,7 +2782,7 @@ blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& 
                   dist < dist_min) {
                 dist_min                            = dist;
                 collision_objects.other_object_type = CollisionObjectType::capsule;
-                collision_objects.capsule           = capsule;
+                collision_objects.capsule           = caps;
                 collision_objects.point_in_segment  = i;
               }
               count++;
