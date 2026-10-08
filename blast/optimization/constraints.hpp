@@ -483,7 +483,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           }
 
           // daj/dT = -2 * (Ca + 1) / T
-          fill_column.back() = -2 * (constraints[con] + 1) * one_over_T;
+          fill_column.back() = -2 * (max_acc_constraints[joint] + 1) * one_over_T;
 
           con++;
         }
@@ -1090,7 +1090,7 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
           }
 
           // daj/dT = -2 * (Ca + 1) / T
-          fill_column.back() = -2 * (constraints[con] + 1) * one_over_T;
+          fill_column.back() = -2 * (max_acc_constraints[joint] + 1) * one_over_T;
 
           con++;
         }
@@ -1699,7 +1699,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
           }
 
           // daj/dT = -2 * (Ca + 1) / T
-          fill_column.back() = -2 * (constraints[con] + 1) * one_over_T;
+          fill_column.back() = -2 * (max_acc_constraints[joint] + 1) * one_over_T;
 
           con++;
         }
