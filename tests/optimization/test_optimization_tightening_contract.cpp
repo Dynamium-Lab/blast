@@ -310,8 +310,8 @@ TEST_CASE("collision rows at a pinned endpoint target what the endpoint achieves
     const int n_segments              = (int) n_constraints / constraints_per_segment;
     Array     x                       = blast::guess_straight_line(&hold);
     x.back()                          = 2.0; // start == goal: the limit-derived duration would be 0
-    Array     constraints(n_constraints);
-    Matrix    gradient(n_variables, n_constraints);
+    Array  constraints(n_constraints);
+    Matrix gradient(n_variables, n_constraints);
     constraints_and_gradients_with_segments(x, hold, constraints, gradient);
     real worst_boundary = -INF_REAL, worst_interior = -INF_REAL;
     for (int segment = 0; segment < n_segments; segment++)

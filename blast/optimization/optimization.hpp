@@ -233,9 +233,12 @@ inline void set_endpoint_collision_targets(Optimization* opt, real buffer) {
     for (int capsule_id = 0; capsule_id < opt->manip._n_caps; capsule_id++) {
       const auto& capsule          = manip_data.capsule_list[capsule_id];
       real        closest_distance = INF_REAL;
-      for (const auto& box: opt->world.boxes) closest_distance = std::min(closest_distance, distance(capsule, box));
-      for (const auto& world_capsule: opt->world.capsules) closest_distance = std::min(closest_distance, distance(capsule, world_capsule));
-      for (const auto& sphere: opt->world.spheres) closest_distance = std::min(closest_distance, distance(capsule, sphere));
+      for (const auto& box: opt->world.boxes)
+        closest_distance = std::min(closest_distance, distance(capsule, box));
+      for (const auto& world_capsule: opt->world.capsules)
+        closest_distance = std::min(closest_distance, distance(capsule, world_capsule));
+      for (const auto& sphere: opt->world.spheres)
+        closest_distance = std::min(closest_distance, distance(capsule, sphere));
       opt->endpoint_collision_target[endpoint_index][capsule_id] = opt->constraints.external_collisions ? endpoint_target(closest_distance) : buffer;
     }
   }
@@ -291,10 +294,10 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   // trajectory against the TRUE bounds (position_within_limits) before reporting success.
   // Untightened, an accepted solution could exceed a joint limit by up to tol * range / 2.
   for (int joint = 0; joint < opt->manip.n_joints; joint++) {
-    const real center       = (opt->manip.position_max[joint] + opt->manip.position_min[joint]) / 2;
-    const real half_range   = (opt->manip.position_max[joint] - opt->manip.position_min[joint]) / 2 / ratio_div;
-    const real endpoint_max = std::max(opt->task(joint, 0), opt->task(joint, 3));
-    const real endpoint_min = std::min(opt->task(joint, 0), opt->task(joint, 3));
+    const real center              = (opt->manip.position_max[joint] + opt->manip.position_min[joint]) / 2;
+    const real half_range          = (opt->manip.position_max[joint] - opt->manip.position_min[joint]) / 2 / ratio_div;
+    const real endpoint_max        = std::max(opt->task(joint, 0), opt->task(joint, 3));
+    const real endpoint_min        = std::min(opt->task(joint, 0), opt->task(joint, 3));
     opt->manip.position_max[joint] = std::max(center + half_range, endpoint_max);
     opt->manip.position_min[joint] = std::min(center - half_range, endpoint_min);
   }
@@ -344,8 +347,8 @@ inline void restore_from_tolerance(Optimization* opt, const ToleranceSnapshot& s
   opt->manip._base_sphere.radius = snap.base_sphere_radius;
   for (int i = 0; i < opt->manip._n_caps; i++)
     opt->manip._collision_model[i].radius = snap.capsule_radius[i];
-  opt->world           = snap.world;
-  opt->collision_scale = 1.0; // raw metres again outside the tightening window
+  opt->world                   = snap.world;
+  opt->collision_scale         = 1.0; // raw metres again outside the tightening window
   opt->endpoint_targets_active = false;
 }
 

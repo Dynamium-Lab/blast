@@ -78,8 +78,10 @@ inline blast_fn CollisionRow collision_row(const Optimization& opt, int segment,
     return capsule_id < 0 ? opt.endpoint_self_target[endpoint_index] : opt.endpoint_collision_target[endpoint_index][capsule_id];
   };
   real target_clearance = INF_REAL;
-  if (segment == 0) target_clearance = std::min(target_clearance, endpoint_target(0));
-  if (segment == n_segments - 1) target_clearance = std::min(target_clearance, endpoint_target(1));
+  if (segment == 0)
+    target_clearance = std::min(target_clearance, endpoint_target(0));
+  if (segment == n_segments - 1)
+    target_clearance = std::min(target_clearance, endpoint_target(1));
   const real tolerance = opt.success_tolerance;
   const real buffer    = opt.collision_buffer > 0 ? opt.collision_buffer : tolerance;
   return {buffer - target_clearance, tolerance / target_clearance};
@@ -89,10 +91,10 @@ inline blast_fn CollisionRow collision_row(const Optimization& opt, int segment,
 // takes the target of the segment the sample falls in, so the boundary region is the same as
 // with_segments'. Their rows AT the task start/goal are exactly constant (pinned samples).
 inline blast_fn real collision_constraint_at_point(const Optimization& opt, u32 point, int capsule_id, real distance) {
-  const int n_segments = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
-  const int n_points   = (int) opt.bspline.n_points;
-  const int segment    = std::min((int) point * n_segments / std::max(n_points, 1), n_segments - 1);
-  const auto row       = collision_row(opt, segment, n_segments, capsule_id);
+  const int  n_segments = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
+  const int  n_points   = (int) opt.bspline.n_points;
+  const int  segment    = std::min((int) point * n_segments / std::max(n_points, 1), n_segments - 1);
+  const auto row        = collision_row(opt, segment, n_segments, capsule_id);
   return -(distance + row.shift) * row.scale;
 }
 
@@ -162,13 +164,13 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
     Matrix bv(&opt.bspline.basis_v(0, start_point_for_segment), n_ctrl, n_points_per_segment);
     Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_per_segment);
 
-    Array max_pos_constraints(n_joints, -INF_REAL);
-    Array max_vel_constraints(n_joints, -INF_REAL);
-    Array max_acc_constraints(n_joints, -INF_REAL);
-    Array max_tor_constraints(n_joints, -INF_REAL);
-    real  max_tool_speed_constraints   = -INF_REAL;
-    real  max_internal_col_constraints = -INF_REAL; // todo: worst or worst per capsule ?
-    Array max_col_constraints(n_capsules, -INF_REAL);
+    Array      max_pos_constraints(n_joints, -INF_REAL);
+    Array      max_vel_constraints(n_joints, -INF_REAL);
+    Array      max_acc_constraints(n_joints, -INF_REAL);
+    Array      max_tor_constraints(n_joints, -INF_REAL);
+    real       max_tool_speed_constraints   = -INF_REAL;
+    real       max_internal_col_constraints = -INF_REAL; // todo: worst or worst per capsule ?
+    Array      max_col_constraints(n_capsules, -INF_REAL);
     const auto self_row = collision_row(opt, segment, n_segments, -1);
 
     for (int point_in_segment = 0; point_in_segment < n_points_per_segment; point_in_segment++) {
