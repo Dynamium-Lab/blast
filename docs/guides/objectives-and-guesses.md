@@ -31,6 +31,9 @@ opt.guess = Guess(candidate_matrix);   // Guess::from_list
 
 // Shotgun — a fixed number of random shots.
 opt.guess = Guess(100u);               // Guess::shotgun
+
+// Straight line start->goal; deterministic, no random draws.
+opt.guess.type = Guess::straight_line;
 ```
 
 | `GuessType` | Behaviour |
@@ -39,6 +42,7 @@ opt.guess = Guess(100u);               // Guess::shotgun
 | `random` | Try `n_random_shots` random guesses, keep the best |
 | `shotgun` | Fire a fixed number of random shots |
 | `from_list` | Try each column of the `candidates` matrix |
+| `straight_line` | Straight line start->goal; time from the manipulator's vel/accel limits |
 
 ```{tip}
 More random shots improves robustness on hard problems at the cost of solve time. Start
