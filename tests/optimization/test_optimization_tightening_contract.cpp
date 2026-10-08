@@ -240,6 +240,14 @@ TEST_CASE("tightened self-collision constraint matches across with_segments/broa
 // gradient (the start is pinned). The first segment's rows target what the start achieves instead,
 // every other row keeps the buffer, and acceptance (c < tol <=> d + buffer > 0) does not move.
 // ---------------------------------------------------------------------------
+// What "exactly" means for distances and rows below. Float rows carry ~1e-7 relative distance
+// error times the row scale (tolerance / target, ~20 here); the bug they guard is +tolerance/2.
+#if BLAST_USE_DOUBLES
+constexpr real exact_tolerance = 1e-9;
+#else
+constexpr real exact_tolerance = 1e-5;
+#endif
+
 TEST_CASE("collision rows at a pinned endpoint target what the endpoint achieves", "[Optimization]") {
   const real tolerance = 0.01, buffer = 0.001, start_clearance = 0.0005; // start clears the sphere by half the buffer
   Array      start = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
@@ -259,7 +267,7 @@ TEST_CASE("collision rows at a pinned endpoint target what the endpoint achieves
     for (int capsule_id = 0; capsule_id < robot._n_caps; capsule_id++)
       if (capsule_id != tool_capsule)
         REQUIRE(distance(manip_data.capsule_list[capsule_id], world.spheres[0]) > 2 * buffer); // only the tool capsule is close
-    REQUIRE(distance(capsule, world.spheres[0]) == Approx(start_clearance).margin(1e-9));
+    REQUIRE(distance(capsule, world.spheres[0]) == Approx(start_clearance).margin(exact_tolerance));
   }
 
   Task         task = Task::stop_to_stop(start, end);
@@ -275,7 +283,7 @@ TEST_CASE("collision rows at a pinned endpoint target what the endpoint achieves
   auto tolerance_snapshot = tighten_for_success_tolerance(&opt);
 
   REQUIRE(opt.endpoint_targets_active);
-  CHECK(opt.endpoint_collision_target[0][tool_capsule] == Approx(start_clearance).margin(1e-9)); // what the start achieves
+  CHECK(opt.endpoint_collision_target[0][tool_capsule] == Approx(start_clearance).margin(exact_tolerance)); // what the start achieves
   for (int capsule_id = 0; capsule_id < robot._n_caps; capsule_id++)
     if (capsule_id != tool_capsule)
       CHECK(opt.endpoint_collision_target[0][capsule_id] == Approx(buffer)); // far capsules keep the full buffer
@@ -314,7 +322,7 @@ TEST_CASE("collision rows at a pinned endpoint target what the endpoint achieves
         else
           worst_interior = std::max(worst_interior, constraint);
       }
-    CHECK(worst_boundary <= 1e-12);
+    CHECK(worst_boundary <= exact_tolerance);
     CHECK(worst_interior > 0); // interior rows keep the full buffer: not vacuous
     restore_from_tolerance(&hold, hold_tolerance_snapshot);
   }
@@ -336,7 +344,7 @@ TEST_CASE("collision rows at a pinned endpoint target what the endpoint achieves
   {
     const u32  n_points       = opt.bspline.n_points;
     const real start_distance = start_clearance - buffer; // the start's distance in the buffered geometry
-    CHECK(collision_constraint_at_point(opt, 0, tool_capsule, start_distance) <= 1e-12);
+    CHECK(collision_constraint_at_point(opt, 0, tool_capsule, start_distance) <= exact_tolerance);
     CHECK(collision_constraint_at_point(opt, n_points / 2, tool_capsule, start_distance) > 0);
     for (real distance: {-buffer - 1e-6, -buffer + 1e-6})
       for (u32 point: {0u, n_points / 2, n_points - 1})
