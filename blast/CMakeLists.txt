@@ -6,6 +6,8 @@ endif()
 
 include(GNUInstallDirs)
 
+option(BLAST_BUNDLED_NLOPT_SHARED "Build the bundled NLopt as a shared library (static by default)" OFF)
+
 # --------------------------------------------------------------------------
 # Vendored dependency: NLopt
 # Disable language bindings and tests — we only need the C library.
@@ -34,26 +36,16 @@ if(NOT TARGET nlopt)
     if(NOT DEFINED Python_VERSION_MINOR)
         set(Python_VERSION_MINOR "0")
     endif()
-    
-    # ======================================================================
-    # FIX: Force NLopt to build as a static library to prevent missing DLLs
-    # ======================================================================
-    set(NLOPT_CXX ON CACHE BOOL "Build NLopt with C++ compiler" FORCE)
-    
-    set(OLD_BUILD_SHARED ${BUILD_SHARED_LIBS})
-    set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libraries" FORCE)
 
-    add_subdirectory(extern/nlopt EXCLUDE_FROM_ALL)
-    
-    # Restore the original global setting so you don't force the outer 
-    # project's other dependencies to be static unexpectedly
-    set(BUILD_SHARED_LIBS ${OLD_BUILD_SHARED} CACHE BOOL "Build static libraries" FORCE)
-
-    # Keep the interface include fix from earlier
-    target_include_directories(nlopt INTERFACE
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/extern/nlopt/src/api>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/extern/nlopt>
-    )
+    # Build the bundled NLopt statically so consumers never need nlopt.dll at
+    # runtime. Set inside a function so the override is scoped (a normal
+    # variable, honored by nlopt's option() under CMP0077) and never touches
+    # the outer project's BUILD_SHARED_LIBS or the cache.
+    function(blast_add_nlopt)
+        set(BUILD_SHARED_LIBS ${BLAST_BUNDLED_NLOPT_SHARED})
+        add_subdirectory(extern/nlopt EXCLUDE_FROM_ALL)
+    endfunction()
+    blast_add_nlopt()
 endif()
 
 # --------------------------------------------------------------------------
