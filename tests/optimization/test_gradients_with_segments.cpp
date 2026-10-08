@@ -9,6 +9,16 @@ using namespace blast;
 
 // Analytic constraint gradients against central finite differences, every constraint type on, for
 // each segment-based method; the broadphase methods also against with_segments.
+// Float differencing loses most significant digits to cancellation (as in test_helper.hpp), so
+// it takes a larger step and a looser bound; the duration bug is still caught (~13% of entries).
+#if BLAST_USE_DOUBLES
+constexpr real finite_difference_step      = 1e-6;
+constexpr real finite_difference_tolerance = 1e-3;
+#else
+constexpr real finite_difference_step      = 1e-3;
+constexpr real finite_difference_tolerance = 1e-1;
+#endif
+
 using ConstraintsAndGradientsFunction = void (*)(const Array&, Optimization&, Array&, Matrix&);
 
 static void check_gradients(ConstraintsAndGradientsFunction constraints_and_gradients, const char* method_name) {
@@ -53,7 +63,7 @@ static void check_gradients(ConstraintsAndGradientsFunction constraints_and_grad
       CHECK(is_close(gradient, segments_gradient));
     }
     for (u32 variable = 0; variable < n_variables; variable++) {
-      const real step    = (variable + 1 == n_variables) ? 1e-6 * x[variable] : 1e-6;
+      const real step    = (variable + 1 == n_variables) ? finite_difference_step * x[variable] : finite_difference_step;
       Array      x_plus  = x;
       Array      x_minus = x;
       x_plus[variable] += step;
@@ -66,7 +76,7 @@ static void check_gradients(ConstraintsAndGradientsFunction constraints_and_grad
         const real finite_difference = (constraints_plus[row] - constraints_minus[row]) / (2 * step);
         // Rows are a max over samples: where the argmax switches inside +/-step the finite
         // difference mixes two pieces, so allow a few, but a systematic error shows up in hundreds.
-        const bool mismatch = std::abs(gradient(variable, row) - finite_difference) > 1e-3 * (std::abs(finite_difference) + 1e-3);
+        const bool mismatch = std::abs(gradient(variable, row) - finite_difference) > finite_difference_tolerance * (std::abs(finite_difference) + finite_difference_tolerance);
         if (variable + 1 == n_variables)
           mismatched_durations += mismatch, checked_durations++;
         else
