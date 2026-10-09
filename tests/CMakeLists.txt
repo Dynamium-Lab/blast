@@ -104,6 +104,7 @@ set(TESTS
         # World
         test_primitives world/test_primitives.cpp
         test_broadphase world/test_broadphase.cpp
+        test_dynamic_box world/test_dynamic_box.cpp
         # test_gjk_epa world/test_gjk_epa.cpp
 
         # Trajectory

@@ -12,11 +12,20 @@ inline blast::Task make_UR5e_task() {
   return blast::Task::stop_to_stop(kStart, kEnd);
 }
 
+// Denser than the 100-point default. The solver may sit up to success_tolerance
+// at the sample points, so with 100 points the overshoot between samples pushed
+// the dense validation past the gate (0.0105 > 0.01) under g++-13 float.
+// 140 is a multiple of the 7 segments (12 ctrl - degree 5): the constraints split
+// points as n_points / n_segments, so any remainder would go unconstrained.
+inline blast::Bspline make_bspline(const Manipulator& robot) {
+  return blast::Bspline(12, 140, 5, robot.n_joints);
+}
+
 TEST_CASE("optimize stop-to-stop default pva + tool_speed constraints active", "[Optimization]") {
   Manipulator robot = make_UR5e();
   Task        task  = make_UR5e_task();
 
-  Optimization opt(robot, task); // default enables pva + tool_speed constraints
+  Optimization opt(robot, task, make_bspline(robot)); // default enables pva + tool_speed constraints
   opt.success_tolerance = 0.01f;
   // Deterministic guess: Guess::random makes `success == true` a claim about
   // the solver, not about this test.
@@ -33,7 +42,7 @@ TEST_CASE("optimize stop-to-stop pva + tool_speed + torque constraints active", 
   Manipulator robot = make_UR5e();
   Task        task  = make_UR5e_task();
 
-  Optimization opt(robot, task); // default enables pva + tool_speed constraints
+  Optimization opt(robot, task, make_bspline(robot)); // default enables pva + tool_speed constraints
   opt.constraints.torque = true;
   opt.success_tolerance  = 0.01f;
   // Deterministic guess: Guess::random makes `success == true` a claim about
@@ -51,7 +60,7 @@ TEST_CASE("optimization stop-to-stop pva + tool_speed + torque + self_collisions
   Manipulator robot = make_UR5e();
   Task        task  = make_UR5e_task();
 
-  Optimization opt(robot, task); // default enables pva + tool_speed constraints
+  Optimization opt(robot, task, make_bspline(robot)); // default enables pva + tool_speed constraints
   opt.constraints.torque          = true;
   opt.constraints.self_collisions = true;
   opt.success_tolerance           = 0.01f;
@@ -77,7 +86,7 @@ TEST_CASE("optimization stop-to-stop all constraints active", "[Optimization") {
           Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1} // upright, axis-aligned
   );
 
-  Optimization opt(robot, task); // default enables pva + tool_speed constraints
+  Optimization opt(robot, task, make_bspline(robot)); // default enables pva + tool_speed constraints
   opt.world = world;
 
   opt.constraints.torque              = true;
