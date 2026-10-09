@@ -847,13 +847,13 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
     Matrix bv(&opt.bspline.basis_v(0, start_point_for_segment), n_ctrl, n_points_per_segment);
     Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_per_segment);
 
-    Array max_pos_constraints(n_joints, -INF_REAL);
-    Array max_vel_constraints(n_joints, -INF_REAL);
-    Array max_acc_constraints(n_joints, -INF_REAL);
-    Array max_tor_constraints(n_joints, -INF_REAL);
-    real  max_tool_speed_constraints   = -INF_REAL;
-    real  max_internal_col_constraints = -INF_REAL; // todo: worst or worst per capsule ?
-    Array max_col_constraints(n_capsules, -INF_REAL);
+    Array      max_pos_constraints(n_joints, -INF_REAL);
+    Array      max_vel_constraints(n_joints, -INF_REAL);
+    Array      max_acc_constraints(n_joints, -INF_REAL);
+    Array      max_tor_constraints(n_joints, -INF_REAL);
+    real       max_tool_speed_constraints   = -INF_REAL;
+    real       max_internal_col_constraints = -INF_REAL; // todo: worst or worst per capsule ?
+    Array      max_col_constraints(n_capsules, -INF_REAL);
     const auto self_row = collision_row(opt, segment, n_segments, -1);
 
     for (int point_in_segment = 0; point_in_segment < n_points_per_segment; point_in_segment++) {
@@ -1460,13 +1460,13 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
     Matrix bv(&opt.bspline.basis_v(0, start_point_for_segment), n_ctrl, n_points_per_segment);
     Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_per_segment);
 
-    Array max_pos_constraints(n_joints, -INF_REAL);
-    Array max_vel_constraints(n_joints, -INF_REAL);
-    Array max_acc_constraints(n_joints, -INF_REAL);
-    Array max_tor_constraints(n_joints, -INF_REAL);
-    real  max_tool_speed_constraints   = -INF_REAL;
-    real  max_internal_col_constraints = -INF_REAL; // todo: worst or worst per capsule ?
-    Array max_col_constraints(n_capsules, -INF_REAL);
+    Array      max_pos_constraints(n_joints, -INF_REAL);
+    Array      max_vel_constraints(n_joints, -INF_REAL);
+    Array      max_acc_constraints(n_joints, -INF_REAL);
+    Array      max_tor_constraints(n_joints, -INF_REAL);
+    real       max_tool_speed_constraints   = -INF_REAL;
+    real       max_internal_col_constraints = -INF_REAL; // todo: worst or worst per capsule ?
+    Array      max_col_constraints(n_capsules, -INF_REAL);
     const auto self_row = collision_row(opt, segment, n_segments, -1);
 
     for (int point_in_segment = 0; point_in_segment < n_points_per_segment; point_in_segment++) {

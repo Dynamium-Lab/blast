@@ -411,7 +411,7 @@ TEST_CASE("broadphase methods apply the pinned-endpoint collision targets", "[Op
     ManipulatorTempData manip_data;
     forward_kinematics(robot, manip_data, start);
     compute_collision_model(robot, manip_data);
-    const Capsule capsule = manip_data.capsule_list[robot._n_caps - 1]; // the tool capsule
+    const Capsule capsule = manip_data.capsule_list[robot._n_caps - 1];                    // the tool capsule
     const Vec3    axis    = (capsule.p2 - capsule.p1) / norm(capsule.p2 - capsule.p1);
     world.add_sphere(capsule.p2 + axis * (capsule.radius + 0.02 + start_clearance), 0.02); // beyond the capsule's end, on its axis
   }
