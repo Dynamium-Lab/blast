@@ -10,8 +10,8 @@ using namespace blast;
 // optimization method; a start outside the box is clamped rather than refused (NLopt returns
 // NLOPT_INVALID_ARGS for it).
 TEST_CASE("decision bounds are set and respected by every method", "[Optimization]") {
-  Array start = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
-  Array end   = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.0};
+  Array       start = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
+  Array       end   = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.0};
   Manipulator robot = make_UR5e();
   for (int joint = 0; joint < robot.n_joints; joint++) {
     robot.position_min[joint] = -3.1416;
@@ -57,9 +57,9 @@ TEST_CASE("decision bounds are set and respected by every method", "[Optimizatio
     opt.guess.initial_x          = initial_x;
     const Result result          = optimize(&opt);
     INFO("method " << (int) method);
-    CHECK(result.nlopt_exit_criteria != NLOPT_INVALID_ARGS); // clamped, not refused
+    CHECK(result.nlopt_exit_criteria != NLOPT_INVALID_ARGS);                 // clamped, not refused
     REQUIRE(result.x.size == initial_x.size);
-    CHECK(result.x.back() <= 3.0 + 1e-3); // + the millisecond round-up of the final validation
+    CHECK(result.x.back() <= 3.0 + 1e-3);                                    // + the millisecond round-up of the final validation
     const real bound = 3.1416 + opt.control_point_bound_margin * 2 * 3.1416; // the true limits plus the margin
     for (u32 variable = 0; variable + 1 < result.x.size; variable++) {
       CHECK(result.x[variable] <= bound);

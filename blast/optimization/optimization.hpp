@@ -218,8 +218,8 @@ inline void decision_bounds(const Optimization* opt, Array& lower_bounds, Array&
     lower_bounds[variable] = -INF_REAL;
     upper_bounds[variable] = INF_REAL;
   }
-  lower_bounds.back() = opt->min_duration;
-  upper_bounds.back() = opt->max_duration;
+  lower_bounds.back()             = opt->min_duration;
+  upper_bounds.back()             = opt->max_duration;
   const int n_joints              = opt->manip.n_joints;
   const int n_free_control_points = (int) opt->bspline.n_ctrl - 6;
   if ((int) n_variables != n_joints * n_free_control_points + 1)
@@ -477,7 +477,7 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Initial guess");
 #endif
-      x         = init_guess(opt);
+      x = init_guess(opt);
       clamp_to_bounds(x, lb, ub); // NLopt refuses a start outside the bounds
       result.x0 = x;
     }
@@ -743,7 +743,7 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Initial guess");
 #endif
-      x         = init_guess_segments(opt);
+      x = init_guess_segments(opt);
       clamp_to_bounds(x, lb, ub); // NLopt refuses a start outside the bounds
       result.x0 = x;
     }
@@ -939,7 +939,7 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Initial guess");
 #endif
-      x         = init_guess_segments(opt);
+      x = init_guess_segments(opt);
       clamp_to_bounds(x, lb, ub); // NLopt refuses a start outside the bounds
       result.x0 = x;
     }
@@ -1130,7 +1130,7 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Initial guess");
 #endif
-      x         = init_guess_segments(opt);
+      x = init_guess_segments(opt);
       clamp_to_bounds(x, lb, ub); // NLopt refuses a start outside the bounds
       result.x0 = x;
     }
@@ -1323,7 +1323,7 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Initial guess");
 #endif
-      x         = init_guess(opt);
+      x = init_guess(opt);
       clamp_to_bounds(x, lb, ub); // NLopt refuses a start outside the bounds
       result.x0 = x;
     }
@@ -1516,7 +1516,7 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Initial guess");
 #endif
-      x         = init_guess(opt);
+      x = init_guess(opt);
       clamp_to_bounds(x, lb, ub); // NLopt refuses a start outside the bounds
       result.x0 = x;
     }
