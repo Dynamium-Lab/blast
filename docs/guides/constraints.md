@@ -75,6 +75,17 @@ a 1 mm buffer guarantees no penetration, not 1 mm of remaining gap. Larger value
 perturb the geometry more during the solve and can make tightly constrained problems
 harder to solve. Set it to `0` to fall back to `success_tolerance`.
 
+Two exceptions keep the tightening from making a task impossible. The start and goal of a
+stop-to-stop task are fixed, so constraints there cannot be improved by the solver:
+
+- **Position** limits are tightened like the others, but never past the task's own start or
+  goal. Because that clamp can leave no slack, success is also checked against the true
+  position limits on the final, densely sampled trajectory.
+- **Collisions** next to the start or goal (the first and last segment) aim for at most the
+  clearance that endpoint itself has, instead of the full `collision_buffer`. A start that
+  clears an obstacle by less than the buffer is still accepted; every other part of the
+  trajectory keeps the full buffer.
+
 `opt.tighten_for_tolerance = false` disables the tightening entirely. It exists to
 isolate its effect when measuring; with it off, an accepted solve may violate the real
 limits by up to `success_tolerance`.
