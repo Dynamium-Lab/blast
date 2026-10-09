@@ -847,13 +847,14 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
     Matrix bv(&opt.bspline.basis_v(0, start_point_for_segment), n_ctrl, n_points_per_segment);
     Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_per_segment);
 
-    Array max_pos_constraints(n_joints, -INF_REAL);
-    Array max_vel_constraints(n_joints, -INF_REAL);
-    Array max_acc_constraints(n_joints, -INF_REAL);
-    Array max_tor_constraints(n_joints, -INF_REAL);
-    real  max_tool_speed_constraints   = -INF_REAL;
-    real  max_internal_col_constraints = -INF_REAL; // todo: worst or worst per capsule ?
-    Array max_col_constraints(n_capsules, -INF_REAL);
+    Array      max_pos_constraints(n_joints, -INF_REAL);
+    Array      max_vel_constraints(n_joints, -INF_REAL);
+    Array      max_acc_constraints(n_joints, -INF_REAL);
+    Array      max_tor_constraints(n_joints, -INF_REAL);
+    real       max_tool_speed_constraints   = -INF_REAL;
+    real       max_internal_col_constraints = -INF_REAL; // todo: worst or worst per capsule ?
+    Array      max_col_constraints(n_capsules, -INF_REAL);
+    const auto self_row = collision_row(opt, segment, n_segments, -1);
 
     for (int point_in_segment = 0; point_in_segment < n_points_per_segment; point_in_segment++) {
       {
@@ -937,7 +938,7 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
           PROFILE_SCOPE("Self Constraints");
 #endif
           // check every internal collision
-          if (const auto c = max(-get_internal_collisions(opt.manip, manip_data)) * opt.collision_scale; // negative distance is positive constraint
+          if (const auto c = -(min(get_internal_collisions(opt.manip, manip_data)) + self_row.shift) * self_row.scale; // negative distance is positive constraint
               c > max_internal_col_constraints) {
             max_internal_col_constraints = c;
             max_internal_collision_index = point_in_segment;
@@ -975,11 +976,12 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
               dist_min_dynamic = minimum_distance_dynamic(capsule, dynamic_bvh, dist_min_static, collision_object_dynamic, point_in_segment); // dynamic objects
             }
 
+            const auto environment_row = collision_row(opt, segment, n_segments, capsule_id);
             if (dist_min_static <= dist_min_dynamic) {
-              dist_min         = -dist_min_static * opt.collision_scale; // negative distance is positive constraint
+              dist_min         = -(dist_min_static + environment_row.shift) * environment_row.scale; // negative distance is positive constraint
               collision_object = &collision_object_static;
             } else {
-              dist_min         = -dist_min_dynamic * opt.collision_scale;
+              dist_min         = -(dist_min_dynamic + environment_row.shift) * environment_row.scale;
               collision_object = &collision_object_dynamic;
             }
 
@@ -1302,7 +1304,7 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
           // recompute internal collisions at the worst point in segment
           forward_kinematics(opt.manip, manip_data, p_plus);
           compute_collision_model(opt.manip, manip_data);
-          const auto new_internal_collision_constraint = max(-get_internal_collisions(opt.manip, manip_data)) * opt.collision_scale; // negative distance is positive constraint
+          const auto new_internal_collision_constraint = -(min(get_internal_collisions(opt.manip, manip_data)) + self_row.shift) * self_row.scale; // negative distance is positive constraint
           // partial difference d(internal_collision)/dp
           const real dint_coll_dp = (new_internal_collision_constraint - max_internal_col_constraints) / eps;
 
@@ -1365,7 +1367,8 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
               }
             }
 
-            distance_plus = -distance_plus * opt.collision_scale; // negative distance is positive constraint
+            const auto row = collision_row(opt, segment, n_segments, capsule_id);
+            distance_plus  = -(distance_plus + row.shift) * row.scale; // negative distance is positive constraint
 
             // partial difference d(collision)/dp
             const real dcoll_dp = (distance_plus - max_col_constraints[capsule_id]) / eps;
@@ -1457,13 +1460,14 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
     Matrix bv(&opt.bspline.basis_v(0, start_point_for_segment), n_ctrl, n_points_per_segment);
     Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_per_segment);
 
-    Array max_pos_constraints(n_joints, -INF_REAL);
-    Array max_vel_constraints(n_joints, -INF_REAL);
-    Array max_acc_constraints(n_joints, -INF_REAL);
-    Array max_tor_constraints(n_joints, -INF_REAL);
-    real  max_tool_speed_constraints   = -INF_REAL;
-    real  max_internal_col_constraints = -INF_REAL; // todo: worst or worst per capsule ?
-    Array max_col_constraints(n_capsules, -INF_REAL);
+    Array      max_pos_constraints(n_joints, -INF_REAL);
+    Array      max_vel_constraints(n_joints, -INF_REAL);
+    Array      max_acc_constraints(n_joints, -INF_REAL);
+    Array      max_tor_constraints(n_joints, -INF_REAL);
+    real       max_tool_speed_constraints   = -INF_REAL;
+    real       max_internal_col_constraints = -INF_REAL; // todo: worst or worst per capsule ?
+    Array      max_col_constraints(n_capsules, -INF_REAL);
+    const auto self_row = collision_row(opt, segment, n_segments, -1);
 
     for (int point_in_segment = 0; point_in_segment < n_points_per_segment; point_in_segment++) {
       {
@@ -1547,7 +1551,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
           PROFILE_SCOPE("Self Constraints");
 #endif
           // check every internal collision
-          if (const auto c = max(-get_internal_collisions(opt.manip, manip_data)) * opt.collision_scale; // negative distance is positive constraint
+          if (const auto c = -(min(get_internal_collisions(opt.manip, manip_data)) + self_row.shift) * self_row.scale; // negative distance is positive constraint
               c > max_internal_col_constraints) {
             max_internal_col_constraints = c;
             max_internal_collision_index = point_in_segment;
@@ -1591,11 +1595,12 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
           dist_min_dynamic = minimum_distance_dynamic_objects_time(dynamic_bvh, opt.time_bounding_volume_hierarchies[capsule_id], dist_min_static, collision_object_dynamic, segment * n_points_per_segment, n_points_per_segment, x.back(), n_segments, opt.trajectory_start_time);
 
         // add constraint
+        const auto environment_row = collision_row(opt, segment, n_segments, capsule_id);
         if (dist_min_static <= dist_min_dynamic) {
-          max_col_constraints[capsule_id]    = -dist_min_static * opt.collision_scale; // negative distance is positive constraint
+          max_col_constraints[capsule_id]    = -(dist_min_static + environment_row.shift) * environment_row.scale; // negative distance is positive constraint
           max_collision_entities[capsule_id] = collision_object_static;
         } else {
-          max_col_constraints[capsule_id]    = -dist_min_dynamic * opt.collision_scale;
+          max_col_constraints[capsule_id]    = -(dist_min_dynamic + environment_row.shift) * environment_row.scale;
           max_collision_entities[capsule_id] = collision_object_dynamic;
         }
       }
@@ -1911,7 +1916,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
           // recompute internal collisions at the worst point in segment
           forward_kinematics(opt.manip, manip_data, p_plus);
           compute_collision_model(opt.manip, manip_data);
-          const auto new_internal_collision_constraint = max(-get_internal_collisions(opt.manip, manip_data)) * opt.collision_scale; // negative distance is positive constraint
+          const auto new_internal_collision_constraint = -(min(get_internal_collisions(opt.manip, manip_data)) + self_row.shift) * self_row.scale; // negative distance is positive constraint
           // partial difference d(internal_collision)/dp
           const real dint_coll_dp = (new_internal_collision_constraint - max_internal_col_constraints) / eps;
 
@@ -1974,7 +1979,8 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
               }
             }
 
-            distance_plus = -distance_plus * opt.collision_scale; // negative distance is positive constraint
+            const auto row = collision_row(opt, segment, n_segments, capsule_id);
+            distance_plus  = -(distance_plus + row.shift) * row.scale; // negative distance is positive constraint
 
             // partial difference d(collision)/dp
             const real dcoll_dp = (distance_plus - max_col_constraints[capsule_id]) / eps;

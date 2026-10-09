@@ -354,3 +354,104 @@ TEST_CASE("collision rows at a pinned endpoint target what the endpoint achieves
   restore_from_tolerance(&opt, tolerance_snapshot);
   CHECK_FALSE(opt.endpoint_targets_active);
 }
+
+// ---------------------------------------------------------------------------
+// 6. The broadphase methods under tightening. The static BVH is built by the caller on the true
+// world; tightening inflates the world in place, so the BVH must be rebuilt on it (else its AABBs
+// are short by the margin and the best-first search can prune an obstacle inside it) and
+// restore_from_tolerance must hand the caller's BVH back.
+// ---------------------------------------------------------------------------
+TEST_CASE("tightening keeps the static BVH in step with the world", "[Optimization]") {
+  Array start = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
+  Array end   = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.17328};
+  World world;
+  world.add_sphere(Vec3{0.35, 0.25, 0.45}, 0.08);
+  world.add_capsule({Vec3{-0.3, 0.45, 0.30}, Vec3{-0.1, 0.45, 0.30}, 0.05});
+  world.add_box(Vec3{0.4, 0.0, 0.6}, Vec3{0.05, 0.3, 0.3}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  Optimization opt(make_UR5e(), Task::stop_to_stop(start, end));
+  opt.world                           = world;
+  opt.constraints.external_collisions = true;
+  opt.success_tolerance               = 0.01;
+  opt.collision_buffer                = 0.01;
+  create_static_bounding_volume_hierarchy(opt.world, opt.world.static_bounding_volume_hierarchy);
+  initialize_optimization_with_segments(&opt);
+  n_con_with_segments(&opt);
+
+  // every leaf as a fresh build on the current world would have it, pointing at that world's objects
+  const auto check_in_step = [&](const char* stage) {
+    BoundingVolumeHierarchy<int> fresh_hierarchy;
+    create_static_bounding_volume_hierarchy(opt.world, fresh_hierarchy);
+    const auto& hierarchy = opt.world.static_bounding_volume_hierarchy;
+    INFO(stage);
+    REQUIRE(hierarchy.leaves.size() == fresh_hierarchy.leaves.size());
+    for (size_t leaf = 0; leaf < fresh_hierarchy.leaves.size(); leaf++) {
+      CHECK(is_close(hierarchy.leaves[leaf].center, fresh_hierarchy.leaves[leaf].center));
+      CHECK(is_close(hierarchy.leaves[leaf].extents, fresh_hierarchy.leaves[leaf].extents));
+      CHECK(hierarchy.leaves[leaf].child_ptr == fresh_hierarchy.leaves[leaf].child_ptr);
+    }
+  };
+  const real true_radius        = opt.world.spheres[0].radius;
+  auto       tolerance_snapshot = tighten_for_success_tolerance(&opt);
+  REQUIRE(opt.world.spheres[0].radius > true_radius); // inflated: not vacuous
+  check_in_step("tightened");
+  restore_from_tolerance(&opt, tolerance_snapshot);
+  REQUIRE(opt.world.spheres[0].radius == true_radius);
+  check_in_step("restored");
+}
+
+// The pinned-endpoint rows of section 5, through the broadphase methods: on a trajectory that holds
+// the start, every first/last-segment row has to be satisfied, as it is for with_segments.
+TEST_CASE("broadphase methods apply the pinned-endpoint collision targets", "[Optimization]") {
+  const real tolerance = 0.01, buffer = 0.001, start_clearance = 0.0005; // start clears the sphere by half the buffer
+  Array      start = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
+
+  Manipulator robot = make_UR5e();
+  World       world;
+  {
+    ManipulatorTempData manip_data;
+    forward_kinematics(robot, manip_data, start);
+    compute_collision_model(robot, manip_data);
+    const Capsule capsule = manip_data.capsule_list[robot._n_caps - 1];                    // the tool capsule
+    const Vec3    axis    = (capsule.p2 - capsule.p1) / norm(capsule.p2 - capsule.p1);
+    world.add_sphere(capsule.p2 + axis * (capsule.radius + 0.02 + start_clearance), 0.02); // beyond the capsule's end, on its axis
+  }
+
+  Optimization hold(robot, Task::stop_to_stop(start, start));
+  hold.world                           = world;
+  hold.constraints.external_collisions = true;
+  hold.success_tolerance               = tolerance;
+  hold.collision_buffer                = buffer;
+  create_static_bounding_volume_hierarchy(hold.world, hold.world.static_bounding_volume_hierarchy);
+  initialize_optimization_with_segments(&hold);
+  n_con_with_segments(&hold);
+  auto tolerance_snapshot = tighten_for_success_tolerance(&hold);
+
+  const u32 n_variables             = (u32) hold.bspline.x_len(hold.task);
+  const u32 n_constraints           = (u32) hold.constraints.n_constraints;
+  const int constraints_per_segment = hold.constraints.n_constraints_per_segment;
+  const int n_segments              = (int) n_constraints / constraints_per_segment;
+  Array     x                       = blast::guess_straight_line(&hold);
+  x.back()                          = 2.0; // start == goal: the limit-derived duration would be 0
+
+  using ConstraintsAndGradientsFunction = void (*)(const Array&, Optimization&, Array&, Matrix&);
+  for (auto [constraints_and_gradients, method_name]:
+       {std::pair<ConstraintsAndGradientsFunction, const char*>{constraints_and_gradients_with_broadphase, "broadphase"},
+        {constraints_and_gradients_with_double_broadphase, "double_broadphase"}}) {
+    INFO(method_name);
+    Array  constraints(n_constraints);
+    Matrix gradient(n_variables, n_constraints);
+    constraints_and_gradients(x, hold, constraints, gradient);
+    real worst_boundary = -INF_REAL, worst_interior = -INF_REAL;
+    for (int segment = 0; segment < n_segments; segment++)
+      for (int row = 0; row < constraints_per_segment; row++) {
+        const real constraint = constraints[segment * constraints_per_segment + row];
+        if (segment == 0 || segment == n_segments - 1)
+          worst_boundary = std::max(worst_boundary, constraint);
+        else
+          worst_interior = std::max(worst_interior, constraint);
+      }
+    CHECK(worst_boundary <= exact_tolerance);
+    CHECK(worst_interior > 0); // interior rows keep the full buffer: not vacuous
+  }
+  restore_from_tolerance(&hold, tolerance_snapshot);
+}
