@@ -15,7 +15,7 @@ inline host_fn Mat3 interpolate_rotation(const Mat3& r_from, const Mat3& r_to, r
   const real angle     = std::acos(cos_angle);
   Vec3       axis      = {relative(2, 1) - relative(1, 2), relative(0, 2) - relative(2, 0), relative(1, 0) - relative(0, 1)};
   const real axis_norm = norm(axis); // 2 sin(angle)
-  if (axis_norm < 1e-9) // no rotation between the keyframes (a half turn, axis ambiguous, is not supported)
+  if (axis_norm < 1e-9)              // no rotation between the keyframes (a half turn, axis ambiguous, is not supported)
     return r_from;
   axis = axis / axis_norm;
   Mat3 skew;
