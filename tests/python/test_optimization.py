@@ -99,6 +99,29 @@ class TestOptimizationSmokeTest:
         assert quick_result.x.dtype == blast.REAL_DTYPE
 
 
+class TestDecisionBounds:
+    def test_duration_bounds_defaults(self, ur5e, ur5e_task):
+        opt = blast.Optimization(ur5e, ur5e_task)
+        assert opt.min_duration == pytest.approx(0.01)
+        assert opt.max_duration == pytest.approx(60.0)
+        assert opt.control_point_bound_margin == pytest.approx(0.0)
+
+    # Unbounded, this task solves in T ~ 0.51 s, so both bounds below bind.
+    def test_min_duration_respected(self, ur5e, ur5e_task):
+        opt = blast.Optimization(ur5e, ur5e_task)
+        opt.min_duration = 0.8
+        opt.max_eval     = 200
+        result = blast.optimize(opt)
+        assert result.x[-1] >= 0.8
+
+    def test_max_duration_respected(self, ur5e, ur5e_task):
+        opt = blast.Optimization(ur5e, ur5e_task)
+        opt.max_duration = 0.4
+        opt.max_eval     = 200
+        result = blast.optimize(opt)
+        assert result.x[-1] <= 0.4 + 1e-3  # T is rounded up to the 1 ms output step
+
+
 class TestWorldObstacles:
     def test_add_box(self, ur5e, ur5e_task):
         opt = blast.Optimization(ur5e, ur5e_task)

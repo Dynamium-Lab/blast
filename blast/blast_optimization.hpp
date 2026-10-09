@@ -137,9 +137,14 @@ struct Optimization {
   bool                                          endpoint_targets_active = false;
   std::array<std::array<real, MAX_CAPSULES>, 2> endpoint_collision_target{};
   std::array<real, 2>                           endpoint_self_target{};
-  int                                           max_tries = 1;                                  // Maximum number of tries in the optimization loop.
-  int                                           max_eval  = 1000;                               // Maximum number of function evaluations for a single NLopt call.
-  real                                          max_time  = 30.0;                               // Maximum time (seconds) for a single NLopt call.
+  real                                          min_duration               = 0.01;              // bounds on the trajectory duration T (seconds), the
+  real                                          max_duration               = 60.0;              // last decision variable (see decision_bounds)
+  real                                          control_point_bound_margin = 0.0;               // control points may leave the position limits by this
+                                                                                                // fraction of each joint's range (see decision_bounds); raise
+                                                                                                // it for tasks that must run close to a joint limit
+  int  max_tries = 1;                                                                           // Maximum number of tries in the optimization loop.
+  int  max_eval  = 1000;                                                                        // Maximum number of function evaluations for a single NLopt call.
+  real max_time  = 30.0;                                                                        // Maximum time (seconds) for a single NLopt call.
 
   std::array<BoundingVolumeHierarchy<AABBPair>, MAX_CAPSULES> time_bounding_volume_hierarchies; // should be std::array<> ? Never changes size
 

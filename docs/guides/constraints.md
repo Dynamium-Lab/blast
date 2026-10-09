@@ -90,5 +90,24 @@ stop-to-stop task are fixed, so constraints there cannot be improved by the solv
 isolate its effect when measuring; with it off, an accepted solve may violate the real
 limits by up to `success_tolerance`.
 
+## Decision bounds: duration and control points
+
+The solver's variables are the free B-spline control points and the duration `T`. Each has
+a box the solver cannot leave, enforced exactly at every step:
+
+```cpp
+opt.min_duration = 0.01;               // T in [min_duration, max_duration], seconds
+opt.max_duration = 60.0;
+opt.control_point_bound_margin = 0.0;  // control points within the position limits
+```
+
+SLSQP has no step-size limit of its own, so without these bounds a single step can stretch
+`T` many times over or move control points by tens of radians, and some solves never
+recover. With the control points inside the position limits, the whole trajectory is
+inside them too (a B-spline stays within the hull of its control points).
+`control_point_bound_margin` widens that box by a fraction of each joint's range, which
+can help tasks that must run close to a joint limit; on general problems a margin lowers
+the success rate, so the default is 0. An initial guess outside the box is clamped into it.
+
 See the [API reference](../api/cpp/index.md) for the full `ConstraintSelection` and
 `OptimizationMethod` definitions.
