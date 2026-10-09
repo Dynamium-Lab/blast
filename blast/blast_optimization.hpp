@@ -121,18 +121,25 @@ struct Optimization {
   Matrix              task;
   World               world;
   real                trajectory_start_time = 0.0;
-  real                success_tolerance     = 0.01;                                             // constraint violation after optimization that is still considered a success
-  bool                tighten_for_tolerance = true;                                             // false skips the tightening (ablation only: an accepted
-                                                                                                // solve may then violate the real limits by up to
-                                                                                                // success_tolerance)
-  real collision_buffer = 0.001;                                                                // how close, in metres, the trajectory may come to
-                                                                                                // contact. success_tolerance is dimensionless and
-                                                                                                // cannot express a distance; 0 falls back to it
-  real collision_scale = 1.0;                                                                   // derived, do not set: success_tolerance /
-                                                                                                // collision_buffer while tightened, 1 otherwise
-  int  max_tries = 1;                                                                           // Maximum number of tries in the optimization loop.
-  int  max_eval  = 1000;                                                                        // Maximum number of function evaluations for a single NLopt call.
-  real max_time  = 30.0;                                                                        // Maximum time (seconds) for a single NLopt call.
+  real                success_tolerance     = 0.01; // constraint violation after optimization that is still considered a success
+  bool                tighten_for_tolerance = true; // false skips the tightening (ablation only: an accepted
+                                                    // solve may then violate the real limits by up to
+                                                    // success_tolerance)
+  real collision_buffer = 0.001;                    // how close, in metres, the trajectory may come to
+                                                    // contact. success_tolerance is dimensionless and
+                                                    // cannot express a distance; 0 falls back to it
+  real collision_scale = 1.0;                       // derived, do not set: success_tolerance /
+                                                    // collision_buffer while tightened, 1 otherwise
+  // Derived, do not set: while tightened, the collision target (metres of clearance in the planning
+  // geometry) of the collision rows of the first [0] and last [1] segment, which contain the pinned
+  // task start/goal. Capped at what the endpoint itself achieves, so a pinned endpoint closer than
+  // collision_buffer does not leave a violated zero-gradient row. See tighten_for_success_tolerance.
+  bool                                          endpoint_targets_active = false;
+  std::array<std::array<real, MAX_CAPSULES>, 2> endpoint_collision_target{};
+  std::array<real, 2>                           endpoint_self_target{};
+  int                                           max_tries = 1;                                  // Maximum number of tries in the optimization loop.
+  int                                           max_eval  = 1000;                               // Maximum number of function evaluations for a single NLopt call.
+  real                                          max_time  = 30.0;                               // Maximum time (seconds) for a single NLopt call.
 
   std::array<BoundingVolumeHierarchy<AABBPair>, MAX_CAPSULES> time_bounding_volume_hierarchies; // should be std::array<> ? Never changes size
 
