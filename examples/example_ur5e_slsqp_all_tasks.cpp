@@ -18,6 +18,12 @@
 //
 // Tasks come from ICRA2026_benchmark_speedups.cpp's get_UR5e_tasks(): the full
 // 8x8 cross product of start and end poses, so task index = start*8 + end.
+// blast's native SQP, matching ICRA2026_benchmark_speedups.cpp and
+// example_ur5e_pso_comparison.cpp. Without this define the build falls back to
+// NLopt's SLSQP, which is a different solver and not what the ICRA numbers
+// were produced with.
+#define BLAST_USE_NATIVE_SQP
+
 #include <blast>
 
 #include <algorithm>
@@ -52,7 +58,12 @@ static std::vector<Array> ur5e_end_positions() {
   };
 }
 
-int main() {
+int main(int argc, char** argv) {
+  // Control-point count. The ICRA benchmark uses 16; sample points are kept at
+  // 4 per segment (segments = n_ctrl - degree) to match its convention.
+  const int n_ctrl   = (argc > 1) ? atoi(argv[1]) : 24;
+  const int pps      = (argc > 2) ? atoi(argv[2]) : 4;   // points per segment
+  const int n_points = pps * (n_ctrl - 5);
   Manipulator ur5e = make_UR5e();
 
   const auto starts = ur5e_start_positions();
@@ -60,6 +71,7 @@ int main() {
 
   const int max_attempts = 5; // matches example_ur5e_pso_comparison.cpp
 
+  std::cout << "n_ctrl=" << n_ctrl << " n_points=" << n_points << "\n";
   std::cout << "SLSQP on all " << (starts.size() * ends.size())
             << " ICRA UR5e tasks (pos/vel/acc only, with_segments, up to "
             << max_attempts << " attempts each)\n\n";
@@ -76,7 +88,7 @@ int main() {
 
       Task         task = Task::stop_to_stop(starts[si], ends[ei]);
       Optimization opt(ur5e, task);
-      opt.bspline = Bspline(24, 76, 5, ur5e.n_joints);
+      opt.bspline = Bspline(n_ctrl, n_points, 5, ur5e.n_joints);
 
       opt.constraints.position     = true;
       opt.constraints.velocity     = true;
