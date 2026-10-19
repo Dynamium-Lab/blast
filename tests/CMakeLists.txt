@@ -87,6 +87,7 @@ set(TESTS
         # Optimization
         test_constraints optimization/test_constraints.cpp
         test_task optimization/test_task.cpp
+        test_custom optimization/test_custom.cpp
         test_optimization_basic optimization/test_optimization_basic.cpp
         test_optimization_task_violation optimization/test_optimization_task_violation.cpp
         test_optimization_tolerance_no_penetration optimization/test_optimization_tolerance_no_penetration.cpp

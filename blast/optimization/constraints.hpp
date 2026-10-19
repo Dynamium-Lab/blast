@@ -2031,7 +2031,7 @@ inline blast_fn void nlopt_constraints_with_double_broadphase(unsigned m, real* 
   }
 }
 
-inline blast_fn void compute_constraints(real* result, const Array& x, Optimization* opt) {
+inline blast_fn void compute_constraints(real* result, Array& x, Optimization* opt) {
 #if BLAST_TRACE_LEVEL >= 2
   PROFILE_FUNCTION;
 #endif
@@ -2202,16 +2202,19 @@ inline blast_fn void compute_constraints(real* result, const Array& x, Optimizat
         *moving_result++ = max_col_constraints[j];
     }
   }
-  //   {
-  // #if BLAST_TRACE_LEVEL >= 3
-  //     PROFILE_SCOPE("CustomConstraints");
-  // #endif
-  //     for (u32 i = 0; i < opt->constraints.extra_constraints.size(); i++) { // todo: split in extra_constraint per point or once
-  //       auto extra_constraint = opt->constraints.extra_constraints[i];
-  //       extra_constraint(moving_result, opt);
-  //       moving_result += opt->constraints.n_extra_constraints[i];
-  //     }
-  //   }
+  {
+#if BLAST_TRACE_LEVEL >= 3
+    PROFILE_SCOPE("CustomConstraints");
+#endif
+    for (u32 i = 0; i < opt->constraints.extra_constraints.size(); i++) { // todo: split in extra_constraint per point or once
+      auto extra_constraint        = opt->constraints.extra_constraints[i];
+      auto extra_constraint_result = extra_constraint(opt, &x);
+      for (int j = 0; j < extra_constraint_result.size; j++) {
+        moving_result[i] = extra_constraint_result[j];
+      }
+      moving_result += opt->constraints.n_extra_constraints[i];
+    }
+  }
 }
 
 inline blast_fn void nlopt_constraints(unsigned m, real* result, unsigned x_len, const real* x, real* grad, void* f_data) {
@@ -2386,16 +2389,17 @@ inline blast_fn bool validate_task(Optimization* opt) {
     }
   }
 
-  for (u32 i = 0; i < constraints.extra_constraints.size(); i++) { // todo: split in extra_constraint per point or once
-    Array moving_result(constraints.n_extra_constraints[i]);
-    auto  extra_constraint = constraints.extra_constraints[i];
-    Array extra_result(constraints.n_extra_constraints[i]);
-    extra_constraint(extra_result.data, opt);
-    if (max(extra_result) > 0) {
-      std::cout << "Extra constraint " << i + 1 << " inadmissible at start/end position." << std::endl;
-      return false;
-    }
-  }
+  // todo: Figure out how to make this work with unknown x
+  // for (u32 i = 0; i < constraints.extra_constraints.size(); i++) { // todo: split in extra_constraint per point or once
+  //   Array moving_result(constraints.n_extra_constraints[i]);
+  //   auto  extra_constraint = constraints.extra_constraints[i];
+  //   Array extra_result(constraints.n_extra_constraints[i]);
+  //   extra_result = extra_constraint(opt, x);
+  //   if (max(extra_result) > 0) {
+  //     std::cout << "Extra constraint " << i + 1 << " inadmissible at start/end position." << std::endl;
+  //     return false;
+  //   }
+  // }
   return true;
 }
 
@@ -2924,12 +2928,13 @@ blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& 
 #if BLAST_TRACE_LEVEL >= 3
     ZoneScopedN("CustomConstraints");
 #endif
-    for (u32 i = 0; i < opt->constraints.extra_constraints.size(); i++) {
-      auto extra_constraint = opt->constraints.extra_constraints[i];
-      extra_constraint(moving_result, opt);
-      moving_result += opt->constraints.n_extra_constraints[i];
-      grad_idx += opt->constraints.n_extra_constraints[i]; // todo: add analytical gradients
-    }
+    // todo: Reactivate
+    // for (u32 i = 0; i < opt->constraints.extra_constraints.size(); i++) {
+    //   auto extra_constraint = opt->constraints.extra_constraints[i];
+    //   extra_constraint(moving_result, opt);
+    //   moving_result += opt->constraints.n_extra_constraints[i];
+    //   grad_idx += opt->constraints.n_extra_constraints[i]; // todo: add analytical gradients
+    // }
   }
 }
 

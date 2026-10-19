@@ -17,11 +17,8 @@ struct Objective;
 struct ConstraintSelection;
 struct Guess;
 
-using ConstraintFunctionVector = std::vector<void (*)(real* result, Optimization* opt)>;
-using ConstraintFunction       = void (*)(real*, Optimization*);
-
-
-using ObjectiveFunction = real (*)(Optimization* opt);
+using ConstraintFunction = Array (*)(Optimization*, Array*);
+using ObjectiveFunction  = real (*)(Optimization*, Array*);
 
 struct Objective {
   real time_weight = 1.0;
@@ -30,8 +27,8 @@ struct Objective {
   // real obstacle_avoidance_weight = 0; // not supported atm
 
   // Setup function to return the NLopt-compatible objective function
-  std::vector<real>                    k_extra_objectives{};
-  std::vector<real (*)(Optimization*)> extra_objectives{};
+  std::vector<real>              k_extra_objectives{};
+  std::vector<ObjectiveFunction> extra_objectives{};
 
   inline void add_custom_objective(ObjectiveFunction function, real k);
 };
@@ -106,9 +103,9 @@ struct ConstraintSelection {
   bool               collect_x_each_iteration = false; // set to true to record optimization vector for all iterations
   std::vector<Array> x_list;
 
-  ConstraintFunctionVector extra_constraints   = {};
-  std::vector<u32>         n_extra_constraints = {};
-  void                     add_constraint(ConstraintFunction, int n_con);
+  std::vector<ConstraintFunction> extra_constraints   = {};
+  std::vector<u32>                n_extra_constraints = {};
+  void                            add_constraint(ConstraintFunction, int n_con);
 };
 
 struct Optimization {
@@ -172,7 +169,7 @@ inline void nlopt_constraints_with_broadphase(unsigned m, real* result, unsigned
 inline void nlopt_constraints_with_double_broadphase(unsigned m, real* result, unsigned x_len, const real* x, real* grad,
                                                      void* f_data);
 
-inline void compute_constraints(real* result, const Array& x, Optimization* opt);
+inline void compute_constraints(real* result, Array& x, Optimization* opt);
 inline void nlopt_constraints(unsigned m, real* result, unsigned x_len, const real* x, real* grad,
                               void* f_data);
 inline real compute_objective(Array& current_x, Optimization* opt);
