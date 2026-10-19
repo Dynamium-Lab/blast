@@ -16,6 +16,7 @@ set(EXAMPLES
         example_01_forward_kinematics example_01_forward_kinematics.cpp
         example_02_trajectory_optimization example_02_trajectory_optimization.cpp
         example_03_collision_avoidance example_03_collision_avoidance.cpp
+        example_04_custom_constraints example_04_custom_constraints.cpp
 
         print_bsplines_and_basis_functions extras/print_bsplines_and_basis_functions.cpp
 
