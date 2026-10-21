@@ -140,7 +140,7 @@ inline void initialize_optimization(Optimization* opt) {
   // todo: swap INF for large value
 
   opt->lb        = Array(opt->x_len(), -HUGE_VAL);
-  opt->ub        = Array(opt->x_len(), -HUGE_VAL);
+  opt->ub        = Array(opt->x_len(), HUGE_VAL);
   opt->lb.back() = 0.1;
   opt->ub.back() = 60.0;
 
@@ -166,7 +166,7 @@ inline void initialize_optimization(Optimization* opt) {
           tmp_value -= 2 * PI;
         }
         if (tmp_value > opt->manip.position_min[i] && tmp_value < opt->manip.position_max[i]) {
-          task(i, 0) = tmp_value;
+          task(i, 3) = tmp_value;
         } else {
           break; // Nothing to be done
         }
@@ -505,7 +505,7 @@ inline void initialize_optimization_with_segments(Optimization* opt) {
           tmp_value -= 2 * PI;
         }
         if (tmp_value > opt->manip.position_min[i] && tmp_value < opt->manip.position_max[i]) {
-          task(i, 0) = tmp_value;
+          task(i, 3) = tmp_value;
         } else {
           break; // Nothing to be done
         }

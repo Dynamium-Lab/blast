@@ -37,14 +37,14 @@ static void check_gradients(ConstraintsAndGradientsFunction constraints_and_grad
   create_static_bounding_volume_hierarchy(opt.world, opt.world.static_bounding_volume_hierarchy); // the broadphase methods read it; the caller builds it
   auto& selection    = opt.constraints;
   selection.position = selection.velocity = selection.acceleration = selection.torque = selection.tool_speed = selection.self_collisions = false;
-  selection.external_collisions = true;
+  selection.external_collisions                                                                                                          = true;
   initialize_optimization_with_segments(&opt);
   n_con_with_segments(&opt);
 
-  const u32 n_variables = opt.bspline.x_len(opt.task), n_constraints = opt.constraints.n_constraints;
+  const u32                        n_variables = opt.bspline.x_len(opt.task), n_constraints = opt.constraints.n_constraints;
   std::mt19937                     random_engine(7);
   std::normal_distribution<double> noise(0, 0.3);
-  int mismatched = 0, checked = 0;
+  int                              mismatched = 0, checked = 0;
   for (int trial = 0; trial < 10; trial++) {
     Array x  = blast::guess_straight_line(&opt);
     x.back() = 1.0 + 0.2 * trial;
@@ -86,17 +86,17 @@ TEST_CASE("collision gradients against world capsules match finite differences",
 // The same for the point-based analytical-dynamics method, through its NLopt entry point.
 TEST_CASE("analytical_dynamics collision gradients against world capsules match finite differences", "[Optimization]") {
   Optimization opt(make_UR5e(), Task::stop_to_stop(start, end));
-  opt.world       = capsule_world();
-  auto& selection = opt.constraints;
+  opt.world        = capsule_world();
+  auto& selection  = opt.constraints;
   selection.torque = selection.tool_speed = selection.self_collisions = false;
   selection.position = selection.velocity = selection.acceleration = selection.external_collisions = true; // the gradient fill assumes PVA rows exist
   initialize_optimization(&opt);
   n_con(&opt);
 
-  const u32 n_variables = opt.bspline.x_len(opt.task), n_constraints = opt.constraints.n_constraints;
+  const u32                        n_variables = opt.bspline.x_len(opt.task), n_constraints = opt.constraints.n_constraints;
   std::mt19937                     random_engine(7);
   std::normal_distribution<double> noise(0, 0.3);
-  int mismatched = 0, checked = 0;
+  int                              mismatched = 0, checked = 0;
   for (int trial = 0; trial < 10; trial++) {
     Array x  = blast::guess_straight_line(&opt);
     x.back() = 1.0 + 0.2 * trial;
