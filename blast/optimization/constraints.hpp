@@ -93,9 +93,9 @@ inline blast_fn CollisionConstraintParams collision_constraint_params(const Opti
 // the constraint parameters of the segment it falls in, so the boundary region is the same as
 // with_segments'. Samples AT the task start/goal are exactly constant (pinned samples).
 inline blast_fn real collision_constraint_at_point(const Optimization& opt, u32 point, int capsule_id, real distance) {
-  const int  n_segments = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
-  const int  n_points   = (int) opt.bspline.n_points;
-  const int  segment    = std::min((int) point * n_segments / std::max(n_points, 1), n_segments - 1);
+  const int  n_segments  = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
+  const int  n_points    = (int) opt.bspline.n_points;
+  const int  segment     = std::min((int) point * n_segments / std::max(n_points, 1), n_segments - 1);
   const auto coll_params = collision_constraint_params(opt, segment, n_segments, capsule_id);
   return -(distance + coll_params.shift) * coll_params.scale;
 }
@@ -375,7 +375,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
             }
 
             const auto ext_coll_params = collision_constraint_params(opt, segment, n_segments, capsule_id);
-            dist_min                  = -(dist_min + ext_coll_params.shift) * ext_coll_params.scale; // negative distance is positive constraint
+            dist_min                   = -(dist_min + ext_coll_params.shift) * ext_coll_params.scale; // negative distance is positive constraint
 
             // update worst position for the current capsule if necessary
             if (dist_min > max_col_constraints[capsule_id]) {
@@ -760,7 +760,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
             }
 
             const auto ext_coll_params = collision_constraint_params(opt, segment, n_segments, capsule_id);
-            distance_plus             = -(distance_plus + ext_coll_params.shift) * ext_coll_params.scale; // negative distance is positive constraint
+            distance_plus              = -(distance_plus + ext_coll_params.shift) * ext_coll_params.scale; // negative distance is positive constraint
 
             // partial difference d(collision)/dp
             const real dcoll_dp = (distance_plus - max_col_constraints[capsule_id]) / eps;

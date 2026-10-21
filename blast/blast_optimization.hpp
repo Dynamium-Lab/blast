@@ -121,14 +121,14 @@ struct Optimization {
   Matrix              task;
   World               world;
   real                trajectory_start_time = 0.0;
-  real success_tolerance     = 0.01; // dimensionless constraint violation threshold; tightening ensures
-                                    // this on the tightened limits implies zero violation on the true limits
-                                    // (except position where the endpoint clamp may narrow the slack)
-  bool tighten_for_tolerance = true; // false skips the tightening (ablation only: an accepted
-                                     // solve may then violate the real limits by up to success_tolerance)
-  real collision_buffer = 0.001;     // how close, in metres, the trajectory may come to contact.
-                                     // success_tolerance is dimensionless and cannot express a distance;
-                                     // 0 falls back to it
+  real                success_tolerance     = 0.01; // dimensionless constraint violation threshold; tightening ensures
+                                                    // this on the tightened limits implies zero violation on the true limits
+                                                    // (except position where the endpoint clamp may narrow the slack)
+  bool tighten_for_tolerance = true;                // false skips the tightening (ablation only: an accepted
+                                                    // solve may then violate the real limits by up to success_tolerance)
+  real collision_buffer = 0.001;                    // how close, in metres, the trajectory may come to contact.
+                                                    // success_tolerance is dimensionless and cannot express a distance;
+                                                    // 0 falls back to it
 
   // --- derived, do not set ---
   real collision_scale = 1.0; // success_tolerance / collision_buffer while tightened, 1 otherwise

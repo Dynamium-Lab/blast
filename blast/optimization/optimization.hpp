@@ -281,7 +281,7 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
     return snap;
   }
 
-  const real tol              = opt->success_tolerance;
+  const real tol               = opt->success_tolerance;
   const real tightening_factor = 1 + tol; // divide each limit's half-range by this to shrink it by tol
 
   // The unit change that makes the dimensionless success_tolerance land on the buffer.
