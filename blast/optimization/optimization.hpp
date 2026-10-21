@@ -384,7 +384,9 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   for (auto& door: opt->world.dynamic_doors)
     door.extents += Vec3(col_margin, col_margin, col_margin);
   // The caller-built static BVH holds the uninflated AABBs, so the broadphase would prune obstacles
-  // inside the margin. Rebuilt on the inflated world; restore_from_tolerance puts the snapshot's back.
+  // inside the collision margin. Rebuilt on the inflated world so its AABBs cover the inflated geometry;
+  // restore_from_tolerance puts the caller's original BVH back. Only when the caller built one (num_objects > 0);
+  // if they didn't, there are no static obstacles to search and nothing to rebuild.
   if (opt->world.static_bounding_volume_hierarchy.num_objects > 0)
     create_static_bounding_volume_hierarchy(opt->world, opt->world.static_bounding_volume_hierarchy);
 
@@ -1039,6 +1041,8 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
       is_valid_more                           = max_con_more < opt->success_tolerance;
+      // Tightening clamps position bounds to the endpoint, so the (1 + tol) acceptance slack
+      // may not cover the full gap to the true bound; check directly against the true bounds.
       if (opt->tighten_for_tolerance && opt->constraints.position)
         is_valid_more = is_valid_more && position_within_limits(bspline_val_more.traj.pos,
                                                                 tolerance_snapshot.position_min,
@@ -1239,6 +1243,8 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
       is_valid_more                           = max_con_more < opt->success_tolerance;
+      // Tightening clamps position bounds to the endpoint, so the (1 + tol) acceptance slack
+      // may not cover the full gap to the true bound; check directly against the true bounds.
       if (opt->tighten_for_tolerance && opt->constraints.position)
         is_valid_more = is_valid_more && position_within_limits(bspline_val_more.traj.pos,
                                                                 tolerance_snapshot.position_min,
