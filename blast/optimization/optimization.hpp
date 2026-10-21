@@ -201,13 +201,14 @@ inline bool position_within_limits(const Matrix& pos, const std::array<real, MAX
 }
 
 // The collision analogue of clamping the position bounds at the task endpoints. The boundary
-// control points are pinned, so a collision row whose worst sample is the task start/goal has an
-// all-zero gradient. With the full buffer baked in, an endpoint that clears the planning geometry
-// by less than `buffer` makes that row violated with no way to fix it -- the SQP subproblem is
-// infeasible at every iterate, although the endpoint itself is acceptable (clearance > 0). So the
-// rows of the first/last segment target at most what the task's own start/goal achieves, per
-// capsule and for the self row; every other row keeps the full buffer. Called on the tightened
-// geometry. Static obstacles only: a dynamic obstacle's pose at the goal depends on the duration.
+// control points are pinned, so a collision constraint whose worst sample is the task start/goal
+// has an all-zero gradient. With the full buffer baked in, an endpoint that clears the planning
+// geometry by less than `buffer` leaves that constraint violated with no way to fix it -- the SQP
+// subproblem is infeasible at every iterate, although the endpoint itself is acceptable (clearance
+// > 0). So the constraints of the first/last segment target at most what the task's own start/goal
+// achieves, per capsule and for self-collision; every other constraint keeps the full buffer.
+// Called on the tightened geometry. Static obstacles only: a dynamic obstacle's pose at the goal
+// depends on the duration.
 inline void set_endpoint_collision_targets(Optimization* opt, real buffer) {
   // Floor, as a fraction of the buffer: keeps tol / t finite for an endpoint at ~0 clearance.
   constexpr real min_target_fraction = 0.01;
@@ -231,6 +232,10 @@ inline void set_endpoint_collision_targets(Optimization* opt, real buffer) {
                                                         ? endpoint_target(min(get_internal_collisions(opt->manip, manip_data)))
                                                         : buffer;
     for (int capsule_id = 0; capsule_id < opt->manip._n_caps; capsule_id++) {
+      if (!opt->constraints.external_collisions) {
+        opt->endpoint_collision_target[endpoint_index][capsule_id] = buffer;
+        continue;
+      }
       const auto& capsule          = manip_data.capsule_list[capsule_id];
       real        closest_distance = INF_REAL;
       for (const auto& box: opt->world.boxes)
@@ -239,7 +244,7 @@ inline void set_endpoint_collision_targets(Optimization* opt, real buffer) {
         closest_distance = std::min(closest_distance, distance(capsule, world_capsule));
       for (const auto& sphere: opt->world.spheres)
         closest_distance = std::min(closest_distance, distance(capsule, sphere));
-      opt->endpoint_collision_target[endpoint_index][capsule_id] = opt->constraints.external_collisions ? endpoint_target(closest_distance) : buffer;
+      opt->endpoint_collision_target[endpoint_index][capsule_id] = endpoint_target(closest_distance);
     }
   }
   opt->endpoint_targets_active = true;
@@ -276,8 +281,8 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
     return snap;
   }
 
-  const real tol       = opt->success_tolerance;
-  const real ratio_div = 1 + tol;
+  const real tol              = opt->success_tolerance;
+  const real tightening_factor = 1 + tol; // divide each limit's half-range by this to shrink it by tol
 
   // The unit change that makes the dimensionless success_tolerance land on the buffer.
   // A non-positive buffer means no unit change.
@@ -285,28 +290,30 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   opt->collision_scale = tol / buffer;
 
   // Position is tightened like the rest, EXCEPT never past the task's own start or goal.
-  // Task::stop_to_stop pins the boundary control points, so the position rows at the
+  // Task::stop_to_stop pins the boundary control points, so the position constraints at the
   // trajectory's ends are constant in the decision variables -- gradient exactly 0. A
   // tightened bound that cut off an endpoint would flip such a row to violated with no
   // gradient, making the SQP subproblem infeasible at every iterate; clamping the bound to
-  // the endpoint keeps that row satisfied. Where the clamp binds, the (1 + tol) acceptance
-  // slack is no longer covered, which is why the optimizers also check the rendered
-  // trajectory against the TRUE bounds (position_within_limits) before reporting success.
-  // Untightened, an accepted solution could exceed a joint limit by up to tol * range / 2.
+  // the endpoint keeps that row satisfied. The tightening_factor shrink can push center +
+  // half_range past an endpoint even when validate_task() accepted it (e.g. endpoint near the
+  // limit). Where the clamp binds, the (1 + tol) acceptance slack is no longer covered, which
+  // is why the optimizers also check the rendered trajectory against the TRUE bounds
+  // (position_within_limits) before reporting success. Untightened, an accepted solution
+  // could exceed a joint limit by up to tol * range / 2.
   for (int joint = 0; joint < opt->manip.n_joints; joint++) {
     const real center              = (opt->manip.position_max[joint] + opt->manip.position_min[joint]) / 2;
-    const real half_range          = (opt->manip.position_max[joint] - opt->manip.position_min[joint]) / 2 / ratio_div;
+    const real half_range          = (opt->manip.position_max[joint] - opt->manip.position_min[joint]) / 2 / tightening_factor;
     const real endpoint_max        = std::max(opt->task(joint, 0), opt->task(joint, 3));
     const real endpoint_min        = std::min(opt->task(joint, 0), opt->task(joint, 3));
     opt->manip.position_max[joint] = std::max(center + half_range, endpoint_max);
     opt->manip.position_min[joint] = std::min(center - half_range, endpoint_min);
   }
   for (int j = 0; j < opt->manip.n_joints; j++) {
-    opt->manip.velocity_max[j] /= ratio_div;
-    opt->manip.acceleration_max[j] /= ratio_div;
-    opt->manip.torque_max[j] /= ratio_div;
+    opt->manip.velocity_max[j] /= tightening_factor;
+    opt->manip.acceleration_max[j] /= tightening_factor;
+    opt->manip.torque_max[j] /= tightening_factor;
   }
-  opt->manip.tool_speed_max /= ratio_div;
+  opt->manip.tool_speed_max /= tightening_factor;
 
   // Halved so a pairwise check between two inflated objects sums to exactly the buffer.
   const real col_margin = buffer / 2;
@@ -505,6 +512,8 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
       is_valid_more                           = max_con_more < opt->success_tolerance;
+      // Tightening clamps position bounds to the endpoint, so the (1 + tol) acceptance slack
+      // may not cover the full gap to the true bound; check directly against the true bounds.
       if (opt->tighten_for_tolerance && opt->constraints.position)
         is_valid_more = is_valid_more && position_within_limits(bspline_val_more.traj.pos,
                                                                 tolerance_snapshot.position_min,
@@ -773,6 +782,8 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
       is_valid_more                           = max_con_more < opt->success_tolerance;
+      // Tightening clamps position bounds to the endpoint, so the (1 + tol) acceptance slack
+      // may not cover the full gap to the true bound; check directly against the true bounds.
       if (opt->tighten_for_tolerance && opt->constraints.position)
         is_valid_more = is_valid_more && position_within_limits(bspline_val_more.traj.pos,
                                                                 tolerance_snapshot.position_min,
@@ -1347,6 +1358,8 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
       is_valid_more                           = max_con_more < opt->success_tolerance;
+      // Tightening clamps position bounds to the endpoint, so the (1 + tol) acceptance slack
+      // may not cover the full gap to the true bound; check directly against the true bounds.
       if (opt->tighten_for_tolerance && opt->constraints.position)
         is_valid_more = is_valid_more && position_within_limits(bspline_val_more.traj.pos,
                                                                 tolerance_snapshot.position_min,
@@ -1539,6 +1552,8 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
       is_valid_more                           = max_con_more < opt->success_tolerance;
+      // Tightening clamps position bounds to the endpoint, so the (1 + tol) acceptance slack
+      // may not cover the full gap to the true bound; check directly against the true bounds.
       if (opt->tighten_for_tolerance && opt->constraints.position)
         is_valid_more = is_valid_more && position_within_limits(bspline_val_more.traj.pos,
                                                                 tolerance_snapshot.position_min,

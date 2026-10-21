@@ -86,6 +86,10 @@ stop-to-stop task are fixed, so constraints there cannot be improved by the solv
   clears an obstacle by less than the buffer is still accepted; every other part of the
   trajectory keeps the full buffer.
 
+Velocity, acceleration, torque, and tool speed do not need this exception: a stop-to-stop task
+starts and ends at rest, so the endpoint values for those constraints are zero, well within any
+tightened limit.
+
 `opt.tighten_for_tolerance = false` disables the tightening entirely. It exists to
 isolate its effect when measuring; with it off, an accepted solve may violate the real
 limits by up to `success_tolerance`.

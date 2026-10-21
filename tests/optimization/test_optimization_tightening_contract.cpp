@@ -175,14 +175,13 @@ TEST_CASE("position is tightened up to the endpoints and success respects the tr
   run.guess.initial_x        = blast::guess_straight_line(&run);
   run.guess.initial_x.back() = 2.0;
   const Result result        = optimize(&run);
-  if (result.success) {
-    const Matrix& pos = result.trajectory.pos;
-    for (u32 point = 0; point < pos.cols; point++)
-      for (u32 joint = 0; joint < pos.rows; joint++) {
-        CHECK(pos(joint, point) <= robot.position_max[joint]);
-        CHECK(pos(joint, point) >= robot.position_min[joint]);
-      }
-  }
+  REQUIRE(result.success); // test is vacuous if the solve never succeeds
+  const Matrix& pos = result.trajectory.pos;
+  for (u32 point = 0; point < pos.cols; point++)
+    for (u32 joint = 0; joint < pos.rows; joint++) {
+      CHECK(pos(joint, point) <= robot.position_max[joint]);
+      CHECK(pos(joint, point) >= robot.position_min[joint]);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -235,20 +234,22 @@ TEST_CASE("tightened self-collision constraint matches across with_segments/broa
 }
 
 // ---------------------------------------------------------------------------
-// 5. The collision analogue of the position test above. A task start that clears an obstacle by less than the buffer is
-// acceptable (clearance > 0), but the full buffer would make its collision row violated with a zero
-// gradient (the start is pinned). The first segment's rows target what the start achieves instead,
-// every other row keeps the buffer, and acceptance (c < tol <=> d + buffer > 0) does not move.
+// 5. The collision analogue of the position test above. A task start that clears an obstacle by
+// less than the buffer is acceptable (clearance > 0), but using the full buffer as the target
+// would leave that constraint entry violated with a zero gradient (the start is pinned). The first
+// segment's constraint entries target what the start achieves instead, every other entry keeps the
+// buffer, and acceptance (c < tol <=> d + buffer > 0) does not move.
 // ---------------------------------------------------------------------------
-// What "exactly" means for distances and rows below. Float rows carry ~1e-7 relative distance
-// error times the row scale (tolerance / target, ~20 here); the bug they guard is +tolerance/2.
+// What "exactly" means for distances and constraint entries below. Float entries carry ~1e-7
+// relative distance error times the scale (tolerance / target, ~20 here); the bug they guard is
+// +tolerance/2.
 #if BLAST_USE_DOUBLES
 constexpr real exact_tolerance = 1e-9;
 #else
 constexpr real exact_tolerance = 1e-5;
 #endif
 
-TEST_CASE("collision rows at a pinned endpoint target what the endpoint achieves", "[Optimization]") {
+TEST_CASE("collision constraints at a pinned endpoint target what the endpoint achieves", "[Optimization]") {
   const real tolerance = 0.01, buffer = 0.001, start_clearance = 0.0005; // start clears the sphere by half the buffer
   Array      start = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
   Array      end   = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.14};
@@ -266,7 +267,7 @@ TEST_CASE("collision rows at a pinned endpoint target what the endpoint achieves
     world.add_sphere(capsule.p2 + axis * (capsule.radius + sphere_radius + start_clearance), sphere_radius); // beyond the capsule's end, on its axis
     for (int capsule_id = 0; capsule_id < robot._n_caps; capsule_id++)
       if (capsule_id != tool_capsule)
-        REQUIRE(distance(manip_data.capsule_list[capsule_id], world.spheres[0]) > 2 * buffer); // only the tool capsule is close
+        REQUIRE(distance(manip_data.capsule_list[capsule_id], world.spheres[0]) > 2 * buffer); // far enough that endpoint_target returns the full buffer
     REQUIRE(distance(capsule, world.spheres[0]) == Approx(start_clearance).margin(exact_tolerance));
   }
 
@@ -288,12 +289,13 @@ TEST_CASE("collision rows at a pinned endpoint target what the endpoint achieves
     if (capsule_id != tool_capsule)
       CHECK(opt.endpoint_collision_target[0][capsule_id] == Approx(buffer)); // far capsules keep the full buffer
 
-  // The endpoint must satisfy its own rows. On a trajectory that holds the start (goal == start)
-  // every sample IS the start, so every row of the first and last segment has to be <= 0. Without
-  // the per-row target the tool capsule's row sits at +tol/2 there, and its worst sample is beside
-  // the pinned start where the free control points barely reach: gradient ~1e-3 against ~4 for the
-  // same row mid-trajectory. Not exactly zero, so the zero-gradient check of 1 cannot see it; the
-  // SQP needs a huge step to move it, which is the round-off line-search failure (nlopt -4).
+  // The endpoint must satisfy its own constraint entries. On a trajectory that holds the start
+  // (goal == start) every sample IS the start, so every entry of the first and last segment has
+  // to be <= 0. Without the per-entry target the tool capsule's entry sits at +tol/2 there, and
+  // its worst sample is beside the pinned start where the free control points barely reach:
+  // gradient ~1e-3 against ~4 for the same entry mid-trajectory. Not exactly zero, so the
+  // zero-gradient check of 1 cannot see it; the SQP needs a huge step to move it, which is the
+  // round-off line-search failure (nlopt -4).
   {
     Optimization hold(robot, Task::stop_to_stop(start, start));
     hold.world                           = world;
@@ -323,21 +325,21 @@ TEST_CASE("collision rows at a pinned endpoint target what the endpoint achieves
           worst_interior = std::max(worst_interior, constraint);
       }
     CHECK(worst_boundary <= exact_tolerance);
-    CHECK(worst_interior > 0); // interior rows keep the full buffer: not vacuous
+    CHECK(worst_interior > 0); // interior constraints keep the full buffer: not vacuous
     restore_from_tolerance(&hold, hold_tolerance_snapshot);
   }
 
-  // Acceptance is the untargeted row's, on both sides of distance + buffer = 0, for the targeted
-  // row and for an interior one.
+  // Acceptance is the untargeted constraint's, on both sides of distance + buffer = 0, for the
+  // targeted constraint and for an interior one.
   const int n_segments = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
   for (int segment: {0, n_segments / 2}) {
-    const auto row = collision_row(opt, segment, n_segments, tool_capsule);
+    const auto ext_coll_params = collision_constraint_params(opt, segment, n_segments, tool_capsule);
     for (real distance: {-buffer - 1e-6, -buffer + 1e-6}) {
-      const real constraint = -(distance + row.shift) * row.scale;
+      const real constraint = -(distance + ext_coll_params.shift) * ext_coll_params.scale;
       CHECK((constraint < tolerance) == (distance + buffer > 0));
     }
   }
-  CHECK(collision_row(opt, n_segments / 2, n_segments, tool_capsule).shift == 0);
+  CHECK(collision_constraint_params(opt, n_segments / 2, n_segments, tool_capsule).shift == 0); // interior: no endpoint adjustment
 
   // Point-based methods: the pinned start/goal samples take the boundary target, an interior
   // sample the full buffer. At the start's own clearance its row is satisfied (<= 0).
