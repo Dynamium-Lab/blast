@@ -383,6 +383,12 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
       capsule.radius += col_margin;
   for (auto& door: opt->world.dynamic_doors)
     door.extents += Vec3(col_margin, col_margin, col_margin);
+  // The caller-built static BVH holds the uninflated AABBs, so the broadphase would prune obstacles
+  // inside the collision margin. Rebuilt on the inflated world so its AABBs cover the inflated geometry;
+  // restore_from_tolerance puts the caller's original BVH back. Only when the caller built one (num_objects > 0);
+  // if they didn't, there are no static obstacles to search and nothing to rebuild.
+  if (opt->world.static_bounding_volume_hierarchy.num_objects > 0)
+    create_static_bounding_volume_hierarchy(opt->world, opt->world.static_bounding_volume_hierarchy);
 
   set_endpoint_collision_targets(opt, buffer);
 
@@ -891,6 +897,8 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
     return result;
   }
 
+  auto tolerance_snapshot = tighten_for_success_tolerance(opt); // restored below, next to opt->guess restore
+
   const auto n = opt->bspline.x_len(opt->task);
 
   Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
@@ -1010,7 +1018,7 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
       auto max_con                = max(constraints_points);
       result.max_constraint_idx   = argmax(constraints_points);
       result.max_constraint_value = max_con;
-      is_valid                    = max_con < opt->success_tolerance * 2;
+      is_valid                    = max_con < opt->success_tolerance;
     }
 
     {
@@ -1029,17 +1037,23 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
       Array  constraints_more_points(opt_val_more.constraints.n_constraints);
       Matrix gradient;
       constraints_and_gradients_with_broadphase(x, opt_val_more, constraints_more_points, gradient);
-      // is_valid_more = max(constraints_more_points) < opt->success_tolerance;
       auto max_con_more                       = max(constraints_more_points);
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
-      is_valid_more                           = max_con_more < opt->success_tolerance * 2;
+      is_valid_more                           = max_con_more < opt->success_tolerance;
+      // Tightening clamps position bounds to the endpoint, so the (1 + tol) acceptance slack
+      // may not cover the full gap to the true bound; check directly against the true bounds.
+      if (opt->tighten_for_tolerance && opt->constraints.position)
+        is_valid_more = is_valid_more && position_within_limits(bspline_val_more.traj.pos,
+                                                                tolerance_snapshot.position_min,
+                                                                tolerance_snapshot.position_max);
 
       result.x = x;
 
       if (is_valid && is_valid_more) {
         result.trajectory = bspline_val_more.traj;
-        // break;
+        try_count++; // count this try before breaking, so num_tries reports tries made
+        break;
       } else if (opt->guess.type != Guess::random && try_count == 0) {
         opt->guess.type = Guess::random;
       }
@@ -1049,7 +1063,8 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
 #endif
   }
 
-  opt->guess = start_guess; // reset to original
+  opt->guess = start_guess;                        // reset to original
+  restore_from_tolerance(opt, tolerance_snapshot); // undo tighten_for_success_tolerance(): caller keeps the real limits
 
   auto time = (real) (get_tick_us() - T1) / 1000.0;
 
@@ -1083,6 +1098,8 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
     print(opt->task);
     return result;
   }
+
+  auto tolerance_snapshot = tighten_for_success_tolerance(opt); // restored below, next to opt->guess restore
 
   const auto n = opt->bspline.x_len(opt->task);
 
@@ -1203,7 +1220,7 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
       auto max_con                = max(constraints_points);
       result.max_constraint_idx   = argmax(constraints_points);
       result.max_constraint_value = max_con;
-      is_valid                    = max_con < opt->success_tolerance * 2;
+      is_valid                    = max_con < opt->success_tolerance;
     }
 
     {
@@ -1222,17 +1239,23 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
       Array  constraints_more_points(opt_val_more.constraints.n_constraints);
       Matrix gradient;
       constraints_and_gradients_with_double_broadphase(x, opt_val_more, constraints_more_points, gradient);
-      // is_valid_more = max(constraints_more_points) < opt->success_tolerance;
       auto max_con_more                       = max(constraints_more_points);
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
-      is_valid_more                           = max_con_more < opt->success_tolerance * 2;
+      is_valid_more                           = max_con_more < opt->success_tolerance;
+      // Tightening clamps position bounds to the endpoint, so the (1 + tol) acceptance slack
+      // may not cover the full gap to the true bound; check directly against the true bounds.
+      if (opt->tighten_for_tolerance && opt->constraints.position)
+        is_valid_more = is_valid_more && position_within_limits(bspline_val_more.traj.pos,
+                                                                tolerance_snapshot.position_min,
+                                                                tolerance_snapshot.position_max);
 
       result.x = x;
 
       if (is_valid && is_valid_more) {
         result.trajectory = bspline_val_more.traj;
-        // break;
+        try_count++; // count this try before breaking, so num_tries reports tries made
+        break;
       } else if (opt->guess.type != Guess::random && try_count == 0) {
         opt->guess.type = Guess::random;
       }
@@ -1242,7 +1265,8 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
 #endif
   }
 
-  opt->guess = start_guess; // reset to original
+  opt->guess = start_guess;                        // reset to original
+  restore_from_tolerance(opt, tolerance_snapshot); // undo tighten_for_success_tolerance(): caller keeps the real limits
 
   auto time = (real) (get_tick_us() - T1) / 1000.0;
 
