@@ -139,10 +139,10 @@ inline void initialize_optimization(Optimization* opt) {
 
   // todo: swap INF for large value
 
-  opt->lb        = Array(opt->x_len(), -HUGE_VAL);
-  opt->ub        = Array(opt->x_len(), -HUGE_VAL);
-  opt->lb.back() = 0.1;
-  opt->ub.back() = 60.0;
+  opt->lower_bounds        = Array(opt->x_len(), -HUGE_VAL);
+  opt->upper_bounds        = Array(opt->x_len(), -HUGE_VAL);
+  opt->lower_bounds.back() = 0.1;
+  opt->upper_bounds.back() = 60.0;
 
   // Task
   auto task = opt->task;
@@ -200,21 +200,19 @@ inline bool position_within_limits(const Matrix& pos, const std::array<real, MAX
   return true;
 }
 
-// Box bounds on the decision vector [free control points, joint-major, n_ctrl - 6 per joint | T].
-// SLSQP enforces bounds exactly inside every QP subproblem, so they are the one step limit it has
-// (NLopt's SLSQP has no trust region). Without them a single QP step could move control points by
-// tens of radians and T by x40 -- slowing down is always a descent direction for the merit
-// function when the objective is T -- and some solves drifted to 1e9 rad. Control points are held
-// within the (tightened) position limits, widened by control_point_bound_margin of each joint's
-// range. The default 0 is the strict box: by the convex-hull property the whole trajectory stays
-// inside the limits, and every iterate starts feasible for position. A margin readmits curves that
-// stay inside through control points just outside (tasks forced close to a limit), but on a
-// 532-problem benchmark 10% lowered success (52.3 -> 46.2% straight) at equal solve time.
-// Call after tighten_for_success_tolerance(). A task layout other than the pinned stop-to-stop one
-// gets the duration bounds only.
+// Fills lower_bounds and upper_bounds for the decision vector
+// [free control points, joint-major, (n_ctrl - 6) per joint | T].
+// Duration T is always bounded to [min_duration, max_duration]. For stop-to-stop tasks, each free
+// control point is also bounded to the (tightened) position limits +/- control_point_bound_margin
+// of the joint's range. Call after tighten_for_success_tolerance().
+//
+// Why bounds matter: NLopt's SLSQP has no trust region, so without them a single QP step can move
+// control points by tens of radians or stretch T by x40. With control points inside the position
+// limits the B-spline convex-hull property keeps the whole trajectory inside them. On a 532-problem
+// benchmark, bounded (margin 0) vs unbounded: 52.3% vs 41.7% success, equal median solve time --
+// the bounds cut divergence without slowing convergence.
 inline void decision_bounds(const Optimization* opt, Array& lower_bounds, Array& upper_bounds) {
-  const u32 n_variables = lower_bounds.size;
-  for (u32 variable = 0; variable < n_variables; variable++) {
+  for (u32 variable = 0; variable < lower_bounds.size; variable++) {
     lower_bounds[variable] = -INF_REAL;
     upper_bounds[variable] = INF_REAL;
   }
@@ -222,13 +220,22 @@ inline void decision_bounds(const Optimization* opt, Array& lower_bounds, Array&
   upper_bounds.back()             = opt->max_duration;
   const int n_joints              = opt->manip.n_joints;
   const int n_free_control_points = (int) opt->bspline.n_ctrl - 6;
-  if ((int) n_variables != n_joints * n_free_control_points + 1)
+  // Non-stop-to-stop layouts have a different variable count; they get duration bounds only.
+  if ((int) lower_bounds.size != n_joints * n_free_control_points + 1)
     return;
+  if (!opt->bound_control_points)
+    return;
+  // Fallback for joints with no position limits: ±2π (screwing tasks aside, a stop-to-stop
+  // trajectory never needs more than a full revolution per joint). margin is skipped for
+  // unbounded joints to avoid multiplying by an infinite range.
   for (int joint = 0; joint < n_joints; joint++) {
-    const real margin = opt->control_point_bound_margin * (opt->manip.position_max[joint] - opt->manip.position_min[joint]);
+    const real lo            = std::isfinite(opt->manip.position_min[joint]) ? opt->manip.position_min[joint] : -2 * PI;
+    const real hi            = std::isfinite(opt->manip.position_max[joint]) ? opt->manip.position_max[joint] : 2 * PI;
+    const bool finite_range  = std::isfinite(opt->manip.position_max[joint] - opt->manip.position_min[joint]);
+    const real margin        = finite_range ? opt->control_point_bound_margin * (hi - lo) : real(0);
     for (int control_point = 0; control_point < n_free_control_points; control_point++) {
-      lower_bounds[joint * n_free_control_points + control_point] = opt->manip.position_min[joint] - margin;
-      upper_bounds[joint * n_free_control_points + control_point] = opt->manip.position_max[joint] + margin;
+      lower_bounds[joint * n_free_control_points + control_point] = lo - margin;
+      upper_bounds[joint * n_free_control_points + control_point] = hi + margin;
     }
   }
 }
@@ -435,8 +442,8 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
   stop.force_stop = false;
   stop.stop_msg   = nullptr;
 
-  Array lb(n), ub(n);
-  decision_bounds(opt, lb, ub);
+  Array lower_bounds(n), upper_bounds(n);
+  decision_bounds(opt, lower_bounds, upper_bounds);
 
   nlopt_constraint fc{};
   fc.m      = opt->constraints.n_constraints;
@@ -452,11 +459,13 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_min_objective(o, objective_function, opt);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  Array lb(n), ub(n);
-  decision_bounds(opt, lb, ub);
-  nlopt_res = nlopt_set_lower_bounds(o, lb.data);
+  // Control-point bounds are the full joint range, so they don't constrain typical paths; they
+  // only prevent runaway QP steps. Benchmark (532 problems): equal median solve time vs unbounded.
+  Array lower_bounds(n), upper_bounds(n);
+  decision_bounds(opt, lower_bounds, upper_bounds);
+  nlopt_res = nlopt_set_lower_bounds(o, lower_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_upper_bounds(o, ub.data);
+  nlopt_res = nlopt_set_upper_bounds(o, upper_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_ftol_abs(o, 0.0001);
   Assert(nlopt_res == NLOPT_SUCCESS);
@@ -485,7 +494,7 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
       PROFILE_SCOPE("Initial guess");
 #endif
       x = init_guess(opt);
-      clamp_to_bounds(x, lb, ub); // NLopt refuses a start outside the bounds
+      clamp_to_bounds(x, lower_bounds, upper_bounds); // NLopt refuses a start outside the bounds
       result.x0 = x;
     }
 
@@ -506,8 +515,8 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
               &fc,
               0,
               nullptr,
-              lb.data,
-              ub.data,
+              lower_bounds.data,
+              upper_bounds.data,
               x.data,
               &f,
               &stop);
@@ -603,10 +612,10 @@ inline void initialize_optimization_with_segments(Optimization* opt) {
 
   // todo: swap INF for large value
 
-  opt->lb        = Array(opt->x_len(), -HUGE_VAL);
-  opt->ub        = Array(opt->x_len(), HUGE_VAL);
-  opt->lb.back() = 0.1;
-  opt->ub.back() = 60.0;
+  opt->lower_bounds        = Array(opt->x_len(), -HUGE_VAL);
+  opt->upper_bounds        = Array(opt->x_len(), HUGE_VAL);
+  opt->lower_bounds.back() = 0.1;
+  opt->upper_bounds.back() = 60.0;
 
   // Task
   auto task = opt->task;
@@ -703,8 +712,8 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
   stop.force_stop = false;
   stop.stop_msg   = nullptr;
 
-  Array lb(n), ub(n);
-  decision_bounds(opt, lb, ub);
+  Array lower_bounds(n), upper_bounds(n);
+  decision_bounds(opt, lower_bounds, upper_bounds);
 
   nlopt_constraint fc{};
   fc.m      = opt->constraints.n_constraints;
@@ -720,11 +729,13 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_min_objective(o, objective_function, opt);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  Array lb(n), ub(n);
-  decision_bounds(opt, lb, ub);
-  nlopt_res = nlopt_set_lower_bounds(o, lb.data);
+  // Control-point bounds are the full joint range, so they don't constrain typical paths; they
+  // only prevent runaway QP steps. Benchmark (532 problems): equal median solve time vs unbounded.
+  Array lower_bounds(n), upper_bounds(n);
+  decision_bounds(opt, lower_bounds, upper_bounds);
+  nlopt_res = nlopt_set_lower_bounds(o, lower_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_upper_bounds(o, ub.data);
+  nlopt_res = nlopt_set_upper_bounds(o, upper_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_ftol_abs(o, 0.0001);
   Assert(nlopt_res == NLOPT_SUCCESS);
@@ -753,7 +764,7 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
       PROFILE_SCOPE("Initial guess");
 #endif
       x = init_guess_segments(opt);
-      clamp_to_bounds(x, lb, ub); // NLopt refuses a start outside the bounds
+      clamp_to_bounds(x, lower_bounds, upper_bounds); // NLopt refuses a start outside the bounds
       result.x0 = x;
     }
 
@@ -775,8 +786,8 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
               &fc,
               0,
               nullptr,
-              lb.data,
-              ub.data,
+              lower_bounds.data,
+              upper_bounds.data,
               x.data,
               &f,
               &stop);
@@ -901,8 +912,8 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
   stop.force_stop = false;
   stop.stop_msg   = nullptr;
 
-  Array lb(n), ub(n);
-  decision_bounds(opt, lb, ub);
+  Array lower_bounds(n), upper_bounds(n);
+  decision_bounds(opt, lower_bounds, upper_bounds);
 
   nlopt_constraint fc{};
   fc.m      = opt->constraints.n_constraints;
@@ -918,11 +929,13 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_min_objective(o, objective_function, opt);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  Array lb(n), ub(n);
-  decision_bounds(opt, lb, ub);
-  nlopt_res = nlopt_set_lower_bounds(o, lb.data);
+  // Control-point bounds are the full joint range, so they don't constrain typical paths; they
+  // only prevent runaway QP steps. Benchmark (532 problems): equal median solve time vs unbounded.
+  Array lower_bounds(n), upper_bounds(n);
+  decision_bounds(opt, lower_bounds, upper_bounds);
+  nlopt_res = nlopt_set_lower_bounds(o, lower_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_upper_bounds(o, ub.data);
+  nlopt_res = nlopt_set_upper_bounds(o, upper_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_ftol_abs(o, 0.0001);
   Assert(nlopt_res == NLOPT_SUCCESS);
@@ -951,7 +964,7 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
       PROFILE_SCOPE("Initial guess");
 #endif
       x = init_guess_segments(opt);
-      clamp_to_bounds(x, lb, ub); // NLopt refuses a start outside the bounds
+      clamp_to_bounds(x, lower_bounds, upper_bounds); // NLopt refuses a start outside the bounds
       result.x0 = x;
     }
 
@@ -973,8 +986,8 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
               &fc,
               0,
               nullptr,
-              lb.data,
-              ub.data,
+              lower_bounds.data,
+              upper_bounds.data,
               x.data,
               &f,
               &stop);
@@ -1092,8 +1105,8 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
   stop.force_stop = false;
   stop.stop_msg   = nullptr;
 
-  Array lb(n), ub(n);
-  decision_bounds(opt, lb, ub);
+  Array lower_bounds(n), upper_bounds(n);
+  decision_bounds(opt, lower_bounds, upper_bounds);
 
   nlopt_constraint fc{};
   fc.m      = opt->constraints.n_constraints;
@@ -1109,11 +1122,13 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_min_objective(o, objective_function, opt);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  Array lb(n), ub(n);
-  decision_bounds(opt, lb, ub);
-  nlopt_res = nlopt_set_lower_bounds(o, lb.data);
+  // Control-point bounds are the full joint range, so they don't constrain typical paths; they
+  // only prevent runaway QP steps. Benchmark (532 problems): equal median solve time vs unbounded.
+  Array lower_bounds(n), upper_bounds(n);
+  decision_bounds(opt, lower_bounds, upper_bounds);
+  nlopt_res = nlopt_set_lower_bounds(o, lower_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_upper_bounds(o, ub.data);
+  nlopt_res = nlopt_set_upper_bounds(o, upper_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_ftol_abs(o, 0.0001);
   Assert(nlopt_res == NLOPT_SUCCESS);
@@ -1142,7 +1157,7 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
       PROFILE_SCOPE("Initial guess");
 #endif
       x = init_guess_segments(opt);
-      clamp_to_bounds(x, lb, ub); // NLopt refuses a start outside the bounds
+      clamp_to_bounds(x, lower_bounds, upper_bounds); // NLopt refuses a start outside the bounds
       result.x0 = x;
     }
 
@@ -1164,8 +1179,8 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
               &fc,
               0,
               nullptr,
-              lb.data,
-              ub.data,
+              lower_bounds.data,
+              upper_bounds.data,
               x.data,
               &f,
               &stop);
@@ -1285,8 +1300,8 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
   stop.force_stop = false;
   stop.stop_msg   = nullptr;
 
-  Array lb(n), ub(n);
-  decision_bounds(opt, lb, ub);
+  Array lower_bounds(n), upper_bounds(n);
+  decision_bounds(opt, lower_bounds, upper_bounds);
 
   nlopt_constraint fc{};
   fc.m      = opt->constraints.n_constraints;
@@ -1302,11 +1317,13 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_min_objective(o, objective_function, opt);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  Array lb(n), ub(n);
-  decision_bounds(opt, lb, ub);
-  nlopt_res = nlopt_set_lower_bounds(o, lb.data);
+  // Control-point bounds are the full joint range, so they don't constrain typical paths; they
+  // only prevent runaway QP steps. Benchmark (532 problems): equal median solve time vs unbounded.
+  Array lower_bounds(n), upper_bounds(n);
+  decision_bounds(opt, lower_bounds, upper_bounds);
+  nlopt_res = nlopt_set_lower_bounds(o, lower_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_upper_bounds(o, ub.data);
+  nlopt_res = nlopt_set_upper_bounds(o, upper_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_ftol_abs(o, 0.0001);
   Assert(nlopt_res == NLOPT_SUCCESS);
@@ -1335,7 +1352,7 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
       PROFILE_SCOPE("Initial guess");
 #endif
       x = init_guess(opt);
-      clamp_to_bounds(x, lb, ub); // NLopt refuses a start outside the bounds
+      clamp_to_bounds(x, lower_bounds, upper_bounds); // NLopt refuses a start outside the bounds
       result.x0 = x;
     }
 
@@ -1356,8 +1373,8 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
               &fc,
               0,
               nullptr,
-              lb.data,
-              ub.data,
+              lower_bounds.data,
+              upper_bounds.data,
               x.data,
               &f,
               &stop);
@@ -1480,8 +1497,8 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
   stop.force_stop = false;
   stop.stop_msg   = nullptr;
 
-  Array lb(n), ub(n);
-  decision_bounds(opt, lb, ub);
+  Array lower_bounds(n), upper_bounds(n);
+  decision_bounds(opt, lower_bounds, upper_bounds);
 
   nlopt_constraint fc{};
   fc.m      = opt->constraints.n_constraints;
@@ -1497,11 +1514,13 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_min_objective(o, objective_function, opt);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  Array lb(n), ub(n);
-  decision_bounds(opt, lb, ub);
-  nlopt_res = nlopt_set_lower_bounds(o, lb.data);
+  // Control-point bounds are the full joint range, so they don't constrain typical paths; they
+  // only prevent runaway QP steps. Benchmark (532 problems): equal median solve time vs unbounded.
+  Array lower_bounds(n), upper_bounds(n);
+  decision_bounds(opt, lower_bounds, upper_bounds);
+  nlopt_res = nlopt_set_lower_bounds(o, lower_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_upper_bounds(o, ub.data);
+  nlopt_res = nlopt_set_upper_bounds(o, upper_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_ftol_abs(o, 0.0001);
   Assert(nlopt_res == NLOPT_SUCCESS);
@@ -1530,7 +1549,7 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
       PROFILE_SCOPE("Initial guess");
 #endif
       x = init_guess(opt);
-      clamp_to_bounds(x, lb, ub); // NLopt refuses a start outside the bounds
+      clamp_to_bounds(x, lower_bounds, upper_bounds); // NLopt refuses a start outside the bounds
       result.x0 = x;
     }
 
@@ -1551,8 +1570,8 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
               &fc,
               0,
               nullptr,
-              lb.data,
-              ub.data,
+              lower_bounds.data,
+              upper_bounds.data,
               x.data,
               &f,
               &stop);

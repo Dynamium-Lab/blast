@@ -141,9 +141,16 @@ struct Optimization {
   std::array<real, 2>                           endpoint_self_target{};
   real                                          min_duration               = 0.01;              // bounds on the trajectory duration T (seconds), the
   real                                          max_duration               = 60.0;              // last decision variable (see decision_bounds)
-  real                                          control_point_bound_margin = 0.0;               // control points may leave the position limits by this
-                                                                                                // fraction of each joint's range (see decision_bounds); raise
-                                                                                                // it for tasks that must run close to a joint limit
+  real                                          control_point_bound_margin = 0.0;               // control points may leave position limits by this fraction
+                                                                                                // of each joint's range (see decision_bounds); raise it when
+                                                                                                // the task must pass close to a limit -- due to the B-spline
+                                                                                                // convex-hull property, control points at the limit give a
+                                                                                                // trajectory strictly inside it, so a margin > 0 is needed
+                                                                                                // to let the trajectory graze the limit; ignored for joints
+                                                                                                // that have no position limits (±2π fallback, no margin)
+  bool                                          bound_control_points       = true;              // false: apply duration bounds only, skip control-point bounds;
+                                                                                                // set false when no position limits are defined, or when the
+                                                                                                // task requires motion the box otherwise prevents
   int  max_tries = 1;                                                                           // Maximum number of tries in the optimization loop.
   int  max_eval  = 1000;                                                                        // Maximum number of function evaluations for a single NLopt call.
   real max_time  = 30.0;                                                                        // Maximum time (seconds) for a single NLopt call.
@@ -152,8 +159,8 @@ struct Optimization {
 
   void* custom_data;
 
-  Array lb;
-  Array ub;
+  Array lower_bounds;
+  Array upper_bounds;
 
   Optimization() = delete;
 
