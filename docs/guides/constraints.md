@@ -103,16 +103,29 @@ a box the solver cannot leave, enforced exactly at every step:
 ```cpp
 opt.min_duration = 0.01;               // T in [min_duration, max_duration], seconds
 opt.max_duration = 60.0;
-opt.control_point_bound_margin = 0.0;  // control points within the position limits
+opt.control_point_bound_margin = 0.0;  // widen control-point box by this fraction of each joint's range
+opt.bound_control_points = true;       // false: duration bounds only, no control-point box
 ```
 
 SLSQP has no step-size limit of its own, so without these bounds a single step can stretch
 `T` many times over or move control points by tens of radians, and some solves never
 recover. With the control points inside the position limits, the whole trajectory is
 inside them too (a B-spline stays within the hull of its control points).
-`control_point_bound_margin` widens that box by a fraction of each joint's range, which
-can help tasks that must run close to a joint limit; on general problems a margin lowers
-the success rate, so the default is 0. An initial guess outside the box is clamped into it.
+
+These bounds do not affect convergence on typical paths: control-point bounds are set to the
+full joint range, so paths far from the limits are unconstrained by the box. They only cut
+divergence from runaway QP steps, leaving median solve time unchanged.
+
+**Tasks close to a joint limit**: because the convex-hull property is conservative, control
+points capped at the limit produce a trajectory that stays strictly inside it. Raise
+`control_point_bound_margin` (e.g. `0.05`) to give the free control points room to create
+a smooth curve through a near-limit region.
+
+**Joints without position limits**: the control-point box falls back to `[-2π, 2π]`, which
+covers all non-screwing stop-to-stop tasks. Set `bound_control_points = false` to remove
+the box entirely, for example for continuous-rotation joints.
+
+An initial guess outside the box is clamped into it.
 
 See the [API reference](../api/cpp/index.md) for the full `ConstraintSelection` and
 `OptimizationMethod` definitions.
