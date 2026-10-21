@@ -54,25 +54,25 @@ int main() {
   // -----------------------------------------------------------------------
   // Step 1 — Define the robot, task, and B-spline representation.
   // -----------------------------------------------------------------------
-  Manipulator ur5e = make_UR5e();
+  Manipulator ur5e   = make_UR5e();
+  ur5e.base_position = {-0.5, -0.3, 0.35};
+  ur5e.base_rotation = {-1, 0, 0, 0, -1, 0, 0, 0, 1};
 
-  Array start = {
-          1.94822, 0.473555, -0.0255247,
-          -0.448375, 0.370356, -3.12883};
+  Array start = {-0.704868, 2.17507, 0.834305, 0.132228, 2.27799, 0.00328674};
+  Array end   = {3.12394, -0.553571, -0.509807, 1.06314, 1.52902, -3.10058};
+  Task  task  = Task::stop_to_stop(start, end);
 
-  Array end = {
-          2.5825, 0.0700, -0.3892,
-          0.3196, 0.9927, -3.17328};
-
-  Task task = Task::stop_to_stop(start, end);
+  auto world = get_kitchen_no_doors();
 
   Optimization opt(ur5e, task);
   opt.bspline = Bspline(12, 100, 5, ur5e.n_joints);
 
-  opt.constraints.position     = true;
-  opt.constraints.velocity     = true;
-  opt.constraints.acceleration = true;
-  opt.success_tolerance        = 0.01;
+  opt.constraints.position            = true;
+  opt.constraints.velocity            = true;
+  opt.constraints.acceleration        = true;
+  opt.constraints.external_collisions = true;
+  opt.set_world(world);
+  opt.success_tolerance = 0.01;
 
   // Using baseline method to have sensible computation time comparisons
   opt.method = OptimizationMethod::baseline;
@@ -158,6 +158,9 @@ int main() {
                         ? 100.0 * (velocity_before - velocity_after) / velocity_before
                         : 0.0)
             << "%\n";
+
+  print_to_csv(time_result.trajectory, "../../../../examples/time_traj.csv");
+  print_to_csv(smooth_result.trajectory, "../../../../examples/smooth_traj.csv");
 
   return 0;
 }
