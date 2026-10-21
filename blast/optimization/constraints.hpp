@@ -1370,7 +1370,7 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
             }
 
             const auto ext_coll_params = collision_constraint_params(opt, segment, n_segments, capsule_id);
-            distance_plus  = -(distance_plus + ext_coll_params.shift) * ext_coll_params.scale; // negative distance is positive constraint
+            distance_plus              = -(distance_plus + ext_coll_params.shift) * ext_coll_params.scale; // negative distance is positive constraint
 
             // partial difference d(collision)/dp
             const real dcoll_dp = (distance_plus - max_col_constraints[capsule_id]) / eps;
@@ -1982,7 +1982,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
             }
 
             const auto ext_coll_params = collision_constraint_params(opt, segment, n_segments, capsule_id);
-            distance_plus  = -(distance_plus + ext_coll_params.shift) * ext_coll_params.scale; // negative distance is positive constraint
+            distance_plus              = -(distance_plus + ext_coll_params.shift) * ext_coll_params.scale; // negative distance is positive constraint
 
             // partial difference d(collision)/dp
             const real dcoll_dp = (distance_plus - max_col_constraints[capsule_id]) / eps;
