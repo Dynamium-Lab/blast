@@ -137,6 +137,13 @@ void bind_optimization(nb::module_& m) {
                   "Maximum wall time per NLopt call in seconds (default 30).")
           .def_rw("trajectory_start_time", &Optimization::trajectory_start_time,
                   "Trajectory start time for dynamic obstacle synchronisation.")
+          .def_rw("min_duration", &Optimization::min_duration,
+                  "Lower bound on the trajectory duration T in seconds (default 0.01).")
+          .def_rw("control_point_bound_margin", &Optimization::control_point_bound_margin,
+                  "Control points may leave the position limits by this fraction of each joint's range "
+                  "(default 0: strictly inside). Raise it for tasks that must run close to a joint limit.")
+          .def_rw("max_duration", &Optimization::max_duration,
+                  "Upper bound on the trajectory duration T in seconds (default 60).")
           .def("set_task", &Optimization::set_task, nb::arg("task"))
           .def("set_world", &Optimization::set_world, nb::arg("world"))
           .def("x_len", &Optimization::x_len,
