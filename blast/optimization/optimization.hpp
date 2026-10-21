@@ -217,10 +217,10 @@ inline void decision_bounds(const Optimization* opt, Array& lower_bounds, Array&
   // trajectory never needs more than a full revolution per joint). margin is skipped for
   // unbounded joints to avoid multiplying by an infinite range.
   for (int joint = 0; joint < n_joints; joint++) {
-    const real lo            = std::isfinite(opt->manip.position_min[joint]) ? opt->manip.position_min[joint] : -2 * PI;
-    const real hi            = std::isfinite(opt->manip.position_max[joint]) ? opt->manip.position_max[joint] : 2 * PI;
-    const bool finite_range  = std::isfinite(opt->manip.position_max[joint] - opt->manip.position_min[joint]);
-    const real margin        = finite_range ? opt->control_point_bound_margin * (hi - lo) : real(0);
+    const real lo           = std::isfinite(opt->manip.position_min[joint]) ? opt->manip.position_min[joint] : -2 * PI;
+    const real hi           = std::isfinite(opt->manip.position_max[joint]) ? opt->manip.position_max[joint] : 2 * PI;
+    const bool finite_range = std::isfinite(opt->manip.position_max[joint] - opt->manip.position_min[joint]);
+    const real margin       = finite_range ? opt->control_point_bound_margin * (hi - lo) : real(0);
     for (int control_point = 0; control_point < n_free_control_points; control_point++) {
       lower_bounds[joint * n_free_control_points + control_point] = lo - margin;
       upper_bounds[joint * n_free_control_points + control_point] = hi + margin;

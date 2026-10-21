@@ -147,7 +147,7 @@ struct Optimization {
                                                                                                 // trajectory strictly inside it, so a margin > 0 is needed
                                                                                                 // to let the trajectory graze the limit; ignored for joints
                                                                                                 // that have no position limits (±2π fallback, no margin)
-  bool                                          bound_control_points       = true;              // false: apply duration bounds only, skip control-point bounds;
+  bool bound_control_points = true;                                                             // false: apply duration bounds only, skip control-point bounds;
                                                                                                 // set false when no position limits are defined, or when the
                                                                                                 // task requires motion the box otherwise prevents
   int  max_tries = 1;                                                                           // Maximum number of tries in the optimization loop.
