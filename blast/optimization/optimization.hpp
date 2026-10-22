@@ -476,10 +476,10 @@ inline void initialize_optimization_with_segments(Optimization* opt) {
   {
     const int n_segments = (int) opt->bspline.n_ctrl - (int) opt->bspline.degree;
     if (n_segments > 0 && (int) opt->bspline.n_points % n_segments != 0) {
-      const u32 aligned = ((opt->bspline.n_points + (u32) n_segments - 1) / (u32) n_segments) * (u32) n_segments;
+      const u32 n_pts_aligned = (u32)(std::ceil((real) opt->bspline.n_points / n_segments) * n_segments);
       printf("optimize: bspline n_points %u is not divisible by n_segments %u; rounding up to %u.\n",
-             opt->bspline.n_points, n_segments, aligned);
-      opt->set_bspline(Bspline(opt->bspline.n_ctrl, aligned, opt->bspline.degree, opt->bspline.n_joints));
+             opt->bspline.n_points, n_segments, n_pts_aligned);
+      opt->set_bspline(Bspline(opt->bspline.n_ctrl, n_pts_aligned, opt->bspline.degree, opt->bspline.n_joints));
     }
   }
 
