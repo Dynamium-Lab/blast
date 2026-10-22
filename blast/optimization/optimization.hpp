@@ -471,6 +471,18 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
 
 // todo: separate task and initialization
 inline void initialize_optimization_with_segments(Optimization* opt) {
+  // Round up n_points to the nearest multiple of n_segments so that
+  // constraints_and_gradients_with_segments never has an unconstrained tail.
+  {
+    const int n_segments = (int) opt->bspline.n_ctrl - (int) opt->bspline.degree;
+    if (n_segments > 0 && (int) opt->bspline.n_points % n_segments != 0) {
+      const u32 n_pts_aligned = (u32) (std::ceil((real) opt->bspline.n_points / n_segments) * n_segments);
+      printf("optimize: bspline n_points %u is not divisible by n_segments %u; rounding up to %u.\n",
+             opt->bspline.n_points, n_segments, n_pts_aligned);
+      opt->set_bspline(Bspline(opt->bspline.n_ctrl, n_pts_aligned, opt->bspline.degree, opt->bspline.n_joints));
+    }
+  }
+
   // Constraints
   if (!opt->constraints.external_collisions) {
     opt->constraints.n_collision_constraints = 0;
@@ -688,10 +700,9 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
       bspline_val_more.compute_trajectory(x, opt->task);
       auto opt_val_more(*opt);
       opt_val_more.set_bspline(bspline_val_more);
-      n_con_with_segments(&opt_val_more);
-      Array  constraints_more_points(opt_val_more.constraints.n_constraints);
-      Matrix gradient;
-      constraints_and_gradients_with_segments(x, opt_val_more, constraints_more_points, gradient);
+      n_con(&opt_val_more);
+      Array constraints_more_points(opt_val_more.constraints.n_constraints);
+      compute_constraints(constraints_more_points.data, x, &opt_val_more);
       auto max_con_more                       = max(constraints_more_points);
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
@@ -879,10 +890,9 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
       bspline_val_more.compute_trajectory(x, opt->task);
       auto opt_val_more(*opt);
       opt_val_more.set_bspline(bspline_val_more);
-      n_con_with_segments(&opt_val_more);
-      Array  constraints_more_points(opt_val_more.constraints.n_constraints);
-      Matrix gradient;
-      constraints_and_gradients_with_broadphase(x, opt_val_more, constraints_more_points, gradient);
+      n_con(&opt_val_more);
+      Array constraints_more_points(opt_val_more.constraints.n_constraints);
+      compute_constraints(constraints_more_points.data, x, &opt_val_more);
       // is_valid_more = max(constraints_more_points) < opt->success_tolerance;
       auto max_con_more                       = max(constraints_more_points);
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
@@ -1069,10 +1079,9 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
       bspline_val_more.compute_trajectory(x, opt->task);
       auto opt_val_more(*opt);
       opt_val_more.set_bspline(bspline_val_more);
-      n_con_with_segments(&opt_val_more);
-      Array  constraints_more_points(opt_val_more.constraints.n_constraints);
-      Matrix gradient;
-      constraints_and_gradients_with_double_broadphase(x, opt_val_more, constraints_more_points, gradient);
+      n_con(&opt_val_more);
+      Array constraints_more_points(opt_val_more.constraints.n_constraints);
+      compute_constraints(constraints_more_points.data, x, &opt_val_more);
       // is_valid_more = max(constraints_more_points) < opt->success_tolerance;
       auto max_con_more                       = max(constraints_more_points);
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
