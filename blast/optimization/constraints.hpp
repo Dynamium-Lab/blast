@@ -73,8 +73,9 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
     Assert(grad.rows == x.size);
     Assert(grad.cols == constraints.size);
   }
-  const int n_segments                = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
-  const int n_points_per_segment      = (int) opt.bspline.n_points / n_segments; // todo: check if fine?
+  const int n_segments = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
+  Assert(opt.bspline.n_points % n_segments == 0);
+  const int n_points_per_segment      = (int) opt.bspline.n_points / n_segments;
   const int n_joints                  = (int) opt.manip.n_joints;
   const int n_ctrl                    = (int) opt.bspline.n_ctrl;
   const int x_len                     = (int) x.size;
@@ -753,8 +754,9 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
     Assert(grad.rows == x.size);
     Assert(grad.cols == constraints.size);
   }
-  const int n_segments                = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
-  const int n_points_per_segment      = (int) opt.bspline.n_points / n_segments; // todo: check if fine?
+  const int n_segments = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
+  Assert(opt.bspline.n_points % n_segments == 0);
+  const int n_points_per_segment      = (int) opt.bspline.n_points / n_segments;
   const int n_joints                  = (int) opt.manip.n_joints;
   const int n_ctrl                    = (int) opt.bspline.n_ctrl;
   const int x_len                     = (int) x.size;
@@ -1360,8 +1362,9 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
     Assert(grad.rows == x.size);
     Assert(grad.cols == constraints.size);
   }
-  const int n_segments                = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
-  const int n_points_per_segment      = (int) opt.bspline.n_points / n_segments; // todo: check if fine?
+  const int n_segments = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
+  Assert(opt.bspline.n_points % n_segments == 0);
+  const int n_points_per_segment      = (int) opt.bspline.n_points / n_segments;
   const int n_joints                  = (int) opt.manip.n_joints;
   const int n_ctrl                    = (int) opt.bspline.n_ctrl;
   const int x_len                     = (int) x.size;
