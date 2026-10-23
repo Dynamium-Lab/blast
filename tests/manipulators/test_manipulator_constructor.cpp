@@ -9,7 +9,7 @@ static Manipulator make_1dof(real mass, Vec3 cog, Mat3 inertia) {
   ManipulatorLimits lim;
   lim.position_max = Array{PI};
   lim.position_min = Array{-PI};
-  lim.velocity_max = Array{1.0f};
+  lim.velocity_max = Array{(real) 1};
 
   ManipulatorKinematics kin;
   kin.joint_offsets[0]    = {0, 0, 0.5f};
@@ -56,7 +56,7 @@ TEST_CASE("Manipulator constructor - kinematics-only leaves dynamic fields zero-
   ManipulatorLimits lim;
   lim.position_max = Array{PI};
   lim.position_min = Array{-PI};
-  lim.velocity_max = Array{1.0f};
+  lim.velocity_max = Array{(real) 1};
 
   ManipulatorKinematics kin;
   kin.joint_offsets[0]    = {0, 0, 0.5f};
@@ -112,7 +112,7 @@ TEST_CASE("set_tool()  and remove_tool() basic tests", "[tool]") {
   CHECK(m.has_tool == false);
 
   Tool tool;
-  tool.mass = 1.0f;
+  tool.mass = (real) 1;
   m.set_tool(tool);
   CHECK(m.has_tool == true);
   CHECK(is_close(m.tool, tool, BLAST_EPSILON));

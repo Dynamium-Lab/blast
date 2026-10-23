@@ -472,7 +472,7 @@ inline host_fn real distmin_origin(const PolytopeFace& face) {
   float denom = va + vb + vc;
   float u     = va / denom;
   float v     = vb / denom;
-  float w     = 1.0f - u - v; // = vc / denom
+  float w     = (real) 1 - u - v; // = vc / denom
   return norm(u * a + v * b + w * c);
 }
 
@@ -849,7 +849,7 @@ inline host_fn void GJK_solve_simplex3_Ericson(Simplex* simplex) {
   }
 
   // P is inside face region
-  real denom = 1.0f / (va + vb + vc);
+  real denom = (real) 1 / (va + vb + vc);
   real v     = vb * denom;
   real w     = vc * denom;
 
@@ -929,7 +929,7 @@ inline host_fn void GJK_simplex3_from4_Ericson(Simplex* simplex) {
   }
 
   // P is inside face region
-  real denom = 1.0f / (va + vb + vc);
+  real denom = (real) 1 / (va + vb + vc);
   real v     = vb * denom;
   real w     = vc * denom;
 

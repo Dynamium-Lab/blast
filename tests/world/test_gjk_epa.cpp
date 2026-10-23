@@ -138,7 +138,7 @@ TEST_CASE("Test - GJK Box vs Capsule (random generation)") {
     }
 
     if (real_dist + capsule.radius < 0) {
-      epa[i] = 1.0f;
+      epa[i] = (real) 1;
     } else {
       epa[i] = 0.0f;
     }
@@ -220,7 +220,7 @@ TEST_CASE("Benchmark - GJK computation time vs point cloud size") {
 
     real real_dist = distance(capsule, box);
     if (real_dist + capsule.radius < 0) {
-      epa[i] = 1.0f;
+      epa[i] = (real) 1;
     } else {
       epa[i] = 0.0f;
     }
