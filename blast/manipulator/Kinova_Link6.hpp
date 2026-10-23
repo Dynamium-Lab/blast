@@ -15,7 +15,7 @@ inline Manipulator make_Kinova_Link6() {
   // 10.472 equals to the value of 600 deg/s^2 in rad/s^2
   limits.acceleration_max = {10.472f, 10.472f, 10.472f, 10.472f, 10.472f, 10.472f}; // rad/s^2
   limits.torque_max       = {210.0f, 210.0f, 210.0f, 100.0f, 100.0f, 100.0f};       // Nm
-  limits.tool_speed_max   = 1.0f;                                                   // m/s
+  limits.tool_speed_max   = (real) 1;                                               // m/s
 
   // kinematic properties
   ManipulatorKinematics kinematics; // using default Q_base
