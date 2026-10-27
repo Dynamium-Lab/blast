@@ -132,13 +132,12 @@ struct Optimization {
 
   // --- derived, do not set ---
   real collision_scale = 1.0; // success_tolerance / collision_buffer while tightened, 1 otherwise
-  // Per-endpoint collision targets: while tightened, the clearance goal (in the planning geometry)
-  // for collision constraints of the first [0] and last [1] segment, per capsule and for
-  // self-collision. Capped at what the endpoint itself achieves so a pinned endpoint closer than
-  // collision_buffer does not leave a violated zero-gradient constraint. See tighten_for_success_tolerance.
-  bool                                          endpoint_targets_active = false;
-  std::array<std::array<real, MAX_CAPSULES>, 2> endpoint_collision_target{};
-  std::array<real, 2>                           endpoint_self_target{};
+  // Clearances at the pinned start [0] and goal [1] configurations, measured against the planning
+  // geometry (distance + buffer). Used to cap tightening so a pinned configuration at or near a
+  // limit does not create a violated zero-gradient constraint. See tighten_for_success_tolerance.
+  bool                                          pinned_tightening_active = false;
+  std::array<std::array<real, MAX_CAPSULES>, 2> pinned_col_clearance{};
+  std::array<real, 2>                           pinned_self_clearance{};
   int                                           max_tries = 1;                                  // Maximum number of tries in the optimization loop.
   int                                           max_eval  = 1000;                               // Maximum number of function evaluations for a single NLopt call.
   real                                          max_time  = 30.0;                               // Maximum time (seconds) for a single NLopt call.

@@ -209,11 +209,11 @@ inline bool position_within_limits(const Matrix& pos, const std::array<real, MAX
 // achieves, per capsule and for self-collision; every other constraint keeps the full buffer.
 // Called on the tightened geometry. Static obstacles only: a dynamic obstacle's pose at the goal
 // depends on the duration.
-inline void set_endpoint_collision_targets(Optimization* opt, real buffer) {
-  // Floor, as a fraction of the buffer: keeps tol / t finite for an endpoint at ~0 clearance.
+inline void set_pinned_col_clearances(Optimization* opt, real buffer) {
+  // Floor, as a fraction of the buffer: keeps tolerance / clearance finite for an endpoint at ~0 clearance.
   constexpr real min_target_fraction = 0.01;
 
-  opt->endpoint_targets_active = false;
+  opt->pinned_tightening_active = false;
   if (!opt->constraints.external_collisions && !opt->constraints.self_collisions)
     return;
   const real min_target = buffer * min_target_fraction;
@@ -228,12 +228,12 @@ inline void set_endpoint_collision_targets(Optimization* opt, real buffer) {
     forward_kinematics(opt->manip, manip_data, endpoint_position);
     compute_collision_model(opt->manip, manip_data);
 
-    opt->endpoint_self_target[endpoint_index] = opt->constraints.self_collisions
-                                                        ? endpoint_target(min(get_internal_collisions(opt->manip, manip_data)))
-                                                        : buffer;
+    opt->pinned_self_clearance[endpoint_index] = opt->constraints.self_collisions
+                                                         ? endpoint_target(min(get_internal_collisions(opt->manip, manip_data)))
+                                                         : buffer;
     for (int capsule_id = 0; capsule_id < opt->manip._n_caps; capsule_id++) {
       if (!opt->constraints.external_collisions) {
-        opt->endpoint_collision_target[endpoint_index][capsule_id] = buffer;
+        opt->pinned_col_clearance[endpoint_index][capsule_id] = buffer;
         continue;
       }
       const auto& capsule          = manip_data.capsule_list[capsule_id];
@@ -244,10 +244,10 @@ inline void set_endpoint_collision_targets(Optimization* opt, real buffer) {
         closest_distance = std::min(closest_distance, distance(capsule, world_capsule));
       for (const auto& sphere: opt->world.spheres)
         closest_distance = std::min(closest_distance, distance(capsule, sphere));
-      opt->endpoint_collision_target[endpoint_index][capsule_id] = endpoint_target(closest_distance);
+      opt->pinned_col_clearance[endpoint_index][capsule_id] = endpoint_target(closest_distance);
     }
   }
-  opt->endpoint_targets_active = true;
+  opt->pinned_tightening_active = true;
 }
 
 // Tightens the limits/collision geometry constraints are evaluated against by success_tolerance,
@@ -276,8 +276,8 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
 
   // Snapshot taken, nothing modified, so restore_from_tolerance() is a no-op.
   if (!opt->tighten_for_tolerance) {
-    opt->collision_scale         = 1.0;
-    opt->endpoint_targets_active = false;
+    opt->collision_scale          = 1.0;
+    opt->pinned_tightening_active = false;
     return snap;
   }
 
@@ -339,7 +339,7 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   for (auto& door: opt->world.dynamic_doors)
     door.extents += Vec3(col_margin, col_margin, col_margin);
 
-  set_endpoint_collision_targets(opt, buffer);
+  set_pinned_col_clearances(opt, buffer);
 
   return snap;
 }
@@ -354,9 +354,9 @@ inline void restore_from_tolerance(Optimization* opt, const ToleranceSnapshot& s
   opt->manip._base_sphere.radius = snap.base_sphere_radius;
   for (int i = 0; i < opt->manip._n_caps; i++)
     opt->manip._collision_model[i].radius = snap.capsule_radius[i];
-  opt->world                   = snap.world;
-  opt->collision_scale         = 1.0; // raw metres again outside the tightening window
-  opt->endpoint_targets_active = false;
+  opt->world                    = snap.world;
+  opt->collision_scale          = 1.0; // raw metres again outside the tightening window
+  opt->pinned_tightening_active = false;
 }
 
 inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
@@ -504,6 +504,7 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
       Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints); // todo: this is expensive
       bspline_val_more.compute_trajectory(x, opt->task);
       auto opt_val_more(*opt);
+      restore_from_tolerance(&opt_val_more, tolerance_snapshot); // validate on true geometry, not tightened
       opt_val_more.set_bspline(bspline_val_more);
       n_con(&opt_val_more);
       Array constraints_more_points(opt_val_more.constraints.n_constraints);
@@ -511,13 +512,7 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
       auto max_con_more                       = max(constraints_more_points);
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
-      is_valid_more                           = max_con_more < opt->success_tolerance;
-      // Tightening clamps position bounds to the endpoint, so the (1 + tol) acceptance slack
-      // may not cover the full gap to the true bound; check directly against the true bounds.
-      if (opt->tighten_for_tolerance && opt->constraints.position)
-        is_valid_more = is_valid_more && position_within_limits(bspline_val_more.traj.pos,
-                                                                tolerance_snapshot.position_min,
-                                                                tolerance_snapshot.position_max);
+      is_valid_more                           = max_con_more < 0;
 
       result.x = x;
 
@@ -773,6 +768,7 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
       Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints); // todo: this is expensive
       bspline_val_more.compute_trajectory(x, opt->task);
       auto opt_val_more(*opt);
+      restore_from_tolerance(&opt_val_more, tolerance_snapshot); // validate on true geometry, not tightened
       opt_val_more.set_bspline(bspline_val_more);
       n_con_with_segments(&opt_val_more);
       Array  constraints_more_points(opt_val_more.constraints.n_constraints);
@@ -781,13 +777,7 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
       auto max_con_more                       = max(constraints_more_points);
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
-      is_valid_more                           = max_con_more < opt->success_tolerance;
-      // Tightening clamps position bounds to the endpoint, so the (1 + tol) acceptance slack
-      // may not cover the full gap to the true bound; check directly against the true bounds.
-      if (opt->tighten_for_tolerance && opt->constraints.position)
-        is_valid_more = is_valid_more && position_within_limits(bspline_val_more.traj.pos,
-                                                                tolerance_snapshot.position_min,
-                                                                tolerance_snapshot.position_max);
+      is_valid_more                           = max_con_more < 0;
 
       result.x = x;
 
@@ -839,6 +829,8 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
     print(opt->task);
     return result;
   }
+
+  auto tolerance_snapshot = tighten_for_success_tolerance(opt); // restored below, next to opt->guess restore
 
   const auto n = opt->bspline.x_len(opt->task);
 
@@ -970,16 +962,16 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
       Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints); // todo: this is expensive
       bspline_val_more.compute_trajectory(x, opt->task);
       auto opt_val_more(*opt);
+      restore_from_tolerance(&opt_val_more, tolerance_snapshot); // validate on true geometry, not tightened
       opt_val_more.set_bspline(bspline_val_more);
       n_con_with_segments(&opt_val_more);
       Array  constraints_more_points(opt_val_more.constraints.n_constraints);
       Matrix gradient;
       constraints_and_gradients_with_broadphase(x, opt_val_more, constraints_more_points, gradient);
-      // is_valid_more = max(constraints_more_points) < opt->success_tolerance;
       auto max_con_more                       = max(constraints_more_points);
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
-      is_valid_more                           = max_con_more < opt->success_tolerance * 2;
+      is_valid_more                           = max_con_more < 0;
 
       result.x = x;
 
@@ -995,7 +987,8 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
 #endif
   }
 
-  opt->guess = start_guess; // reset to original
+  opt->guess = start_guess;                        // reset to original
+  restore_from_tolerance(opt, tolerance_snapshot); // undo tighten_for_success_tolerance(): caller keeps the real limits
 
   auto time = (real) (get_tick_us() - T1) / 1000.0;
 
@@ -1029,6 +1022,8 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
     print(opt->task);
     return result;
   }
+
+  auto tolerance_snapshot = tighten_for_success_tolerance(opt); // restored below, next to opt->guess restore
 
   const auto n = opt->bspline.x_len(opt->task);
 
@@ -1160,16 +1155,16 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
       Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints); // todo: this is expensive
       bspline_val_more.compute_trajectory(x, opt->task);
       auto opt_val_more(*opt);
+      restore_from_tolerance(&opt_val_more, tolerance_snapshot); // validate on true geometry, not tightened
       opt_val_more.set_bspline(bspline_val_more);
       n_con_with_segments(&opt_val_more);
       Array  constraints_more_points(opt_val_more.constraints.n_constraints);
       Matrix gradient;
       constraints_and_gradients_with_double_broadphase(x, opt_val_more, constraints_more_points, gradient);
-      // is_valid_more = max(constraints_more_points) < opt->success_tolerance;
       auto max_con_more                       = max(constraints_more_points);
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
-      is_valid_more                           = max_con_more < opt->success_tolerance * 2;
+      is_valid_more                           = max_con_more < 0;
 
       result.x = x;
 
@@ -1185,7 +1180,8 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
 #endif
   }
 
-  opt->guess = start_guess; // reset to original
+  opt->guess = start_guess;                        // reset to original
+  restore_from_tolerance(opt, tolerance_snapshot); // undo tighten_for_success_tolerance(): caller keeps the real limits
 
   auto time = (real) (get_tick_us() - T1) / 1000.0;
 
@@ -1350,6 +1346,7 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
       Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints); // todo: this is expensive
       bspline_val_more.compute_trajectory(x, opt->task);
       auto opt_val_more(*opt);
+      restore_from_tolerance(&opt_val_more, tolerance_snapshot); // validate on true geometry, not tightened
       opt_val_more.set_bspline(bspline_val_more);
       n_con(&opt_val_more);
       Array constraints_more_points(opt_val_more.constraints.n_constraints);
@@ -1357,13 +1354,7 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
       auto max_con_more                       = max(constraints_more_points);
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
-      is_valid_more                           = max_con_more < opt->success_tolerance;
-      // Tightening clamps position bounds to the endpoint, so the (1 + tol) acceptance slack
-      // may not cover the full gap to the true bound; check directly against the true bounds.
-      if (opt->tighten_for_tolerance && opt->constraints.position)
-        is_valid_more = is_valid_more && position_within_limits(bspline_val_more.traj.pos,
-                                                                tolerance_snapshot.position_min,
-                                                                tolerance_snapshot.position_max);
+      is_valid_more                           = max_con_more < 0;
 
       result.x = x;
 
@@ -1544,6 +1535,7 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
       Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints); // todo: this is expensive
       bspline_val_more.compute_trajectory(x, opt->task);
       auto opt_val_more(*opt);
+      restore_from_tolerance(&opt_val_more, tolerance_snapshot); // validate on true geometry, not tightened
       opt_val_more.set_bspline(bspline_val_more);
       n_con(&opt_val_more);
       Array constraints_more_points(opt_val_more.constraints.n_constraints);
@@ -1551,13 +1543,7 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
       auto max_con_more                       = max(constraints_more_points);
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
-      is_valid_more                           = max_con_more < opt->success_tolerance;
-      // Tightening clamps position bounds to the endpoint, so the (1 + tol) acceptance slack
-      // may not cover the full gap to the true bound; check directly against the true bounds.
-      if (opt->tighten_for_tolerance && opt->constraints.position)
-        is_valid_more = is_valid_more && position_within_limits(bspline_val_more.traj.pos,
-                                                                tolerance_snapshot.position_min,
-                                                                tolerance_snapshot.position_max);
+      is_valid_more                           = max_con_more < 0;
 
       result.x = x;
 

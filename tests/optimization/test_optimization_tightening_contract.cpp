@@ -283,11 +283,11 @@ TEST_CASE("collision constraints at a pinned endpoint target what the endpoint a
   n_con_with_segments(&opt);
   auto tolerance_snapshot = tighten_for_success_tolerance(&opt);
 
-  REQUIRE(opt.endpoint_targets_active);
-  CHECK(opt.endpoint_collision_target[0][tool_capsule] == Approx(start_clearance).margin(exact_tolerance)); // what the start achieves
+  REQUIRE(opt.pinned_tightening_active);
+  CHECK(opt.pinned_col_clearance[0][tool_capsule] == Approx(start_clearance).margin(exact_tolerance)); // what the start achieves
   for (int capsule_id = 0; capsule_id < robot._n_caps; capsule_id++)
     if (capsule_id != tool_capsule)
-      CHECK(opt.endpoint_collision_target[0][capsule_id] == Approx(buffer)); // far capsules keep the full buffer
+      CHECK(opt.pinned_col_clearance[0][capsule_id] == Approx(buffer)); // far capsules keep the full buffer
 
   // The endpoint must satisfy its own constraint entries. On a trajectory that holds the start
   // (goal == start) every sample IS the start, so every entry of the first and last segment has
@@ -333,26 +333,26 @@ TEST_CASE("collision constraints at a pinned endpoint target what the endpoint a
   // targeted constraint and for an interior one.
   const int n_segments = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
   for (int segment: {0, n_segments / 2}) {
-    const auto ext_coll_params = collision_constraint_params(opt, segment, n_segments, tool_capsule);
+    const auto ext_coll_params = ext_collision_constraint_params(opt, segment, n_segments, tool_capsule);
     for (real distance: {-buffer - 1e-6, -buffer + 1e-6}) {
       const real constraint = -(distance + ext_coll_params.shift) * ext_coll_params.scale;
       CHECK((constraint < tolerance) == (distance + buffer > 0));
     }
   }
-  CHECK(collision_constraint_params(opt, n_segments / 2, n_segments, tool_capsule).shift == 0); // interior: no endpoint adjustment
+  CHECK(ext_collision_constraint_params(opt, n_segments / 2, n_segments, tool_capsule).shift == 0); // interior: no endpoint adjustment
 
   // Point-based methods: the pinned start/goal samples take the boundary target, an interior
   // sample the full buffer. At the start's own clearance its row is satisfied (<= 0).
   {
     const u32  n_points       = opt.bspline.n_points;
     const real start_distance = start_clearance - buffer; // the start's distance in the buffered geometry
-    CHECK(collision_constraint_at_point(opt, 0, tool_capsule, start_distance) <= exact_tolerance);
-    CHECK(collision_constraint_at_point(opt, n_points / 2, tool_capsule, start_distance) > 0);
+    CHECK(ext_collision_constraint_at_point(opt, 0, tool_capsule, start_distance) <= exact_tolerance);
+    CHECK(ext_collision_constraint_at_point(opt, n_points / 2, tool_capsule, start_distance) > 0);
     for (real distance: {-buffer - 1e-6, -buffer + 1e-6})
       for (u32 point: {0u, n_points / 2, n_points - 1})
-        CHECK((collision_constraint_at_point(opt, point, tool_capsule, distance) < tolerance) == (distance + buffer > 0));
+        CHECK((ext_collision_constraint_at_point(opt, point, tool_capsule, distance) < tolerance) == (distance + buffer > 0));
   }
 
   restore_from_tolerance(&opt, tolerance_snapshot);
-  CHECK_FALSE(opt.endpoint_targets_active);
+  CHECK_FALSE(opt.pinned_tightening_active);
 }
