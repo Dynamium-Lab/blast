@@ -102,17 +102,17 @@ inline blast_fn CollisionConstraintParams ext_collision_constraint_params(const 
 // the constraint parameters of the segment it falls in, so the boundary region is the same as
 // with_segments'. Samples AT the task start/goal are exactly constant (pinned samples).
 inline blast_fn real self_collision_constraint_at_point(const Optimization& opt, u32 point, real distance) {
-  const int n_segments   = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
-  const int n_points     = (int) opt.bspline.n_points;
-  const int segment      = std::min((int) point * n_segments / std::max(n_points, 1), n_segments - 1);
+  const int  n_segments  = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
+  const int  n_points    = (int) opt.bspline.n_points;
+  const int  segment     = std::min((int) point * n_segments / std::max(n_points, 1), n_segments - 1);
   const auto coll_params = self_collision_constraint_params(opt, segment, n_segments);
   return -(distance + coll_params.shift) * coll_params.scale;
 }
 
 inline blast_fn real ext_collision_constraint_at_point(const Optimization& opt, u32 point, int capsule_id, real distance) {
-  const int n_segments   = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
-  const int n_points     = (int) opt.bspline.n_points;
-  const int segment      = std::min((int) point * n_segments / std::max(n_points, 1), n_segments - 1);
+  const int  n_segments  = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
+  const int  n_points    = (int) opt.bspline.n_points;
+  const int  segment     = std::min((int) point * n_segments / std::max(n_points, 1), n_segments - 1);
   const auto coll_params = ext_collision_constraint_params(opt, segment, n_segments, capsule_id);
   return -(distance + coll_params.shift) * coll_params.scale;
 }
@@ -167,7 +167,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
   if (opt.tighten_for_tolerance) {
     for (int j = 0; j < n_joints; j++) {
       start_pos_half_range[j] = std::max(start_pos_half_range[j], std::abs(opt.task(j, 0) - pos_center[j]));
-      goal_pos_half_range[j]  = std::max(goal_pos_half_range[j],  std::abs(opt.task(j, 3) - pos_center[j]));
+      goal_pos_half_range[j]  = std::max(goal_pos_half_range[j], std::abs(opt.task(j, 3) - pos_center[j]));
     }
   }
 
@@ -199,9 +199,8 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
     Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_per_segment);
 
     const auto& segment_pos_half_range =
-        segment == 0              ? start_pos_half_range :
-        segment == n_segments - 1 ? goal_pos_half_range  :
-                                    pos_half_range;
+            segment == 0 ? start_pos_half_range : segment == n_segments - 1 ? goal_pos_half_range
+                                                                            : pos_half_range;
 
     Array      max_pos_constraints(n_joints, -INF_REAL);
     Array      max_vel_constraints(n_joints, -INF_REAL);
@@ -870,7 +869,7 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
   if (opt.tighten_for_tolerance) {
     for (int j = 0; j < n_joints; j++) {
       start_pos_half_range[j] = std::max(start_pos_half_range[j], std::abs(opt.task(j, 0) - pos_center[j]));
-      goal_pos_half_range[j]  = std::max(goal_pos_half_range[j],  std::abs(opt.task(j, 3) - pos_center[j]));
+      goal_pos_half_range[j]  = std::max(goal_pos_half_range[j], std::abs(opt.task(j, 3) - pos_center[j]));
     }
   }
 
@@ -902,9 +901,8 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
     Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_per_segment);
 
     const auto& segment_pos_half_range =
-        segment == 0              ? start_pos_half_range :
-        segment == n_segments - 1 ? goal_pos_half_range  :
-                                    pos_half_range;
+            segment == 0 ? start_pos_half_range : segment == n_segments - 1 ? goal_pos_half_range
+                                                                            : pos_half_range;
 
     Array max_pos_constraints(n_joints, -INF_REAL);
     Array max_vel_constraints(n_joints, -INF_REAL);
@@ -1497,7 +1495,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
   if (opt.tighten_for_tolerance) {
     for (int j = 0; j < n_joints; j++) {
       start_pos_half_range[j] = std::max(start_pos_half_range[j], std::abs(opt.task(j, 0) - pos_center[j]));
-      goal_pos_half_range[j]  = std::max(goal_pos_half_range[j],  std::abs(opt.task(j, 3) - pos_center[j]));
+      goal_pos_half_range[j]  = std::max(goal_pos_half_range[j], std::abs(opt.task(j, 3) - pos_center[j]));
     }
   }
 
@@ -1532,9 +1530,8 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
     Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_per_segment);
 
     const auto& segment_pos_half_range =
-        segment == 0              ? start_pos_half_range :
-        segment == n_segments - 1 ? goal_pos_half_range  :
-                                    pos_half_range;
+            segment == 0 ? start_pos_half_range : segment == n_segments - 1 ? goal_pos_half_range
+                                                                            : pos_half_range;
 
     Array max_pos_constraints(n_joints, -INF_REAL);
     Array max_vel_constraints(n_joints, -INF_REAL);
