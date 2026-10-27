@@ -76,12 +76,13 @@ inline blast_fn CollisionConstraintParams self_collision_constraint_params(const
   if (!opt.pinned_tightening_active || (segment != 0 && segment != n_segments - 1))
     return {0.0, opt.collision_scale};
   real pinned_clearance = INF_REAL;
+  // Both conditions separate: when n_segments == 1 the segment is both first and last.
   if (segment == 0)
     pinned_clearance = std::min(pinned_clearance, opt.pinned_self_clearance[0]);
   if (segment == n_segments - 1)
     pinned_clearance = std::min(pinned_clearance, opt.pinned_self_clearance[1]);
   const real tolerance = opt.success_tolerance;
-  const real buffer    = opt.collision_buffer > 0 ? opt.collision_buffer : tolerance;
+  const real buffer    = tolerance / opt.collision_scale; // inverse of collision_scale = tol/buffer
   return {buffer - pinned_clearance, tolerance / pinned_clearance};
 }
 
@@ -89,12 +90,13 @@ inline blast_fn CollisionConstraintParams ext_collision_constraint_params(const 
   if (!opt.pinned_tightening_active || (segment != 0 && segment != n_segments - 1))
     return {0.0, opt.collision_scale};
   real pinned_clearance = INF_REAL;
+  // Both conditions separate: when n_segments == 1 the segment is both first and last.
   if (segment == 0)
     pinned_clearance = std::min(pinned_clearance, opt.pinned_col_clearance[0][capsule_id]);
   if (segment == n_segments - 1)
     pinned_clearance = std::min(pinned_clearance, opt.pinned_col_clearance[1][capsule_id]);
   const real tolerance = opt.success_tolerance;
-  const real buffer    = opt.collision_buffer > 0 ? opt.collision_buffer : tolerance;
+  const real buffer    = tolerance / opt.collision_scale; // inverse of collision_scale = tol/buffer
   return {buffer - pinned_clearance, tolerance / pinned_clearance};
 }
 

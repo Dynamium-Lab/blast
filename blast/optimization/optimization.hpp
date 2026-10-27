@@ -188,17 +188,6 @@ struct ToleranceSnapshot {
   World                          world;
 };
 
-// True when every sample of `pos` (n_joints x n_points) lies within the snapshot's TRUE
-// position bounds. The tightened bounds cannot guarantee this where they are clamped to a
-// task endpoint (see tighten_for_success_tolerance), so success is checked against these.
-inline bool position_within_limits(const Matrix& pos, const std::array<real, MAX_JOINTS>& position_min,
-                                   const std::array<real, MAX_JOINTS>& position_max) {
-  for (u32 point = 0; point < pos.cols; point++)
-    for (u32 joint = 0; joint < pos.rows; joint++)
-      if (pos(joint, point) > position_max[joint] || pos(joint, point) < position_min[joint])
-        return false;
-  return true;
-}
 
 // The collision analogue of clamping the position bounds at the task endpoints. The boundary
 // control points are pinned, so a collision constraint whose worst sample is the task start/goal
@@ -296,10 +285,9 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   // gradient, making the SQP subproblem infeasible at every iterate; clamping the bound to
   // the endpoint keeps that row satisfied. The tightening_factor shrink can push center +
   // half_range past an endpoint even when validate_task() accepted it (e.g. endpoint near the
-  // limit). Where the clamp binds, the (1 + tol) acceptance slack is no longer covered, which
-  // is why the optimizers also check the rendered trajectory against the TRUE bounds
-  // (position_within_limits) before reporting success. Untightened, an accepted solution
-  // could exceed a joint limit by up to tol * range / 2.
+  // limit). Where the clamp binds, the acceptance slack is no longer covered; the optimizers
+  // validate on true geometry (via restore_from_tolerance) so an endpoint-clamped joint still
+  // passes if the true position is within limits.
   for (int joint = 0; joint < opt->manip.n_joints; joint++) {
     const real center              = (opt->manip.position_max[joint] + opt->manip.position_min[joint]) / 2;
     const real half_range          = (opt->manip.position_max[joint] - opt->manip.position_min[joint]) / 2 / tightening_factor;
