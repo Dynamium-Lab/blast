@@ -78,9 +78,10 @@ harder to solve. Set it to `0` to fall back to `success_tolerance`.
 Two exceptions keep the tightening from making a task impossible. The start and goal of a
 stop-to-stop task are fixed, so constraints there cannot be improved by the solver:
 
-- **Position** limits are tightened like the others, but never past the task's own start or
-  goal. Because that clamp can leave no slack, success is also checked against the true
-  position limits on the final, densely sampled trajectory.
+- **Position** limits are tightened like the others. If the start or goal of a joint lies
+  closer to its limit than the tightened bound, the first or last segment aims for that
+  endpoint instead, and is rescaled so the solver's tolerance still ends exactly at the true
+  limit. Every other part of the trajectory keeps the tightened bound.
 - **Collisions** next to the start or goal (the first and last segment) aim for at most the
   clearance that endpoint itself has, instead of the full `collision_buffer`. A start that
   clears an obstacle by less than the buffer is still accepted; every other part of the

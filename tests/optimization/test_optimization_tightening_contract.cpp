@@ -20,10 +20,10 @@ static Manipulator UR5e_narrow_limits() {
 }
 
 // ---------------------------------------------------------------------------
-// 1. No constraint row may be violated with a zero gradient: the SQP linearizes such a row
+// 1. No constraint may be violated with a zero gradient: the SQP linearizes such a constraint
 // as c + grad.d <= 0 with grad = 0, which no step can satisfy.
 // ---------------------------------------------------------------------------
-TEST_CASE("tightening introduces no violated zero-gradient constraint row", "[Optimization]") {
+TEST_CASE("tightening introduces no violated zero-gradient constraint", "[Optimization]") {
   // 3.14 against a +/-3.1416 limit: inside by less than the tightening moves the bound.
   Array start = {3.14, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
   Array end   = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.14};
@@ -44,7 +44,7 @@ TEST_CASE("tightening introduces no violated zero-gradient constraint row", "[Op
   const u32 xlen = (u32) opt.bspline.x_len(opt.task);
   const u32 m    = (u32) opt.constraints.n_constraints;
 
-  // A zero-gradient row does not depend on the decision variables, so one deterministic
+  // A zero-gradient constraint does not depend on the decision variables, so one deterministic
   // guess is as strong as many.
   int offenders = 0;
   {
@@ -140,9 +140,10 @@ TEST_CASE("restore puts collision_scale back to 1", "[Optimization]") {
 }
 
 // ---------------------------------------------------------------------------
-// 4. Position is tightened like every other limit, but never past a task endpoint, and a
-// reported success never leaves the TRUE position bounds. Untightened, the (1 + tol)
-// acceptance slack let a solution exceed a joint limit by up to tol * range / 2.
+// 4. Position is tightened like every other limit. In every segment the solver's acceptance
+// (c < tolerance) lands exactly on the TRUE limit, and the first/last segment of a joint whose
+// pinned start/goal lies outside the tightened band targets that endpoint (c <= 0 there) instead
+// of leaving it violated with a zero gradient. A reported success never leaves the true bounds.
 // ---------------------------------------------------------------------------
 TEST_CASE("position is tightened up to the endpoints and success respects the true bounds",
           "[Optimization]") {
@@ -156,17 +157,34 @@ TEST_CASE("position is tightened up to the endpoints and success respects the tr
   opt.collision_buffer  = 0.001;
   initialize_optimization_with_segments(&opt);
 
-  auto tolerance_snapshot = tighten_for_success_tolerance(&opt);
+  const real true_limit = 3.1416;
+#if BLAST_USE_DOUBLES
+  const real exactness = 1e-9;
+#else
+  const real exactness = 1e-4; // float: scale ~ tolerance / 0.0016 amplifies ~1e-7 position error
+#endif
+  auto      tolerance_snapshot = tighten_for_success_tolerance(&opt);
+  const int n_segments         = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
+  REQUIRE(n_segments >= 3);
   for (int joint = 0; joint < opt.manip.n_joints; joint++) {
-    const real endpoint_max = std::max(opt.task(joint, 0), opt.task(joint, 3));
-    const real endpoint_min = std::min(opt.task(joint, 0), opt.task(joint, 3));
-    CHECK(opt.manip.position_max[joint] >= endpoint_max); // never cuts off an endpoint
-    CHECK(opt.manip.position_min[joint] <= endpoint_min);
-    CHECK(opt.manip.position_max[joint] <= (real) 3.1416);
-    CHECK(opt.manip.position_min[joint] >= (real) -3.1416);
+    CHECK(opt.manip.position_max[joint] == Approx(true_limit / (1 + opt.success_tolerance))); // symmetric, no endpoint clamp
+    CHECK(opt.manip.position_min[joint] == Approx(-true_limit / (1 + opt.success_tolerance)));
+    for (int segment: {0, n_segments / 2, n_segments - 1}) {
+      const auto params = position_constraint_params(opt, joint, segment, n_segments);
+      INFO("joint " << joint << ", segment " << segment);
+      CHECK(params.value(true_limit) == Approx(opt.success_tolerance).margin(exactness)); // acceptance ends at the true limit
+      CHECK(params.value(-true_limit) == Approx(opt.success_tolerance).margin(exactness));
+    }
+    CHECK(position_constraint_params(opt, joint, 0, n_segments).value(start[joint]) <= exactness); // pinned start satisfied
+    CHECK(position_constraint_params(opt, joint, n_segments - 1, n_segments).value(end[joint]) <= exactness);
   }
-  CHECK(opt.manip.position_max[2] < (real) 3.1416); // mid-range joint: really tightened
+  // Joint 0's start (3.14) is outside the tightened band (3.1416 / 1.01 = 3.1105): only the
+  // first segment targets it, the interior keeps the tightened bound.
+  CHECK(position_constraint_params(opt, 0, 0, n_segments).value(start[0]) == Approx(0).margin(exactness));
+  CHECK(position_constraint_params(opt, 0, n_segments / 2, n_segments).value(start[0]) > opt.success_tolerance / 2);
   restore_from_tolerance(&opt, tolerance_snapshot);
+  CHECK_FALSE(opt.pinned_tightening_active);
+  CHECK(position_constraint_params(opt, 0, 0, n_segments).value(true_limit) == Approx(0).margin(exactness)); // untightened: plain bound
 
   Optimization run(robot, task);
   run.success_tolerance      = 0.01;
@@ -267,7 +285,7 @@ TEST_CASE("collision constraints at a pinned endpoint target what the endpoint a
     world.add_sphere(capsule.p2 + axis * (capsule.radius + sphere_radius + start_clearance), sphere_radius); // beyond the capsule's end, on its axis
     for (int capsule_id = 0; capsule_id < robot._n_caps; capsule_id++)
       if (capsule_id != tool_capsule)
-        REQUIRE(distance(manip_data.capsule_list[capsule_id], world.spheres[0]) > 2 * buffer); // far enough that endpoint_target returns the full buffer
+        REQUIRE(distance(manip_data.capsule_list[capsule_id], world.spheres[0]) > 2 * buffer); // clearance >= buffer keeps the full-buffer target; 2x is margin, so only the tool capsule is targeted
     REQUIRE(distance(capsule, world.spheres[0]) == Approx(start_clearance).margin(exact_tolerance));
   }
 
@@ -317,8 +335,8 @@ TEST_CASE("collision constraints at a pinned endpoint target what the endpoint a
     constraints_and_gradients_with_segments(x, hold, constraints, gradient);
     real worst_boundary = -INF_REAL, worst_interior = -INF_REAL;
     for (int segment = 0; segment < n_segments; segment++)
-      for (int row = 0; row < constraints_per_segment; row++) {
-        const real constraint = constraints[segment * constraints_per_segment + row];
+      for (int index = 0; index < constraints_per_segment; index++) {
+        const real constraint = constraints[segment * constraints_per_segment + index];
         if (segment == 0 || segment == n_segments - 1)
           worst_boundary = std::max(worst_boundary, constraint);
         else
@@ -342,7 +360,7 @@ TEST_CASE("collision constraints at a pinned endpoint target what the endpoint a
   CHECK(ext_collision_constraint_params(opt, n_segments / 2, n_segments, tool_capsule).shift == 0); // interior: no endpoint adjustment
 
   // Point-based methods: the pinned start/goal samples take the boundary target, an interior
-  // sample the full buffer. At the start's own clearance its row is satisfied (<= 0).
+  // sample the full buffer. At the start's own clearance its constraint is satisfied (<= 0).
   {
     const u32  n_points       = opt.bspline.n_points;
     const real start_distance = start_clearance - buffer; // the start's distance in the buffered geometry

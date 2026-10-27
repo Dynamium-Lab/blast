@@ -123,7 +123,6 @@ struct Optimization {
   real                trajectory_start_time = 0.0;
   real                success_tolerance     = 0.01; // dimensionless constraint violation threshold; tightening ensures
                                                     // this on the tightened limits implies zero violation on the true limits
-                                                    // (except position where the endpoint clamp may narrow the slack)
   bool tighten_for_tolerance = true;                // false skips the tightening (ablation only: an accepted
                                                     // solve may then violate the real limits by up to success_tolerance)
   real collision_buffer = 0.001;                    // how close, in metres, the trajectory may come to contact.
@@ -132,9 +131,10 @@ struct Optimization {
 
   // --- derived, do not set ---
   real collision_scale = 1.0; // success_tolerance / collision_buffer while tightened, 1 otherwise
-  // Clearances at the pinned start [0] and goal [1] configurations, measured against the planning
-  // geometry (distance + buffer). Used to cap tightening so a pinned configuration at or near a
-  // limit does not create a violated zero-gradient constraint. See tighten_for_success_tolerance.
+  // While tightened, the first/last segment's constraints target what the pinned start [0] / goal [1]
+  // configuration achieves, so a pinned configuration at or near a limit does not create a violated
+  // zero-gradient constraint. Clearances are measured against the planning geometry (distance + buffer).
+  // See tighten_for_success_tolerance, position_constraint_params, ext_collision_constraint_params.
   bool                                          pinned_tightening_active = false;
   std::array<std::array<real, MAX_CAPSULES>, 2> pinned_col_clearance{};
   std::array<real, 2>                           pinned_self_clearance{};

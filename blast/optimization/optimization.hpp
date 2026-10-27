@@ -188,23 +188,23 @@ struct ToleranceSnapshot {
   World                          world;
 };
 
-
-// The collision analogue of clamping the position bounds at the task endpoints. The boundary
-// control points are pinned, so a collision constraint whose worst sample is the task start/goal
-// has an all-zero gradient. With the full buffer baked in, an endpoint that clears the planning
-// geometry by less than `buffer` leaves that constraint violated with no way to fix it -- the SQP
-// subproblem is infeasible at every iterate, although the endpoint itself is acceptable (clearance
-// > 0). So the constraints of the first/last segment target at most what the task's own start/goal
-// achieves, per capsule and for self-collision; every other constraint keeps the full buffer.
-// Called on the tightened geometry. Static obstacles only: a dynamic obstacle's pose at the goal
-// depends on the duration.
+/**
+ * @brief Sets the clearance targets of the first/last segment's collision constraints to what
+ *        the pinned start/goal configuration achieves, capped at `buffer`.
+ *
+ * Measured per capsule (external) and for self-collision, on the tightened geometry. Static
+ * obstacles only. Why the endpoints need a target: docs/guides/constraints.md.
+ */
 inline void set_pinned_col_clearances(Optimization* opt, real buffer) {
   // Floor, as a fraction of the buffer: keeps tolerance / clearance finite for an endpoint at ~0 clearance.
   constexpr real min_target_fraction = 0.01;
 
-  opt->pinned_tightening_active = false;
-  if (!opt->constraints.external_collisions && !opt->constraints.self_collisions)
+  if (!opt->constraints.external_collisions && !opt->constraints.self_collisions) {
+    opt->pinned_self_clearance.fill(buffer);
+    for (auto& clearances: opt->pinned_col_clearance)
+      clearances.fill(buffer);
     return;
+  }
   const real min_target = buffer * min_target_fraction;
   // Measured in the buffered geometry, so the endpoint's planning clearance is distance + buffer.
   const auto endpoint_target = [&](real buffered_distance) { return std::clamp(buffered_distance + buffer, min_target, buffer); };
@@ -236,20 +236,20 @@ inline void set_pinned_col_clearances(Optimization* opt, real buffer) {
       opt->pinned_col_clearance[endpoint_index][capsule_id] = endpoint_target(closest_distance);
     }
   }
-  opt->pinned_tightening_active = true;
 }
 
-// Tightens the limits/collision geometry constraints are evaluated against by success_tolerance,
-// so that whenever the solver's own tolerance-based early-out triggers, the original,
-// untightened limits are still satisfied. Must be paired with restore_from_tolerance() before
-// the Optimization is returned or reused.
-//
-// success_tolerance is the only bar: it is the solver's con_tol, it sets the tightening here,
-// and it is the post-solve accept gate. The collision algebra then cancels exactly, for any
-// tolerance and any buffer:
-//
-//   c = -(d_true - buffer) * (tol/buffer) < tol   <=>   d_true > 0
-//
+/**
+ * @brief Tightens the limits and collision geometry by success_tolerance, so that a solve accepted
+ *        at success_tolerance (the solver's con_tol) satisfies the true limits.
+ *
+ * Limits shrink by a factor 1 + success_tolerance about their center; collision geometry grows by
+ * collision_buffer. Where the pinned start/goal is closer to a limit than that, the first/last
+ * segment's constraints target the endpoint instead (see position_constraint_params,
+ * set_pinned_col_clearances).
+ * Must be paired with restore_from_tolerance() before the Optimization is returned or reused.
+ *
+ * @return The true limits and geometry, for restore_from_tolerance().
+ */
 inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   ToleranceSnapshot snap;
   snap.position_min       = opt->manip.position_min;
@@ -278,23 +278,14 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   const real buffer    = opt->collision_buffer > 0 ? opt->collision_buffer : tol;
   opt->collision_scale = tol / buffer;
 
-  // Position is tightened like the rest, EXCEPT never past the task's own start or goal.
-  // Task::stop_to_stop pins the boundary control points, so the position constraints at the
-  // trajectory's ends are constant in the decision variables -- gradient exactly 0. A
-  // tightened bound that cut off an endpoint would flip such a row to violated with no
-  // gradient, making the SQP subproblem infeasible at every iterate; clamping the bound to
-  // the endpoint keeps that row satisfied. The tightening_factor shrink can push center +
-  // half_range past an endpoint even when validate_task() accepted it (e.g. endpoint near the
-  // limit). Where the clamp binds, the acceptance slack is no longer covered; the optimizers
-  // validate on true geometry (via restore_from_tolerance) so an endpoint-clamped joint still
-  // passes if the true position is within limits.
+  // An unbounded joint stays unbounded.
   for (int joint = 0; joint < opt->manip.n_joints; joint++) {
+    if (opt->manip.position_max[joint] == INF_REAL || opt->manip.position_min[joint] == -INF_REAL)
+      continue;
     const real center              = (opt->manip.position_max[joint] + opt->manip.position_min[joint]) / 2;
     const real half_range          = (opt->manip.position_max[joint] - opt->manip.position_min[joint]) / 2 / tightening_factor;
-    const real endpoint_max        = std::max(opt->task(joint, 0), opt->task(joint, 3));
-    const real endpoint_min        = std::min(opt->task(joint, 0), opt->task(joint, 3));
-    opt->manip.position_max[joint] = std::max(center + half_range, endpoint_max);
-    opt->manip.position_min[joint] = std::min(center - half_range, endpoint_min);
+    opt->manip.position_max[joint] = center + half_range;
+    opt->manip.position_min[joint] = center - half_range;
   }
   for (int j = 0; j < opt->manip.n_joints; j++) {
     opt->manip.velocity_max[j] /= tightening_factor;
@@ -328,10 +319,12 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
     door.extents += Vec3(col_margin, col_margin, col_margin);
 
   set_pinned_col_clearances(opt, buffer);
+  opt->pinned_tightening_active = true;
 
   return snap;
 }
 
+/** @brief Undoes tighten_for_success_tolerance(): puts back the true limits and geometry. */
 inline void restore_from_tolerance(Optimization* opt, const ToleranceSnapshot& snap) {
   opt->manip.position_min        = snap.position_min;
   opt->manip.position_max        = snap.position_max;
