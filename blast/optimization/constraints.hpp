@@ -2264,7 +2264,7 @@ inline blast_fn void compute_constraints(real* result, const Array& x, Optimizat
 #if BLAST_TRACE_LEVEL >= 3
       PROFILE_SCOPE("SelfCollisions");
 #endif
-      auto tmp_coll = collision_constraint_at_point(*opt, i, -1, min(get_internal_collisions(opt->manip, manip_data))); // negative distance is positive constraint
+      auto tmp_coll = self_collision_constraint_at_point(*opt, i, min(get_internal_collisions(opt->manip, manip_data))); // negative distance is positive constraint
       // for (u32 j = 0; j < tmp_coll.size; j++)
       *moving_result++ = tmp_coll; //*std::abs(tmp_coll[j]);
     }
@@ -2308,7 +2308,7 @@ inline blast_fn void compute_constraints(real* result, const Array& x, Optimizat
           count++;
         }
 
-        dist_min = collision_constraint_at_point(*opt, i, capsule_id, dist_min); // negative distance is positive constraint
+        dist_min = ext_collision_constraint_at_point(*opt, i, capsule_id, dist_min); // negative distance is positive constraint
 
         // update worst position for the current capsule if necessary
         if (dist_min > max_col_constraints[capsule_id]) {
@@ -2663,7 +2663,7 @@ inline void compute_constraints_with_analytical_pva(ConstraintPerPoint& constrai
 #if BLAST_TRACE_LEVEL >= 3
       ZoneScopedN("SelfCollisions");
 #endif
-      auto tmp_coll = collision_constraint_at_point(*opt, i, -1, min(get_internal_collisions(opt->manip, manip_data))); // negative distance is positive constraint
+      auto tmp_coll = self_collision_constraint_at_point(*opt, i, min(get_internal_collisions(opt->manip, manip_data))); // negative distance is positive constraint
       // for (u32 j = 0; j < tmp_coll.size; j++)
       constraints.self_collision_constraint[i - opt->bspline.lower_bounds[x_idx]] = tmp_coll; //*std::abs(tmp_coll[j]);
     }
@@ -2708,7 +2708,7 @@ inline void compute_constraints_with_analytical_pva(ConstraintPerPoint& constrai
           count++;
         }
 
-        dist_min = collision_constraint_at_point(*opt, i, capsule_id, dist_min); // negative distance is positive constraint
+        dist_min = ext_collision_constraint_at_point(*opt, i, capsule_id, dist_min); // negative distance is positive constraint
 
         // update worst position for the current capsule if necessary
         if (dist_min > max_col_constraints[capsule_id]) {
@@ -2864,7 +2864,7 @@ blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& 
 #if BLAST_TRACE_LEVEL >= 3
           ZoneScopedN("SelfCollisions");
 #endif
-          self_collision_constraint = collision_constraint_at_point(*opt, i, -1, min(get_internal_collisions(opt->manip, manip_data))); // negative distance is positive constraint
+          self_collision_constraint = self_collision_constraint_at_point(*opt, i, min(get_internal_collisions(opt->manip, manip_data))); // negative distance is positive constraint
           *moving_result++          = self_collision_constraint;
         }
 
@@ -2918,7 +2918,7 @@ blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& 
               count++;
             }
 
-            dist_min = collision_constraint_at_point(*opt, i, capsule_id, dist_min); // negative distance is positive constraint
+            dist_min = ext_collision_constraint_at_point(*opt, i, capsule_id, dist_min); // negative distance is positive constraint
 
             // update worst position for the current capsule if necessary
             if (dist_min > max_col_constraints[capsule_id]) {
@@ -2964,7 +2964,7 @@ blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& 
 
         compute_collision_model(opt->manip, manip_data);
         if (opt->constraints.self_collisions) {
-          auto self_collision_constraint_plus = collision_constraint_at_point(*opt, i, -1, min(get_internal_collisions(opt->manip, manip_data))); // negative distance is positive constraint
+          auto self_collision_constraint_plus = self_collision_constraint_at_point(*opt, i, min(get_internal_collisions(opt->manip, manip_data))); // negative distance is positive constraint
           dselfcol_dp(j, i)                   = (self_collision_constraint_plus - self_collision_constraint) / eps;
         }
 
@@ -2987,7 +2987,7 @@ blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& 
                 break;
               }
             }
-            distance_plus = collision_constraint_at_point(*opt, i, capsule_id, distance_plus); // negative distance is positive constraint
+            distance_plus = ext_collision_constraint_at_point(*opt, i, capsule_id, distance_plus); // negative distance is positive constraint
             // auto external_collisions_plus = -test_collisions_per_point(manip_data.capsule_list, &(opt->world));
             dcol_dp[i].resize(n_capsules, joints);
             dcol_dp[i](capsule_id, j) = (distance_plus - max_col_constraints[capsule_id]) / eps;
