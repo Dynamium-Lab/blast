@@ -51,8 +51,8 @@ TEST_CASE("initialize_optimization bounds", "[Optimization]") {
     CHECK(opt.lower_bounds[i] == -HUGE_VAL);
     CHECK(opt.upper_bounds[i] == HUGE_VAL);
   }
-  CHECK_THAT(opt.lower_bounds.back(), WithinAbs(0.1, BLAST_EPSILON));
-  CHECK_THAT(opt.upper_bounds.back(), WithinAbs(60.0, BLAST_EPSILON));
+  CHECK_THAT(opt.lower_bounds.back(), WithinAbs(opt.min_duration, BLAST_EPSILON));
+  CHECK_THAT(opt.upper_bounds.back(), WithinAbs(opt.max_duration, BLAST_EPSILON));
 }
 
 TEST_CASE("initialize_optimization task angle unwrapping", "[Optimization]") {
