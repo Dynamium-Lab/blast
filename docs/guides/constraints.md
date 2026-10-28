@@ -112,9 +112,7 @@ SLSQP has no step-size limit of its own, so without these bounds a single step c
 recover. With the control points inside the position limits, the whole trajectory is
 inside them too (a B-spline stays within the hull of its control points).
 
-These bounds do not affect convergence on typical paths: control-point bounds are set to the
-full joint range, so paths far from the limits are unconstrained by the box. They only cut
-divergence from runaway QP steps, leaving median solve time unchanged.
+The bounds are on by default. Set `bound_control_points = false` to keep only the duration bounds.
 
 **Tasks close to a joint limit**: because the convex-hull property is conservative, control
 points capped at the limit produce a trajectory that stays strictly inside it. Raise

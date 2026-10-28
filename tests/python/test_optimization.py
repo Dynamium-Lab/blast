@@ -105,6 +105,7 @@ class TestDecisionBounds:
         assert opt.min_duration == pytest.approx(0.01)
         assert opt.max_duration == pytest.approx(60.0)
         assert opt.control_point_bound_margin == pytest.approx(0.0)
+        assert opt.bound_control_points is True
 
     # Unbounded, this task solves in T ~ 0.51 s, so both bounds below bind.
     def test_min_duration_respected(self, ur5e, ur5e_task):
