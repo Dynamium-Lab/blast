@@ -12,6 +12,131 @@ inline blast::Task make_UR5e_task() {
   return blast::Task::stop_to_stop(kStart, kEnd);
 }
 
+
+using Catch::Matchers::WithinAbs;
+
+TEST_CASE("initialize_optimization collision constraints", "[Optimization]") {
+  Manipulator robot = make_UR5e();
+  Task        task  = make_UR5e_task();
+
+  Optimization opt(robot, task);
+
+  SECTION("external collisions disabled zeroes the constraint count") {
+    opt.constraints.external_collisions     = false;
+    opt.constraints.n_collision_constraints = 12;
+    initialize_optimization(&opt);
+    CHECK(opt.constraints.n_collision_constraints == 0);
+  }
+
+  SECTION("external collisions enabled leaves the count untouched") {
+    opt.constraints.external_collisions     = true;
+    opt.constraints.n_collision_constraints = 12;
+    initialize_optimization(&opt);
+    CHECK(opt.constraints.n_collision_constraints == 12);
+  }
+}
+
+TEST_CASE("initialize_optimization bounds", "[Optimization]") {
+  Manipulator robot = make_UR5e();
+  Task        task  = make_UR5e_task();
+
+  Optimization opt(robot, task);
+  initialize_optimization(&opt);
+
+  const int n = opt.x_len();
+  REQUIRE(opt.lb.size == n);
+  REQUIRE(opt.ub.size == n);
+
+  for (int i = 0; i < n - 1; i++) {
+    CHECK(opt.lb[i] == -HUGE_VAL);
+    CHECK(opt.ub[i] == HUGE_VAL);
+  }
+  CHECK_THAT(opt.lb.back(), WithinAbs(0.1, BLAST_EPSILON));
+  CHECK_THAT(opt.ub.back(), WithinAbs(60.0, BLAST_EPSILON));
+}
+
+TEST_CASE("initialize_optimization task angle unwrapping", "[Optimization]") {
+  Manipulator robot = make_UR5e();
+  Task        task  = make_UR5e_task();
+
+  Optimization opt(robot, task);
+  initialize_optimization(&opt); // baseline: default UR5e task must already be unwrapped
+
+  const auto reference = opt.task;
+  const int  j         = 0; // joint under test; all other joints must stay untouched
+
+  auto check_other_joints_untouched = [&]() {
+    for (int i = 0; i < opt.manip.n_joints; i++) {
+      if (i == j)
+        continue;
+      CHECK_THAT(opt.task(i, 0), WithinAbs(reference(i, 0), BLAST_EPSILON));
+      CHECK_THAT(opt.task(i, 3), WithinAbs(reference(i, 3), BLAST_EPSILON));
+    }
+  };
+
+  SECTION("default UR5e task has every joint within PI") {
+    for (int i = 0; i < opt.manip.n_joints; i++) {
+      CHECK(std::abs(opt.task(i, 0) - opt.task(i, 3)) <= PI + BLAST_EPSILON);
+    }
+  }
+
+  SECTION("distance already <= PI is unchanged") {
+    opt.manip.position_min[j] = -2 * PI;
+    opt.manip.position_max[j] = 2 * PI;
+    opt.task(j, 0)            = -1.0;
+    opt.task(j, 3)            = 1.5;
+    initialize_optimization(&opt);
+    CHECK_THAT(opt.task(j, 0), WithinAbs(-1.0, BLAST_EPSILON));
+    CHECK_THAT(opt.task(j, 3), WithinAbs(1.5, BLAST_EPSILON));
+    check_other_joints_untouched();
+  }
+
+  SECTION("start is shifted when within limits") {
+    opt.manip.position_min[j] = -2 * PI;
+    opt.manip.position_max[j] = 2 * PI;
+    opt.task(j, 0)            = -3.0;
+    opt.task(j, 3)            = 3.0;
+    initialize_optimization(&opt);
+    CHECK_THAT(opt.task(j, 0), WithinAbs(-3.0 + 2 * PI, BLAST_EPSILON));
+    CHECK_THAT(opt.task(j, 3), WithinAbs(3.0, BLAST_EPSILON));
+    check_other_joints_untouched();
+  }
+
+  SECTION("end is shifted when start shift violates limits") {
+    // start + 2PI = 3.283 > 3.2, end - 2PI = -3.283 > -3.5
+    opt.manip.position_min[j] = -3.5;
+    opt.manip.position_max[j] = 3.2;
+    opt.task(j, 0)            = -3.0;
+    opt.task(j, 3)            = 3.0;
+    initialize_optimization(&opt);
+    CHECK_THAT(opt.task(j, 0), WithinAbs(-3.0, BLAST_EPSILON));
+    CHECK_THAT(opt.task(j, 3), WithinAbs(3.0 - 2 * PI, BLAST_EPSILON));
+    check_other_joints_untouched();
+  }
+
+  SECTION("neither shift fits limits: unchanged, terminates") {
+    opt.manip.position_min[j] = -3.1;
+    opt.manip.position_max[j] = 3.1;
+    opt.task(j, 0)            = -3.0;
+    opt.task(j, 3)            = 3.0;
+    initialize_optimization(&opt);
+    CHECK_THAT(opt.task(j, 0), WithinAbs(-3.0, BLAST_EPSILON));
+    CHECK_THAT(opt.task(j, 3), WithinAbs(3.0, BLAST_EPSILON));
+    check_other_joints_untouched();
+  }
+
+  SECTION("multiple wraps until distance <= PI") {
+    opt.manip.position_min[j] = -20.0;
+    opt.manip.position_max[j] = 20.0;
+    opt.task(j, 0)            = -10.0;
+    opt.task(j, 3)            = 3.0;
+    initialize_optimization(&opt);
+    CHECK_THAT(opt.task(j, 0), WithinAbs(-10.0 + 4 * PI, BLAST_EPSILON));
+    CHECK(std::abs(opt.task(j, 0) - opt.task(j, 3)) <= PI);
+    check_other_joints_untouched();
+  }
+}
+
 TEST_CASE("optimize stop-to-stop default pva + tool_speed constraints active", "[Optimization]") {
   Manipulator robot = make_UR5e();
   Task        task  = make_UR5e_task();
