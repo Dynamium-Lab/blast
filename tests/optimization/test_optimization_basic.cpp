@@ -44,15 +44,15 @@ TEST_CASE("initialize_optimization bounds", "[Optimization]") {
   initialize_optimization(&opt);
 
   const int n = opt.x_len();
-  REQUIRE(opt.lb.size == n);
-  REQUIRE(opt.ub.size == n);
+  REQUIRE(opt.lower_bounds.size == n);
+  REQUIRE(opt.upper_bounds.size == n);
 
   for (int i = 0; i < n - 1; i++) {
-    CHECK(opt.lb[i] == -HUGE_VAL);
-    CHECK(opt.ub[i] == HUGE_VAL);
+    CHECK(opt.lower_bounds[i] == -HUGE_VAL);
+    CHECK(opt.upper_bounds[i] == HUGE_VAL);
   }
-  CHECK_THAT(opt.lb.back(), WithinAbs(0.1, BLAST_EPSILON));
-  CHECK_THAT(opt.ub.back(), WithinAbs(60.0, BLAST_EPSILON));
+  CHECK_THAT(opt.lower_bounds.back(), WithinAbs(opt.min_duration, BLAST_EPSILON));
+  CHECK_THAT(opt.upper_bounds.back(), WithinAbs(opt.max_duration, BLAST_EPSILON));
 }
 
 TEST_CASE("initialize_optimization task angle unwrapping", "[Optimization]") {

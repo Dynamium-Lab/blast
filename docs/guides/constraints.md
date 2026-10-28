@@ -95,5 +95,38 @@ tightened limit.
 isolate its effect when measuring; with it off, an accepted solve may violate the real
 limits by up to `success_tolerance`.
 
+## Decision bounds: duration and control points
+
+The solver's variables are the free B-spline control points and the duration `T`. Each has
+a box the solver cannot leave, enforced exactly at every step:
+
+```cpp
+opt.min_duration = 0.01;               // T in [min_duration, max_duration], seconds
+opt.max_duration = 60.0;
+opt.control_point_bound_margin = 0.0;  // widen control-point box by this fraction of each joint's range
+opt.bound_control_points = true;       // false: duration bounds only, no control-point box
+```
+
+SLSQP has no step-size limit of its own, so without these bounds a single step can stretch
+`T` many times over or move control points by tens of radians, and some solves never
+recover. With the control points inside the position limits, the whole trajectory is
+inside them too (a B-spline stays within the hull of its control points).
+
+The bounds are on by default. Set `bound_control_points = false` to keep only the duration bounds.
+
+The control-point box applies to fully specified tasks (no `NaN` in the start or goal). Tasks
+with `NaN` entries get the duration bounds only.
+
+**Tasks close to a joint limit**: because the convex-hull property is conservative, control
+points capped at the limit produce a trajectory that stays strictly inside it. Raise
+`control_point_bound_margin` (e.g. `0.05`) to give the free control points room to create
+a smooth curve through a near-limit region.
+
+**Joints without position limits**: the control-point box falls back to `[-2π, 2π]`, which
+covers all non-screwing stop-to-stop tasks. Set `bound_control_points = false` to remove
+the box entirely, for example for continuous-rotation joints.
+
+An initial guess outside the box is clamped into it.
+
 See the [API reference](../api/cpp/index.md) for the full `ConstraintSelection` and
 `OptimizationMethod` definitions.
