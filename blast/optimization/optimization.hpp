@@ -190,9 +190,10 @@ struct ToleranceSnapshot {
 
 // Fills lower_bounds / upper_bounds (sized x_len) for the decision vector
 // [free control points, joint-major, (n_ctrl - 6) per joint | T]. Call after tighten_for_success_tolerance().
-// T is bounded to [min_duration, max_duration]. For stop-to-stop tasks the control points are also
-// bounded to the (tightened) position limits, widened by control_point_bound_margin of each joint's
-// range; set bound_control_points = false to skip that. Other task layouts get the duration bounds only.
+// T is bounded to [min_duration, max_duration]. For fully specified tasks (no NaN in the start or
+// goal) the control points are also bounded to the (tightened) position limits, widened by
+// control_point_bound_margin of each joint's range; set bound_control_points = false to skip that.
+// Tasks with NaN entries get the duration bounds only.
 inline void decision_bounds(const Optimization* opt, Array& lower_bounds, Array& upper_bounds) {
   for (u32 variable = 0; variable < lower_bounds.size; variable++) {
     lower_bounds[variable] = -INF_REAL;
@@ -202,7 +203,7 @@ inline void decision_bounds(const Optimization* opt, Array& lower_bounds, Array&
   upper_bounds.back()             = opt->max_duration;
   const int n_joints              = opt->manip.n_joints;
   const int n_free_control_points = (int) opt->bspline.n_ctrl - 6;
-  // Non-stop-to-stop layouts have a different variable count; they get duration bounds only.
+  // Each NaN in the task adds a variable, so the control-point indexing below no longer holds; duration bounds only.
   if ((int) lower_bounds.size != n_joints * n_free_control_points + 1)
     return;
   if (!opt->bound_control_points)

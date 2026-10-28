@@ -114,6 +114,9 @@ inside them too (a B-spline stays within the hull of its control points).
 
 The bounds are on by default. Set `bound_control_points = false` to keep only the duration bounds.
 
+The control-point box applies to fully specified tasks (no `NaN` in the start or goal). Tasks
+with `NaN` entries get the duration bounds only.
+
 **Tasks close to a joint limit**: because the convex-hull property is conservative, control
 points capped at the limit produce a trajectory that stays strictly inside it. Raise
 `control_point_bound_margin` (e.g. `0.05`) to give the free control points room to create
