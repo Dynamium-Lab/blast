@@ -137,26 +137,27 @@ inline blast_fn real ext_collision_constraint_at_point(const Optimization& opt, 
 }
 
 /**
- * @brief Parameters of one joint's position constraint: c = |p - center| * scale + offset.
+ * @brief Parameters of one joint's position constraint: c = (|p - center| - target) * scale + offset.
  *
  * Constraints away from the task endpoints (and all of them when untightened):
+ * - target = 0, offset = -1
  * - scale  = 1 / half_range (the tightened half range)
- * - offset = -1
  *
  * Constraints of the first or last segment, while tightened, when the pinned start/goal lies
- * outside the tightened band (target = |endpoint - center|):
+ * outside the tightened band:
+ * - target = |endpoint - center| (plus a few ulps), offset = 0
  * - scale  = tolerance / (true_half_range - target)
- * - offset = -target * scale
  *
- * Either way c < tolerance <=> |p - center| < true_half_range, and c <= 0 at a pinned endpoint.
+ * Either way c < tolerance <=> |p - center| < true_half_range, and c < 0 at a pinned endpoint.
  * An unbounded joint gives c = -1. See docs/guides/constraints.md.
  */
 struct PositionConstraintParams {
   real center;
   real scale;
-  real offset;
+  real target;
+  real offset = 0;
 
-  blast_fn real value(real position) const { return std::abs(position - center) * scale + offset; }
+  blast_fn real value(real position) const { return (std::abs(position - center) - target) * scale + offset; }
   blast_fn real gradient(real position) const { return sign(position - center) * scale; }
 };
 
@@ -168,24 +169,28 @@ inline blast_fn PositionConstraintParams position_constraint_params(const Optimi
   const real position_max = opt.manip.position_max[joint];
   const real position_min = opt.manip.position_min[joint];
   if (position_max == INF_REAL || position_min == -INF_REAL)
-    return {0.0, 0.0, -1.0};
+    return {0.0, 0.0, 0.0, -1.0};
   const real center     = (position_max + position_min) / 2;
   const real half_range = (position_max - position_min) / 2;
-  real       target     = half_range;
-  if (opt.pinned_tightening_active) {
-    // Both conditions separate: when n_segments == 1 the segment is both first and last.
-    if (segment == 0)
-      target = std::max(target, std::abs(opt.task(joint, 0) - center));
-    if (segment == n_segments - 1)
-      target = std::max(target, std::abs(opt.task(joint, 3) - center));
-  }
-  if (target == half_range)
-    return {center, 1 / half_range, -1.0};
+  const auto interior   = PositionConstraintParams{center, 1 / half_range, 0.0, -1.0};
+  if (!opt.pinned_tightening_active || (segment != 0 && segment != n_segments - 1))
+    return interior;
+
   const real tolerance       = opt.success_tolerance;
   const real true_half_range = half_range * (1 + tolerance); // tighten_for_success_tolerance divided it by 1 + tolerance
-  const real slack           = std::max(true_half_range - target, min_slack_fraction * (true_half_range - half_range));
-  const real scale           = tolerance / slack;
-  return {center, scale, -(true_half_range - slack) * scale};
+  // A few ulps past the endpoint, so the pinned sample is strictly satisfied despite rounding in
+  // the trajectory evaluation (its gradient is exactly zero).
+  const real margin   = 16 * std::numeric_limits<real>::epsilon() * true_half_range;
+  real       endpoint = 0;
+  // Both conditions separate: when n_segments == 1 the segment is both first and last.
+  if (segment == 0)
+    endpoint = std::max(endpoint, std::abs(opt.task(joint, 0) - center));
+  if (segment == n_segments - 1)
+    endpoint = std::max(endpoint, std::abs(opt.task(joint, 3) - center));
+  if (endpoint + margin <= half_range)
+    return interior;
+  const real target = std::min(endpoint + margin, true_half_range - min_slack_fraction * (true_half_range - half_range));
+  return {center, tolerance / (true_half_range - target), target};
 }
 
 /** @brief Position constraint parameters of one sample, for the point-based methods. */

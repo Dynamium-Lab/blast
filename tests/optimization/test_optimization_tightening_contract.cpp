@@ -175,8 +175,8 @@ TEST_CASE("position is tightened up to the endpoints and success respects the tr
       CHECK(params.value(true_limit) == Approx(opt.success_tolerance).margin(exactness)); // acceptance ends at the true limit
       CHECK(params.value(-true_limit) == Approx(opt.success_tolerance).margin(exactness));
     }
-    CHECK(position_constraint_params(opt, joint, 0, n_segments).value(start[joint]) <= exactness); // pinned start satisfied
-    CHECK(position_constraint_params(opt, joint, n_segments - 1, n_segments).value(end[joint]) <= exactness);
+    CHECK(position_constraint_params(opt, joint, 0, n_segments).value(start[joint]) < 0); // pinned start strictly satisfied (zero gradient there)
+    CHECK(position_constraint_params(opt, joint, n_segments - 1, n_segments).value(end[joint]) < 0);
   }
   // Joint 0's start (3.14) is outside the tightened band (3.1416 / 1.01 = 3.1105): only the
   // first segment targets it, the interior keeps the tightened bound.
