@@ -37,14 +37,14 @@ inline blast_fn void Bspline::compute_basis() {
   Array knots(m + 1);
   {
     for (u32 i = m; i > m - degree - 1; i--)
-      knots[i] = 1.0f;
-    const real du = 1.0f / (real) (m + 1 - 2 * (degree + 1) + 1);
+      knots[i] = (real) 1;
+    const real du = (real) 1 / (real) (m + 1 - 2 * (degree + 1) + 1);
     for (u32 i = degree + 1; i < m - degree; i++)
       knots[i] = knots[i - 1] + du;
   }
 
   Array      N(m * (degree + 1)); // triangle basis function
-  const real du = 1.0f / (n_points - 1);
+  const real du = (real) 1 / (n_points - 1);
   zero(basis_p);
   zero(basis_v);
   zero(basis_a);
@@ -55,9 +55,9 @@ inline blast_fn void Bspline::compute_basis() {
     const real u = point * du;
 
     for (u32 i = 0; i < m; i++)
-      N[i] = u >= knots[i] && u < knots[i + 1] ? 1.0f : 0.0f;
+      N[i] = u >= knots[i] && u < knots[i + 1] ? (real) 1 : 0.0f;
     if (point == n_points - 1)
-      N[n_ctrl - 1] = 1.0f;
+      N[n_ctrl - 1] = (real) 1;
     for (u32 pi = 1; pi <= degree; pi++) {
       for (u32 i = 0; i < m - pi; i++) {
         if (knots[i + pi] != knots[i])
@@ -83,7 +83,7 @@ inline blast_fn void Bspline::compute_basis() {
     for (u32 i = 0; i < n_ctrl - 2; i++)
       basis_a_col[i] = (degree * (degree - 1)) * N[m * (degree - 2) + i + 2] / ((knots[i + degree + 1] - knots[i + 1]) * (knots[i + degree + 1] - knots[i + 2]));
     for (u32 i = 1; i < n_ctrl - 1; i++)
-      basis_a_col[i] -= (degree * (degree - 1)) * N[m * (degree - 2) + i + 1] * (1.0f / (knots[i + degree] - knots[i]) + 1.0f / (knots[i + degree + 1] - knots[i + 1])) / (knots[i + degree] - knots[i + 1]);
+      basis_a_col[i] -= (degree * (degree - 1)) * N[m * (degree - 2) + i + 1] * ((real) 1 / (knots[i + degree] - knots[i]) + (real) 1 / (knots[i + degree + 1] - knots[i + 1])) / (knots[i + degree] - knots[i + 1]);
     for (u32 i = 2; i < n_ctrl; i++)
       basis_a_col[i] += (degree * (degree - 1)) * N[m * (degree - 2) + i] / ((knots[i + degree - 1] - knots[i]) * (knots[i + degree] - knots[i]));
 
@@ -130,14 +130,14 @@ inline blast_fn void Bspline::compute_basis_derivative(int d) {
   Array knots(m + 1);
   {
     for (u32 i = m; i > m - degree - 1; i--)
-      knots[i] = 1.0f;
-    const real du = 1.0f / (real) (m + 1 - 2 * (degree + 1) + 1);
+      knots[i] = (real) 1;
+    const real du = (real) 1 / (real) (m + 1 - 2 * (degree + 1) + 1);
     for (u32 i = degree + 1; i < m - degree; i++)
       knots[i] = knots[i - 1] + du;
   }
 
   Array      N(m * (degree + 1)); // triangle basis function
-  const real du = 1.0f / (n_points - 1);
+  const real du = (real) 1 / (n_points - 1);
 
   for (u32 point = 0; point < n_points; point++) {
     const real u = point * du;
@@ -240,7 +240,7 @@ inline blast_fn void Bspline::compute_basis_open() {
   knots[0]     = 0.0;
   knots.back() = 1.0;
   {
-    const real du = 1.0f / (real) m;
+    const real du = (real) 1 / (real) m;
     for (u32 i = 1; i < m; i++)
       knots[i] = i * du;
   }
@@ -250,7 +250,7 @@ inline blast_fn void Bspline::compute_basis_open() {
 #endif
 
   Matrix     N(m, (degree + 1)); // triangle basis function
-  const real du = 1.0f / (n_points - 1);
+  const real du = (real) 1 / (n_points - 1);
   zero(basis_p);
   zero(basis_v);
   zero(basis_a);
@@ -261,7 +261,7 @@ inline blast_fn void Bspline::compute_basis_open() {
     const real u = point * du;
 
     for (u32 i = 0; i < m; i++)
-      N(i, 0) = u >= knots[i] && u <= knots[i + 1] ? 1.0f : 0.0f;
+      N(i, 0) = u >= knots[i] && u <= knots[i + 1] ? (real) 1 : 0.0f;
     for (u32 pi = 1; pi <= degree; pi++) {
       for (u32 i = 0; i < m - pi; i++) {
         if (knots[i + pi] != knots[i])
@@ -287,7 +287,7 @@ inline blast_fn void Bspline::compute_basis_open() {
     for (u32 i = 0; i < n_ctrl - 2; i++)
       basis_a_col[i] = (real) (degree * (degree - 1)) * N(i + 2, degree - 2) / ((knots[i + degree + 1] - knots[i + 1]) * (knots[i + degree + 1] - knots[i + 2]));
     for (u32 i = 1; i < n_ctrl - 1; i++)
-      basis_a_col[i] -= (real) (degree * (degree - 1)) * N(i + 1, degree - 2) * (1.0f / (knots[i + degree] - knots[i]) + 1.0f / (knots[i + degree + 1] - knots[i + 1])) / (knots[i + degree] - knots[i + 1]);
+      basis_a_col[i] -= (real) (degree * (degree - 1)) * N(i + 1, degree - 2) * ((real) 1 / (knots[i + degree] - knots[i]) + (real) 1 / (knots[i + degree + 1] - knots[i + 1])) / (knots[i + degree] - knots[i + 1]);
     for (u32 i = 2; i < n_ctrl; i++)
       basis_a_col[i] += (degree * (degree - 1)) * N(i, degree - 2) / ((knots[i + degree - 1] - knots[i]) * (knots[i + degree] - knots[i]));
 
@@ -302,7 +302,7 @@ inline blast_fn void Bspline::compute_control(const Array& x, const Matrix& task
   using std::isnan;
   Assert(n_ctrl >= 6);
   const real T  = x[x.size - 1];
-  const real du = 1.0f / (n_ctrl - degree);
+  const real du = (real) 1 / (n_ctrl - degree);
   const real T2 = T * T;
 
   u32  ctr_i = 0;

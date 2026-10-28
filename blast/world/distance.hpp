@@ -207,20 +207,20 @@ inline blast_fn TwoPts closest_points(Segment segment1, Segment segment2) {
     // First segment degenerates into a point
     s = 0.0f;
     t = f / e; // s = 0 => t = (b*s + f) / e = f / e
-    t = clamp(t, 0.0f, 1.0f);
+    t = clamp(t, 0.0f, (real) 1);
   } else {
     real c = dot(d1, r);
     if (e <= COLLISION_EPSILON) {
       // Second segment degenerates into a point
       t = 0.0f;
-      s = clamp(-c / a, 0.0f, 1.0f); // t = 0 => s = (b*t - c) / a = -c / a
+      s = clamp(-c / a, 0.0f, (real) 1); // t = 0 => s = (b*t - c) / a = -c / a
     } else {
       // The general nondegenerate case starts here
       real b = dot(d1, d2);
       // If segments not parallel, compute the closest point on L1 to L2 and
       // clamp to segment S1. Else pick arbitrary s (here 0)
       if (real denominator = a * e - b * b; denominator != 0.0f) {
-        s = clamp((b * f - c * e) / denominator, 0.0f, 1.0f);
+        s = clamp((b * f - c * e) / denominator, 0.0f, (real) 1);
       } else
         s = 0.0f;
       // Compute point on L2 closest to S1(s) using
@@ -231,10 +231,10 @@ inline blast_fn TwoPts closest_points(Segment segment1, Segment segment2) {
       // and clamp s to [0, 1]
       if (t < 0.0f) {
         t = 0.0f;
-        s = clamp(-c / a, 0.0f, 1.0f);
-      } else if (t > 1.0f) {
-        t = 1.0f;
-        s = clamp((b - c) / a, 0.0f, 1.0f);
+        s = clamp(-c / a, 0.0f, (real) 1);
+      } else if (t > (real) 1) {
+        t = (real) 1;
+        s = clamp((b - c) / a, 0.0f, (real) 1);
       }
     }
   }

@@ -14,7 +14,7 @@ inline Manipulator make_Kinova_Gen3() {
   limits.velocity_max     = {1.745f, 1.745f, 1.745f, 1.745f, 2.443f, 2.443f, 2.443f};               // rad/s
   limits.acceleration_max = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL}; // rad/s^2
   limits.torque_max       = {52.0f, 52.0f, 52.0f, 52.0f, 17.0f, 17.0f, 17.0f};                      // Nm
-  limits.tool_speed_max   = 1.0f;
+  limits.tool_speed_max   = (real) 1;
 
   // kinematic properties
   ManipulatorKinematics kinematics; // using default Q_base

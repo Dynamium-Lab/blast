@@ -14,7 +14,7 @@ inline Manipulator make_UR5e() {
   limits.velocity_max     = {3.141600f, 3.141600f, 3.141600f, 3.141600f, 3.141600f, 3.141600f};       // rad/s
   limits.acceleration_max = {13.96f, 13.96f, 13.96f, 13.96f, 13.96f, 13.96f};                         // rad/s^2
   limits.torque_max       = {150.0f, 150.0f, 150.0f, 28.0f, 28.0f, 28.0f};                            // Nm
-  limits.tool_speed_max   = 1.0f;                                                                     // m/s
+  limits.tool_speed_max   = (real) 1;                                                                 // m/s
 
   // kinematic properties
   ManipulatorKinematics kinematics; // using default Q_base
