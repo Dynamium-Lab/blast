@@ -141,8 +141,8 @@ inline void initialize_optimization(Optimization* opt) {
 
   opt->lower_bounds        = Array(opt->x_len(), -HUGE_VAL);
   opt->upper_bounds        = Array(opt->x_len(), HUGE_VAL);
-  opt->lower_bounds.back() = opt->min_duration;
-  opt->upper_bounds.back() = opt->max_duration;
+  opt->lower_bounds.back() = 0.1;
+  opt->upper_bounds.back() = 60.0;
 
   // Task
   auto task = opt->task;
@@ -583,8 +583,8 @@ inline void initialize_optimization_with_segments(Optimization* opt) {
 
   opt->lower_bounds        = Array(opt->x_len(), -HUGE_VAL);
   opt->upper_bounds        = Array(opt->x_len(), HUGE_VAL);
-  opt->lower_bounds.back() = opt->min_duration;
-  opt->upper_bounds.back() = opt->max_duration;
+  opt->lower_bounds.back() = 0.1;
+  opt->upper_bounds.back() = 60.0;
 
   // Task
   auto task = opt->task;
