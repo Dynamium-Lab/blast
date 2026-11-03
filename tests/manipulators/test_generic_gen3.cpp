@@ -11,14 +11,14 @@ struct Gen3 {
   int joints = 7;
 
   // All limits are from webapp
-  Array pmax    = {INF_REAL, 2.25, INF_REAL, 2.58f, INF_REAL, 2.1f, INF_REAL}; // rad
-  Array pmin    = -pmax;                                                       // rad
-  Array vmax    = {1.745f, 1.745f, 1.745f, 1.745f, 2.443f, 2.443f, 2.443f};    // rad/s
-  Array vmin    = -vmax;                                                       // rad/s
+  Array pmax    = {INF_REAL, 2.25, INF_REAL, (real) 2.58, INF_REAL, (real) 2.1, INF_REAL};                            // rad
+  Array pmin    = -pmax;                                                                                              // rad
+  Array vmax    = {(real) 1.745, (real) 1.745, (real) 1.745, (real) 1.745, (real) 2.443, (real) 2.443, (real) 2.443}; // rad/s
+  Array vmin    = -vmax;                                                                                              // rad/s
   Array amax    = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL};
-  Array amin    = -amax;                                                       // rad/s^2
-  Array tau_max = {52, 52, 52, 52, 17, 17, 17};                                // Nm
-  Array tau_min = -tau_max;                                                    // Nm
+  Array amin    = -amax;                                                                                              // rad/s^2
+  Array tau_max = {52, 52, 52, 52, 17, 17, 17};                                                                       // Nm
+  Array tau_min = -tau_max;                                                                                           // Nm
 
   // tcp & elbow speed limits
   real tcp_max = 0.5; // from user guide
@@ -27,7 +27,7 @@ struct Gen3 {
   Vec3 p_base = {0, 0, 0};
   Mat3 Q_base = {1, 0, 0, 0, 1, 0, 0, 0, 1};
 
-  Vec3 p_j0 = {0, 0, 0.1564f};
+  Vec3 p_j0 = {0, 0, (real) 0.1564};
 
   Vec3 dv[7] = {
           {0.0, 0.0054, -0.1284},
@@ -50,31 +50,31 @@ struct Gen3 {
 
   // dynamic properties
   real m[7] = {
-          1.377f,
-          1.1636f,
-          1.1636f,
-          0.93f,
-          0.678f,
-          0.678f,
-          0.364f}; // link masses
+          (real) 1.377,
+          (real) 1.1636,
+          (real) 1.1636,
+          (real) 0.93,
+          (real) 0.678,
+          (real) 0.678,
+          (real) 0.364}; // link masses
 
   Mat3 I[7] = {
-          {0.004570f, 0.000001f, 0.000002f, 0.000001f, 0.004831f, 0.000448f, 0.000002f, 0.000448f, 0.001409f},
-          {0.011088f, 0.000005f, 0.000000f, 0.000005f, 0.001072f, -0.000691f, 0.000000f, -0.000691f, 0.011255f},
-          {0.010932f, 0.000000f, -0.000007f, 0.000000f, 0.011127f, 0.000606f, -0.000007f, 0.000606f, 0.001043f},
-          {0.008147f, -0.000001f, 0.000000f, -0.000001f, 0.000631f, -0.000500f, 0.000000f, -0.000500f, 0.008316f},
-          {0.001596f, 0.000000f, 0.000000f, 0.000000f, 0.001607f, 0.000256f, 0.000000f, 0.000256f, 0.000399f},
-          {0.001641f, 0.000000f, 0.000000f, 0.000000f, 0.000410f, -0.000278f, 0.000000f, -0.000278f, 0.001641f},
-          {0.000214f, 0.000000f, 0.000001f, 0.000000f, 0.000223f, -0.000002f, 0.000001f, -0.000002f, 0.000240f}}; // Inertial tensors
+          {(real) 0.004570, (real) 0.000001, (real) 0.000002, (real) 0.000001, (real) 0.004831, (real) 0.000448, (real) 0.000002, (real) 0.000448, (real) 0.001409},
+          {(real) 0.011088, (real) 0.000005, (real) 0, (real) 0.000005, (real) 0.001072, -(real) 0.000691, (real) 0, -(real) 0.000691, (real) 0.011255},
+          {(real) 0.010932, (real) 0, -(real) 0.000007, (real) 0, (real) 0.011127, (real) 0.000606, -(real) 0.000007, (real) 0.000606, (real) 0.001043},
+          {(real) 0.008147, -(real) 0.000001, (real) 0, -(real) 0.000001, (real) 0.000631, -(real) 0.000500, (real) 0, -(real) 0.000500, (real) 0.008316},
+          {(real) 0.001596, (real) 0, (real) 0, (real) 0, (real) 0.001607, (real) 0.000256, (real) 0, (real) 0.000256, (real) 0.000399},
+          {(real) 0.001641, (real) 0, (real) 0, (real) 0, (real) 0.000410, -(real) 0.000278, (real) 0, -(real) 0.000278, (real) 0.001641},
+          {(real) 0.000214, (real) 0, (real) 0.000001, (real) 0, (real) 0.000223, -(real) 0.000002, (real) 0.000001, -(real) 0.000002, (real) 0.000240}}; // Inertial tensors
 
   Vec3 av[7] = {
-          {-0.000023f, -0.010364f, -0.073360f},
-          {-0.000044f, -0.099580f, -0.013278f},
-          {-0.000044f, -0.006641f, -0.117892f},
-          {-0.000018f, -0.075478f, -0.015006f},
-          {0.000001f, -0.009432f, -0.063883f},
-          {0.000001f, -0.045483f, -0.009650f},
-          {-0.000093f, 0.000132f, -0.022905f}}; // centers of mass
+          {-(real) 0.000023, -(real) 0.010364, -(real) 0.073360},
+          {-(real) 0.000044, -(real) 0.099580, -(real) 0.013278},
+          {-(real) 0.000044, -(real) 0.006641, -(real) 0.117892},
+          {-(real) 0.000018, -(real) 0.075478, -(real) 0.015006},
+          {(real) 0.000001, -(real) 0.009432, -(real) 0.063883},
+          {(real) 0.000001, -(real) 0.045483, -(real) 0.009650},
+          {-(real) 0.000093, (real) 0.000132, -(real) 0.022905}}; // centers of mass
 
   Vec3 sv[7] = {
           {-dv[0] + av[0]},

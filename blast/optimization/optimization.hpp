@@ -680,11 +680,12 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Solution validation (more points)");
 #endif
-      u64 steps_ms    = (u64) (std::ceil(x.back() * 1e3 / output_steps_ms));
-      x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
+#ifndef BLAST_SKIP_DENSE_VALIDATION
+      u64 steps_ms    = (u64) (ceil(x.back() * 1e3 / output_steps_ms));
+      x.back()        = (real) (ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
       int points_more = (int) (steps_ms + 1);
 
-      Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints); // todo: this is expensive
+      Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints);
       bspline_val_more.compute_trajectory(x, opt->task);
       auto opt_val_more(*opt);
       opt_val_more.set_bspline(bspline_val_more);
@@ -696,11 +697,16 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
       is_valid_more                           = max_con_more < opt->success_tolerance;
+#else
+      is_valid_more = true; // planner's own verdict only (its N_pt samples)
+#endif
 
       result.x = x;
 
       if (is_valid && is_valid_more) {
+#ifndef BLAST_SKIP_DENSE_VALIDATION
         result.trajectory = bspline_val_more.traj;
+#endif
         try_count++; // count this try before breaking, so num_tries reports tries made
         break;
       } else if (opt->guess.type != Guess::random && try_count == 0) {

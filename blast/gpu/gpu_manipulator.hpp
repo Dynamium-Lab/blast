@@ -82,45 +82,45 @@ host_fn cuGen3MultiTraj::cuGen3MultiTraj(u32 _points, u32 _trajs, real mass) :
 host_fn void cuGen3MultiTraj::_init(real mass) {
 
   // position of the first joint with respect to the table in the center of the base
-  p_base = {0, 0, 0.1564f};
+  p_base = {0, 0, (real) 0.1564};
 
   // mass
-  m[0] = 1.377f;
-  m[1] = 1.1636f;
-  m[2] = 1.1636f;
-  m[3] = 0.93f;
-  m[4] = 0.678f;
-  m[5] = 0.678f;
-  m[6] = 0.364f + 0.921f;
+  m[0] = (real) 1.377;
+  m[1] = (real) 1.1636;
+  m[2] = (real) 1.1636;
+  m[3] = (real) 0.93;
+  m[4] = (real) 0.678;
+  m[5] = (real) 0.678;
+  m[6] = (real) 0.364 + (real) 0.921;
 
   // inertial tensor
-  I[0] = {0.004570f, 0.000001f, 0.000002f, 0.000001f, 0.004831f, 0.000448f, 0.000002f, 0.000448f, 0.001409f};
-  I[1] = {0.011088f, 0.000005f, 0.000000f, 0.000005f, 0.001072f, 0.000691f, 0.000000f, 0.000691f, 0.011255f};
-  I[2] = {0.010932f, 0.000000f, 0.000007f, 0.000000f, 0.011127f, 0.000606f, 0.000007f, 0.000606f, 0.001043f};
-  I[3] = {0.008147f, 0.000001f, 0.000000f, 0.000001f, 0.000631f, 0.000500f, 0.000000f, 0.000500f, 0.008316f};
-  I[4] = {0.001596f, 0.000000f, 0.000000f, 0.000000f, 0.001607f, 0.000256f, 0.000000f, 0.000256f, 0.000399f};
-  I[5] = {0.001641f, 0.000000f, 0.000000f, 0.000000f, 0.000410f, 0.000278f, 0.000000f, 0.000278f, 0.001641f};
-  I[6] = {0.000214f, 0.000000f, 0.000001f, 0.000000f, 0.000223f, 0.000002f, 0.000001f, 0.000002f, 0.000240f};
+  I[0] = {(real) 0.004570, (real) 0.000001, (real) 0.000002, (real) 0.000001, (real) 0.004831, (real) 0.000448, (real) 0.000002, (real) 0.000448, (real) 0.001409};
+  I[1] = {(real) 0.011088, (real) 0.000005, (real) 0, (real) 0.000005, (real) 0.001072, (real) 0.000691, (real) 0, (real) 0.000691, (real) 0.011255};
+  I[2] = {(real) 0.010932, (real) 0, (real) 0.000007, (real) 0, (real) 0.011127, (real) 0.000606, (real) 0.000007, (real) 0.000606, (real) 0.001043};
+  I[3] = {(real) 0.008147, (real) 0.000001, (real) 0, (real) 0.000001, (real) 0.000631, (real) 0.000500, (real) 0, (real) 0.000500, (real) 0.008316};
+  I[4] = {(real) 0.001596, (real) 0, (real) 0, (real) 0, (real) 0.001607, (real) 0.000256, (real) 0, (real) 0.000256, (real) 0.000399};
+  I[5] = {(real) 0.001641, (real) 0, (real) 0, (real) 0, (real) 0.000410, (real) 0.000278, (real) 0, (real) 0.000278, (real) 0.001641};
+  I[6] = {(real) 0.000214, (real) 0, (real) 0.000001, (real) 0, (real) 0.000223, (real) 0.000002, (real) 0.000001, (real) 0.000002, (real) 0.000240};
 
   // center of mass
-  av[0] = {-0.000023f, -0.010364f, -0.073360f};
-  av[1] = {-0.000044f, -0.099580f, -0.013278f};
-  av[2] = {-0.000044f, -0.006641f, -0.117892f};
-  av[3] = {-0.000018f, -0.075478f, -0.015006f};
-  av[4] = {0.000001f, -0.009432f, -0.063883f};
-  av[5] = {0.000001f, -0.045483f, -0.009650f};
-  av[6] = {-0.000093f, 0.000132f, -0.022905f};
-  Vec3 av_tool(0, 0, -0.06f - 0.0615f);
-  av[6] = (0.364f * av[6] + 0.921f * av_tool) * (1 / (0.364f + 0.921f));
+  av[0] = {-(real) 0.000023, -(real) 0.010364, -(real) 0.073360};
+  av[1] = {-(real) 0.000044, -(real) 0.099580, -(real) 0.013278};
+  av[2] = {-(real) 0.000044, -(real) 0.006641, -(real) 0.117892};
+  av[3] = {-(real) 0.000018, -(real) 0.075478, -(real) 0.015006};
+  av[4] = {(real) 0.000001, -(real) 0.009432, -(real) 0.063883};
+  av[5] = {(real) 0.000001, -(real) 0.045483, -(real) 0.009650};
+  av[6] = {-(real) 0.000093, (real) 0.000132, -(real) 0.022905};
+  Vec3 av_tool(0, 0, -(real) 0.06 - (real) 0.0615);
+  av[6] = ((real) 0.364 * av[6] + (real) 0.921 * av_tool) * (1 / ((real) 0.364 + (real) 0.921));
 
   // vector to next joint
-  dv[0] = {0.0f, 0.0054f, -0.1284f};
-  dv[1] = {0.0f, -0.2104f, -0.0064f};
-  dv[2] = {0.0f, -0.0064f, -0.2104f};
-  dv[3] = {0.0f, -0.2084f, -0.0064f};
-  dv[4] = {0.0f, 0.0f, -0.1059f};
-  dv[5] = {0.0f, -0.1059f, 0.0f};
-  dv[6] = {0.0f, 0.0f, -0.0615f - 0.164f};
+  dv[0] = {(real) 0, (real) 0.0054, -(real) 0.1284};
+  dv[1] = {(real) 0, -(real) 0.2104, -(real) 0.0064};
+  dv[2] = {(real) 0, -(real) 0.0064, -(real) 0.2104};
+  dv[3] = {(real) 0, -(real) 0.2084, -(real) 0.0064};
+  dv[4] = {(real) 0, (real) 0, -(real) 0.1059};
+  dv[5] = {(real) 0, -(real) 0.1059, (real) 0};
+  dv[6] = {(real) 0, (real) 0, -(real) 0.0615 - (real) 0.164};
 
   // center of mass (from next joint)
   sv[0] = dv[0] - av[0];
@@ -145,19 +145,19 @@ host_fn void cuGen3MultiTraj::_init(real mass) {
   pmax[0] = INF_REAL;
   pmax[1] = INF_REAL;
   pmax[2] = INF_REAL;
-  pmax[3] = 2.58f;
+  pmax[3] = (real) 2.58;
   pmax[4] = INF_REAL;
-  pmax[5] = 2.1f;
+  pmax[5] = (real) 2.1;
   pmax[6] = INF_REAL;
 
   // velocity (rad/s)
-  vmax[0] = 1.745f;
-  vmax[1] = 1.745f;
-  vmax[2] = 1.745f;
-  vmax[3] = 1.745f;
-  vmax[4] = 2.443f;
-  vmax[5] = 2.443f;
-  vmax[6] = 2.443f;
+  vmax[0] = (real) 1.745;
+  vmax[1] = (real) 1.745;
+  vmax[2] = (real) 1.745;
+  vmax[3] = (real) 1.745;
+  vmax[4] = (real) 2.443;
+  vmax[5] = (real) 2.443;
+  vmax[6] = (real) 2.443;
 
   // torque (Nm)
   tau_max[0] = 52;
@@ -278,15 +278,15 @@ dev_fn void cuGen3MultiTraj::compute_constraints_point(const real pos[7], const 
   p_tmp += (Q_tmp *= Q6) * dv[5];
   p_tmp += (Q_tmp *= Q7) * dv[6];
   p_ee              = p_tmp;
-  const real r1_sqr = 0.09f * 0.09f;
-  const real r2_sqr = 0.09f * 0.09f;
+  const real r1_sqr = (real) 0.09 * (real) 0.09;
+  const real r2_sqr = (real) 0.09 * (real) 0.09;
   // Self collisions sqr
   real dist1sqr = two_segment_distance_sqr(p_orig, p_j2, p_j6, p_ee) - r1_sqr;
   real dist2sqr = two_segment_distance_sqr(p_j2, p_j3, p_j6, p_ee) - r2_sqr;
   // Collision with table sqr
-  const real r4table = 0.05f;
-  const real r6table = 0.04f;
-  const Vec3 p_table(0, 0, -0.0025f);
+  const real r4table = (real) 0.05;
+  const real r6table = (real) 0.04;
+  const Vec3 p_table(0, 0, -(real) 0.0025);
   real       distTJ4 = p_j4.z - p_table.z - r4table;
   real       distTJ6 = p_j6.z - p_table.z - r6table;
   real       distTEE = p_ee.z - p_table.z - r6table;
@@ -314,7 +314,7 @@ dev_fn void cuGen3MultiTraj::compute_constraints_point(const real pos[7], const 
   //       joint turns with respect to the coordinate frame.
   Vec3 w1, w2, w3, w4, w5, w6, w7;
   Vec3 wd1, wd2, wd3, wd4, wd5, wd6, wd7;
-  Vec3 cdd0 = {0, 0, 9.81f};
+  Vec3 cdd0 = {0, 0, (real) 9.81};
   Vec3 cdd1, cdd2, cdd3, cdd4, cdd5, cdd6, cdd7;
   Vec3 f1, f2, f3, f4, f5, f6, f7;
   Vec3 n1, n2, n3, n4, n5, n6, n7;

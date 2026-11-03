@@ -138,7 +138,7 @@ inline host_fn void dynamics(const Manipulator& manip, ManipulatorTempData& temp
   for (u32 j = 1; j < joints; j++)
     w[j] = Qt[j] * w[j - 1] + vel[j] * manip.joint_axes[j];
 
-  Vec3 cdd0 = {0, 0, 9.81f};
+  Vec3 cdd0 = {0, 0, (real) 9.81};
   wd[0]     = acc[0] * manip.joint_axes[0];
   cdd[0]    = Qt[0] * cdd0 + cross(wd[0], manip.cog_offsets[0]) + cross(w[0], cross(w[0], manip.cog_offsets[0]));
   for (u32 j = 1; j < joints; j++) {

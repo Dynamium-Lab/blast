@@ -6,8 +6,8 @@
 using namespace blast;
 
 TEST_CASE("Task stop_to_stop sets start and goal positions") {
-  Array q_start = {0.0f, -PI / 2, 0.0f, -PI / 2, 0.0f, 0.0f};
-  Array q_goal  = {-1.54f, -1.83f, -2.28f, -0.59f, 1.60f, 0.023f};
+  Array q_start = {(real) 0, -PI / 2, (real) 0, -PI / 2, (real) 0, (real) 0};
+  Array q_goal  = {-(real) 1.54, -(real) 1.83, -(real) 2.28, -(real) 0.59, (real) 1.60, (real) 0.023};
   Task  task    = Task::stop_to_stop(q_start, q_goal);
 
   CHECK(is_close(task.start.position, q_start));
@@ -21,18 +21,18 @@ TEST_CASE("Task stop_to_stop sets start and goal positions") {
 TEST_CASE("Task n_joints constructor initializes to zero") {
   Task task(6);
   for (u32 i = 0; i < 6; i++) {
-    CHECK(task.start.position[i] == 0.0f);
-    CHECK(task.start.velocity[i] == 0.0f);
-    CHECK(task.start.acceleration[i] == 0.0f);
-    CHECK(task.goal.position[i] == 0.0f);
-    CHECK(task.goal.velocity[i] == 0.0f);
-    CHECK(task.goal.acceleration[i] == 0.0f);
+    CHECK(task.start.position[i] == (real) 0);
+    CHECK(task.start.velocity[i] == (real) 0);
+    CHECK(task.start.acceleration[i] == (real) 0);
+    CHECK(task.goal.position[i] == (real) 0);
+    CHECK(task.goal.velocity[i] == (real) 0);
+    CHECK(task.goal.acceleration[i] == (real) 0);
   }
 }
 
 TEST_CASE("Task round-trips through to_matrix") {
-  Array  q_start = {0.0f, -PI / 2, 0.0f, -PI / 2, 0.0f, 0.0f};
-  Array  q_goal  = {-1.54f, -1.83f, -2.28f, -0.59f, 1.60f, 0.023f};
+  Array  q_start = {(real) 0, -PI / 2, (real) 0, -PI / 2, (real) 0, (real) 0};
+  Array  q_goal  = {-(real) 1.54, -(real) 1.83, -(real) 2.28, -(real) 0.59, (real) 1.60, (real) 0.023};
   Task   task1   = Task::stop_to_stop(q_start, q_goal);
   Matrix m       = task1.to_matrix();
   Task   task2(m);

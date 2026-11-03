@@ -30,12 +30,12 @@ TEST_CASE("optimization - task not valid", "[Optimization") {
   opt.constraints.self_collisions     = true; // avoid self-contact
   opt.constraints.external_collisions = true; // avoid world obstacles
 
-  opt.success_tolerance = 0.01f;
+  opt.success_tolerance = (real) 0.01;
 
 
   Result result = optimize(&opt);
 
   CHECK(result.success == false);
-  CHECK(result.compute_time == 0.0f);
+  CHECK(result.compute_time == (real) 0);
   CHECK(result.trajectory.t.size == 0);
 }
