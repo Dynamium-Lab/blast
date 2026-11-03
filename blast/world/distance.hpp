@@ -205,36 +205,36 @@ inline blast_fn TwoPts closest_points(Segment segment1, Segment segment2) {
   }
   if (a <= COLLISION_EPSILON) {
     // First segment degenerates into a point
-    s = 0.0f;
+    s = (real) 0;
     t = f / e; // s = 0 => t = (b*s + f) / e = f / e
-    t = clamp(t, 0.0f, (real) 1);
+    t = clamp(t, (real) 0, (real) 1);
   } else {
     real c = dot(d1, r);
     if (e <= COLLISION_EPSILON) {
       // Second segment degenerates into a point
-      t = 0.0f;
-      s = clamp(-c / a, 0.0f, (real) 1); // t = 0 => s = (b*t - c) / a = -c / a
+      t = (real) 0;
+      s = clamp(-c / a, (real) 0, (real) 1); // t = 0 => s = (b*t - c) / a = -c / a
     } else {
       // The general nondegenerate case starts here
       real b = dot(d1, d2);
       // If segments not parallel, compute the closest point on L1 to L2 and
       // clamp to segment S1. Else pick arbitrary s (here 0)
-      if (real denominator = a * e - b * b; denominator != 0.0f) {
-        s = clamp((b * f - c * e) / denominator, 0.0f, (real) 1);
+      if (real denominator = a * e - b * b; denominator != (real) 0) {
+        s = clamp((b * f - c * e) / denominator, (real) 0, (real) 1);
       } else
-        s = 0.0f;
+        s = (real) 0;
       // Compute point on L2 closest to S1(s) using
       // t = Dot((P1 + D1*s) - P2,D2) / Dot(D2,D2) = (b*s + f) / e
       t = (b * s + f) / e;
       // If t in [0,1] done. Else clamp t, recompute s for the new value
       // of t using s = Dot((P2 + D2*t) - P1,D1) / Dot(D1,D1)= (t*b - c) / a
       // and clamp s to [0, 1]
-      if (t < 0.0f) {
-        t = 0.0f;
-        s = clamp(-c / a, 0.0f, (real) 1);
+      if (t < (real) 0) {
+        t = (real) 0;
+        s = clamp(-c / a, (real) 0, (real) 1);
       } else if (t > (real) 1) {
         t = (real) 1;
-        s = clamp((b - c) / a, 0.0f, (real) 1);
+        s = clamp((b - c) / a, (real) 0, (real) 1);
       }
     }
   }
@@ -543,9 +543,9 @@ inline host_fn real distance(const AxisAlignedBoundingBox& aabb1, const AxisAlig
   d.z = std::max((aabb1.center.z - aabb1.extents.z - aabb2.center.z - aabb2.extents.z), (aabb2.center.z - aabb2.extents.z - aabb1.center.z - aabb1.extents.z));
 
   if (d.x > 0 || d.y > 0 || d.z > 0) {
-    d.x = std::max((real) 0.0, d.x);
-    d.y = std::max((real) 0.0, d.y);
-    d.z = std::max((real) 0.0, d.z);
+    d.x = std::max((real) 0, d.x);
+    d.y = std::max((real) 0, d.y);
+    d.z = std::max((real) 0, d.z);
     return norm(d);
   } else {
     return std::max(d.x, std::max(d.y, d.z)); // todo: check this

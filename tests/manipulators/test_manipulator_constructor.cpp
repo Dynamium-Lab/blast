@@ -12,7 +12,7 @@ static Manipulator make_1dof(real mass, Vec3 cog, Mat3 inertia) {
   lim.velocity_max = Array{(real) 1};
 
   ManipulatorKinematics kin;
-  kin.joint_offsets[0]    = {0, 0, 0.5f};
+  kin.joint_offsets[0]    = {0, 0, (real) 0.5};
   kin.joint_axes[0]       = {0, 0, 1};
   kin.static_rotations[0] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
 
@@ -59,7 +59,7 @@ TEST_CASE("Manipulator constructor - kinematics-only leaves dynamic fields zero-
   lim.velocity_max = Array{(real) 1};
 
   ManipulatorKinematics kin;
-  kin.joint_offsets[0]    = {0, 0, 0.5f};
+  kin.joint_offsets[0]    = {0, 0, (real) 0.5};
   kin.joint_axes[0]       = {0, 0, 1};
   kin.static_rotations[0] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
 
@@ -67,7 +67,7 @@ TEST_CASE("Manipulator constructor - kinematics-only leaves dynamic fields zero-
 
   CHECK(m.n_joints == 1u);
   CHECK(m._n_caps == 0);
-  CHECK(m.link_masses[0] == 0.0f);
+  CHECK(m.link_masses[0] == (real) 0);
   CHECK(m._n_internal_collisions == 0);
 }
 
@@ -92,7 +92,7 @@ TEST_CASE("UR5e set_capsules() - _n_internal_collisions counts lower-triangle pa
 // ─── set_payload / remove_payload ────────────────────────────────────────────
 
 TEST_CASE("set_payload() - combined mass is sum of link and payload masses", "[constructor]") {
-  Manipulator m = make_1dof(10.0f, {0, 0, 0.1f}, Mat3{});
+  Manipulator m = make_1dof((real) 10, {0, 0, (real) 0.1}, Mat3{});
 
   CHECK(m.has_payload == false);
 
@@ -108,7 +108,7 @@ TEST_CASE("set_payload() - combined mass is sum of link and payload masses", "[c
 // ─── set_tool / remove_tool ──────────────────────────────────────────────────
 
 TEST_CASE("set_tool()  and remove_tool() basic tests", "[tool]") {
-  Manipulator m = make_1dof(10.0f, {0, 0, 0.1f}, Mat3{});
+  Manipulator m = make_1dof((real) 10, {0, 0, (real) 0.1}, Mat3{});
   CHECK(m.has_tool == false);
 
   Tool tool;

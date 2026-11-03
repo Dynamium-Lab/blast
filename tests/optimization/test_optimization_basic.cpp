@@ -142,7 +142,7 @@ TEST_CASE("optimize stop-to-stop default pva + tool_speed constraints active", "
   Task        task  = make_UR5e_task();
 
   Optimization opt(robot, task); // default enables pva + tool_speed constraints
-  opt.success_tolerance = 0.01f;
+  opt.success_tolerance = (real) 0.01;
   // Deterministic guess: Guess::random makes `success == true` a claim about
   // the solver, not about this test.
   opt.guess.type = Guess::straight_line;
@@ -150,7 +150,7 @@ TEST_CASE("optimize stop-to-stop default pva + tool_speed constraints active", "
   Result result = optimize(&opt);
 
   CHECK(result.success == true);
-  CHECK(result.compute_time > 0.0f);
+  CHECK(result.compute_time > (real) 0);
   CHECK(result.trajectory.t.size > 0);
 }
 
@@ -160,7 +160,7 @@ TEST_CASE("optimize stop-to-stop pva + tool_speed + torque constraints active", 
 
   Optimization opt(robot, task); // default enables pva + tool_speed constraints
   opt.constraints.torque = true;
-  opt.success_tolerance  = 0.01f;
+  opt.success_tolerance  = (real) 0.01;
   // Deterministic guess: Guess::random makes `success == true` a claim about
   // the solver, not about this test.
   opt.guess.type = Guess::straight_line;
@@ -168,7 +168,7 @@ TEST_CASE("optimize stop-to-stop pva + tool_speed + torque constraints active", 
   Result result = optimize(&opt);
 
   CHECK(result.success == true);
-  CHECK(result.compute_time > 0.0f);
+  CHECK(result.compute_time > (real) 0);
   CHECK(result.trajectory.t.size > 0);
 }
 
@@ -179,7 +179,7 @@ TEST_CASE("optimization stop-to-stop pva + tool_speed + torque + self_collisions
   Optimization opt(robot, task); // default enables pva + tool_speed constraints
   opt.constraints.torque          = true;
   opt.constraints.self_collisions = true;
-  opt.success_tolerance           = 0.01f;
+  opt.success_tolerance           = (real) 0.01;
   // Deterministic guess: Guess::random makes `success == true` a claim about
   // the solver, not about this test.
   opt.guess.type = Guess::straight_line;
@@ -187,7 +187,7 @@ TEST_CASE("optimization stop-to-stop pva + tool_speed + torque + self_collisions
   Result result = optimize(&opt);
 
   CHECK(result.success == true);
-  CHECK(result.compute_time > 0.0f);
+  CHECK(result.compute_time > (real) 0);
   CHECK(result.trajectory.t.size > 0);
 }
 
@@ -209,7 +209,7 @@ TEST_CASE("optimization stop-to-stop all constraints active", "[Optimization") {
   opt.constraints.self_collisions     = true; // avoid self-contact
   opt.constraints.external_collisions = true; // avoid world obstacles
 
-  opt.success_tolerance = 0.01f;
+  opt.success_tolerance = (real) 0.01;
 
   // Deterministic guess: Guess::random makes `success == true` a claim about
   // the solver, not about this test.
@@ -218,6 +218,6 @@ TEST_CASE("optimization stop-to-stop all constraints active", "[Optimization") {
   Result result = optimize(&opt);
 
   CHECK(result.success == true);
-  CHECK(result.compute_time > 0.0f);
+  CHECK(result.compute_time > (real) 0);
   CHECK(result.trajectory.t.size > 0);
 }

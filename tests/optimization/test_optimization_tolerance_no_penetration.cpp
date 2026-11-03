@@ -36,7 +36,7 @@ TEST_CASE("large success_tolerance does not allow real constraint violation", "[
   opt.constraints.self_collisions     = true; // avoid self-contact
   opt.constraints.external_collisions = true; // avoid world obstacles
 
-  opt.success_tolerance = 0.05f;
+  opt.success_tolerance = (real) 0.05;
 
   opt.guess.type = Guess::straight_line; // deterministic first try; deliberately large - well above the 0.01 default
   opt.max_tries  = 10;                   // optimize() falls back to random guesses after try 1; a tightened obstacle needs a few
@@ -69,7 +69,7 @@ TEST_CASE("optimize stops at the first valid try instead of always using the las
   Task        task  = make_UR5e_task();
 
   Optimization opt(robot, task);                // default enables pva + tool_speed constraints, no obstacles
-  opt.success_tolerance = 0.01f;
+  opt.success_tolerance = (real) 0.01;
   opt.guess.type        = Guess::straight_line; // deterministic
   opt.max_tries         = 5;
 

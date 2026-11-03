@@ -64,8 +64,8 @@ TEST_CASE("wrap_to_180() - real and float overloads", "[Math][Misc]") {
   CHECK(std::abs(wrap_to_180(90.0) - 90.0) < blast::test::abs_tol);
   CHECK(std::abs(wrap_to_180(270.0) - (-90.0)) < blast::test::abs_tol);
   CHECK(std::abs(wrap_to_180(-270.0) - 90.0) < blast::test::abs_tol);
-  CHECK(std::abs(wrap_to_180(90.0f) - 90.0f) < 1e-4f);
-  CHECK(std::abs(wrap_to_180(270.0f) - (-90.0f)) < 1e-4f);
+  CHECK(std::abs(wrap_to_180((real) 90) - (real) 90) < 1e-4f);
+  CHECK(std::abs(wrap_to_180((real) 270) - (-(real) 90)) < 1e-4f);
 }
 
 TEST_CASE("deg2rad() / rad2deg() - scalar", "[Math][Misc]") {

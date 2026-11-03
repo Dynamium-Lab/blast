@@ -436,36 +436,36 @@ inline host_fn real distmin_origin(const PolytopeFace& face) {
   // Check origin outisde vertex A
   float snom = dot(-a, ab);
   float tnom = dot(-a, ac);
-  if (snom <= 0.0f && tnom <= 0.0f)
+  if (snom <= (real) 0 && tnom <= (real) 0)
     return norm(a);
 
   // Check origin outisde vertex B
   float sdenom = dot(b, ab);
   float unom   = dot(-b, bc);
-  if (sdenom <= 0.0f && unom <= 0.0f)
+  if (sdenom <= (real) 0 && unom <= (real) 0)
     return norm(b);
 
   // Check origin outisde vertex C
   float tdenom = dot(c, ac);
   float udenom = dot(c, bc);
-  if (tdenom <= 0.0f && udenom <= 0.0f)
+  if (tdenom <= (real) 0 && udenom <= (real) 0)
     return norm(c);
 
   Vec3 n = cross(b - a, c - a);
 
   // Check origin outside edge AB
   float vc = dot(n, cross(a, b));
-  if (vc <= 0.0f && snom >= 0.0f && sdenom >= 0.0f)
+  if (vc <= (real) 0 && snom >= (real) 0 && sdenom >= (real) 0)
     return norm(a + snom / (snom + sdenom) * ab);
 
   // Check origin outside edge BC
   float va = dot(n, cross(b, c));
-  if (va <= 0.0f && unom >= 0.0f && udenom >= 0.0f)
+  if (va <= (real) 0 && unom >= (real) 0 && udenom >= (real) 0)
     return norm(b + unom / (unom + udenom) * bc);
 
   // Check origin outside edge AC
   float vb = dot(n, cross(c, a));
-  if (vb <= 0.0f && tnom >= 0.0f && tdenom >= 0.0f)
+  if (vb <= (real) 0 && tnom >= (real) 0 && tdenom >= (real) 0)
     return norm(a + tnom / (tnom + tdenom) * ac);
 
   // Origin must be on ABC
@@ -820,7 +820,7 @@ inline host_fn void GJK_solve_simplex3_Ericson(Simplex* simplex) {
   // Check if P in vertex region outside C
   real d5 = dot(ab, -c);
   real d6 = dot(ac, -c);
-  if (d6 >= 0.0f && d5 <= d6) {
+  if (d6 >= (real) 0 && d5 <= d6) {
     simplex->size   = 1;
     simplex->pts[0] = c;
     simplex->P      = c;
@@ -829,7 +829,7 @@ inline host_fn void GJK_solve_simplex3_Ericson(Simplex* simplex) {
 
   // Check if P in edge region of BC (return projection of P onto BC)
   real va = d3 * d6 - d5 * d4;
-  if (va <= 0.0f && (d4 - d3) >= 0.0f && (d5 - d6) >= 0.0f) {
+  if (va <= (real) 0 && (d4 - d3) >= (real) 0 && (d5 - d6) >= (real) 0) {
     real w          = (d4 - d3) / ((d4 - d3) + (d5 - d6));
     simplex->size   = 2;
     simplex->pts[0] = b;
@@ -840,7 +840,7 @@ inline host_fn void GJK_solve_simplex3_Ericson(Simplex* simplex) {
 
   // Check if P in edge region of AC (return projection of P onto AC)
   real vb = d5 * d2 - d1 * d6;
-  if (vb <= 0.0f && d2 >= 0.0f && d6 <= 0.0f) {
+  if (vb <= (real) 0 && d2 >= (real) 0 && d6 <= (real) 0) {
     real w          = d2 / (d2 - d6);
     simplex->size   = 2;
     simplex->pts[1] = c;
@@ -872,7 +872,7 @@ inline host_fn void GJK_simplex3_from4_Ericson(Simplex* simplex) {
   real d2 = dot(ac, -a);
 
   // Check if P in vertex region outside A
-  if (d1 <= 0.0f && d2 <= 0.0f) {
+  if (d1 <= (real) 0 && d2 <= (real) 0) {
     simplex->size = 1;
     simplex->P    = a;
     return;
@@ -881,7 +881,7 @@ inline host_fn void GJK_simplex3_from4_Ericson(Simplex* simplex) {
   // Check if P in vertex region outside B
   real d3 = dot(ab, -b);
   real d4 = dot(ac, -b);
-  if (d3 >= 0.0f && d4 <= d3) {
+  if (d3 >= (real) 0 && d4 <= d3) {
     simplex->size   = 1;
     simplex->pts[0] = b;
     simplex->P      = b;
@@ -890,7 +890,7 @@ inline host_fn void GJK_simplex3_from4_Ericson(Simplex* simplex) {
 
   // Check if P in edge region of AB (return projection of P onto AB)
   real vc = d1 * d4 - d3 * d2;
-  if (vc <= 0.0f && d1 >= 0.0f && d3 <= 0.0f) {
+  if (vc <= (real) 0 && d1 >= (real) 0 && d3 <= (real) 0) {
     real v        = d1 / (d1 - d3);
     simplex->size = 2;
     simplex->P    = a + v * ab;
@@ -900,7 +900,7 @@ inline host_fn void GJK_simplex3_from4_Ericson(Simplex* simplex) {
   // Check if P in vertex region outside C
   real d5 = dot(ab, -c);
   real d6 = dot(ac, -c);
-  if (d6 >= 0.0f && d5 <= d6) {
+  if (d6 >= (real) 0 && d5 <= d6) {
     simplex->size   = 1;
     simplex->pts[0] = c;
     simplex->P      = c;
@@ -909,7 +909,7 @@ inline host_fn void GJK_simplex3_from4_Ericson(Simplex* simplex) {
 
   // Check if P in edge region of BC (return projection of P onto BC)
   real va = d3 * d6 - d5 * d4;
-  if (va <= 0.0f && (d4 - d3) >= 0.0f && (d5 - d6) >= 0.0f) {
+  if (va <= (real) 0 && (d4 - d3) >= (real) 0 && (d5 - d6) >= (real) 0) {
     real w          = (d4 - d3) / ((d4 - d3) + (d5 - d6));
     simplex->size   = 2;
     simplex->pts[0] = b;
@@ -920,7 +920,7 @@ inline host_fn void GJK_simplex3_from4_Ericson(Simplex* simplex) {
 
   // Check if P in edge region of AC (return projection of P onto AC)
   real vb = d5 * d2 - d1 * d6;
-  if (vb <= 0.0f && d2 >= 0.0f && d6 <= 0.0f) {
+  if (vb <= (real) 0 && d2 >= (real) 0 && d6 <= (real) 0) {
     real w          = d2 / (d2 - d6);
     simplex->size   = 2;
     simplex->pts[1] = c;

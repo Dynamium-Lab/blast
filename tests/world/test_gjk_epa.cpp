@@ -140,7 +140,7 @@ TEST_CASE("Test - GJK Box vs Capsule (random generation)") {
     if (real_dist + capsule.radius < 0) {
       epa[i] = (real) 1;
     } else {
-      epa[i] = 0.0f;
+      epa[i] = (real) 0;
     }
 
 #if TRACY_ACTIVE
@@ -222,7 +222,7 @@ TEST_CASE("Benchmark - GJK computation time vs point cloud size") {
     if (real_dist + capsule.radius < 0) {
       epa[i] = (real) 1;
     } else {
-      epa[i] = 0.0f;
+      epa[i] = (real) 0;
     }
 
     // Benchmarking

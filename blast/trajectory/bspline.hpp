@@ -55,7 +55,7 @@ inline blast_fn void Bspline::compute_basis() {
     const real u = point * du;
 
     for (u32 i = 0; i < m; i++)
-      N[i] = u >= knots[i] && u < knots[i + 1] ? (real) 1 : 0.0f;
+      N[i] = u >= knots[i] && u < knots[i + 1] ? (real) 1 : (real) 0;
     if (point == n_points - 1)
       N[n_ctrl - 1] = (real) 1;
     for (u32 pi = 1; pi <= degree; pi++) {
@@ -63,7 +63,7 @@ inline blast_fn void Bspline::compute_basis() {
         if (knots[i + pi] != knots[i])
           N[m * pi + i] = N[m * (pi - 1) + i] * (u - knots[i]) / (knots[i + pi] - knots[i]);
         else
-          N[m * pi + i] = 0.0f;
+          N[m * pi + i] = (real) 0;
         if (knots[i + pi + 1] != knots[i + 1])
           N[m * pi + i] += N[m * (pi - 1) + i + 1] * (knots[i + pi + 1] - u) / (knots[i + pi + 1] - knots[i + 1]);
       }
@@ -261,13 +261,13 @@ inline blast_fn void Bspline::compute_basis_open() {
     const real u = point * du;
 
     for (u32 i = 0; i < m; i++)
-      N(i, 0) = u >= knots[i] && u <= knots[i + 1] ? (real) 1 : 0.0f;
+      N(i, 0) = u >= knots[i] && u <= knots[i + 1] ? (real) 1 : (real) 0;
     for (u32 pi = 1; pi <= degree; pi++) {
       for (u32 i = 0; i < m - pi; i++) {
         if (knots[i + pi] != knots[i])
           N(i, pi) = N(i, pi - 1) * (u - knots[i]) / (knots[i + pi] - knots[i]);
         else
-          N(i, pi) = 0.0f;
+          N(i, pi) = (real) 0;
         if (knots[i + pi + 1] != knots[i + 1])
           N(i, pi) += N(i + 1, pi - 1) * (knots[i + pi + 1] - u) / (knots[i + pi + 1] - knots[i + 1]);
       }

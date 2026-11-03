@@ -9,21 +9,21 @@ inline Manipulator make_UR5e() {
 
   // limits
   ManipulatorLimits limits;
-  limits.position_max     = {6.283200f, 6.283200f, 3.141600f, 6.283200f, 6.283200f, 6.283200f};       // rad
-  limits.position_min     = {-6.283200f, -6.283200f, -3.141600f, -6.283200f, -6.283200f, -6.283200f}; // rad
-  limits.velocity_max     = {3.141600f, 3.141600f, 3.141600f, 3.141600f, 3.141600f, 3.141600f};       // rad/s
-  limits.acceleration_max = {13.96f, 13.96f, 13.96f, 13.96f, 13.96f, 13.96f};                         // rad/s^2
-  limits.torque_max       = {150.0f, 150.0f, 150.0f, 28.0f, 28.0f, 28.0f};                            // Nm
+  limits.position_max     = {(real) 6.283200, (real) 6.283200, (real) 3.141600, (real) 6.283200, (real) 6.283200, (real) 6.283200};       // rad
+  limits.position_min     = {-(real) 6.283200, -(real) 6.283200, -(real) 3.141600, -(real) 6.283200, -(real) 6.283200, -(real) 6.283200}; // rad
+  limits.velocity_max     = {(real) 3.141600, (real) 3.141600, (real) 3.141600, (real) 3.141600, (real) 3.141600, (real) 3.141600};       // rad/s
+  limits.acceleration_max = {(real) 13.96, (real) 13.96, (real) 13.96, (real) 13.96, (real) 13.96, (real) 13.96};                         // rad/s^2
+  limits.torque_max       = {(real) 150, (real) 150, (real) 150, (real) 28, (real) 28, (real) 28};                            // Nm
   limits.tool_speed_max   = (real) 1;                                                                 // m/s
 
   // kinematic properties
   ManipulatorKinematics kinematics; // using default Q_base
   kinematics.joint_offsets = {
           Vec3{0, 0, 0},
-          {-0.425f, 0, 0},
-          {-0.3922f, 0, 0.1333f},
-          {0, -0.0997f, 0},
-          {0, 0.0996f, 0},
+          {-(real) 0.425, 0, 0},
+          {-(real) 0.3922, 0, (real) 0.1333},
+          {0, -(real) 0.0997, 0},
+          {0, (real) 0.0996, 0},
           {0, 0, 0}}; // vector to next joint
   kinematics.joint_axes = {
           Vec3{0, 0, 1},
@@ -40,37 +40,37 @@ inline Manipulator make_UR5e() {
   kinematics.static_rotations[3]  = {1, 0, 0, 0, 1, 0, 0, 0, 1};
   kinematics.static_rotations[4]  = {1, 0, 0, 0, 0, 1, 0, -1, 0};
   kinematics.static_rotations[5]  = {1, 0, 0, 0, 0, -1, 0, 1, 0};
-  kinematics.first_joint_position = {0, 0, 0.162500f};
+  kinematics.first_joint_position = {0, 0, (real) 0.162500};
 
   // dynamic properties
   ManipulatorDynamics dynamics;
   dynamics.link_masses = {
-          3.700000f,
-          8.393000f,
-          2.275000f,
-          1.219000f,
-          1.219000f,
-          0.187900f}; // link masses
+          (real) 3.700000,
+          (real) 8.393000,
+          (real) 2.275000,
+          (real) 1.219000,
+          (real) 1.219000,
+          (real) 0.187900}; // link masses
   dynamics.inertia_tensors = {
-          Mat3{0.0103f, 0, 0, 0, 0.0103f, 0, 0, 0, 0.0067f},
-          {0.1339f, 0, 0, 0, 0.1339f, 0, 0, 0, 0.0151f},
-          {0.0312f, 0, 0, 0, 0.0312f, 0, 0, 0, 0.0041f},
-          {0.0026f, 0, 0, 0, 0.0026f, 0, 0, 0, 0.0022f},
-          {0.0026f, 0, 0, 0, 0.0026f, 0, 0, 0, 0.0022f},
-          {0.0001f, 0, 0, 0, 0.0001f, 0, 0, 0, 0.0001f}}; // Inertial tensors
+          Mat3{(real) 0.0103, 0, 0, 0, (real) 0.0103, 0, 0, 0, (real) 0.0067},
+          {(real) 0.1339, 0, 0, 0, (real) 0.1339, 0, 0, 0, (real) 0.0151},
+          {(real) 0.0312, 0, 0, 0, (real) 0.0312, 0, 0, 0, (real) 0.0041},
+          {(real) 0.0026, 0, 0, 0, (real) 0.0026, 0, 0, 0, (real) 0.0022},
+          {(real) 0.0026, 0, 0, 0, (real) 0.0026, 0, 0, 0, (real) 0.0022},
+          {(real) 0.0001, 0, 0, 0, (real) 0.0001, 0, 0, 0, (real) 0.0001}}; // Inertial tensors
   dynamics.cog_offsets = {
           Vec3{0, 0, 0},
-          {-0.2125f, 0, 0.138f},
-          {-0.1961f, 0, 0.007f},
+          {-(real) 0.2125, 0, (real) 0.138},
+          {-(real) 0.1961, 0, (real) 0.007},
           {0, 0, 0},
           {0, 0, 0},
-          {0, 0, -0.0229f}}; // centers of mass
+          {0, 0, -(real) 0.0229}}; // centers of mass
 
   ManipulatorCapsules collisions;
 
   Sphere base;
-  base.center               = {0, 0, 0.0325f};
-  base.radius               = 0.09f;
+  base.center               = {0, 0, (real) 0.0325};
+  base.radius               = (real) 0.09;
   collisions.base_sphere    = base;
   collisions.collision_base = {0, 0, 0, 1, 1, 1, 1};
 
@@ -101,44 +101,44 @@ inline Manipulator make_UR5e() {
   CollisionModelCapsule capsule;
   capsule.joint_frame = 0;
   capsule.p1          = {0, 0, 0};
-  capsule.p2          = {0, -0.15f, 0};
-  capsule.radius      = 0.09f;
+  capsule.p2          = {0, -(real) 0.15, 0};
+  capsule.radius      = (real) 0.09;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 1;
-  capsule.p1          = {-0.42f, 0, 0.1375f};
-  capsule.p2          = {0, 0, 0.1375f};
-  capsule.radius      = 0.06f;
+  capsule.p1          = {-(real) 0.42, 0, (real) 0.1375};
+  capsule.p2          = {0, 0, (real) 0.1375};
+  capsule.radius      = (real) 0.06;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 2;
-  capsule.p1          = {0, 0, 0.02f};
-  capsule.p2          = {0, 0, 0.18f};
-  capsule.radius      = 0.065f;
+  capsule.p1          = {0, 0, (real) 0.02};
+  capsule.p2          = {0, 0, (real) 0.18};
+  capsule.radius      = (real) 0.065;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 2;
-  capsule.p1          = {-0.373156f, 0, 0.00850418f};
-  capsule.p2          = {0.000440611f, 0.000121443f, 0.00850418f};
-  capsule.radius      = 0.05f;
+  capsule.p1          = {-(real) 0.373156, 0, (real) 0.00850418};
+  capsule.p2          = {(real) 0.000440611, (real) 0.000121443, (real) 0.00850418};
+  capsule.radius      = (real) 0.05;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 3;
   capsule.p1          = {0, 0, 0};
-  capsule.p2          = {0, 0, -0.155f};
-  capsule.radius      = 0.0425f;
+  capsule.p2          = {0, 0, -(real) 0.155};
+  capsule.radius      = (real) 0.0425;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 3;
-  capsule.p1          = {0, 0.03f, 0};
-  capsule.p2          = {0, -0.1f, 0};
-  capsule.radius      = 0.0425f;
+  capsule.p1          = {0, (real) 0.03, 0};
+  capsule.p2          = {0, -(real) 0.1, 0};
+  capsule.radius      = (real) 0.0425;
   collisions.capsule_list.push_back(capsule);
 
   capsule.joint_frame = 5;
-  capsule.p1          = {0, 0, -0.14f};
-  capsule.p2          = {0, 0, -0.01f};
-  capsule.radius      = 0.038f;
+  capsule.p1          = {0, 0, -(real) 0.14};
+  capsule.p2          = {0, 0, -(real) 0.01};
+  capsule.radius      = (real) 0.038;
   collisions.capsule_list.push_back(capsule);
 
   Manipulator ur5e(joints, limits, kinematics, &dynamics, &collisions);

@@ -18,8 +18,8 @@ struct Task {
       start{Array(n_joints), Array(n_joints), Array(n_joints)},
       goal{Array(n_joints), Array(n_joints), Array(n_joints)} {
     for (u32 i = 0; i < n_joints; i++) {
-      start.position[i] = start.velocity[i] = start.acceleration[i] = 0.0f;
-      goal.position[i] = goal.velocity[i] = goal.acceleration[i] = 0.0f;
+      start.position[i] = start.velocity[i] = start.acceleration[i] = (real) 0;
+      goal.position[i] = goal.velocity[i] = goal.acceleration[i] = (real) 0;
     }
   }
 
