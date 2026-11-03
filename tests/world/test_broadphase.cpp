@@ -729,14 +729,14 @@ inline host_fn Manipulator get_generic_Link6() {
   limits.position_max = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL}; // rad
   limits.position_min = -limits.position_max;
 
-  limits.velocity_max = {(real) 3.4907, (real) 3.4907, (real) 3.4907, (real) 5.5851, (real) 5.5851, (real) 5.5851};                                   // rad/s
-                                                                                                                  //   limits.vmin = -limits.velocity_max;
+  limits.velocity_max = {(real) 3.4907, (real) 3.4907, (real) 3.4907, (real) 5.5851, (real) 5.5851, (real) 5.5851}; // rad/s
+                                                                                                                    //   limits.vmin = -limits.velocity_max;
 
-  limits.acceleration_max = {deg2rad(600), deg2rad(600), deg2rad(600), deg2rad(600), deg2rad(600), deg2rad(600)}; // rad/s^2
-                                                                                                                  //   limits.amin = -limits.acceleration_max;
+  limits.acceleration_max = {deg2rad(600), deg2rad(600), deg2rad(600), deg2rad(600), deg2rad(600), deg2rad(600)};   // rad/s^2
+                                                                                                                    //   limits.amin = -limits.acceleration_max;
 
-  limits.torque_max = {210, 210, 210, 100, 100, 100};                                                             // Nm
-                                                                                                                  //   limits.tau_min = -limits.torque_max;
+  limits.torque_max = {210, 210, 210, 100, 100, 100};                                                               // Nm
+                                                                                                                    //   limits.tau_min = -limits.torque_max;
 
   limits.tool_speed_max = 2.0;
 

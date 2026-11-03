@@ -11,14 +11,14 @@ struct Gen3 {
   int joints = 7;
 
   // All limits are from webapp
-  Array pmax    = {INF_REAL, 2.25, INF_REAL, (real) 2.58, INF_REAL, (real) 2.1, INF_REAL}; // rad
-  Array pmin    = -pmax;                                                       // rad
-  Array vmax    = {(real) 1.745, (real) 1.745, (real) 1.745, (real) 1.745, (real) 2.443, (real) 2.443, (real) 2.443};    // rad/s
-  Array vmin    = -vmax;                                                       // rad/s
+  Array pmax    = {INF_REAL, 2.25, INF_REAL, (real) 2.58, INF_REAL, (real) 2.1, INF_REAL};                            // rad
+  Array pmin    = -pmax;                                                                                              // rad
+  Array vmax    = {(real) 1.745, (real) 1.745, (real) 1.745, (real) 1.745, (real) 2.443, (real) 2.443, (real) 2.443}; // rad/s
+  Array vmin    = -vmax;                                                                                              // rad/s
   Array amax    = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL};
-  Array amin    = -amax;                                                       // rad/s^2
-  Array tau_max = {52, 52, 52, 52, 17, 17, 17};                                // Nm
-  Array tau_min = -tau_max;                                                    // Nm
+  Array amin    = -amax;                                                                                              // rad/s^2
+  Array tau_max = {52, 52, 52, 52, 17, 17, 17};                                                                       // Nm
+  Array tau_min = -tau_max;                                                                                           // Nm
 
   // tcp & elbow speed limits
   real tcp_max = 0.5; // from user guide

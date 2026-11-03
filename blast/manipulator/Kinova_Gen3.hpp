@@ -9,10 +9,10 @@ inline Manipulator make_Kinova_Gen3() {
 
   // limits
   ManipulatorLimits limits;
-  limits.position_max     = {INF_REAL, (real) 2.25, INF_REAL, (real) 2.58, INF_REAL, (real) 2.1, INF_REAL};           // rad
-  limits.position_min     = -limits.position_max;                                                   // rad
-  limits.velocity_max     = {(real) 1.745, (real) 1.745, (real) 1.745, (real) 1.745, (real) 2.443, (real) 2.443, (real) 2.443};               // rad/s
-  limits.acceleration_max = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL}; // rad/s^2
+  limits.position_max     = {INF_REAL, (real) 2.25, INF_REAL, (real) 2.58, INF_REAL, (real) 2.1, INF_REAL};                     // rad
+  limits.position_min     = -limits.position_max;                                                                               // rad
+  limits.velocity_max     = {(real) 1.745, (real) 1.745, (real) 1.745, (real) 1.745, (real) 2.443, (real) 2.443, (real) 2.443}; // rad/s
+  limits.acceleration_max = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL};                             // rad/s^2
   limits.torque_max       = {(real) 52, (real) 52, (real) 52, (real) 52, (real) 17, (real) 17, (real) 17};                      // Nm
   limits.tool_speed_max   = (real) 1;
 
