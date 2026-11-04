@@ -2607,27 +2607,8 @@ inline void compute_constraints_with_analytical_pva(ConstraintPerPoint& constrai
 template<bool is_grad> // note: n_collision_skip must be 1 for this to work !!!
 blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& gradient_coeffs, Matrix& dtau_dp, Matrix& dtau_dv, Matrix& dtau_da, Matrix& dtool_dp, Matrix& dtool_dv, Matrix& dselfcol_dp, std::vector<Matrix>& dcol_dp, const Array& x, Optimization* opt) {
 #if BLAST_TRACE_LEVEL >= 2
-  ZoneScoped;
+  // ZoneScoped;
 #endif
-
-  enum class CollisionObjectType {
-    box,
-    sphere,
-    capsule,
-  };
-  struct CollisionEntities {
-    // object in the world
-    CollisionObjectType other_object_type = CollisionObjectType::box;
-
-    union {
-      Box     box{};
-      Sphere  sphere;
-      Capsule capsule;
-    };
-
-    // which point in time to look up the capsule
-    int point_in_segment = 0;
-  };
 
   real* moving_result = result;
   u32   grad_idx      = 0;
@@ -3085,7 +3066,7 @@ inline u32 ncon_per_point_with_analytical_pva(const Optimization* opt, const int
 
 inline blast_fn void nlopt_constraints_with_analytical_pva(unsigned m, real* result, unsigned xlen, const real* x, real* grad, void* f_data) {
 #if BLAST_TRACE_LEVEL >= 1
-  ZoneScoped;
+  // ZoneScoped;
 #endif
   auto* opt = (Optimization*) f_data;
 

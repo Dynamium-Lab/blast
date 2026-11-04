@@ -42,36 +42,13 @@ inline Optimization::Optimization(const Manipulator& new_manip, const Task& new_
     manip(new_manip),
     bspline(new_manip.n_joints),
     task(new_task.to_matrix()),
-    custom_data(nullptr) {
-  // Default values
-  method     = OptimizationMethod::with_segments;
-  guess.type = Guess::random;
-
-  constraints.position     = true;
-  constraints.velocity     = true;
-  constraints.acceleration = true;
-  constraints.tool_speed   = true;
-
-  objective.time_weight = 1.0;
-}
+    custom_data(nullptr) {}
 
 inline Optimization::Optimization(const Manipulator& new_manip, const Task& new_task, const Bspline& new_bspline) :
     manip(new_manip),
     bspline(new_bspline),
     task(new_task.to_matrix()),
-    custom_data(nullptr) {
-  // Default values
-  method               = OptimizationMethod::with_segments;
-  guess.type           = Guess::random;
-  guess.n_random_shots = 100;
-
-  constraints.position     = true;
-  constraints.velocity     = true;
-  constraints.acceleration = true;
-  constraints.tool_speed   = true;
-
-  objective.time_weight = 1.0;
-}
+    custom_data(nullptr) {}
 
 inline int Optimization::x_len() const {
   return (int) bspline.x_len(task);
@@ -560,14 +537,14 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
   const auto n = opt->bspline.x_len(opt->task);
 
   Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
-  Array x_tol(n, 0.001);
+  Array x_tol(n, opt->xtol_abs >= 0 ? opt->xtol_abs : 0.001);
 
 #ifdef BLAST_USE_NATIVE_SQP
   nlopt_stopping stop;
   stop.n          = n;
   stop.minf_max   = -HUGE_VAL;
   stop.ftol_rel   = 0;
-  stop.ftol_abs   = 0.001;
+  stop.ftol_abs   = opt->ftol_abs >= 0 ? opt->ftol_abs : 0.001;
   stop.xtol_rel   = 0;
   stop.xtol_abs   = x_tol.data;
   stop.x_weights  = nullptr;
@@ -601,7 +578,7 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_upper_bound(o, (int) n - 1, 60.0);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_ftol_abs(o, 0.0001);
+  nlopt_res = nlopt_set_ftol_abs(o, opt->ftol_abs >= 0 ? opt->ftol_abs : 0.0001);
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_xtol_abs(o, x_tol.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
@@ -680,6 +657,7 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Solution validation (more points)");
 #endif
+#ifndef BLAST_SKIP_DENSE_VALIDATION // define it to time the solve alone (validation at the planner's samples only)
       u64 steps_ms    = (u64) (std::ceil(x.back() * 1e3 / output_steps_ms));
       x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
       int points_more = (int) (steps_ms + 1);
@@ -696,11 +674,16 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
       result.max_constraint_more_points_idx   = argmax(constraints_more_points);
       result.max_constraint_more_points_value = max_con_more;
       is_valid_more                           = max_con_more < opt->success_tolerance;
+#else
+      is_valid_more = true; // planner's own verdict only (its N_pt samples); x is not rounded to output_steps_ms
+#endif
 
       result.x = x;
 
       if (is_valid && is_valid_more) {
+#ifndef BLAST_SKIP_DENSE_VALIDATION
         result.trajectory = bspline_val_more.traj;
+#endif
         try_count++; // count this try before breaking, so num_tries reports tries made
         break;
       } else if (opt->guess.type != Guess::random && try_count == 0) {
