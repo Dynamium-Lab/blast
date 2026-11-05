@@ -1250,7 +1250,7 @@ TEST_CASE("Optimization benchmark", "[World]") {
           x0.push_back(guess_random(opt.bspline, opt.task));
         }
 
-        int n               = attempt - 1 <= x0.size() ? attempt - 1 : x0.size();
+        const size_t n      = std::min<size_t>(attempt - 1, x0.size() - 1); // later methods may need more attempts than with_segments recorded
         opt.guess.initial_x = x0[n];
         opt.method          = method[method_id].first;
         result              = optimize(&opt);
