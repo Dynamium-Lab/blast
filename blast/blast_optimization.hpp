@@ -125,15 +125,16 @@ struct Optimization {
                                                     // this on the tightened limits implies zero violation on the true limits
   bool tighten_for_tolerance = true;                // false skips the tightening (ablation only: an accepted
                                                     // solve may then violate the real limits by up to success_tolerance)
-  real collision_buffer = 0.001;                    // how close, in metres, the trajectory may come to contact.
-                                                    // success_tolerance is dimensionless and cannot express a distance;
-                                                    // 0 falls back to it
+  real collision_buffer = 0.001;                    // metres, between any two objects during the solve (each grows
+                                                    // by half). success_tolerance may consume it, never more, so an
+                                                    // accepted solve has no contact. Must be > 0 (else 1e-3). The default
+                                                    // suits tight scenes; smaller values cost convergence
 
   // --- derived, do not set ---
   real collision_scale = 1.0; // success_tolerance / collision_buffer while tightened, 1 otherwise
   // While tightened, the first/last segment's constraints target what the pinned start [0] / goal [1]
   // configuration achieves, so a pinned configuration at or near a limit does not create a violated
-  // zero-gradient constraint. Clearances are measured against the planning geometry (distance + buffer).
+  // zero-gradient constraint. Clearances are measured against the planning geometry (distance + collision_buffer).
   // See tighten_for_success_tolerance, position_constraint_params, ext_collision_constraint_params.
   bool                                          pinned_tightening_active = false;
   std::array<std::array<real, MAX_CAPSULES>, 2> pinned_col_clearance{};

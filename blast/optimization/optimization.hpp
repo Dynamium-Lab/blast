@@ -190,24 +190,25 @@ struct ToleranceSnapshot {
 
 /**
  * @brief Sets the clearance targets of the first/last segment's collision constraints to what
- *        the pinned start/goal configuration achieves, capped at `buffer`.
+ *        the pinned start/goal configuration achieves, capped at collision_buffer.
  *
  * Measured per capsule (external) and for self-collision, on the tightened geometry. Static
  * obstacles only. Why the endpoints need a target: docs/guides/constraints.md.
  */
-inline void set_pinned_col_clearances(Optimization* opt, real buffer) {
-  // Floor, as a fraction of the buffer: keeps tolerance / clearance finite for an endpoint at ~0 clearance.
+inline void set_pinned_col_clearances(Optimization* opt) {
+  const real collision_buffer = opt->collision_buffer;
+  // Floor, as a fraction of collision_buffer: keeps tolerance / clearance finite for an endpoint at ~0 clearance.
   constexpr real min_target_fraction = 0.01;
 
   if (!opt->constraints.external_collisions && !opt->constraints.self_collisions) {
-    opt->pinned_self_clearance.fill(buffer);
+    opt->pinned_self_clearance.fill(collision_buffer);
     for (auto& clearances: opt->pinned_col_clearance)
-      clearances.fill(buffer);
+      clearances.fill(collision_buffer);
     return;
   }
-  const real min_target = buffer * min_target_fraction;
-  // Measured in the buffered geometry, so the endpoint's planning clearance is distance + buffer.
-  const auto endpoint_target = [&](real buffered_distance) { return std::clamp(buffered_distance + buffer, min_target, buffer); };
+  const real min_target = collision_buffer * min_target_fraction;
+  // Measured in the tightened geometry, so the endpoint's planning clearance is distance + collision_buffer.
+  const auto endpoint_target = [&](real tightened_distance) { return std::clamp(tightened_distance + collision_buffer, min_target, collision_buffer); };
 
   ManipulatorTempData manip_data;
   Array               endpoint_position(opt->manip.n_joints);
@@ -219,10 +220,10 @@ inline void set_pinned_col_clearances(Optimization* opt, real buffer) {
 
     opt->pinned_self_clearance[endpoint_index] = opt->constraints.self_collisions
                                                          ? endpoint_target(min(get_internal_collisions(opt->manip, manip_data)))
-                                                         : buffer;
+                                                         : collision_buffer;
     for (int capsule_id = 0; capsule_id < opt->manip._n_caps; capsule_id++) {
       if (!opt->constraints.external_collisions) {
-        opt->pinned_col_clearance[endpoint_index][capsule_id] = buffer;
+        opt->pinned_col_clearance[endpoint_index][capsule_id] = collision_buffer;
         continue;
       }
       const auto& capsule          = manip_data.capsule_list[capsule_id];
@@ -242,8 +243,8 @@ inline void set_pinned_col_clearances(Optimization* opt, real buffer) {
  * @brief Tightens the limits and collision geometry by success_tolerance, so that a solve accepted
  *        at success_tolerance (the solver's con_tol) satisfies the true limits.
  *
- * Limits shrink by a factor 1 + success_tolerance about their center; collision geometry grows by
- * collision_buffer. Where the pinned start/goal is closer to a limit than that, the first/last
+ * Limits shrink by a factor 1 + success_tolerance about their center; each pair of collision
+ * objects grows by collision_buffer (each object by half). Where the pinned start/goal is closer to a limit than that, the first/last
  * segment's constraints target the endpoint instead (see position_constraint_params,
  * set_pinned_col_clearances).
  * Must be paired with restore_from_tolerance() before the Optimization is returned or reused.
@@ -273,10 +274,16 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   const real tol               = opt->success_tolerance;
   const real tightening_factor = 1 + tol; // divide each limit's half-range by this to shrink it by tol
 
-  // The unit change that makes the dimensionless success_tolerance land on the buffer.
-  // A non-positive buffer means no unit change.
-  const real buffer    = opt->collision_buffer > 0 ? opt->collision_buffer : tol;
-  opt->collision_scale = tol / buffer;
+  // collision_buffer must be > 0: collision_scale divides by it. A non-positive value is
+  // replaced by the default, which stays on opt.
+  constexpr real fallback_collision_buffer = 1e-3; // the default; smaller values cost convergence
+  if (!(opt->collision_buffer > 0)) {
+    printf("optimize: collision_buffer %g must be > 0; using %g.\n", (double) opt->collision_buffer,
+           (double) fallback_collision_buffer);
+    opt->collision_buffer = fallback_collision_buffer;
+  }
+  // The unit change that makes the dimensionless success_tolerance worth collision_buffer metres.
+  opt->collision_scale = tol / opt->collision_buffer;
 
   // An unbounded joint stays unbounded.
   for (int joint = 0; joint < opt->manip.n_joints; joint++) {
@@ -294,31 +301,31 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   }
   opt->manip.tool_speed_max /= tightening_factor;
 
-  // Halved so a pairwise check between two inflated objects sums to exactly the buffer.
-  const real col_margin = buffer / 2;
+  // Each object grows by half the collision_buffer, so a pairwise check carries exactly collision_buffer.
+  const real half_collision_buffer = opt->collision_buffer / 2;
   for (int i = 0; i < opt->manip._n_caps; i++)
-    opt->manip._collision_model[i].radius += col_margin;
-  opt->manip._base_sphere.radius += col_margin;
+    opt->manip._collision_model[i].radius += half_collision_buffer;
+  opt->manip._base_sphere.radius += half_collision_buffer;
 
   for (auto& box: opt->world.boxes)
-    box.extents += Vec3(col_margin, col_margin, col_margin);
+    box.extents += Vec3(half_collision_buffer, half_collision_buffer, half_collision_buffer);
   for (auto& sphere: opt->world.spheres)
-    sphere.radius += col_margin;
+    sphere.radius += half_collision_buffer;
   for (auto& capsule: opt->world.capsules)
-    capsule.radius += col_margin;
+    capsule.radius += half_collision_buffer;
   for (auto& dyn_box: opt->world.dynamic_boxes)
     for (auto& box: dyn_box.trajectory)
-      box.extents += Vec3(col_margin, col_margin, col_margin);
+      box.extents += Vec3(half_collision_buffer, half_collision_buffer, half_collision_buffer);
   for (auto& dyn_sphere: opt->world.dynamic_spheres)
     for (auto& sphere: dyn_sphere.trajectory)
-      sphere.radius += col_margin;
+      sphere.radius += half_collision_buffer;
   for (auto& dyn_capsule: opt->world.dynamic_capsules)
     for (auto& capsule: dyn_capsule.trajectory)
-      capsule.radius += col_margin;
+      capsule.radius += half_collision_buffer;
   for (auto& door: opt->world.dynamic_doors)
-    door.extents += Vec3(col_margin, col_margin, col_margin);
+    door.extents += Vec3(half_collision_buffer, half_collision_buffer, half_collision_buffer);
 
-  set_pinned_col_clearances(opt, buffer);
+  set_pinned_col_clearances(opt);
   opt->pinned_tightening_active = true;
 
   return snap;
