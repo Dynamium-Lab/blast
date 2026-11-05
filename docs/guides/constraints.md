@@ -68,12 +68,15 @@ opt.collision_buffer = 0.001;  // default: 1 mm
 ```
 
 Capsules and obstacles are each grown by `collision_buffer / 2` during the solve, so a
-pairwise check carries exactly this margin, and the collision constraint is rescaled so
+pairwise check carries exactly `collision_buffer`, and the collision constraint is rescaled so
 `success_tolerance` lands on it. An accepted solve is therefore strictly clear of the
-true geometry. The buffer is the slack the solver may consume, not clearance left over:
-a 1 mm buffer guarantees no penetration, not 1 mm of remaining gap. Larger values
+true geometry. `collision_buffer` is the slack the solver may consume, not clearance left over:
+a 1 mm `collision_buffer` guarantees no penetration, not 1 mm of remaining gap. Larger values
 perturb the geometry more during the solve and can make tightly constrained problems
-harder to solve. Set it to `0` to fall back to `success_tolerance`.
+harder to solve. It must be positive and should stay small for tight environments: the
+default `1e-3` works well, while smaller values steepen the collision gradients
+(`collision_scale = success_tolerance / collision_buffer`) and cost convergence. A value of
+`0` or less is replaced by the default `1e-3`, with a printed notice.
 
 Two exceptions keep the tightening from making a task impossible. The start and goal of a
 stop-to-stop task are fixed, so constraints there cannot be improved by the solver:
@@ -84,8 +87,8 @@ stop-to-stop task are fixed, so constraints there cannot be improved by the solv
   limit. Every other part of the trajectory keeps the tightened bound.
 - **Collisions** next to the start or goal (the first and last segment) aim for at most the
   clearance that endpoint itself has, instead of the full `collision_buffer`. A start that
-  clears an obstacle by less than the buffer is still accepted; every other part of the
-  trajectory keeps the full buffer.
+  clears an obstacle by less than `collision_buffer` is still accepted; every other part of the
+  trajectory keeps the full `collision_buffer`.
 
 Velocity, acceleration, torque, and tool speed do not need this exception: a stop-to-stop task
 starts and ends at rest, so the endpoint values for those constraints are zero, well within any

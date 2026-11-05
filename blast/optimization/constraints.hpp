@@ -66,16 +66,21 @@ inline blast_fn Matrix get_J_tool(const Optimization* opt, const ManipulatorTemp
  * @brief Parameters of one collision constraint: c = -(d + shift) * scale, with d the distance
  *        in the tightened geometry.
  *
+ * While tightened, every object grows by collision_buffer / 2, so d is collision_buffer
+ * smaller than the true distance. collision_scale (= tolerance / collision_buffer) makes the
+ * solver's tolerance worth exactly collision_buffer metres: an accepted solve may sink into
+ * the collision_buffer, never through it.
+ *
  * Constraints away from the task endpoints:
  * - shift = 0
  * - scale = collision_scale
  *
- * Constraints of the first or last segment, while tightened (clearance = the pinned endpoint's,
- * see set_pinned_col_clearances):
- * - shift = buffer - clearance
- * - scale = tolerance / clearance
+ * Constraints of the first or last segment, where the pinned endpoint may already sit inside
+ * the collision_buffer with only `clearance` of it left (see set_pinned_col_clearances):
+ * - shift = collision_buffer - clearance (may sink in as deep as the endpoint does)
+ * - scale = tolerance / clearance        (tolerance worth the remaining clearance)
  *
- * Either way c < tolerance <=> d + buffer > 0 (no contact on the true geometry). See
+ * Either way c < tolerance <=> d + collision_buffer > 0 (no contact on the true geometry). See
  * docs/guides/constraints.md.
  */
 struct CollisionConstraintParams {
@@ -85,6 +90,7 @@ struct CollisionConstraintParams {
 
 /** @brief Self-collision constraint parameters for a segment. */
 inline blast_fn CollisionConstraintParams self_collision_constraint_params(const Optimization& opt, int segment, int n_segments) {
+  // Keep collision scale if not in endpoint segments or if the tightening is deactivated.
   if (!opt.pinned_tightening_active || (segment != 0 && segment != n_segments - 1))
     return {0.0, opt.collision_scale};
   real pinned_clearance = INF_REAL;
@@ -93,13 +99,12 @@ inline blast_fn CollisionConstraintParams self_collision_constraint_params(const
     pinned_clearance = std::min(pinned_clearance, opt.pinned_self_clearance[0]);
   if (segment == n_segments - 1)
     pinned_clearance = std::min(pinned_clearance, opt.pinned_self_clearance[1]);
-  const real tolerance = opt.success_tolerance;
-  const real buffer    = tolerance / opt.collision_scale; // inverse of collision_scale = tol/buffer
-  return {buffer - pinned_clearance, tolerance / pinned_clearance};
+  return {opt.collision_buffer - pinned_clearance, opt.success_tolerance / pinned_clearance};
 }
 
 /** @brief External-collision constraint parameters for a segment and capsule. */
 inline blast_fn CollisionConstraintParams ext_collision_constraint_params(const Optimization& opt, int segment, int n_segments, int capsule_id) {
+  // Keep collision scale if not in endpoint segments or if the tightening is deactivated.
   if (!opt.pinned_tightening_active || (segment != 0 && segment != n_segments - 1))
     return {0.0, opt.collision_scale};
   real pinned_clearance = INF_REAL;
@@ -108,9 +113,7 @@ inline blast_fn CollisionConstraintParams ext_collision_constraint_params(const 
     pinned_clearance = std::min(pinned_clearance, opt.pinned_col_clearance[0][capsule_id]);
   if (segment == n_segments - 1)
     pinned_clearance = std::min(pinned_clearance, opt.pinned_col_clearance[1][capsule_id]);
-  const real tolerance = opt.success_tolerance;
-  const real buffer    = tolerance / opt.collision_scale; // inverse of collision_scale = tol/buffer
-  return {buffer - pinned_clearance, tolerance / pinned_clearance};
+  return {opt.collision_buffer - pinned_clearance, opt.success_tolerance / pinned_clearance};
 }
 
 /**

@@ -71,7 +71,7 @@ TEST_CASE("tightening introduces no violated zero-gradient constraint", "[Optimi
 
 // ---------------------------------------------------------------------------
 // 2. A constraint within tolerance must imply the true geometry is clear:
-//    c = -(d_true - buffer) * (tol/buffer) < tol  <=>  d_true > 0
+//    c = -(d_true - collision_buffer) * (tol/collision_buffer) < tol  <=>  d_true > 0
 // ---------------------------------------------------------------------------
 TEST_CASE("a constraint within tolerance implies true clearance", "[Optimization]") {
   const real tol = 0.01;
@@ -88,7 +88,7 @@ TEST_CASE("a constraint within tolerance implies true clearance", "[Optimization
     return worst;
   };
 
-  for (real buffer: {0.0005, 0.001, 0.005, 0.01}) {
+  for (real collision_buffer: {0.0005, 0.001, 0.005, 0.01}) {
     int checked = 0, both_sides = 0;
     // Sweep the obstacle through contact so the implication is tested on both sides.
     for (int step = -25; step <= 25; step++) {
@@ -103,7 +103,7 @@ TEST_CASE("a constraint within tolerance implies true clearance", "[Optimization
       opt.world                           = w;
       opt.constraints.external_collisions = true;
       opt.success_tolerance               = tol;
-      opt.collision_buffer                = buffer;
+      opt.collision_buffer                = collision_buffer;
 
       const real d_true = min_dist(opt.manip, opt.world);
       auto       snap   = tighten_for_success_tolerance(&opt);
@@ -133,10 +133,26 @@ TEST_CASE("restore puts collision_scale back to 1", "[Optimization]") {
   opt.collision_buffer  = 0.001;
 
   auto snap = tighten_for_success_tolerance(&opt);
-  CHECK(opt.collision_scale == Approx(10.0)); // tol / buffer
+  CHECK(opt.collision_scale == Approx(10.0)); // tol / collision_buffer
   restore_from_tolerance(&opt, snap);
   CHECK(opt.collision_scale == Approx(1.0));
   CHECK(opt.manip.position_max[0] == Approx(3.1416)); // restored to the true bound
+}
+
+TEST_CASE("a non-positive collision_buffer is replaced by the default", "[Optimization]") {
+  Array        q     = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
+  Manipulator  robot = UR5e_narrow_limits();
+  Task         task  = Task::stop_to_stop(q, q);
+  Optimization opt(robot, task);
+  opt.success_tolerance = 0.01;
+
+  for (real collision_buffer: {0.0, -0.001}) {
+    opt.collision_buffer = collision_buffer;
+    auto snap            = tighten_for_success_tolerance(&opt);
+    CHECK(opt.collision_buffer == Approx(1e-3));
+    CHECK(opt.collision_scale == Approx(opt.success_tolerance / 1e-3)); // finite
+    restore_from_tolerance(&opt, snap);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -219,7 +235,7 @@ TEST_CASE("tightened self-collision constraint matches across with_segments/broa
   Optimization opt(robot, task);
   opt.constraints.self_collisions = true;
   opt.success_tolerance           = 0.01;
-  opt.collision_buffer            = 0.001; // collision_scale = tol/buffer = 10
+  opt.collision_buffer            = 0.001; // collision_scale = tol/collision_buffer = 10
 
   REQUIRE(validate_task(&opt) == true);    // legal on true geometry
 
@@ -253,10 +269,10 @@ TEST_CASE("tightened self-collision constraint matches across with_segments/broa
 
 // ---------------------------------------------------------------------------
 // 5. The collision analogue of the position test above. A task start that clears an obstacle by
-// less than the buffer is acceptable (clearance > 0), but using the full buffer as the target
+// less than the collision_buffer is acceptable (clearance > 0), but using the full collision_buffer as the target
 // would leave that constraint entry violated with a zero gradient (the start is pinned). The first
 // segment's constraint entries target what the start achieves instead, every other entry keeps the
-// buffer, and acceptance (c < tol <=> d + buffer > 0) does not move.
+// collision_buffer, and acceptance (c < tol <=> d + collision_buffer > 0) does not move.
 // ---------------------------------------------------------------------------
 // What "exactly" means for distances and constraint entries below. Float entries carry ~1e-7
 // relative distance error times the scale (tolerance / target, ~20 here); the bug they guard is
@@ -268,7 +284,7 @@ constexpr real exact_tolerance = 1e-5;
 #endif
 
 TEST_CASE("collision constraints at a pinned endpoint target what the endpoint achieves", "[Optimization]") {
-  const real tolerance = 0.01, buffer = 0.001, start_clearance = 0.0005; // start clears the sphere by half the buffer
+  const real tolerance = 0.01, collision_buffer = 0.001, start_clearance = 0.0005; // start clears the sphere by half the collision_buffer
   Array      start = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
   Array      end   = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.14};
 
@@ -285,7 +301,7 @@ TEST_CASE("collision constraints at a pinned endpoint target what the endpoint a
     world.add_sphere(capsule.p2 + axis * (capsule.radius + sphere_radius + start_clearance), sphere_radius); // beyond the capsule's end, on its axis
     for (int capsule_id = 0; capsule_id < robot._n_caps; capsule_id++)
       if (capsule_id != tool_capsule)
-        REQUIRE(distance(manip_data.capsule_list[capsule_id], world.spheres[0]) > 2 * buffer); // clearance >= buffer keeps the full-buffer target; 2x is margin, so only the tool capsule is targeted
+        REQUIRE(distance(manip_data.capsule_list[capsule_id], world.spheres[0]) > 2 * collision_buffer); // clearance >= collision_buffer keeps the full collision_buffer target; 2x is margin, so only the tool capsule is targeted
     REQUIRE(distance(capsule, world.spheres[0]) == Approx(start_clearance).margin(exact_tolerance));
   }
 
@@ -294,7 +310,7 @@ TEST_CASE("collision constraints at a pinned endpoint target what the endpoint a
   opt.world                           = world;
   opt.constraints.external_collisions = true;
   opt.success_tolerance               = tolerance;
-  opt.collision_buffer                = buffer;
+  opt.collision_buffer                = collision_buffer;
   REQUIRE(validate_task(&opt) == true);
 
   initialize_optimization_with_segments(&opt);
@@ -305,7 +321,7 @@ TEST_CASE("collision constraints at a pinned endpoint target what the endpoint a
   CHECK(opt.pinned_col_clearance[0][tool_capsule] == Approx(start_clearance).margin(exact_tolerance)); // what the start achieves
   for (int capsule_id = 0; capsule_id < robot._n_caps; capsule_id++)
     if (capsule_id != tool_capsule)
-      CHECK(opt.pinned_col_clearance[0][capsule_id] == Approx(buffer)); // far capsules keep the full buffer
+      CHECK(opt.pinned_col_clearance[0][capsule_id] == Approx(collision_buffer)); // far capsules keep the full collision_buffer
 
   // The endpoint must satisfy its own constraint entries. On a trajectory that holds the start
   // (goal == start) every sample IS the start, so every entry of the first and last segment has
@@ -319,7 +335,7 @@ TEST_CASE("collision constraints at a pinned endpoint target what the endpoint a
     hold.world                           = world;
     hold.constraints.external_collisions = true;
     hold.success_tolerance               = tolerance;
-    hold.collision_buffer                = buffer;
+    hold.collision_buffer                = collision_buffer;
     initialize_optimization_with_segments(&hold);
     n_con_with_segments(&hold);
     auto hold_tolerance_snapshot = tighten_for_success_tolerance(&hold);
@@ -343,32 +359,32 @@ TEST_CASE("collision constraints at a pinned endpoint target what the endpoint a
           worst_interior = std::max(worst_interior, constraint);
       }
     CHECK(worst_boundary <= exact_tolerance);
-    CHECK(worst_interior > 0); // interior constraints keep the full buffer: not vacuous
+    CHECK(worst_interior > 0); // interior constraints keep the full collision_buffer: not vacuous
     restore_from_tolerance(&hold, hold_tolerance_snapshot);
   }
 
-  // Acceptance is the untargeted constraint's, on both sides of distance + buffer = 0, for the
+  // Acceptance is the untargeted constraint's, on both sides of distance + collision_buffer = 0, for the
   // targeted constraint and for an interior one.
   const int n_segments = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
   for (int segment: {0, n_segments / 2}) {
     const auto ext_coll_params = ext_collision_constraint_params(opt, segment, n_segments, tool_capsule);
-    for (real distance: {-buffer - 1e-6, -buffer + 1e-6}) {
+    for (real distance: {-collision_buffer - 1e-6, -collision_buffer + 1e-6}) {
       const real constraint = -(distance + ext_coll_params.shift) * ext_coll_params.scale;
-      CHECK((constraint < tolerance) == (distance + buffer > 0));
+      CHECK((constraint < tolerance) == (distance + collision_buffer > 0));
     }
   }
   CHECK(ext_collision_constraint_params(opt, n_segments / 2, n_segments, tool_capsule).shift == 0); // interior: no endpoint adjustment
 
   // Point-based methods: the pinned start/goal samples take the boundary target, an interior
-  // sample the full buffer. At the start's own clearance its constraint is satisfied (<= 0).
+  // sample the full collision_buffer. At the start's own clearance its constraint is satisfied (<= 0).
   {
     const u32  n_points       = opt.bspline.n_points;
-    const real start_distance = start_clearance - buffer; // the start's distance in the buffered geometry
+    const real start_distance = start_clearance - collision_buffer; // the start's distance in the tightened geometry
     CHECK(ext_collision_constraint_at_point(opt, 0, tool_capsule, start_distance) <= exact_tolerance);
     CHECK(ext_collision_constraint_at_point(opt, n_points / 2, tool_capsule, start_distance) > 0);
-    for (real distance: {-buffer - 1e-6, -buffer + 1e-6})
+    for (real distance: {-collision_buffer - 1e-6, -collision_buffer + 1e-6})
       for (u32 point: {0u, n_points / 2, n_points - 1})
-        CHECK((ext_collision_constraint_at_point(opt, point, tool_capsule, distance) < tolerance) == (distance + buffer > 0));
+        CHECK((ext_collision_constraint_at_point(opt, point, tool_capsule, distance) < tolerance) == (distance + collision_buffer > 0));
   }
 
   restore_from_tolerance(&opt, tolerance_snapshot);
