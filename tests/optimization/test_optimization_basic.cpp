@@ -36,23 +36,26 @@ TEST_CASE("initialize_optimization collision constraints", "[Optimization]") {
   }
 }
 
-TEST_CASE("initialize_optimization bounds", "[Optimization]") {
+TEST_CASE("decision_bounds fills the solver bounds", "[Optimization]") {
   Manipulator robot = make_UR5e();
   Task        task  = make_UR5e_task();
 
   Optimization opt(robot, task);
   initialize_optimization(&opt);
+  auto tolerance_snapshot = tighten_for_success_tolerance(&opt);
 
-  const int n = opt.x_len();
-  REQUIRE(opt.lb.size == n);
-  REQUIRE(opt.ub.size == n);
+  const int n      = opt.x_len();
+  opt.lower_bounds = Array(n);
+  opt.upper_bounds = Array(n);
+  decision_bounds(&opt, opt.lower_bounds, opt.upper_bounds);
 
-  for (int i = 0; i < n - 1; i++) {
-    CHECK(opt.lb[i] == -HUGE_VAL);
-    CHECK(opt.ub[i] == HUGE_VAL);
+  for (int i = 0; i < n - 1; i++) { // control points: bounded by default (bound_control_points)
+    CHECK(std::isfinite(opt.lower_bounds[i]));
+    CHECK(std::isfinite(opt.upper_bounds[i]));
   }
-  CHECK_THAT(opt.lb.back(), WithinAbs(0.1, BLAST_EPSILON));
-  CHECK_THAT(opt.ub.back(), WithinAbs(60.0, BLAST_EPSILON));
+  CHECK_THAT(opt.lower_bounds.back(), WithinAbs(opt.min_duration, BLAST_EPSILON));
+  CHECK_THAT(opt.upper_bounds.back(), WithinAbs(opt.max_duration, BLAST_EPSILON));
+  restore_from_tolerance(&opt, tolerance_snapshot);
 }
 
 TEST_CASE("initialize_optimization task angle unwrapping", "[Optimization]") {
