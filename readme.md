@@ -408,11 +408,15 @@ result.x                     // Array — optimized B-spline control points;
 
 ```cpp
 // Default: evaluates one constraint per segment (fast, good for most problems)
-Result r = optimize(&opt, OptimizationMethod::with_segments);
+opt.method = OptimizationMethod::with_segments;
 
-// Evaluates constraints at all eval points (slower, denser for collision)
-Result r = optimize(&opt, OptimizationMethod::standard);
+// Evaluates constraints at every point (slower, denser for collision)
+opt.method = OptimizationMethod::baseline;
+
+Result r = optimize(&opt);
 ```
+
+All methods, including the broadphase ones for many obstacles: `docs/guides/constraints.md`.
 
 ---
 

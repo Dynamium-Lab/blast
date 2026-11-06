@@ -27,22 +27,41 @@ opt.constraints.external_collisions = true;  // requires opt.world to be set
 
 ## Constraint sampling: `OptimizationMethod`
 
-How densely constraints are evaluated along the trajectory is controlled by the method
-passed to `optimize`:
+How densely constraints are evaluated along the trajectory, and how collisions are searched,
+is set by `opt.method` before calling `optimize`:
 
 ```cpp
 // Default: one constraint per B-spline segment (fast, good for most problems).
-Result r = optimize(&opt, OptimizationMethod::with_segments);
+opt.method = OptimizationMethod::with_segments;
 
 // Point-based with finite-difference gradients (reference baseline).
-Result r = optimize(&opt, OptimizationMethod::baseline);
+opt.method = OptimizationMethod::baseline;
 
 // Point-based with analytical gradients for position/velocity/acceleration.
-Result r = optimize(&opt, OptimizationMethod::with_analytical_pva);
+opt.method = OptimizationMethod::with_analytical_pva;
 
 // As above, plus analytical torque-dynamics gradients.
-Result r = optimize(&opt, OptimizationMethod::with_analytical_dynamics);
+opt.method = OptimizationMethod::with_analytical_dynamics;
+
+// Segment-based, with a bounding volume hierarchy over the obstacles (many obstacles).
+opt.method = OptimizationMethod::broadphase;
+
+// As broadphase, plus a hierarchy over each capsule's samples within a segment.
+opt.method = OptimizationMethod::double_broadphase;
+
+Result r = optimize(&opt);
 ```
+
+The two broadphase methods read a hierarchy over the static obstacles that the caller
+builds once, after setting the world (dynamic obstacles are handled internally):
+
+```cpp
+opt.world = world;
+create_static_bounding_volume_hierarchy(opt.world, opt.world.static_bounding_volume_hierarchy);
+```
+
+They give the same constraints and gradients as `with_segments`, and follow the same
+tightening and success rules below.
 
 ## Feasibility: `success_tolerance` and `collision_buffer`
 
