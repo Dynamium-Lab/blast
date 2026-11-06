@@ -10,10 +10,10 @@ inline real compute_objective(Array& current_x, Optimization* opt) {
 #endif
   real result = 0;
   if (opt->objective.time_weight > 0) {
-    result += current_x.back();
+    result += current_x.back() * opt->objective.time_weight;
   }
   for (int i = 0; i < opt->objective.extra_objectives.size(); i++) {
-    result += opt->objective.k_extra_objectives[i] * opt->objective.extra_objectives[i](opt);
+    result += opt->objective.k_extra_objectives[i] * opt->objective.extra_objectives[i](opt, &current_x);
   }
   return result;
 }
