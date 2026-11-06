@@ -105,20 +105,15 @@ a box the solver cannot leave, enforced exactly at every step:
 
 ```cpp
 opt.min_duration = 0.01;               // T in [min_duration, max_duration], seconds
-opt.max_duration = 60.0;
+opt.max_duration = 30.0;
 opt.control_point_bound_margin = 0.0;  // widen control-point box by this fraction of each joint's range
 opt.bound_control_points = true;       // false: duration bounds only, no control-point box
 ```
 
-SLSQP has no step-size limit of its own, so without these bounds a single step can stretch
-`T` many times over or move control points by tens of radians, and some solves never
-recover. With the control points inside the position limits, the whole trajectory is
-inside them too (a B-spline stays within the hull of its control points).
+With the control points inside the position limits, the whole trajectory is inside them
+too (a B-spline stays within the hull of its control points).
 
 The bounds are on by default. Set `bound_control_points = false` to keep only the duration bounds.
-
-The control-point box applies to fully specified tasks (no `NaN` in the start or goal). Tasks
-with `NaN` entries get the duration bounds only.
 
 **Tasks close to a joint limit**: because the convex-hull property is conservative, control
 points capped at the limit produce a trajectory that stays strictly inside it. Raise

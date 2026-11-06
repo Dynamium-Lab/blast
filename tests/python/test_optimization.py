@@ -103,7 +103,7 @@ class TestDecisionBounds:
     def test_duration_bounds_defaults(self, ur5e, ur5e_task):
         opt = blast.Optimization(ur5e, ur5e_task)
         assert opt.min_duration == pytest.approx(0.01)
-        assert opt.max_duration == pytest.approx(60.0)
+        assert opt.max_duration == pytest.approx(30.0)
         assert opt.control_point_bound_margin == pytest.approx(0.0)
         assert opt.bound_control_points is True
 

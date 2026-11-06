@@ -144,7 +144,7 @@ void bind_optimization(nb::module_& m) {
                   "Control points may leave the position limits by this fraction of each joint's range "
                   "(default 0: strictly inside). Raise it for tasks that must run close to a joint limit.")
           .def_rw("max_duration", &Optimization::max_duration,
-                  "Upper bound on the trajectory duration T in seconds (default 60).")
+                  "Upper bound on the trajectory duration T in seconds (default 30).")
           .def_rw("bound_control_points", &Optimization::bound_control_points,
                   "Bound the free control points to the position limits (default True). "
                   "False applies the duration bounds only.")

@@ -25,7 +25,7 @@ TEST_CASE("decision bounds are set and respected by every method", "[Optimizatio
     initialize_optimization_with_segments(&opt);
     auto      tolerance_snapshot    = tighten_for_success_tolerance(&opt);
     const u32 n_variables           = opt.bspline.x_len(opt.task);
-    const int n_free_control_points = (int) opt.bspline.n_ctrl - 6;
+    const int n_free_control_points = (int) opt.bspline.n_ctrl - 6; // stop-to-stop pins 3 at each end
     Array     lower_bounds(n_variables), upper_bounds(n_variables);
     decision_bounds(&opt, lower_bounds, upper_bounds);
     CHECK(lower_bounds.back() == Approx(opt.min_duration));
@@ -41,6 +41,7 @@ TEST_CASE("decision bounds are set and respected by every method", "[Optimizatio
     restore_from_tolerance(&opt, tolerance_snapshot);
   }
 
+  // The bounds must hold whether or not the solve succeeds, so success is not checked.
   for (auto method: {OptimizationMethod::with_segments, OptimizationMethod::baseline,
                      OptimizationMethod::with_analytical_pva, OptimizationMethod::with_analytical_dynamics,
                      OptimizationMethod::broadphase, OptimizationMethod::double_broadphase}) {
