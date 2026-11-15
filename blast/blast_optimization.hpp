@@ -130,6 +130,17 @@ struct Optimization {
                                                     // accepted solve has no contact. Must be > 0 (else 1e-3). The default
                                                     // suits tight scenes; smaller values cost convergence
 
+  real min_duration               = 0.01;           // bounds on the trajectory duration T (seconds), the
+  real max_duration               = 30.0;           // last decision variable (see decision_bounds)
+  real control_point_bound_margin = 0.0;            // control points may leave the position limits by this fraction
+                                                    // of each joint's range; raise it (e.g. 0.05) for tasks that must
+                                                    // run close to a limit. See docs/guides/constraints.md
+  bool bound_control_points = true;                 // false: duration bounds only. Set false for continuous-rotation
+                                                    // joints, or when the task needs motion the box prevents
+  int  max_tries = 1;                               // Maximum number of tries in the optimization loop.
+  int  max_eval  = 1000;                            // Maximum number of function evaluations for a single NLopt call.
+  real max_time  = 30.0;                            // Maximum time (seconds) for a single NLopt call.
+
   // --- derived, do not set ---
   real collision_scale = 1.0; // success_tolerance / collision_buffer while tightened, 1 otherwise
   // While tightened, the first/last segment's constraints target what the pinned start [0] / goal [1]
@@ -139,16 +150,13 @@ struct Optimization {
   bool                                          pinned_tightening_active = false;
   std::array<std::array<real, MAX_CAPSULES>, 2> pinned_col_clearance{};
   std::array<real, 2>                           pinned_self_clearance{};
-  int                                           max_tries = 1;                                  // Maximum number of tries in the optimization loop.
-  int                                           max_eval  = 1000;                               // Maximum number of function evaluations for a single NLopt call.
-  real                                          max_time  = 30.0;                               // Maximum time (seconds) for a single NLopt call.
 
   std::array<BoundingVolumeHierarchy<AABBPair>, MAX_CAPSULES> time_bounding_volume_hierarchies; // should be std::array<> ? Never changes size
 
   void* custom_data;
 
-  Array lb;
-  Array ub;
+  Array lower_bounds; // solver bounds of the last solve, filled by decision_bounds
+  Array upper_bounds;
 
   Optimization() = delete;
 

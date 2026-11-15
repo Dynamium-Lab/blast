@@ -137,12 +137,6 @@ inline void initialize_optimization(Optimization* opt) {
     opt->constraints.n_collision_constraints = 0;
   }
 
-  // todo: swap INF for large value
-
-  opt->lb        = Array(opt->x_len(), -HUGE_VAL);
-  opt->ub        = Array(opt->x_len(), HUGE_VAL);
-  opt->lb.back() = 0.1;
-  opt->ub.back() = 60.0;
 
   // Task
   auto task = opt->task;
@@ -187,6 +181,51 @@ struct ToleranceSnapshot {
   real                           base_sphere_radius;
   World                          world;
 };
+
+/**
+ * @brief Fills the solver's bounds on the decision vector [free control points, joint-major,
+ *        (n_ctrl - 6) per joint | T]. Call after tighten_for_success_tolerance().
+ *
+ * T is bounded to [min_duration, max_duration], and the control points to the tightened position
+ * limits widened by control_point_bound_margin of each joint's range; bound_control_points = false
+ * skips the control points. Tasks with NaN entries are not supported.
+ *
+ * @param opt           Optimization with tightened limits.
+ * @param lower_bounds  Out: lower bounds, sized x_len.
+ * @param upper_bounds  Out: upper bounds, sized x_len.
+ */
+inline void decision_bounds(const Optimization* opt, Array& lower_bounds, Array& upper_bounds) {
+  const int n_joints = opt->manip.n_joints;
+  // Stop-to-stop pins 3 control points at each end (position, velocity, acceleration).
+  const int n_free_control_points = (int) opt->bspline.n_ctrl - 6;
+  // todo: fix for NaN in task PVA: each NaN adds a variable, which breaks the control-point indexing below.
+  Assert((int) lower_bounds.size == n_joints * n_free_control_points + 1);
+  for (u32 variable = 0; variable < lower_bounds.size; variable++) {
+    lower_bounds[variable] = -INF_REAL;
+    upper_bounds[variable] = INF_REAL;
+  }
+  lower_bounds.back() = opt->min_duration;
+  upper_bounds.back() = opt->max_duration;
+  if (!opt->bound_control_points)
+    return;
+  // Joints without position limits fall back to ±2π, without margin.
+  for (int joint = 0; joint < n_joints; joint++) {
+    const real position_lower       = std::isfinite(opt->manip.position_min[joint]) ? opt->manip.position_min[joint] : -2 * PI;
+    const real position_upper       = std::isfinite(opt->manip.position_max[joint]) ? opt->manip.position_max[joint] : 2 * PI;
+    const bool has_position_limits  = std::isfinite(opt->manip.position_max[joint] - opt->manip.position_min[joint]);
+    const real control_point_margin = has_position_limits ? opt->control_point_bound_margin * (position_upper - position_lower) : real(0);
+    for (int control_point = 0; control_point < n_free_control_points; control_point++) {
+      lower_bounds[joint * n_free_control_points + control_point] = position_lower - control_point_margin;
+      upper_bounds[joint * n_free_control_points + control_point] = position_upper + control_point_margin;
+    }
+  }
+}
+
+/** @brief Clamps x element-wise into [lower_bounds, upper_bounds]; NLopt refuses a start outside the bounds. */
+inline void clamp_to_bounds(Array& x, const Array& lower_bounds, const Array& upper_bounds) {
+  for (u32 variable = 0; variable < x.size; variable++)
+    x[variable] = std::clamp(x[variable], lower_bounds[variable], upper_bounds[variable]);
+}
 
 /**
  * @brief Sets the clearance targets of the first/last segment's collision constraints to what
@@ -369,6 +408,10 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
   Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
   Array x_tol(n, 0.001);
 
+  opt->lower_bounds = Array(n);
+  opt->upper_bounds = Array(n);
+  decision_bounds(opt, opt->lower_bounds, opt->upper_bounds);
+
 #ifdef BLAST_USE_NATIVE_SQP
   nlopt_stopping stop;
   stop.n          = n;
@@ -385,11 +428,6 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
   stop.force_stop = false;
   stop.stop_msg   = nullptr;
 
-  Array ub(n, INF_REAL);
-  Array lb(n, -INF_REAL);
-  ub.back() = 30.0;
-  lb.back() = 0.01;
-
   nlopt_constraint fc{};
   fc.m      = opt->constraints.n_constraints;
   fc.f      = nullptr;
@@ -404,9 +442,9 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_min_objective(o, objective_function, opt);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_lower_bound(o, (int) n - 1, 0.01);
+  nlopt_res = nlopt_set_lower_bounds(o, opt->lower_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_upper_bound(o, (int) n - 1, 60.0);
+  nlopt_res = nlopt_set_upper_bounds(o, opt->upper_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_ftol_abs(o, 0.0001);
   Assert(nlopt_res == NLOPT_SUCCESS);
@@ -434,7 +472,8 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Initial guess");
 #endif
-      x         = init_guess(opt);
+      x = init_guess(opt);
+      clamp_to_bounds(x, opt->lower_bounds, opt->upper_bounds); // NLopt refuses a start outside the bounds
       result.x0 = x;
     }
 
@@ -455,8 +494,8 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
               &fc,
               0,
               nullptr,
-              lb.data,
-              ub.data,
+              opt->lower_bounds.data,
+              opt->upper_bounds.data,
               x.data,
               &f,
               &stop);
@@ -557,12 +596,6 @@ inline void initialize_optimization_with_segments(Optimization* opt) {
     opt->constraints.n_collision_constraints = 0;
   }
 
-  // todo: swap INF for large value
-
-  opt->lb        = Array(opt->x_len(), -HUGE_VAL);
-  opt->ub        = Array(opt->x_len(), HUGE_VAL);
-  opt->lb.back() = 0.1;
-  opt->ub.back() = 60.0;
 
   // Task
   auto task = opt->task;
@@ -643,6 +676,10 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
   Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
   Array x_tol(n, 0.001);
 
+  opt->lower_bounds = Array(n);
+  opt->upper_bounds = Array(n);
+  decision_bounds(opt, opt->lower_bounds, opt->upper_bounds);
+
 #ifdef BLAST_USE_NATIVE_SQP
   nlopt_stopping stop;
   stop.n          = n;
@@ -659,11 +696,6 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
   stop.force_stop = false;
   stop.stop_msg   = nullptr;
 
-  Array ub(n, INF_REAL);
-  Array lb(n, -INF_REAL);
-  ub.back() = 30.0;
-  lb.back() = 0.01;
-
   nlopt_constraint fc{};
   fc.m      = opt->constraints.n_constraints;
   fc.f      = nullptr;
@@ -678,9 +710,9 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_min_objective(o, objective_function, opt);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_lower_bound(o, (int) n - 1, 0.01);
+  nlopt_res = nlopt_set_lower_bounds(o, opt->lower_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_upper_bound(o, (int) n - 1, 60.0);
+  nlopt_res = nlopt_set_upper_bounds(o, opt->upper_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_ftol_abs(o, 0.0001);
   Assert(nlopt_res == NLOPT_SUCCESS);
@@ -708,7 +740,8 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Initial guess");
 #endif
-      x         = init_guess_segments(opt);
+      x = init_guess_segments(opt);
+      clamp_to_bounds(x, opt->lower_bounds, opt->upper_bounds); // NLopt refuses a start outside the bounds
       result.x0 = x;
     }
 
@@ -730,8 +763,8 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
               &fc,
               0,
               nullptr,
-              lb.data,
-              ub.data,
+              opt->lower_bounds.data,
+              opt->upper_bounds.data,
               x.data,
               &f,
               &stop);
@@ -836,6 +869,10 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
   Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
   Array x_tol(n, 0.001);
 
+  opt->lower_bounds = Array(n);
+  opt->upper_bounds = Array(n);
+  decision_bounds(opt, opt->lower_bounds, opt->upper_bounds);
+
 #ifdef BLAST_USE_NATIVE_SQP
   nlopt_stopping stop;
   stop.n          = n;
@@ -852,11 +889,6 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
   stop.force_stop = false;
   stop.stop_msg   = nullptr;
 
-  Array ub(n, INF_REAL);
-  Array lb(n, -INF_REAL);
-  ub.back() = 30.0;
-  lb.back() = 0.01;
-
   nlopt_constraint fc{};
   fc.m      = opt->constraints.n_constraints;
   fc.f      = nullptr;
@@ -871,9 +903,9 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_min_objective(o, objective_function, opt);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_lower_bound(o, (int) n - 1, 0.01);
+  nlopt_res = nlopt_set_lower_bounds(o, opt->lower_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_upper_bound(o, (int) n - 1, 60.0);
+  nlopt_res = nlopt_set_upper_bounds(o, opt->upper_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_ftol_abs(o, 0.0001);
   Assert(nlopt_res == NLOPT_SUCCESS);
@@ -901,7 +933,8 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Initial guess");
 #endif
-      x         = init_guess_segments(opt);
+      x = init_guess_segments(opt);
+      clamp_to_bounds(x, opt->lower_bounds, opt->upper_bounds); // NLopt refuses a start outside the bounds
       result.x0 = x;
     }
 
@@ -923,8 +956,8 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
               &fc,
               0,
               nullptr,
-              lb.data,
-              ub.data,
+              opt->lower_bounds.data,
+              opt->upper_bounds.data,
               x.data,
               &f,
               &stop);
@@ -1028,6 +1061,10 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
   Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
   Array x_tol(n, 0.001);
 
+  opt->lower_bounds = Array(n);
+  opt->upper_bounds = Array(n);
+  decision_bounds(opt, opt->lower_bounds, opt->upper_bounds);
+
 #ifdef BLAST_USE_NATIVE_SQP
   nlopt_stopping stop;
   stop.n          = n;
@@ -1044,11 +1081,6 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
   stop.force_stop = false;
   stop.stop_msg   = nullptr;
 
-  Array ub(n, INF_REAL);
-  Array lb(n, -INF_REAL);
-  ub.back() = 30.0;
-  lb.back() = 0.01;
-
   nlopt_constraint fc{};
   fc.m      = opt->constraints.n_constraints;
   fc.f      = nullptr;
@@ -1063,9 +1095,9 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_min_objective(o, objective_function, opt);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_lower_bound(o, (int) n - 1, 0.01);
+  nlopt_res = nlopt_set_lower_bounds(o, opt->lower_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_upper_bound(o, (int) n - 1, 60.0);
+  nlopt_res = nlopt_set_upper_bounds(o, opt->upper_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_ftol_abs(o, 0.0001);
   Assert(nlopt_res == NLOPT_SUCCESS);
@@ -1093,7 +1125,8 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Initial guess");
 #endif
-      x         = init_guess_segments(opt);
+      x = init_guess_segments(opt);
+      clamp_to_bounds(x, opt->lower_bounds, opt->upper_bounds); // NLopt refuses a start outside the bounds
       result.x0 = x;
     }
 
@@ -1115,8 +1148,8 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
               &fc,
               0,
               nullptr,
-              lb.data,
-              ub.data,
+              opt->lower_bounds.data,
+              opt->upper_bounds.data,
               x.data,
               &f,
               &stop);
@@ -1220,6 +1253,10 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
   Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
   Array x_tol(n, 0.001);
 
+  opt->lower_bounds = Array(n);
+  opt->upper_bounds = Array(n);
+  decision_bounds(opt, opt->lower_bounds, opt->upper_bounds);
+
 #ifdef BLAST_USE_NATIVE_SQP
   nlopt_stopping stop;
   stop.n          = n;
@@ -1236,11 +1273,6 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
   stop.force_stop = false;
   stop.stop_msg   = nullptr;
 
-  Array ub(n, INF_REAL);
-  Array lb(n, -INF_REAL);
-  ub.back() = 60.0;
-  lb.back() = 0.01;
-
   nlopt_constraint fc{};
   fc.m      = opt->constraints.n_constraints;
   fc.f      = nullptr;
@@ -1255,9 +1287,9 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_min_objective(o, objective_function, opt);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_lower_bound(o, (int) n - 1, 0.01);
+  nlopt_res = nlopt_set_lower_bounds(o, opt->lower_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_upper_bound(o, (int) n - 1, 60.0);
+  nlopt_res = nlopt_set_upper_bounds(o, opt->upper_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_ftol_abs(o, 0.0001);
   Assert(nlopt_res == NLOPT_SUCCESS);
@@ -1285,7 +1317,8 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Initial guess");
 #endif
-      x         = init_guess(opt);
+      x = init_guess(opt);
+      clamp_to_bounds(x, opt->lower_bounds, opt->upper_bounds); // NLopt refuses a start outside the bounds
       result.x0 = x;
     }
 
@@ -1306,8 +1339,8 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
               &fc,
               0,
               nullptr,
-              lb.data,
-              ub.data,
+              opt->lower_bounds.data,
+              opt->upper_bounds.data,
               x.data,
               &f,
               &stop);
@@ -1409,6 +1442,10 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
   Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
   Array x_tol(n, 0.001);
 
+  opt->lower_bounds = Array(n);
+  opt->upper_bounds = Array(n);
+  decision_bounds(opt, opt->lower_bounds, opt->upper_bounds);
+
 #ifdef BLAST_USE_NATIVE_SQP
   nlopt_stopping stop;
   stop.n          = n;
@@ -1425,11 +1462,6 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
   stop.force_stop = false;
   stop.stop_msg   = nullptr;
 
-  Array ub(n, INF_REAL);
-  Array lb(n, -INF_REAL);
-  ub.back() = 60.0;
-  lb.back() = 0.01;
-
   nlopt_constraint fc{};
   fc.m      = opt->constraints.n_constraints;
   fc.f      = nullptr;
@@ -1444,9 +1476,9 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_min_objective(o, objective_function, opt);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_lower_bound(o, (int) n - 1, 0.01);
+  nlopt_res = nlopt_set_lower_bounds(o, opt->lower_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
-  nlopt_res = nlopt_set_upper_bound(o, (int) n - 1, 60.0);
+  nlopt_res = nlopt_set_upper_bounds(o, opt->upper_bounds.data);
   Assert(nlopt_res == NLOPT_SUCCESS);
   nlopt_res = nlopt_set_ftol_abs(o, 0.0001);
   Assert(nlopt_res == NLOPT_SUCCESS);
@@ -1474,7 +1506,8 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Initial guess");
 #endif
-      x         = init_guess(opt);
+      x = init_guess(opt);
+      clamp_to_bounds(x, opt->lower_bounds, opt->upper_bounds); // NLopt refuses a start outside the bounds
       result.x0 = x;
     }
 
@@ -1495,8 +1528,8 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
               &fc,
               0,
               nullptr,
-              lb.data,
-              ub.data,
+              opt->lower_bounds.data,
+              opt->upper_bounds.data,
               x.data,
               &f,
               &stop);
