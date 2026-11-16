@@ -19,6 +19,9 @@ inline blast::Task make_UR5e_task() {
 // nlopt's own feasibility tolerance AND into the post-solve success gate, so a large value
 // could let the trajectory penetrate an obstacle by up to success_tolerance world-units.
 TEST_CASE("large success_tolerance does not allow real constraint violation", "[Optimization]") {
+  const auto method = GENERATE(OptimizationMethod::with_segments, OptimizationMethod::broadphase,
+                               OptimizationMethod::double_broadphase);
+  INFO("method " << (int) method);
   Manipulator robot = make_UR5e();
   Task        task  = make_UR5e_task();
 
@@ -30,7 +33,9 @@ TEST_CASE("large success_tolerance does not allow real constraint violation", "[
   );
 
   Optimization opt(robot, task); // default enables pva + tool_speed constraints
-  opt.world = world;
+  opt.world  = world;
+  opt.method = method;
+  create_static_bounding_volume_hierarchy(opt.world, opt.world.static_bounding_volume_hierarchy); // the broadphase methods read it; the caller builds it
 
   opt.constraints.torque              = true;
   opt.constraints.self_collisions     = true; // avoid self-contact

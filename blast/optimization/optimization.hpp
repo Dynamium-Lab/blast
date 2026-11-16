@@ -137,6 +137,12 @@ inline void initialize_optimization(Optimization* opt) {
     opt->constraints.n_collision_constraints = 0;
   }
 
+  // todo: swap INF for large value
+
+  opt->lower_bounds        = Array(opt->x_len(), -HUGE_VAL);
+  opt->upper_bounds        = Array(opt->x_len(), HUGE_VAL);
+  opt->lower_bounds.back() = 0.1;
+  opt->upper_bounds.back() = 60.0;
 
   // Task
   auto task = opt->task;
@@ -364,6 +370,12 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
       capsule.radius += half_collision_buffer;
   for (auto& door: opt->world.dynamic_doors)
     door.extents += Vec3(half_collision_buffer, half_collision_buffer, half_collision_buffer);
+
+  // A caller-built static BVH holds the uninflated AABBs, so the broadphase methods would prune
+  // obstacles inside collision_buffer. Rebuilt on the inflated world; restore_from_tolerance puts
+  // the caller's back with the rest of the world.
+  if (opt->world.static_bounding_volume_hierarchy.num_objects > 0)
+    create_static_bounding_volume_hierarchy(opt->world, opt->world.static_bounding_volume_hierarchy);
 
   set_pinned_col_clearances(opt);
   opt->pinned_tightening_active = true;
@@ -988,7 +1000,7 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
       auto max_con                = max(constraints_points);
       result.max_constraint_idx   = argmax(constraints_points);
       result.max_constraint_value = max_con;
-      is_valid                    = max_con < opt->success_tolerance * 2;
+      is_valid                    = max_con < opt->success_tolerance;
     }
 
     {
@@ -1016,7 +1028,8 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
 
       if (is_valid && is_valid_more) {
         result.trajectory = bspline_val_more.traj;
-        // break;
+        try_count++; // count this try before breaking, so num_tries reports tries made
+        break;
       } else if (opt->guess.type != Guess::random && try_count == 0) {
         opt->guess.type = Guess::random;
       }
@@ -1182,7 +1195,7 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
       auto max_con                = max(constraints_points);
       result.max_constraint_idx   = argmax(constraints_points);
       result.max_constraint_value = max_con;
-      is_valid                    = max_con < opt->success_tolerance * 2;
+      is_valid                    = max_con < opt->success_tolerance;
     }
 
     {
@@ -1210,7 +1223,8 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
 
       if (is_valid && is_valid_more) {
         result.trajectory = bspline_val_more.traj;
-        // break;
+        try_count++; // count this try before breaking, so num_tries reports tries made
+        break;
       } else if (opt->guess.type != Guess::random && try_count == 0) {
         opt->guess.type = Guess::random;
       }

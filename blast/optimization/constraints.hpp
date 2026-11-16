@@ -941,6 +941,10 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
     std::array<PositionConstraintParams, MAX_JOINTS> pos_params;
     for (int j = 0; j < n_joints; j++)
       pos_params[j] = position_constraint_params(opt, j, segment, n_segments);
+    const auto                                          self_coll_params = self_collision_constraint_params(opt, segment, n_segments);
+    std::array<CollisionConstraintParams, MAX_CAPSULES> ext_coll_params;
+    for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++)
+      ext_coll_params[capsule_id] = ext_collision_constraint_params(opt, segment, n_segments, capsule_id);
 
     Array max_pos_constraints(n_joints, -INF_REAL);
     Array max_vel_constraints(n_joints, -INF_REAL);
@@ -1032,7 +1036,7 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
           PROFILE_SCOPE("Self Constraints");
 #endif
           // check every internal collision
-          if (const auto c = max(-get_internal_collisions(opt.manip, manip_data)) * opt.collision_scale; // negative distance is positive constraint
+          if (const auto c = -(min(get_internal_collisions(opt.manip, manip_data)) + self_coll_params.shift) * self_coll_params.scale; // negative distance is positive constraint
               c > max_internal_col_constraints) {
             max_internal_col_constraints = c;
             max_internal_collision_index = point_in_segment;
@@ -1071,10 +1075,10 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
             }
 
             if (dist_min_static <= dist_min_dynamic) {
-              dist_min         = -dist_min_static * opt.collision_scale; // negative distance is positive constraint
+              dist_min         = -(dist_min_static + ext_coll_params[capsule_id].shift) * ext_coll_params[capsule_id].scale; // negative distance is positive constraint
               collision_object = &collision_object_static;
             } else {
-              dist_min         = -dist_min_dynamic * opt.collision_scale;
+              dist_min         = -(dist_min_dynamic + ext_coll_params[capsule_id].shift) * ext_coll_params[capsule_id].scale;
               collision_object = &collision_object_dynamic;
             }
 
@@ -1397,7 +1401,7 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
           // recompute internal collisions at the worst point in segment
           forward_kinematics(opt.manip, manip_data, p_plus);
           compute_collision_model(opt.manip, manip_data);
-          const auto new_internal_collision_constraint = max(-get_internal_collisions(opt.manip, manip_data)) * opt.collision_scale; // negative distance is positive constraint
+          const auto new_internal_collision_constraint = -(min(get_internal_collisions(opt.manip, manip_data)) + self_coll_params.shift) * self_coll_params.scale; // negative distance is positive constraint
           // partial difference d(internal_collision)/dp
           const real dint_coll_dp = (new_internal_collision_constraint - max_internal_col_constraints) / eps;
 
@@ -1460,7 +1464,7 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
               }
             }
 
-            distance_plus = -distance_plus * opt.collision_scale; // negative distance is positive constraint
+            distance_plus = -(distance_plus + ext_coll_params[capsule_id].shift) * ext_coll_params[capsule_id].scale; // negative distance is positive constraint
 
             // partial difference d(collision)/dp
             const real dcoll_dp = (distance_plus - max_col_constraints[capsule_id]) / eps;
@@ -1545,6 +1549,10 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
     std::array<PositionConstraintParams, MAX_JOINTS> pos_params;
     for (int j = 0; j < n_joints; j++)
       pos_params[j] = position_constraint_params(opt, j, segment, n_segments);
+    const auto                                          self_coll_params = self_collision_constraint_params(opt, segment, n_segments);
+    std::array<CollisionConstraintParams, MAX_CAPSULES> ext_coll_params;
+    for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++)
+      ext_coll_params[capsule_id] = ext_collision_constraint_params(opt, segment, n_segments, capsule_id);
 
     Array max_pos_constraints(n_joints, -INF_REAL);
     Array max_vel_constraints(n_joints, -INF_REAL);
@@ -1636,7 +1644,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
           PROFILE_SCOPE("Self Constraints");
 #endif
           // check every internal collision
-          if (const auto c = max(-get_internal_collisions(opt.manip, manip_data)) * opt.collision_scale; // negative distance is positive constraint
+          if (const auto c = -(min(get_internal_collisions(opt.manip, manip_data)) + self_coll_params.shift) * self_coll_params.scale; // negative distance is positive constraint
               c > max_internal_col_constraints) {
             max_internal_col_constraints = c;
             max_internal_collision_index = point_in_segment;
@@ -1681,10 +1689,10 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
 
         // add constraint
         if (dist_min_static <= dist_min_dynamic) {
-          max_col_constraints[capsule_id]    = -dist_min_static * opt.collision_scale; // negative distance is positive constraint
+          max_col_constraints[capsule_id]    = -(dist_min_static + ext_coll_params[capsule_id].shift) * ext_coll_params[capsule_id].scale; // negative distance is positive constraint
           max_collision_entities[capsule_id] = collision_object_static;
         } else {
-          max_col_constraints[capsule_id]    = -dist_min_dynamic * opt.collision_scale;
+          max_col_constraints[capsule_id]    = -(dist_min_dynamic + ext_coll_params[capsule_id].shift) * ext_coll_params[capsule_id].scale;
           max_collision_entities[capsule_id] = collision_object_dynamic;
         }
       }
@@ -2000,7 +2008,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
           // recompute internal collisions at the worst point in segment
           forward_kinematics(opt.manip, manip_data, p_plus);
           compute_collision_model(opt.manip, manip_data);
-          const auto new_internal_collision_constraint = max(-get_internal_collisions(opt.manip, manip_data)) * opt.collision_scale; // negative distance is positive constraint
+          const auto new_internal_collision_constraint = -(min(get_internal_collisions(opt.manip, manip_data)) + self_coll_params.shift) * self_coll_params.scale; // negative distance is positive constraint
           // partial difference d(internal_collision)/dp
           const real dint_coll_dp = (new_internal_collision_constraint - max_internal_col_constraints) / eps;
 
@@ -2063,7 +2071,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
               }
             }
 
-            distance_plus = -distance_plus * opt.collision_scale; // negative distance is positive constraint
+            distance_plus = -(distance_plus + ext_coll_params[capsule_id].shift) * ext_coll_params[capsule_id].scale; // negative distance is positive constraint
 
             // partial difference d(collision)/dp
             const real dcoll_dp = (distance_plus - max_col_constraints[capsule_id]) / eps;
@@ -2159,7 +2167,7 @@ inline blast_fn void nlopt_constraints_with_double_broadphase(unsigned m, real* 
   }
 }
 
-inline blast_fn void compute_constraints(real* result, const Array& x, Optimization* opt) {
+inline blast_fn void compute_constraints(real* result, Array& x, Optimization* opt) {
 #if BLAST_TRACE_LEVEL >= 2
   PROFILE_FUNCTION;
 #endif
@@ -2330,16 +2338,19 @@ inline blast_fn void compute_constraints(real* result, const Array& x, Optimizat
         *moving_result++ = max_col_constraints[j];
     }
   }
-  //   {
-  // #if BLAST_TRACE_LEVEL >= 3
-  //     PROFILE_SCOPE("CustomConstraints");
-  // #endif
-  //     for (u32 i = 0; i < opt->constraints.extra_constraints.size(); i++) { // todo: split in extra_constraint per point or once
-  //       auto extra_constraint = opt->constraints.extra_constraints[i];
-  //       extra_constraint(moving_result, opt);
-  //       moving_result += opt->constraints.n_extra_constraints[i];
-  //     }
-  //   }
+  {
+#if BLAST_TRACE_LEVEL >= 3
+    PROFILE_SCOPE("CustomConstraints");
+#endif
+    for (u32 i = 0; i < opt->constraints.extra_constraints.size(); i++) { // todo: split in extra_constraint per point or once
+      auto extra_constraint        = opt->constraints.extra_constraints[i];
+      auto extra_constraint_result = extra_constraint(opt, &x);
+      for (int j = 0; j < extra_constraint_result.size; j++) {
+        moving_result[i] = extra_constraint_result[j];
+      }
+      moving_result += opt->constraints.n_extra_constraints[i];
+    }
+  }
 }
 
 inline blast_fn void nlopt_constraints(unsigned m, real* result, unsigned x_len, const real* x, real* grad, void* f_data) {
@@ -2514,16 +2525,17 @@ inline blast_fn bool validate_task(Optimization* opt) {
     }
   }
 
-  for (u32 i = 0; i < constraints.extra_constraints.size(); i++) { // todo: split in extra_constraint per point or once
-    Array moving_result(constraints.n_extra_constraints[i]);
-    auto  extra_constraint = constraints.extra_constraints[i];
-    Array extra_result(constraints.n_extra_constraints[i]);
-    extra_constraint(extra_result.data, opt);
-    if (max(extra_result) > 0) {
-      std::cout << "Extra constraint " << i + 1 << " inadmissible at start/end position." << std::endl;
-      return false;
-    }
-  }
+  // todo: Figure out how to make this work with unknown x
+  // for (u32 i = 0; i < constraints.extra_constraints.size(); i++) { // todo: split in extra_constraint per point or once
+  //   Array moving_result(constraints.n_extra_constraints[i]);
+  //   auto  extra_constraint = constraints.extra_constraints[i];
+  //   Array extra_result(constraints.n_extra_constraints[i]);
+  //   extra_result = extra_constraint(opt, x);
+  //   if (max(extra_result) > 0) {
+  //     std::cout << "Extra constraint " << i + 1 << " inadmissible at start/end position." << std::endl;
+  //     return false;
+  //   }
+  // }
   return true;
 }
 
@@ -3053,12 +3065,13 @@ blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& 
 #if BLAST_TRACE_LEVEL >= 3
     ZoneScopedN("CustomConstraints");
 #endif
-    for (u32 i = 0; i < opt->constraints.extra_constraints.size(); i++) {
-      auto extra_constraint = opt->constraints.extra_constraints[i];
-      extra_constraint(moving_result, opt);
-      moving_result += opt->constraints.n_extra_constraints[i];
-      grad_idx += opt->constraints.n_extra_constraints[i]; // todo: add analytical gradients
-    }
+    // todo: Reactivate
+    // for (u32 i = 0; i < opt->constraints.extra_constraints.size(); i++) {
+    //   auto extra_constraint = opt->constraints.extra_constraints[i];
+    //   extra_constraint(moving_result, opt);
+    //   moving_result += opt->constraints.n_extra_constraints[i];
+    //   grad_idx += opt->constraints.n_extra_constraints[i]; // todo: add analytical gradients
+    // }
   }
 }
 
