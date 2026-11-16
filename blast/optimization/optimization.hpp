@@ -137,6 +137,12 @@ inline void initialize_optimization(Optimization* opt) {
     opt->constraints.n_collision_constraints = 0;
   }
 
+  // todo: swap INF for large value
+
+  opt->lower_bounds        = Array(opt->x_len(), -HUGE_VAL);
+  opt->upper_bounds        = Array(opt->x_len(), HUGE_VAL);
+  opt->lower_bounds.back() = 0.1;
+  opt->upper_bounds.back() = 60.0;
 
   // Task
   auto task = opt->task;
