@@ -794,7 +794,6 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Solution validation (more points)");
 #endif
-#ifndef BLAST_SKIP_DENSE_VALIDATION
       u64 steps_ms    = (u64) (ceil(x.back() * 1e3 / output_steps_ms));
       x.back()        = (real) (ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
       int points_more = (int) (steps_ms + 1);
@@ -815,9 +814,7 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
       result.x = x;
 
       if (is_valid && is_valid_more) {
-#ifndef BLAST_SKIP_DENSE_VALIDATION
         result.trajectory = bspline_val_more.traj;
-#endif
         try_count++; // count this try before breaking, so num_tries reports tries made
         break;
       } else if (opt->guess.type != Guess::random && try_count == 0) {
