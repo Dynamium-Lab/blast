@@ -59,8 +59,8 @@ struct ManipulatorKinematics {
   std::array<Vec3, MAX_JOINTS>     joint_offsets;                                      // vector to next joint
   std::array<Vec3, MAX_JOINTS>     joint_axes;                                         // direction vectors of joint
   std::array<Mat3, MAX_JOINTS + 1> static_rotations;                                   // static rotation to next joint
-  Vec3                             base_position        = {0.0, 0.0, 0.0};             // base position in workspace
-  Vec3                             first_joint_position = {0.0, 0.0, 0.0};             // position of the first joint relative to base
+  Vec3                             base_position        = {0, 0, 0};                   // base position in workspace
+  Vec3                             first_joint_position = {0, 0, 0};                   // position of the first joint relative to base
   Mat3                             base_rotation        = {1, 0, 0, 0, 1, 0, 0, 0, 1}; // base orientation in workspace
 };
 
@@ -106,11 +106,11 @@ struct ManipulatorCapsules {
  * @var collision_model Point cloud collision model for the payload.
  */
 struct Payload {
-  Vec3 position = {0.0, 0.0, 0.0};
+  Vec3 position = {0, 0, 0};
   Mat3 rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  real mass     = 0.0;
+  real mass     = 0;
   Mat3 inertia_tensor;
-  Vec3 cog_offset = {0.0, 0.0, 0.0}; // center of gravity offset
+  Vec3 cog_offset = {0, 0, 0}; // center of gravity offset
 
   PointCloud collision_model;
 };
@@ -178,7 +178,7 @@ struct Manipulator {
   std::array<real, MAX_JOINTS> jerk_max{};
   std::array<real, MAX_JOINTS> torque_max{};
 
-  real tool_speed_max = 0.0; // max Tool speed
+  real tool_speed_max = 0; // max Tool speed
 
   // World‐frame base pose
   Vec3 base_position = {0, 0, 0};

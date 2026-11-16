@@ -11,7 +11,9 @@
 // Run:
 //   ./build/examples/example_02_trajectory_optimization
 
+#ifndef BLAST_USE_NATIVE_SQP
 #define BLAST_USE_NATIVE_SQP // use the built-in SQP solver (no extra install required)
+#endif
 
 #include <blast>
 #include <iostream>
@@ -62,7 +64,7 @@ int main() {
 
   // Allow up to a small relative violation before declaring failure
   // (0.01 = 1 % of the constraint bound).
-  opt.success_tolerance = 0.01;
+  opt.success_tolerance = (real) 0.01;
 
   // -----------------------------------------------------------------------
   // Step 5 — Configure the initial guess strategy.

@@ -14,17 +14,17 @@ using namespace blast;
 constexpr real finite_difference_step      = 1e-6;
 constexpr real finite_difference_tolerance = 1e-3;
 #else
-constexpr real finite_difference_step      = 1e-3;
-constexpr real finite_difference_tolerance = 1e-1;
+constexpr real finite_difference_step      = (real) 1e-3;
+constexpr real finite_difference_tolerance = (real) 1e-1;
 #endif
 
 using ConstraintsAndGradientsFunction = void (*)(const Array&, Optimization&, Array&, Matrix&);
 
 static World capsule_world() {
   World world;
-  world.add_capsule({Vec3{0.35, 0.25, 0.35}, Vec3{0.35, 0.25, 0.55}, 0.06});
-  world.add_capsule({Vec3{-0.3, 0.45, 0.30}, Vec3{-0.1, 0.45, 0.30}, 0.05});
-  world.add_capsule({Vec3{0.1, -0.4, 0.5}, Vec3{0.1, -0.4, 0.7}, 0.07});
+  world.add_capsule({Vec3{(real) 0.35, (real) 0.25, (real) 0.35}, Vec3{(real) 0.35, (real) 0.25, (real) 0.55}, (real) 0.06});
+  world.add_capsule({Vec3{-(real) 0.3, (real) 0.45, (real) 0.30}, Vec3{-(real) 0.1, (real) 0.45, (real) 0.30}, (real) 0.05});
+  world.add_capsule({Vec3{(real) 0.1, -(real) 0.4, (real) 0.5}, Vec3{(real) 0.1, -(real) 0.4, (real) 0.7}, (real) 0.07});
   return world;
 }
 
@@ -43,11 +43,11 @@ static void check_gradients(ConstraintsAndGradientsFunction constraints_and_grad
 
   const u32                      n_variables = opt.bspline.x_len(opt.task), n_constraints = opt.constraints.n_constraints;
   std::mt19937                   random_engine(7);
-  std::normal_distribution<real> noise(0, 0.3);
+  std::normal_distribution<real> noise(0, (real) 0.3);
   int                            mismatched = 0, checked = 0;
   for (int trial = 0; trial < 10; trial++) {
     Array x  = blast::guess_straight_line(&opt);
-    x.back() = 1.0 + 0.2 * trial;
+    x.back() = 1 + (real) 0.2 * (real) trial;
     for (u32 variable = 0; variable + 1 < n_variables; variable++)
       x[variable] += noise(random_engine);
     Array  constraints(n_constraints);
@@ -95,11 +95,11 @@ TEST_CASE("analytical_dynamics collision gradients against world capsules match 
 
   const u32                      n_variables = opt.bspline.x_len(opt.task), n_constraints = opt.constraints.n_constraints;
   std::mt19937                   random_engine(7);
-  std::normal_distribution<real> noise(0, 0.3);
+  std::normal_distribution<real> noise(0, (real) 0.3);
   int                            mismatched = 0, checked = 0;
   for (int trial = 0; trial < 10; trial++) {
     Array x  = blast::guess_straight_line(&opt);
-    x.back() = 1.0 + 0.2 * trial;
+    x.back() = 1 + (real) 0.2 * (real) trial;
     for (u32 variable = 0; variable + 1 < n_variables; variable++)
       x[variable] += noise(random_engine);
     Array constraints(n_constraints), gradient(n_constraints * n_variables); // NLopt layout: gradient[row * n_variables + variable]

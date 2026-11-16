@@ -9,7 +9,7 @@ Trajectory compute_5order_trajectory(real T, Matrix& task) {
   Trajectory result(points, joints);
 
   const real delta_T = (real) 0.001;
-  T                  = (points - 1) * delta_T;
+  T                  = (real) (points - 1) * delta_T;
 
   Matrix A(6, joints);
 
@@ -36,7 +36,7 @@ Trajectory compute_5order_trajectory(real T, Matrix& task) {
     const auto s3 = s2 * s;
     const auto s4 = s3 * s;
     const auto s5 = s4 * s;
-    result.t[i]   = i * delta_T;
+    result.t[i]   = (real) i * delta_T;
     for (u32 j = 0; j < joints; j++) {
       const auto a = &A(0, j);
 

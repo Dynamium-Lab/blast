@@ -32,8 +32,8 @@ static_assert(sizeof(real) == BLAST_SIZEOF_REAL);
 
 // Constants
 constexpr u32  ALIGN         = 64;
-constexpr real BLAST_EPSILON = 0.00001; // default tolerance for is_close / is_small / operator==
-constexpr real PI            = 3.141592653589793;
+constexpr real BLAST_EPSILON = (real) 0.00001; // default tolerance for is_close / is_small / operator==
+constexpr real PI            = (real) 3.141592653589793;
 
 // Precision-aware tolerances. blast::real may be float (machine eps ~1.2e-7) or
 // double (~2.2e-16). Constants tuned for double fall below float's resolution and
@@ -48,8 +48,8 @@ constexpr real BLAST_GJK_EPSILON_SQ   = 1e-14;
 constexpr real BLAST_GEOMETRY_EPSILON = 1e-6f;
 constexpr real BLAST_SOLVER_TOL       = 1e-5f;
 constexpr real BLAST_FD_STEP          = 3e-4f;
-constexpr real BLAST_GJK_EPSILON      = 1e-4;
-constexpr real BLAST_GJK_EPSILON_SQ   = 1e-9;
+constexpr real BLAST_GJK_EPSILON      = (real) 1e-4;
+constexpr real BLAST_GJK_EPSILON_SQ   = (real) 1e-9;
 #endif
 #ifdef __CUDA_ARCH__
 #if BLAST_USE_DOUBLES

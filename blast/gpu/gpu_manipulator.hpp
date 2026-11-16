@@ -30,7 +30,7 @@ struct cuGen3MultiTraj {
   // HOST
   //----------
 
-  host_fn cuGen3MultiTraj(u32 points, u32 trajs = 1, real mass = 0.0);
+  host_fn cuGen3MultiTraj(u32 points, u32 trajs = 1, real mass = 0);
 
   // note: copy constructor creates an alias
   host_fn cuGen3MultiTraj(const cuGen3MultiTraj& other) {
@@ -95,12 +95,12 @@ host_fn void cuGen3MultiTraj::_init(real mass) {
 
   // inertial tensor
   I[0] = {(real) 0.004570, (real) 0.000001, (real) 0.000002, (real) 0.000001, (real) 0.004831, (real) 0.000448, (real) 0.000002, (real) 0.000448, (real) 0.001409};
-  I[1] = {(real) 0.011088, (real) 0.000005, (real) 0, (real) 0.000005, (real) 0.001072, (real) 0.000691, (real) 0, (real) 0.000691, (real) 0.011255};
-  I[2] = {(real) 0.010932, (real) 0, (real) 0.000007, (real) 0, (real) 0.011127, (real) 0.000606, (real) 0.000007, (real) 0.000606, (real) 0.001043};
-  I[3] = {(real) 0.008147, (real) 0.000001, (real) 0, (real) 0.000001, (real) 0.000631, (real) 0.000500, (real) 0, (real) 0.000500, (real) 0.008316};
-  I[4] = {(real) 0.001596, (real) 0, (real) 0, (real) 0, (real) 0.001607, (real) 0.000256, (real) 0, (real) 0.000256, (real) 0.000399};
-  I[5] = {(real) 0.001641, (real) 0, (real) 0, (real) 0, (real) 0.000410, (real) 0.000278, (real) 0, (real) 0.000278, (real) 0.001641};
-  I[6] = {(real) 0.000214, (real) 0, (real) 0.000001, (real) 0, (real) 0.000223, (real) 0.000002, (real) 0.000001, (real) 0.000002, (real) 0.000240};
+  I[1] = {(real) 0.011088, (real) 0.000005, 0, (real) 0.000005, (real) 0.001072, (real) 0.000691, 0, (real) 0.000691, (real) 0.011255};
+  I[2] = {(real) 0.010932, 0, (real) 0.000007, 0, (real) 0.011127, (real) 0.000606, (real) 0.000007, (real) 0.000606, (real) 0.001043};
+  I[3] = {(real) 0.008147, (real) 0.000001, 0, (real) 0.000001, (real) 0.000631, (real) 0.000500, 0, (real) 0.000500, (real) 0.008316};
+  I[4] = {(real) 0.001596, 0, 0, 0, (real) 0.001607, (real) 0.000256, 0, (real) 0.000256, (real) 0.000399};
+  I[5] = {(real) 0.001641, 0, 0, 0, (real) 0.000410, (real) 0.000278, 0, (real) 0.000278, (real) 0.001641};
+  I[6] = {(real) 0.000214, 0, (real) 0.000001, 0, (real) 0.000223, (real) 0.000002, (real) 0.000001, (real) 0.000002, (real) 0.000240};
 
   // center of mass
   av[0] = {-(real) 0.000023, -(real) 0.010364, -(real) 0.073360};
@@ -114,13 +114,13 @@ host_fn void cuGen3MultiTraj::_init(real mass) {
   av[6] = ((real) 0.364 * av[6] + (real) 0.921 * av_tool) * (1 / ((real) 0.364 + (real) 0.921));
 
   // vector to next joint
-  dv[0] = {(real) 0, (real) 0.0054, -(real) 0.1284};
-  dv[1] = {(real) 0, -(real) 0.2104, -(real) 0.0064};
-  dv[2] = {(real) 0, -(real) 0.0064, -(real) 0.2104};
-  dv[3] = {(real) 0, -(real) 0.2084, -(real) 0.0064};
-  dv[4] = {(real) 0, (real) 0, -(real) 0.1059};
-  dv[5] = {(real) 0, -(real) 0.1059, (real) 0};
-  dv[6] = {(real) 0, (real) 0, -(real) 0.0615 - (real) 0.164};
+  dv[0] = {0, (real) 0.0054, -(real) 0.1284};
+  dv[1] = {0, -(real) 0.2104, -(real) 0.0064};
+  dv[2] = {0, -(real) 0.0064, -(real) 0.2104};
+  dv[3] = {0, -(real) 0.2084, -(real) 0.0064};
+  dv[4] = {0, 0, -(real) 0.1059};
+  dv[5] = {0, -(real) 0.1059, 0};
+  dv[6] = {0, 0, -(real) 0.0615 - (real) 0.164};
 
   // center of mass (from next joint)
   sv[0] = dv[0] - av[0];

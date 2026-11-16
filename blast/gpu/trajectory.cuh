@@ -163,8 +163,8 @@ host_fn void cuMultiBsplines::compute_control(const Array& x, const Matrix& task
   for (int i = 0; i < ntrajectories; i++) {
     const auto T   = x[i * xlen + xlen - 1];
     dt[i]          = T / (real) (points - 1);
-    one_over_T[i]  = 1.0 / T;
-    one_over_T2[i] = 1.0 / (T * T);
+    one_over_T[i]  = 1 / T;
+    one_over_T2[i] = 1 / (T * T);
     const Array x_i(x.data + i * xlen, xlen);
     Assert(x_i.is_alias);
     auto dst = control + i * joints * ncontrol;

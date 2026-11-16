@@ -205,36 +205,36 @@ inline blast_fn TwoPts closest_points(Segment segment1, Segment segment2) {
   }
   if (a <= COLLISION_EPSILON) {
     // First segment degenerates into a point
-    s = (real) 0;
+    s = 0;
     t = f / e; // s = 0 => t = (b*s + f) / e = f / e
-    t = clamp(t, (real) 0, (real) 1);
+    t = clamp(t, 0, 1);
   } else {
     real c = dot(d1, r);
     if (e <= COLLISION_EPSILON) {
       // Second segment degenerates into a point
-      t = (real) 0;
-      s = clamp(-c / a, (real) 0, (real) 1); // t = 0 => s = (b*t - c) / a = -c / a
+      t = 0;
+      s = clamp(-c / a, 0, 1); // t = 0 => s = (b*t - c) / a = -c / a
     } else {
       // The general nondegenerate case starts here
       real b = dot(d1, d2);
       // If segments not parallel, compute the closest point on L1 to L2 and
       // clamp to segment S1. Else pick arbitrary s (here 0)
-      if (real denominator = a * e - b * b; denominator != (real) 0) {
-        s = clamp((b * f - c * e) / denominator, (real) 0, (real) 1);
+      if (real denominator = a * e - b * b; denominator != 0) {
+        s = clamp((b * f - c * e) / denominator, 0, 1);
       } else
-        s = (real) 0;
+        s = 0;
       // Compute point on L2 closest to S1(s) using
       // t = Dot((P1 + D1*s) - P2,D2) / Dot(D2,D2) = (b*s + f) / e
       t = (b * s + f) / e;
       // If t in [0,1] done. Else clamp t, recompute s for the new value
       // of t using s = Dot((P2 + D2*t) - P1,D1) / Dot(D1,D1)= (t*b - c) / a
       // and clamp s to [0, 1]
-      if (t < (real) 0) {
-        t = (real) 0;
-        s = clamp(-c / a, (real) 0, (real) 1);
-      } else if (t > (real) 1) {
-        t = (real) 1;
-        s = clamp((b - c) / a, (real) 0, (real) 1);
+      if (t < 0) {
+        t = 0;
+        s = clamp(-c / a, 0, 1);
+      } else if (t > 1) {
+        t = 1;
+        s = clamp((b - c) / a, 0, 1);
       }
     }
   }
@@ -558,7 +558,7 @@ inline blast_fn Array test_collisions(const ObjMatrix<Capsule>& robot_capsules, 
   real  dist;
 
   u32  n_pts     = (u32) (robot_capsules).cols;
-  real time_step = n_pts == 1 ? 0 : (end_time - start_time) / (n_pts - 1); // if only one point, p stays 0 and time_step has no meaning anyways
+  real time_step = n_pts == 1 ? 0 : (end_time - start_time) / (real) (n_pts - 1); // if only one point, p stays 0 and time_step has no meaning anyways
 
   {
     blast_time_block("External Collision Constraints : Static");
@@ -612,7 +612,7 @@ inline blast_fn Array test_collisions(const ObjMatrix<Capsule>& robot_capsules, 
     for (int p = 0; p < n_pts; p++) {
       // --- Dynamic tests ---
       for (const auto& box: world->dynamic_boxes) {
-        auto current_box = box.lookup(start_time + time_step * p);
+        auto current_box = box.lookup(start_time + time_step * (real) p);
         for (int c = 0; c < robot_capsules.rows; c++) {
           dist = distance(robot_capsules(c, p), current_box);
           for (u32 j = 0; j < n_lowest_distances; j++) {
@@ -628,7 +628,7 @@ inline blast_fn Array test_collisions(const ObjMatrix<Capsule>& robot_capsules, 
       }
 
       for (const auto& caps: world->dynamic_capsules) {
-        auto current_caps = caps.lookup(start_time + time_step * p);
+        auto current_caps = caps.lookup(start_time + time_step * (real) p);
         for (int c = 0; c < robot_capsules.rows; c++) {
           dist = distance(robot_capsules(c, p), current_caps);
           for (u32 j = 0; j < n_lowest_distances; j++) {
@@ -644,7 +644,7 @@ inline blast_fn Array test_collisions(const ObjMatrix<Capsule>& robot_capsules, 
       }
 
       for (const auto& sphere: world->dynamic_spheres) {
-        auto current_sphere = sphere.lookup(start_time + time_step * p);
+        auto current_sphere = sphere.lookup(start_time + time_step * (real) p);
         for (int c = 0; c < robot_capsules.rows; c++) {
           dist = distance(robot_capsules(c, p), current_sphere);
           for (int j = 0; j < n_lowest_distances; j++) {
@@ -660,7 +660,7 @@ inline blast_fn Array test_collisions(const ObjMatrix<Capsule>& robot_capsules, 
       }
 
       for (auto door: world->dynamic_doors) {
-        auto current_box = door.lookup(start_time + time_step * p);
+        auto current_box = door.lookup(start_time + time_step * (real) p);
         for (int c = 0; c < robot_capsules.rows; c++) {
           dist = distance(robot_capsules(c, p), current_box);
           for (int j = 0; j < n_lowest_distances; j++) {
@@ -950,7 +950,7 @@ inline blast_fn real distance_per_point(const Capsule& capsule, CapsuleData& cap
     dist_min              = current_distance < dist_min ? current_distance : dist_min;
   }
   capsule_data.direction = current_direction;
-  return sqrt(dist_min) - capsule.radius;
+  return std::sqrt(dist_min) - capsule.radius;
 }
 
 inline blast_fn real test_collisions_per_point(const std::array<Capsule, MAX_CAPSULES>& robot_capsules, const World* world) { // todo: FIX THIS... when MAX_CAPSULE is higher than number of capsules, this returns 0 breaking the optimization
@@ -979,7 +979,7 @@ inline blast_fn real test_collisions_per_point(const std::array<Capsule, MAX_CAP
     for (int p = 0; p < n_pts; p++) {
       // --- Dynamic tests ---
       for (const auto& box: world->dynamic_boxes) {
-        auto current_box = box.lookup(start_time + time_step * p);
+        auto current_box = box.lookup(start_time + time_step * (real) p);
         for (int c = 0; c < robot_capsules.rows; c++) {
           dist = distance(robot_capsules(c, p), current_box);
           for (u32 j = 0; j < n_lowest_distances; j++) {
@@ -995,7 +995,7 @@ inline blast_fn real test_collisions_per_point(const std::array<Capsule, MAX_CAP
       }
 
       for (const auto& caps: world->dynamic_capsules) {
-        auto current_caps = caps.lookup(start_time + time_step * p);
+        auto current_caps = caps.lookup(start_time + time_step * (real) p);
         for (int c = 0; c < robot_capsules.rows; c++) {
           dist = distance(robot_capsules(c, p), current_caps);
           for (u32 j = 0; j < n_lowest_distances; j++) {
@@ -1011,7 +1011,7 @@ inline blast_fn real test_collisions_per_point(const std::array<Capsule, MAX_CAP
       }
 
       for (const auto& sphere: world->dynamic_spheres) {
-        auto current_sphere = sphere.lookup(start_time + time_step * p);
+        auto current_sphere = sphere.lookup(start_time + time_step * (real) p);
         for (int c = 0; c < robot_capsules.rows; c++) {
           dist = distance(robot_capsules(c, p), current_sphere);
           for (int j = 0; j < n_lowest_distances; j++) {
@@ -1027,7 +1027,7 @@ inline blast_fn real test_collisions_per_point(const std::array<Capsule, MAX_CAP
       }
 
       for (auto door: world->dynamic_doors) {
-        auto current_box = door.lookup(start_time + time_step * p);
+        auto current_box = door.lookup(start_time + time_step * (real) p);
         for (int c = 0; c < robot_capsules.rows; c++) {
           dist = distance(robot_capsules(c, p), current_box);
           for (int j = 0; j < n_lowest_distances; j++) {

@@ -254,7 +254,7 @@ inline blast_fn real mean(const Array& a) {
   real result = 0;
   for (u32 i = 0; i < a.size; i++)
     result += a[i];
-  result /= a.size;
+  result /= (real) a.size;
   return result;
 }
 
@@ -263,7 +263,7 @@ inline blast_fn real norm(const Array& a) {
   real result = 0;
   for (u32 i = 0; i < a.size; i++)
     result += a[i] * a[i];
-  return sqrt(result);
+  return std::sqrt(result);
 }
 
 inline blast_fn real norm_sqr(const Array& a) {
@@ -425,8 +425,8 @@ inline blast_fn void sincos(const Array& angles, Array& sines, Array& cosines) {
 #endif
   // serialize the rest
   for (; i < (int) angles.size; i++) {
-    sines[i]   = sin(angles[i]);
-    cosines[i] = cos(angles[i]);
+    sines[i]   = std::sin(angles[i]);
+    cosines[i] = std::cos(angles[i]);
   }
 }
 

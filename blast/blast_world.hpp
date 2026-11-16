@@ -107,7 +107,7 @@ struct AxisAlignedBoundingBox {
   CollisionObjectType child_type       = CollisionObjectType::aabb;
   const void*         child_ptr        = nullptr;
   int                 point_in_segment = -1;
-  real                dist             = 0.0;
+  real                dist             = 0;
 };
 
 struct AABBPair {
@@ -134,7 +134,7 @@ struct BoundingVolumeHierarchy {
 
   int  root        = -1;
   int  num_objects = 0;
-  real time        = 0.0;
+  real time        = 0;
 
   struct PriorityQueue : public std::priority_queue<T, std::vector<T>, Compare> {
     PriorityQueue(const std::vector<AxisAlignedBoundingBox>* leaves_ptr = nullptr) :

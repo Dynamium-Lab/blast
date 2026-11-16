@@ -24,9 +24,9 @@ TEST_CASE("large success_tolerance does not allow real constraint violation", "[
 
   World world;
   world.add_box(
-          Vec3{0.4, 0.0, 0.6},            // centre: 40 cm in front, 60 cm high
-          Vec3{0.05, 0.3, 0.3},           // half-extents: thin vertical slab
-          Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1} // upright, axis-aligned
+          Vec3{(real) 0.4, 0, (real) 0.6},           // centre: 40 cm in front, 60 cm high
+          Vec3{(real) 0.05, (real) 0.3, (real) 0.3}, // half-extents: thin vertical slab
+          Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1}            // upright, axis-aligned
   );
 
   Optimization opt(robot, task); // default enables pva + tool_speed constraints

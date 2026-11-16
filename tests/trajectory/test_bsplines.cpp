@@ -170,12 +170,12 @@ TEST_CASE("Bspline velocity and acceleration test", "[bspline]") {
 
   Array x_test(spline_test.x_len(task));
   fill_random(x_test, PI);
-  x_test.back() = 2.0; // time must be positive
+  x_test.back() = 2; // time must be positive
 
   spline_test.compute_trajectory(x_test, task);
   Matrix vel_approx(n_joints, n_pts);
   Matrix acc_approx(n_joints, n_pts);
-  real   dt = x_test.back() / (n_pts - 1); // dt = 0.001 with n_pts = 2001 and T = 2.0
+  real   dt = x_test.back() / (real) (n_pts - 1); // dt = 0.001 with n_pts = 2001 and T = 2.0
 
   vel_approx(0, 0)         = spline_test.traj.vel(0, 0);
   vel_approx(0, n_pts - 1) = spline_test.traj.vel(0, n_pts - 1);
@@ -183,8 +183,8 @@ TEST_CASE("Bspline velocity and acceleration test", "[bspline]") {
   acc_approx(0, n_pts - 1) = spline_test.traj.acc(0, n_pts - 1);
   for (int i = 1; i < n_pts - 1; i++) {
     for (int j = 0; j < n_joints; j++) {
-      vel_approx(j, i) = (0.5 * (spline_test.traj.pos(j, i) - spline_test.traj.pos(j, i - 1)) + 0.5 * (spline_test.traj.pos(j, i + 1) - spline_test.traj.pos(j, i))) / dt;
-      acc_approx(j, i) = (0.5 * (spline_test.traj.vel(j, i) - spline_test.traj.vel(j, i - 1)) + 0.5 * (spline_test.traj.vel(j, i + 1) - spline_test.traj.vel(j, i))) / dt;
+      vel_approx(j, i) = ((real) 0.5 * (spline_test.traj.pos(j, i) - spline_test.traj.pos(j, i - 1)) + (real) 0.5 * (spline_test.traj.pos(j, i + 1) - spline_test.traj.pos(j, i))) / dt;
+      acc_approx(j, i) = ((real) 0.5 * (spline_test.traj.vel(j, i) - spline_test.traj.vel(j, i - 1)) + (real) 0.5 * (spline_test.traj.vel(j, i + 1) - spline_test.traj.vel(j, i))) / dt;
     }
   }
   CHECK(is_close(vel_approx, spline_test.traj.vel, blast::test::approx_tol));

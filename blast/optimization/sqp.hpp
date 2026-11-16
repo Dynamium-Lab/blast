@@ -229,17 +229,17 @@ inline real dnrm2___(const int* n_, const real* dx, int incx) {
   real      xmax = 0;
   real      sum  = 0;
   for (int i = 0; i < n; ++i) {
-    if (real xabs = fabs(dx[incx * i]); xmax < xabs)
+    if (real xabs = std::fabs(dx[incx * i]); xmax < xabs)
       xmax = xabs;
   }
   if (xmax == 0)
     return 0;
-  real scale = ((real) 1) / xmax;
+  real scale = 1 / xmax;
   for (int i = 0; i < n; ++i) {
     real xs = scale * dx[incx * i];
     sum += xs * xs;
   }
-  return xmax * sqrt(sum);
+  return xmax * std::sqrt(sum);
 }
 
 /* apply Givens rotation */
@@ -259,8 +259,8 @@ inline void dsrot_(int n, real* dx, int incx,
 inline void dsrotg_(real* da, real* db, real* c, real* s) {
   real absa, absb, roe, scale;
 
-  absa = fabs(*da);
-  absb = fabs(*db);
+  absa = std::fabs(*da);
+  absb = std::fabs(*db);
   if (absa > absb) {
     roe   = *da;
     scale = absa;
@@ -272,11 +272,11 @@ inline void dsrotg_(real* da, real* db, real* c, real* s) {
   if (scale != 0) {
     real r, iscale = 1 / scale;
     real tmpa = (*da) * iscale, tmpb = (*db) * iscale;
-    r   = (roe < 0 ? -scale : scale) * sqrt((tmpa * tmpa) + (tmpb * tmpb));
+    r   = (roe < 0 ? -scale : scale) * std::sqrt((tmpa * tmpa) + (tmpb * tmpb));
     *c  = *da / r;
     *s  = *db / r;
     *da = r;
-    if (*c != 0 && fabs(*c) <= *s)
+    if (*c != 0 && std::fabs(*c) <= *s)
       *db = 1 / *c;
     else
       *db = *s;
@@ -356,18 +356,18 @@ inline void h12_(const int* mode, int* lpivot, int* l1,
   if (0 >= *lpivot || *lpivot >= *l1 || *l1 > *m) {
     goto L80;
   }
-  cl = (d__1 = u[*lpivot * u_dim1 + 1], fabs(d__1));
+  cl = (d__1 = u[*lpivot * u_dim1 + 1], std::fabs(d__1));
   if (*mode == 2) {
     goto L30;
   }
   /*     ****** CONSTRUCT THE TRANSFORMATION ****** */
   i__1 = *m;
   for (j = *l1; j <= i__1; ++j) {
-    sm = (d__1 = u[j * u_dim1 + 1], fabs(d__1));
+    sm = (d__1 = u[j * u_dim1 + 1], std::fabs(d__1));
     /* L10: */
     cl = MAX2(sm, cl);
   }
-  if (cl <= 0.0) {
+  if (cl <= 0) {
     goto L80;
   }
   clinv = one / cl;
@@ -381,8 +381,8 @@ inline void h12_(const int* mode, int* lpivot, int* l1,
     d__1 = u[j * u_dim1 + 1] * clinv;
     sm += d__1 * d__1;
   }
-  cl *= sqrt(sm);
-  if (u[*lpivot * u_dim1 + 1] > 0.0) {
+  cl *= std::sqrt(sm);
+  if (u[*lpivot * u_dim1 + 1] > 0) {
     cl = -cl;
   }
   *up                     = u[*lpivot * u_dim1 + 1] - cl;
@@ -390,7 +390,7 @@ inline void h12_(const int* mode, int* lpivot, int* l1,
   goto L40;
 /*     ****** APPLY THE TRANSFORMATION  I+U*(U**T)/B  TO C ****** */
 L30:
-  if (cl <= 0.0) {
+  if (cl <= 0) {
     goto L80;
   }
 L40:
@@ -398,7 +398,7 @@ L40:
     goto L80;
   }
   b = *up * u[*lpivot * u_dim1 + 1];
-  if (b >= 0.0) {
+  if (b >= 0) {
     goto L80;
   }
   b    = one / b;
@@ -416,7 +416,7 @@ L40:
       /* L50: */
       i3 += *ice;
     }
-    if (sm == 0.0) {
+    if (sm == 0) {
       goto L70;
     }
     sm *= b;
@@ -438,7 +438,7 @@ inline void nnls_(real* a, int* mda, int* m, int* n, real* b, real* x, real* rno
   /* Initialized data */
 
   const real one    = 1;
-  const real factor = 0.01;
+  const real factor = (real) 0.01;
 
   /* System generated locals */
   int  a_dim1, a_offset, i__1, i__2;
@@ -520,7 +520,7 @@ inline void nnls_(real* a, int* mda, int* m, int* n, real* b, real* x, real* rno
   iz2   = *n;
   nsetp = 0;
   npp1  = 1;
-  x[1]  = 0.0;
+  x[1]  = 0;
   dcopy___(n, &x[1], 0, &x[1], 1);
 /* STEP TWO (COMPUTE DUAL VARIABLES) */
 /* .....ENTRY LOOP A */
@@ -537,7 +537,7 @@ L110:
   }
 /* STEP THREE (TEST DUAL VARIABLES) */
 L130:
-  wmax = 0.0;
+  wmax = 0;
   i__2 = iz2;
   for (iz = iz1; iz <= i__2; ++iz) {
     j = indx[iz];
@@ -549,7 +549,7 @@ L130:
   L140:;
   }
   /* .....EXIT LOOP A */
-  if (wmax <= 0.0) {
+  if (wmax <= 0) {
     goto L280;
   }
   iz = izmax;
@@ -559,20 +559,20 @@ L130:
   i__2  = npp1 + 1;
   h12_(&c__1, &npp1, &i__2, m, &a[j * a_dim1 + 1], &c__1, &up, &z__[1], &c__1, &c__1, &c__0);
   unorm = dnrm2___(&nsetp, &a[j * a_dim1 + 1], 1);
-  t     = factor * (d__1 = a[npp1 + j * a_dim1], fabs(d__1));
+  t     = factor * (d__1 = a[npp1 + j * a_dim1], std::fabs(d__1));
   d__1  = unorm + t;
-  if (d__1 - unorm <= 0.0) {
+  if (d__1 - unorm <= 0) {
     goto L150;
   }
   dcopy___(m, &b[1], 1, &z__[1], 1);
   i__2 = npp1 + 1;
   h12_(&c__2, &npp1, &i__2, m, &a[j * a_dim1 + 1], &c__1, &up, &z__[1], &c__1, &c__1, &c__1);
-  if (z__[npp1] / a[npp1 + j * a_dim1] > 0.0) {
+  if (z__[npp1] / a[npp1 + j * a_dim1] > 0) {
     goto L160;
   }
 L150:
   a[npp1 + j * a_dim1] = asave;
-  w[j]                 = 0.0;
+  w[j]                 = 0;
   goto L130;
 /* STEP FIVE (ADD COLUMN) */
 L160:
@@ -589,7 +589,7 @@ L160:
     h12_(&c__2, &nsetp, &npp1, m, &a[j * a_dim1 + 1], &c__1, &up, &a[jj * a_dim1 + 1], &c__1, mda, &c__1);
   }
   k    = MIN2(npp1, *mda);
-  w[j] = 0.0;
+  w[j] = 0;
   i__2 = *m - nsetp;
   dcopy___(&i__2, &w[j], 0, &a[k + j * a_dim1], 1);
 /* STEP SIX (SOLVE LEAST SQUARES SUB-PROBLEM) */
@@ -619,7 +619,7 @@ L220:
   jj    = 0;
   i__2  = nsetp;
   for (ip = 1; ip <= i__2; ++ip) {
-    if (z__[ip] > 0.0) {
+    if (z__[ip] > 0) {
       goto L230;
     }
     l = indx[ip];
@@ -644,7 +644,7 @@ L220:
   /* STEP ELEVEN (DELETE COLUMN) */
   i__ = indx[jj];
 L250:
-  x[i__] = 0.0;
+  x[i__] = 0;
   ++jj;
   i__2 = nsetp;
   for (j = jj; j <= i__2; ++j) {
@@ -654,7 +654,7 @@ L250:
     t = a[j - 1 + ii * a_dim1];
     dsrot_(*n, &a[j - 1 + a_dim1], *mda, &a[j + a_dim1], *mda, &c__, &s);
     a[j - 1 + ii * a_dim1] = t;
-    a[j + ii * a_dim1]     = 0.0;
+    a[j + ii * a_dim1]     = 0;
     /* L260: */
     dsrot_(1, &b[j - 1], 1, &b[j], 1, &c__, &s);
   }
@@ -668,7 +668,7 @@ L250:
   i__2 = nsetp;
   for (jj = 1; jj <= i__2; ++jj) {
     i__ = indx[jj];
-    if (x[i__] <= 0.0) {
+    if (x[i__] <= 0) {
       goto L250;
     }
     /* L270: */
@@ -681,7 +681,7 @@ L280:
   i__2   = *m - nsetp;
   *rnorm = dnrm2___(&i__2, &b[k], 1);
   if (npp1 > *m) {
-    w[1] = 0.0;
+    w[1] = 0;
     dcopy___(n, &w[1], 0, &w[1], 1);
   }
 /* END OF SUBROUTINE NNLS */
@@ -694,7 +694,7 @@ inline void ldp_(real* g, int* mg, int* m, int* n,
                  int* indx, int* mode) {
   /* Initialized data */
 
-  const real one = 1.;
+  const real one = 1;
 
   /* System generated locals */
   int  g_dim1, g_offset, i__1, i__2;
@@ -750,9 +750,9 @@ inline void ldp_(real* g, int* mg, int* m, int* n,
   }
   /*  STATE DUAL PROBLEM */
   *mode = 1;
-  x[1]  = 0.0;
+  x[1]  = 0;
   dcopy___(n, &x[1], 0, &x[1], 1);
-  *xnorm = 0.0;
+  *xnorm = 0;
   if (*m == 0) {
     goto L50;
   }
@@ -774,7 +774,7 @@ inline void ldp_(real* g, int* mg, int* m, int* n,
   for (i__ = 1; i__ <= i__1; ++i__) {
     ++iw;
     /* L30: */
-    w[iw] = 0.0;
+    w[iw] = 0;
   }
   w[iw + 1] = one;
   n1        = *n + 1;
@@ -787,13 +787,13 @@ inline void ldp_(real* g, int* mg, int* m, int* n,
     goto L50;
   }
   *mode = 4;
-  if (rnorm <= 0.0) {
+  if (rnorm <= 0) {
     goto L50;
   }
   /*  COMPUTE SOLUTION OF PRIMAL PROBLEM */
   fac  = one - ddot_sl__(m, &h__[1], 1, &w[iy], 1);
   d__1 = one + fac;
-  if (d__1 - one <= 0.0) {
+  if (d__1 - one <= 0) {
     goto L50;
   }
   *mode = 1;
@@ -805,7 +805,7 @@ inline void ldp_(real* g, int* mg, int* m, int* n,
   }
   *xnorm = dnrm2___(n, &x[1], 1);
   /*  COMPUTE LAGRANGE MULTIPLIERS FOR PRIMAL PROBLEM */
-  w[1] = 0.0;
+  w[1] = 0;
   dcopy___(m, &w[1], 0, &w[1], 1);
   daxpy_sl__(m, &fac, &w[iy], 1, &w[1], 1);
 /*  END OF SUBROUTINE LDP */
@@ -819,7 +819,7 @@ inline void lsi_(real* e, real* f, real* g,
   /* Initialized data */
 
   const real epmach = std::numeric_limits<real>::epsilon();
-  const real one    = 1.;
+  const real one    = 1;
 
   /* System generated locals */
   int  e_dim1, e_offset, g_dim1, g_offset, i__1, i__2, i__3;
@@ -892,7 +892,7 @@ inline void lsi_(real* e, real* f, real* g,
   for (i__ = 1; i__ <= i__2; ++i__) {
     i__1 = *n;
     for (j = 1; j <= i__1; ++j) {
-      if ((d__1 = e[j + j * e_dim1], fabs(d__1)) < epmach) {
+      if ((d__1 = e[j + j * e_dim1], std::fabs(d__1)) < epmach) {
         goto L50;
       }
       /* L20: */
@@ -923,7 +923,7 @@ inline void lsi_(real* e, real* f, real* g,
   j      = MIN2(i__2, *me);
   i__2   = *me - *n;
   t      = dnrm2___(&i__2, &f[j], 1);
-  *xnorm = sqrt(*xnorm * *xnorm + t * t);
+  *xnorm = std::sqrt(*xnorm * *xnorm + t * t);
 /*  END OF SUBROUTINE LSI */
 L50:
   return;
@@ -932,7 +932,7 @@ L50:
 inline void hfti_(real* a, int* mda, int* m, int* n, real* b, int* mdb, const int* nb, real* tau, int* krank, real* rnorm, real* h__, real* g, int* ip) {
   /* Initialized data */
 
-  const real factor = .001;
+  const real factor = (real) 0.001;
 
   /* System generated locals */
   int  a_dim1, a_offset, b_dim1, b_offset, i__1, i__2, i__3;
@@ -1007,14 +1007,14 @@ inline void hfti_(real* a, int* mda, int* m, int* n, real* b, int* mdb, const in
       }
     }
     d__1 = hmax + factor * h__[lmax];
-    if (d__1 - hmax > 0.0) {
+    if (d__1 - hmax > 0) {
       goto L50;
     }
   L20:
     lmax = j;
     i__2 = *n;
     for (l = j; l <= i__2; ++l) {
-      h__[l] = 0.0;
+      h__[l] = 0;
       i__3   = *m;
       for (i__ = j; i__ <= i__3; ++i__) {
         /* L30: */
@@ -1058,7 +1058,7 @@ inline void hfti_(real* a, int* mda, int* m, int* n, real* b, int* mdb, const in
   i__2 = ldiag;
   for (j = 1; j <= i__2; ++j) {
     /* L90: */
-    if ((d__1 = a[j + j * a_dim1], fabs(d__1)) <= *tau) {
+    if ((d__1 = a[j + j * a_dim1], std::fabs(d__1)) <= *tau) {
       goto L100;
     }
   }
@@ -1083,7 +1083,7 @@ L110:
     i__2 = *n;
     for (i__ = 1; i__ <= i__2; ++i__) {
       /* L150: */
-      b[i__ + jb * b_dim1] = 0.0;
+      b[i__ + jb * b_dim1] = 0;
     }
   }
   goto L270;
@@ -1117,7 +1117,7 @@ L180:
     i__1 = *n;
     for (j = kp1; j <= i__1; ++j) {
       /* L220: */
-      b[j + jb * b_dim1] = 0.0;
+      b[j + jb * b_dim1] = 0;
     }
     i__1 = k;
     for (i__ = 1; i__ <= i__1; ++i__) {
@@ -1243,7 +1243,7 @@ inline void lsei_(real* c__, real* d__, real* e,
   *mode = 6;
   i__2  = *mc;
   for (i__ = 1; i__ <= i__2; ++i__) {
-    if ((d__1 = c__[i__ + i__ * c_dim1], fabs(d__1)) < epmach) {
+    if ((d__1 = c__[i__ + i__ * c_dim1], std::fabs(d__1)) < epmach) {
       goto L75;
     }
     i__1   = i__ - 1;
@@ -1251,7 +1251,7 @@ inline void lsei_(real* c__, real* d__, real* e,
     /* L15: */
   }
   *mode  = 1;
-  w[mc1] = 0.0;
+  w[mc1] = 0;
   i__2   = *mg; /* BUGFIX for *mc == *n: changed from *mg - *mc, SGJ 2010 */
   dcopy___(&i__2, &w[mc1], 0, &w[mc1], 1);
   if (*mc == *n) {
@@ -1279,7 +1279,7 @@ inline void lsei_(real* c__, real* d__, real* e,
   /*  SOLVE LS WITHOUT INEQUALITY CONSTRAINTS */
   *mode = 7;
   k     = MAX2(*le, *n);
-  t     = sqrt(epmach);
+  t     = std::sqrt(epmach);
   hfti_(&w[ie], me, me, &l, &w[if__], &k, &c__1, &t, &krank, xnrm, &w[1], &w[l + 1], &jw[1]);
   dcopy___(&l, &w[if__], 1, &x[mc1], 1);
   if (krank != l) {
@@ -1300,7 +1300,7 @@ L40:
     goto L75;
   }
   t     = dnrm2___(mc, &x[1], 1);
-  *xnrm = sqrt(*xnrm * *xnrm + t * t);
+  *xnrm = std::sqrt(*xnrm * *xnrm + t * t);
   if (*mode != 1) {
     goto L75;
   }
@@ -1340,7 +1340,7 @@ inline void lsq_(int* m, int* meq, int* n, int* nl,
                  real* w, int* jw, int* mode) {
   /* Initialized data */
 
-  const real one = 1.;
+  const real one = 1;
 
   /* System generated locals */
   int  a_dim1, a_offset, i__1, i__2;
@@ -1351,7 +1351,7 @@ inline void lsq_(int* m, int* meq, int* n, int* nl,
           im, ip, iu, iw;
   real diag;
   int  mineq;
-  real xnorm = 0.0;
+  real xnorm = 0;
 
   /*   MINIMIZE with respect to X */
   /*             ||E*X - F|| */
@@ -1424,8 +1424,8 @@ inline void lsq_(int* m, int* meq, int* n, int* nl,
   i__1 = n3;
   for (i__ = 1; i__ <= i__1; ++i__) {
     i1    = n1 - i__;
-    diag  = sqrt(l[i2]);
-    w[i3] = 0.0;
+    diag  = std::sqrt(l[i2]);
+    w[i3] = 0;
     dcopy___(&i1, &w[i3], 0, &w[i3], 1);
     i__2 = i1 - n2;
     dcopy___(&i__2, &l[i2], 1, &w[i3], *n);
@@ -1441,9 +1441,9 @@ inline void lsq_(int* m, int* meq, int* n, int* nl,
   }
   if (n2 == 1) {
     w[i3] = l[*nl];
-    w[i4] = 0.0;
+    w[i4] = 0;
     dcopy___(&n3, &w[i4], 0, &w[i4], 1);
-    w[if__ - 1 + *n] = 0.0;
+    w[if__ - 1 + *n] = 0;
   }
   d__1 = -one;
   dscal_sl__(n, &d__1, &w[if__], 1);
@@ -1474,7 +1474,7 @@ inline void lsq_(int* m, int* meq, int* n, int* nl,
   ip   = ig + mineq;
   i__1 = *n;
   for (i__ = 1; i__ <= i__1; ++i__) {
-    w[ip - 1 + i__] = 0.0;
+    w[ip - 1 + i__] = 0;
     dcopy___(n, &w[ip - 1 + i__], 0, &w[ip - 1 + i__], m1);
     /* L40: */
   }
@@ -1482,12 +1482,12 @@ inline void lsq_(int* m, int* meq, int* n, int* nl,
   /* SGJ, 2010: skip constraints for infinite bounds */
   for (i__ = 1; i__ <= *n; ++i__)
     if (!isinf(xl[i__]))
-      w[(ip - i__1) + i__ * i__1] = +1.0;
+      w[(ip - i__1) + i__ * i__1] = 1;
   /* Old code: w[ip] = one; dcopy___(n, &w[ip], 0, &w[ip], i__1); */
   im   = ip + *n;
   i__1 = *n;
   for (i__ = 1; i__ <= i__1; ++i__) {
-    w[im - 1 + i__] = 0.0;
+    w[im - 1 + i__] = 0;
     dcopy___(n, &w[im - 1 + i__], 0, &w[im - 1 + i__], m1);
     /* L50: */
   }
@@ -1495,7 +1495,7 @@ inline void lsq_(int* m, int* meq, int* n, int* nl,
   /* SGJ, 2010: skip constraints for infinite bounds */
   for (i__ = 1; i__ <= *n; ++i__)
     if (!isinf(xu[i__]))
-      w[(im - i__1) + i__ * i__1] = -1.0;
+      w[(im - i__1) + i__ * i__1] = -1;
   /* Old code: w[im] = -one;  dcopy___(n, &w[im], 0, &w[im], i__1); */
   ih = ig + m1 * *n;
   if (mineq > 0) {
@@ -1543,8 +1543,8 @@ inline void ldl_(int* n, real* a, real* z__,
                  real* sigma, real* w) {
   /* Initialized data */
   PROFILE_FUNCTION;
-  const real one    = 1.;
-  const real four   = 4.;
+  const real one    = 1;
+  const real four   = 4;
   const real epmach = std::numeric_limits<real>::epsilon();
 
   /* System generated locals */
@@ -1587,12 +1587,12 @@ inline void ldl_(int* n, real* a, real* z__,
   --a;
 
   /* Function Body */
-  if (*sigma == 0.0) {
+  if (*sigma == 0) {
     goto L280;
   }
   ij = 1;
   t  = one / *sigma;
-  if (*sigma > 0.0) {
+  if (*sigma > 0) {
     goto L220;
   }
   /* PREPARE NEGATIVE UPDATE */
@@ -1614,7 +1614,7 @@ inline void ldl_(int* n, real* a, real* z__,
     /* L170: */
     ++ij;
   }
-  if (t >= 0.0) {
+  if (t >= 0) {
     t = epmach / *sigma;
   }
   i__1 = *n;
@@ -1632,7 +1632,7 @@ L220:
   for (i__ = 1; i__ <= i__1; ++i__) {
     v     = z__[i__];
     delta = v / a[ij];
-    if (*sigma < 0.0) {
+    if (*sigma < 0) {
       tp = w[i__];
     } else /* if (*sigma > 0.0), since *sigma != 0 from above */ {
       tp = t + delta * v;
@@ -1789,17 +1789,17 @@ inline real vector_norm(unsigned n, const real* vec, const real* w, const real* 
   if (scale_min && scale_max) {
     if (w)
       for (i = 0; i < n; i++)
-        ret += w[i] * fabs(sc(vec[i], scale_min[i], scale_max[i]));
+        ret += w[i] * std::fabs(sc(vec[i], scale_min[i], scale_max[i]));
     else
       for (i = 0; i < n; i++)
-        ret += fabs(sc(vec[i], scale_min[i], scale_max[i]));
+        ret += std::fabs(sc(vec[i], scale_min[i], scale_max[i]));
   } else {
     if (w)
       for (i = 0; i < n; i++)
-        ret += w[i] * fabs(vec[i]);
+        ret += w[i] * std::fabs(vec[i]);
     else
       for (i = 0; i < n; i++)
-        ret += fabs(vec[i]);
+        ret += std::fabs(vec[i]);
   }
   return ret;
 }
@@ -1810,17 +1810,17 @@ inline real diff_norm(unsigned n, const real* x, const real* oldx, const real* w
   if (scale_min && scale_max) {
     if (w)
       for (i = 0; i < n; i++)
-        ret += w[i] * fabs(sc(x[i], scale_min[i], scale_max[i]) - sc(oldx[i], scale_min[i], scale_max[i]));
+        ret += w[i] * std::fabs(sc(x[i], scale_min[i], scale_max[i]) - sc(oldx[i], scale_min[i], scale_max[i]));
     else
       for (i = 0; i < n; i++)
-        ret += fabs(sc(x[i], scale_min[i], scale_max[i]) - sc(oldx[i], scale_min[i], scale_max[i]));
+        ret += std::fabs(sc(x[i], scale_min[i], scale_max[i]) - sc(oldx[i], scale_min[i], scale_max[i]));
   } else {
     if (w)
       for (i = 0; i < n; i++)
-        ret += w[i] * fabs(x[i] - oldx[i]);
+        ret += w[i] * std::fabs(x[i] - oldx[i]);
     else
       for (i = 0; i < n; i++)
-        ret += fabs(x[i] - oldx[i]);
+        ret += std::fabs(x[i] - oldx[i]);
   }
   return ret;
 }
@@ -1828,7 +1828,7 @@ inline real diff_norm(unsigned n, const real* x, const real* oldx, const real* w
 inline int relstop(real vold, real vnew, real reltol, real abstol) {
   if (isinf(vold))
     return 0;
-  return (fabs(vnew - vold) < abstol || fabs(vnew - vold) < reltol * (fabs(vnew) + fabs(vold)) * 0.5 || (reltol > 0 && vnew == vold)); /* catch vnew == vold == 0 */
+  return (std::fabs(vnew - vold) < abstol || std::fabs(vnew - vold) < reltol * (std::fabs(vnew) + std::fabs(vold)) * (real) 0.5 || (reltol > 0 && vnew == vold)); /* catch vnew == vold == 0 */
 }
 
 inline int nlopt_stop_ftol(const nlopt_stopping* s, real f, real oldf) {
@@ -1846,7 +1846,7 @@ inline int nlopt_stop_x(const nlopt_stopping* s, const real* x, const real* oldx
   if (!s->xtol_abs)
     return 0;
   for (i = 0; i < s->n; ++i)
-    if (fabs(x[i] - oldx[i]) >= s->xtol_abs[i])
+    if (std::fabs(x[i] - oldx[i]) >= s->xtol_abs[i])
       return 0;
   return 1;
 }
@@ -1858,7 +1858,7 @@ inline int nlopt_stop_dx(const nlopt_stopping* s, const real* x, const real* dx)
   if (!s->xtol_abs)
     return 0;
   for (i = 0; i < s->n; ++i)
-    if (fabs(dx[i]) >= s->xtol_abs[i])
+    if (std::fabs(dx[i]) >= s->xtol_abs[i])
       return 0;
   return 1;
 }
@@ -1870,7 +1870,7 @@ inline int nlopt_stop_xs(const nlopt_stopping* s, const real* xs, const real* ol
   if (!s->xtol_abs)
     return 0;
   for (i = 0; i < s->n; ++i)
-    if (fabs(sc(xs[i], scale_min[i], scale_max[i]) - sc(oldxs[i], scale_min[i], scale_max[i])) >= s->xtol_abs[i])
+    if (std::fabs(sc(xs[i], scale_min[i], scale_max[i]) - sc(oldxs[i], scale_min[i], scale_max[i])) >= s->xtol_abs[i])
       return 0;
   return 1;
 }
@@ -1931,10 +1931,10 @@ inline void slsqpb_(int* m, int* meq, int* la, int* n, real* x, const real* xl, 
   PROFILE_FUNCTION;
   /* Initialized data */
 
-  constexpr real one    = 1.;
-  constexpr real alfmin = .1;
-  const real     ten    = 10.;
-  const real     two    = 2.;
+  constexpr real one    = 1;
+  constexpr real alfmin = (real) 0.1;
+  const real     ten    = 10;
+  const real     two    = 2;
 
   /* System generated locals */
   int  a_dim1, a_offset, i__1, i__2;
@@ -1991,20 +1991,20 @@ inline void slsqpb_(int* m, int* meq, int* la, int* n, real* x, const real* xl, 
   }
 L100:
   itermx = *iter;
-  if (*acc >= 0.0) {
+  if (*acc >= 0) {
     iexact = 0;
   } else {
     iexact = 1;
   }
-  *acc   = fabs(*acc);
+  *acc   = std::fabs(*acc);
   tol    = ten * *acc;
   *iter  = 0;
   ireset = 0;
   n1     = *n + 1;
   n2     = n1 * *n / 2;
   n3     = n2 + 1;
-  s[1]   = 0.0;
-  mu[1]  = 0.0;
+  s[1]   = 0;
+  mu[1]  = 0;
   dcopy___(n, &s[1], 0, &s[1], 1);
   dcopy___(m, &mu[1], 0, &mu[1], 1);
 /*   RESET BFGS MATRIX */
@@ -2013,7 +2013,7 @@ L110:
   if (ireset > 5) {
     goto L255;
   }
-  l[1] = 0.0;
+  l[1] = 0;
   dcopy___(&n2, &l[1], 0, &l[1], 1);
   j    = 1;
   i__1 = *n;
@@ -2046,7 +2046,7 @@ L130:
     }
   }
   if (*mode == 4) {
-    constexpr real hun = 100.;
+    constexpr real hun = 100;
     i__1               = *m;
     for (j = 1; j <= i__1; ++j) {
       if (j <= *meq) {
@@ -2054,17 +2054,17 @@ L130:
       } else {
         /* Computing MAX */
         d__1               = -c__[j];
-        a[j + n1 * a_dim1] = MAX2(d__1, 0.0);
+        a[j + n1 * a_dim1] = MAX2(d__1, 0);
       }
       /* L140: */
     }
-    s[1] = 0.0;
+    s[1] = 0;
     dcopy___(n, &s[1], 0, &s[1], 1);
-    h3     = 0.0;
-    g[n1]  = 0.0;
+    h3     = 0;
+    g[n1]  = 0;
     l[n3]  = hun;
     s[n1]  = one;
-    u[n1]  = 0.0;
+    u[n1]  = 0;
     v[n1]  = one;
     incons = 0;
   L150:
@@ -2093,23 +2093,23 @@ L130:
   f0 = *f;
   dcopy___(n, &x[1], 1, &x0[1], 1);
   gs   = ddot_sl__(n, &g[1], 1, &s[1], 1);
-  h1   = fabs(gs);
-  h2   = 0.0;
+  h1   = std::fabs(gs);
+  h2   = 0;
   i__1 = *m;
   for (j = 1; j <= i__1; ++j) {
     if (j <= *meq) {
       h3 = c__[j];
     } else {
-      h3 = 0.0;
+      h3 = 0;
     }
     /* Computing MAX */
     d__1 = -c__[j];
     h2 += MAX2(d__1, h3);
-    h3 = (d__1 = r__[j], fabs(d__1));
+    h3 = (d__1 = r__[j], std::fabs(d__1));
     /* Computing MAX */
     d__1 = h3, d__2 = (mu[j] + h3) / two;
     mu[j] = MAX2(d__1, d__2);
-    h1 += h3 * (d__1 = c__[j], fabs(d__1));
+    h1 += h3 * (d__1 = c__[j], std::fabs(d__1));
     /* L170: */
   }
   /*   CHECK CONVERGENCE */
@@ -2117,13 +2117,13 @@ L130:
   if (h1 < *acc && h2 < *acc) {
     goto L330;
   }
-  h1   = 0.0;
+  h1   = 0;
   i__1 = *m;
   for (j = 1; j <= i__1; ++j) {
     if (j <= *meq) {
       h3 = c__[j];
     } else {
-      h3 = 0.0;
+      h3 = 0;
     }
     /* Computing MAX */
     d__1 = -c__[j];
@@ -2133,7 +2133,7 @@ L130:
   t0    = *f + h1;
   h3    = gs - h1 * h4;
   *mode = 8;
-  if (h3 >= 0.0) {
+  if (h3 >= 0) {
     goto L110;
   }
   /*   LINE SEARCH WITH AN L1-TESTFUNCTION */
@@ -2175,7 +2175,7 @@ L200:
     d__1  = h3 / (two * (h3 - h1));
     alpha = MAX2(d__1, alfmin);
   } else {
-    alpha = MAX2(alpha * .5, alfmin);
+    alpha = MAX2(alpha * (real) 0.5, alfmin);
   }
   goto L190;
 /*   EXACT LINESEARCH */
@@ -2204,7 +2204,7 @@ L220:
     if (j <= *meq) {
       h1 = c__[j];
     } else {
-      h1 = 0.0;
+      h1 = 0;
     }
     /* Computing MAX */
     d__1 = -c__[j];
@@ -2221,20 +2221,20 @@ L220:
   }
 /*   CHECK CONVERGENCE */
 L240:
-  h3   = 0.0;
+  h3   = 0;
   i__1 = *m;
   for (j = 1; j <= i__1; ++j) {
     if (j <= *meq) {
       h1 = c__[j];
     } else {
-      h1 = 0.0;
+      h1 = 0;
     }
     /* Computing MAX */
     d__1 = -c__[j];
     h3 += MAX2(d__1, h1);
     /* L250: */
   }
-  if (((d__1 = *f - f0, fabs(d__1)) < *acc || dnrm2___(n, &s[1], 1) < *acc) && h3 < *acc) {
+  if (((d__1 = *f - f0, std::fabs(d__1)) < *acc || dnrm2___(n, &s[1], 1) < *acc) && h3 < *acc) {
     *mode = 0;
   } else {
     *mode = -1;
@@ -2242,7 +2242,7 @@ L240:
   goto L330;
 /*   CHECK relaxed CONVERGENCE in case of positive directional derivative */
 L255:
-  if (((d__1 = *f - f0, fabs(d__1)) < tol || dnrm2___(n, &s[1], 1) < tol) && h3 < tol) {
+  if (((d__1 = *f - f0, std::fabs(d__1)) < tol || dnrm2___(n, &s[1], 1) < tol) && h3 < tol) {
     *mode = 0;
   } else {
     *mode = 8;
@@ -2260,7 +2260,7 @@ L260:
   k    = 0;
   i__1 = *n;
   for (i__ = 1; i__ <= i__1; ++i__) {
-    h1 = 0.0;
+    h1 = 0;
     ++k;
     i__2 = *n;
     for (j = i__ + 1; j <= i__2; ++j) {
@@ -2281,7 +2281,7 @@ L260:
   }
   /*   L*D*L'*S */
   for (i__ = *n; i__ >= 1; --i__) {
-    h1   = 0.0;
+    h1   = 0;
     k    = i__;
     i__1 = i__ - 1;
     for (j = 1; j <= i__1; ++j) {
@@ -2294,7 +2294,7 @@ L260:
   }
   h1 = ddot_sl__(n, &s[1], 1, &u[1], 1);
   h2 = ddot_sl__(n, &s[1], 1, &v[1], 1);
-  h3 = h2 * .2;
+  h3 = h2 * (real) 0.2;
   if (h1 < h3) {
     h4 = (h2 - h3) / (h2 - h1);
     h1 = h3;
@@ -2896,7 +2896,7 @@ inline nlopt_result sqp(blast::Array& x, blast::Optimization& opt, nlopt_stoppin
           }
           for (int k = 0; k < mtot; ++k, ++ii) {
             infeasibility_cur = MAX2(infeasibility_cur, c[ii]);
-            feasible_cur      = feasible_cur && c[ii] <= 0.01;
+            feasible_cur      = feasible_cur && c[ii] <= (real) 0.01;
             if (newcgrad) {
               for (int j = 0; j < x_len; ++j)
                 cgrad[j * U(mpi1) + ii] = -cgradtmp[k * x_len + j];

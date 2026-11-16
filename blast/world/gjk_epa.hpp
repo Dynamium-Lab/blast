@@ -41,7 +41,7 @@ struct PolytopeFace {
   Vec3 p2;
   Vec3 p3;
   Vec3 n;
-  real dist = 0.0;
+  real dist = 0;
 };
 
 // ======================================
@@ -123,7 +123,7 @@ inline host_fn Vec3 GJK_convert_cartesian(Vec3 a, Vec3 b, real barycentric) {
 inline host_fn Vec3 GJK_convert_cartesian(Vec3 a, Vec3 b, Vec3 c, Vec3 barycentric) {
 #if TRACY_ACTIVE >= 3 && GJK_ACTIVE >= 2
   ZoneScoped;
-#endif;
+#endif
   Vec3 result;
   result.x = a.x * barycentric.x + b.x * barycentric.y + c.x * barycentric.z;
   result.y = a.y * barycentric.x + b.y * barycentric.y + c.y * barycentric.z;
@@ -196,7 +196,7 @@ inline host_fn TwoPts GJK_solve_simplex2(ComplexSimplex& simplex) {
   if (d > 0) {
     simplex.count = 2;
     ao            = cross(cross(ab, ao), ab);
-    ab            = simplex.a + ((real) 1 / dot(ab, ab)) * d * ab;
+    ab            = simplex.a + (1 / dot(ab, ab)) * d * ab;
   } else {
     simplex.count = 1;
     ab            = simplex.a;
@@ -438,43 +438,43 @@ inline host_fn real distmin_origin(const PolytopeFace& face) {
   // Check origin outisde vertex A
   real snom = dot(-a, ab);
   real tnom = dot(-a, ac);
-  if (snom <= (real) 0 && tnom <= (real) 0)
+  if (snom <= 0 && tnom <= 0)
     return norm(a);
 
   // Check origin outisde vertex B
   real sdenom = dot(b, ab);
   real unom   = dot(-b, bc);
-  if (sdenom <= (real) 0 && unom <= (real) 0)
+  if (sdenom <= 0 && unom <= 0)
     return norm(b);
 
   // Check origin outisde vertex C
   real tdenom = dot(c, ac);
   real udenom = dot(c, bc);
-  if (tdenom <= (real) 0 && udenom <= (real) 0)
+  if (tdenom <= 0 && udenom <= 0)
     return norm(c);
 
   Vec3 n = cross(b - a, c - a);
 
   // Check origin outside edge AB
   real vc = dot(n, cross(a, b));
-  if (vc <= (real) 0 && snom >= (real) 0 && sdenom >= (real) 0)
+  if (vc <= 0 && snom >= 0 && sdenom >= 0)
     return norm(a + snom / (snom + sdenom) * ab);
 
   // Check origin outside edge BC
   real va = dot(n, cross(b, c));
-  if (va <= (real) 0 && unom >= (real) 0 && udenom >= (real) 0)
+  if (va <= 0 && unom >= 0 && udenom >= 0)
     return norm(b + unom / (unom + udenom) * bc);
 
   // Check origin outside edge AC
   real vb = dot(n, cross(c, a));
-  if (vb <= (real) 0 && tnom >= (real) 0 && tdenom >= (real) 0)
+  if (vb <= 0 && tnom >= 0 && tdenom >= 0)
     return norm(a + tnom / (tnom + tdenom) * ac);
 
   // Origin must be on ABC
   real denom = va + vb + vc;
   real u     = va / denom;
   real v     = vb / denom;
-  real w     = (real) 1 - u - v; // = vc / denom
+  real w     = 1 - u - v; // = vc / denom
   return norm(u * a + v * b + w * c);
 }
 
@@ -825,7 +825,7 @@ inline host_fn void GJK_solve_simplex3_Ericson(Simplex* simplex) {
   // Check if P in vertex region outside C
   real d5 = dot(ab, -c);
   real d6 = dot(ac, -c);
-  if (d6 >= (real) 0 && d5 <= d6) {
+  if (d6 >= 0 && d5 <= d6) {
     simplex->size   = 1;
     simplex->pts[0] = c;
     simplex->P      = c;
@@ -834,7 +834,7 @@ inline host_fn void GJK_solve_simplex3_Ericson(Simplex* simplex) {
 
   // Check if P in edge region of BC (return projection of P onto BC)
   real va = d3 * d6 - d5 * d4;
-  if (va <= (real) 0 && (d4 - d3) >= (real) 0 && (d5 - d6) >= (real) 0) {
+  if (va <= 0 && (d4 - d3) >= 0 && (d5 - d6) >= 0) {
     real w          = (d4 - d3) / ((d4 - d3) + (d5 - d6));
     simplex->size   = 2;
     simplex->pts[0] = b;
@@ -845,7 +845,7 @@ inline host_fn void GJK_solve_simplex3_Ericson(Simplex* simplex) {
 
   // Check if P in edge region of AC (return projection of P onto AC)
   real vb = d5 * d2 - d1 * d6;
-  if (vb <= (real) 0 && d2 >= (real) 0 && d6 <= (real) 0) {
+  if (vb <= 0 && d2 >= 0 && d6 <= 0) {
     real w          = d2 / (d2 - d6);
     simplex->size   = 2;
     simplex->pts[1] = c;
@@ -854,7 +854,7 @@ inline host_fn void GJK_solve_simplex3_Ericson(Simplex* simplex) {
   }
 
   // P is inside face region
-  real denom = (real) 1 / (va + vb + vc);
+  real denom = 1 / (va + vb + vc);
   real v     = vb * denom;
   real w     = vc * denom;
 
@@ -877,7 +877,7 @@ inline host_fn void GJK_simplex3_from4_Ericson(Simplex* simplex) {
   real d2 = dot(ac, -a);
 
   // Check if P in vertex region outside A
-  if (d1 <= (real) 0 && d2 <= (real) 0) {
+  if (d1 <= 0 && d2 <= 0) {
     simplex->size = 1;
     simplex->P    = a;
     return;
@@ -886,7 +886,7 @@ inline host_fn void GJK_simplex3_from4_Ericson(Simplex* simplex) {
   // Check if P in vertex region outside B
   real d3 = dot(ab, -b);
   real d4 = dot(ac, -b);
-  if (d3 >= (real) 0 && d4 <= d3) {
+  if (d3 >= 0 && d4 <= d3) {
     simplex->size   = 1;
     simplex->pts[0] = b;
     simplex->P      = b;
@@ -895,7 +895,7 @@ inline host_fn void GJK_simplex3_from4_Ericson(Simplex* simplex) {
 
   // Check if P in edge region of AB (return projection of P onto AB)
   real vc = d1 * d4 - d3 * d2;
-  if (vc <= (real) 0 && d1 >= (real) 0 && d3 <= (real) 0) {
+  if (vc <= 0 && d1 >= 0 && d3 <= 0) {
     real v        = d1 / (d1 - d3);
     simplex->size = 2;
     simplex->P    = a + v * ab;
@@ -905,7 +905,7 @@ inline host_fn void GJK_simplex3_from4_Ericson(Simplex* simplex) {
   // Check if P in vertex region outside C
   real d5 = dot(ab, -c);
   real d6 = dot(ac, -c);
-  if (d6 >= (real) 0 && d5 <= d6) {
+  if (d6 >= 0 && d5 <= d6) {
     simplex->size   = 1;
     simplex->pts[0] = c;
     simplex->P      = c;
@@ -914,7 +914,7 @@ inline host_fn void GJK_simplex3_from4_Ericson(Simplex* simplex) {
 
   // Check if P in edge region of BC (return projection of P onto BC)
   real va = d3 * d6 - d5 * d4;
-  if (va <= (real) 0 && (d4 - d3) >= (real) 0 && (d5 - d6) >= (real) 0) {
+  if (va <= 0 && (d4 - d3) >= 0 && (d5 - d6) >= 0) {
     real w          = (d4 - d3) / ((d4 - d3) + (d5 - d6));
     simplex->size   = 2;
     simplex->pts[0] = b;
@@ -925,7 +925,7 @@ inline host_fn void GJK_simplex3_from4_Ericson(Simplex* simplex) {
 
   // Check if P in edge region of AC (return projection of P onto AC)
   real vb = d5 * d2 - d1 * d6;
-  if (vb <= (real) 0 && d2 >= (real) 0 && d6 <= (real) 0) {
+  if (vb <= 0 && d2 >= 0 && d6 <= 0) {
     real w          = d2 / (d2 - d6);
     simplex->size   = 2;
     simplex->pts[1] = c;
@@ -934,7 +934,7 @@ inline host_fn void GJK_simplex3_from4_Ericson(Simplex* simplex) {
   }
 
   // P is inside face region
-  real denom = (real) 1 / (va + vb + vc);
+  real denom = 1 / (va + vb + vc);
   real v     = vb * denom;
   real w     = vc * denom;
 

@@ -37,14 +37,14 @@ inline blast_fn void Bspline::compute_basis() {
   Array knots(m + 1);
   {
     for (u32 i = m; i > m - degree - 1; i--)
-      knots[i] = (real) 1;
+      knots[i] = 1;
     const real du = (real) 1 / (real) (m + 1 - 2 * (degree + 1) + 1);
     for (u32 i = degree + 1; i < m - degree; i++)
       knots[i] = knots[i - 1] + du;
   }
 
   Array      N(m * (degree + 1)); // triangle basis function
-  const real du = (real) 1 / (n_points - 1);
+  const real du = (real) 1 / (real) (n_points - 1);
   zero(basis_p);
   zero(basis_v);
   zero(basis_a);
@@ -52,18 +52,18 @@ inline blast_fn void Bspline::compute_basis() {
   real* basis_v_col = basis_v.data;
   real* basis_a_col = basis_a.data;
   for (u32 point = 0; point < n_points; point++) {
-    const real u = point * du;
+    const real u = (real) point * du;
 
     for (u32 i = 0; i < m; i++)
-      N[i] = u >= knots[i] && u < knots[i + 1] ? (real) 1 : (real) 0;
+      N[i] = u >= knots[i] && u < knots[i + 1] ? 1 : 0;
     if (point == n_points - 1)
-      N[n_ctrl - 1] = (real) 1;
+      N[n_ctrl - 1] = 1;
     for (u32 pi = 1; pi <= degree; pi++) {
       for (u32 i = 0; i < m - pi; i++) {
         if (knots[i + pi] != knots[i])
           N[m * pi + i] = N[m * (pi - 1) + i] * (u - knots[i]) / (knots[i + pi] - knots[i]);
         else
-          N[m * pi + i] = (real) 0;
+          N[m * pi + i] = 0;
         if (knots[i + pi + 1] != knots[i + 1])
           N[m * pi + i] += N[m * (pi - 1) + i + 1] * (knots[i + pi + 1] - u) / (knots[i + pi + 1] - knots[i + 1]);
       }
@@ -81,11 +81,11 @@ inline blast_fn void Bspline::compute_basis() {
 
     // acceleration basis functions
     for (u32 i = 0; i < n_ctrl - 2; i++)
-      basis_a_col[i] = (degree * (degree - 1)) * N[m * (degree - 2) + i + 2] / ((knots[i + degree + 1] - knots[i + 1]) * (knots[i + degree + 1] - knots[i + 2]));
+      basis_a_col[i] = (real) (degree * (degree - 1)) * N[m * (degree - 2) + i + 2] / ((knots[i + degree + 1] - knots[i + 1]) * (knots[i + degree + 1] - knots[i + 2]));
     for (u32 i = 1; i < n_ctrl - 1; i++)
-      basis_a_col[i] -= (degree * (degree - 1)) * N[m * (degree - 2) + i + 1] * ((real) 1 / (knots[i + degree] - knots[i]) + (real) 1 / (knots[i + degree + 1] - knots[i + 1])) / (knots[i + degree] - knots[i + 1]);
+      basis_a_col[i] -= (real) (degree * (degree - 1)) * N[m * (degree - 2) + i + 1] * (1 / (knots[i + degree] - knots[i]) + 1 / (knots[i + degree + 1] - knots[i + 1])) / (knots[i + degree] - knots[i + 1]);
     for (u32 i = 2; i < n_ctrl; i++)
-      basis_a_col[i] += (degree * (degree - 1)) * N[m * (degree - 2) + i] / ((knots[i + degree - 1] - knots[i]) * (knots[i + degree] - knots[i]));
+      basis_a_col[i] += (real) (degree * (degree - 1)) * N[m * (degree - 2) + i] / ((knots[i + degree - 1] - knots[i]) * (knots[i + degree] - knots[i]));
 
     // increment pointers
     basis_p_col += n_ctrl;
@@ -97,13 +97,13 @@ inline blast_fn void Bspline::compute_basis() {
   for (u32 i = 0; i < n_ctrl; i++) {
     // we do not test the first and last points
     for (u32 point = 1; point < n_points - 1; point++) {
-      if (basis_p(i, point) != 0.0) {
+      if (basis_p(i, point) != 0) {
         lower_bounds[i] = point;
         break;
       }
     }
     for (u32 point = 1; point < n_points - 1; point++) {
-      if (basis_p(i, point) != 0.0) {
+      if (basis_p(i, point) != 0) {
         upper_bounds[i] = point;
       }
     }
@@ -111,13 +111,13 @@ inline blast_fn void Bspline::compute_basis() {
 }
 
 inline int uniformClampedSpan(real u, int n_ctrl, int p) {
-  if (u <= 0.0) {
+  if (u <= 0) {
     return p;
-  } else if (u >= 1.0) {
+  } else if (u >= 1) {
     return n_ctrl - 1;
   } else {
     const int n_spans = n_ctrl - p;
-    int       span    = p + int(u * n_spans);
+    int       span    = p + (int) (u * (real) n_spans);
     return std::min(span, n_ctrl - 1);
   }
 }
@@ -130,17 +130,17 @@ inline blast_fn void Bspline::compute_basis_derivative(int d) {
   Array knots(m + 1);
   {
     for (u32 i = m; i > m - degree - 1; i--)
-      knots[i] = (real) 1;
+      knots[i] = 1;
     const real du = (real) 1 / (real) (m + 1 - 2 * (degree + 1) + 1);
     for (u32 i = degree + 1; i < m - degree; i++)
       knots[i] = knots[i - 1] + du;
   }
 
   Array      N(m * (degree + 1)); // triangle basis function
-  const real du = (real) 1 / (n_points - 1);
+  const real du = (real) 1 / (real) (n_points - 1);
 
   for (u32 point = 0; point < n_points; point++) {
-    const real u = point * du;
+    const real u = (real) point * du;
 
     // note: could save if-statements if we hard-coded span calculation since we know u is always within [0, 1]
     const int span  = uniformClampedSpan(u, n_ctrl, degree);
@@ -150,13 +150,13 @@ inline blast_fn void Bspline::compute_basis_derivative(int d) {
     Matrix ndu(degree + 1, degree + 1);
     Array  left(degree + 1), right(degree + 1);
 
-    ndu(0, 0) = 1.0;
+    ndu(0, 0) = 1;
 
     for (int j = 1; j <= degree; ++j) {
       left[j]  = u - knots[span + 1 - j];
       right[j] = knots[span + j] - u;
 
-      real saved = 0.0;
+      real saved = 0;
       for (int r = 0; r < j; ++r) {
         ndu(j, r) = right[r + 1] + left[j - r];
         real temp = ndu(r, j - 1) / ndu(j, r);
@@ -177,10 +177,10 @@ inline blast_fn void Bspline::compute_basis_derivative(int d) {
 
     for (int r = 0; r <= degree; ++r) {
       int s1 = 0, s2 = 1;
-      a(0, 0) = 1.0;
+      a(0, 0) = 1;
 
       for (int k = 1; k <= d; ++k) {
-        real d  = 0.0;
+        real d  = 0;
         int  rk = r - k;
         int  pk = degree - k;
 
@@ -237,12 +237,12 @@ inline blast_fn void Bspline::compute_basis_open() {
   u32 m = n_ctrl + degree;
 
   Array knots(m + 1);
-  knots[0]     = 0.0;
-  knots.back() = 1.0;
+  knots[0]     = 0;
+  knots.back() = 1;
   {
     const real du = (real) 1 / (real) m;
     for (u32 i = 1; i < m; i++)
-      knots[i] = i * du;
+      knots[i] = (real) i * du;
   }
 
 #ifdef BLAST_DEBUG
@@ -250,7 +250,7 @@ inline blast_fn void Bspline::compute_basis_open() {
 #endif
 
   Matrix     N(m, (degree + 1)); // triangle basis function
-  const real du = (real) 1 / (n_points - 1);
+  const real du = (real) 1 / (real) (n_points - 1);
   zero(basis_p);
   zero(basis_v);
   zero(basis_a);
@@ -258,16 +258,16 @@ inline blast_fn void Bspline::compute_basis_open() {
   real* basis_v_col = basis_v.data;
   real* basis_a_col = basis_a.data;
   for (u32 point = 0; point < n_points; point++) {
-    const real u = point * du;
+    const real u = (real) point * du;
 
     for (u32 i = 0; i < m; i++)
-      N(i, 0) = u >= knots[i] && u <= knots[i + 1] ? (real) 1 : (real) 0;
+      N(i, 0) = u >= knots[i] && u <= knots[i + 1] ? 1 : 0;
     for (u32 pi = 1; pi <= degree; pi++) {
       for (u32 i = 0; i < m - pi; i++) {
         if (knots[i + pi] != knots[i])
           N(i, pi) = N(i, pi - 1) * (u - knots[i]) / (knots[i + pi] - knots[i]);
         else
-          N(i, pi) = (real) 0;
+          N(i, pi) = 0;
         if (knots[i + pi + 1] != knots[i + 1])
           N(i, pi) += N(i + 1, pi - 1) * (knots[i + pi + 1] - u) / (knots[i + pi + 1] - knots[i + 1]);
       }
@@ -287,9 +287,9 @@ inline blast_fn void Bspline::compute_basis_open() {
     for (u32 i = 0; i < n_ctrl - 2; i++)
       basis_a_col[i] = (real) (degree * (degree - 1)) * N(i + 2, degree - 2) / ((knots[i + degree + 1] - knots[i + 1]) * (knots[i + degree + 1] - knots[i + 2]));
     for (u32 i = 1; i < n_ctrl - 1; i++)
-      basis_a_col[i] -= (real) (degree * (degree - 1)) * N(i + 1, degree - 2) * ((real) 1 / (knots[i + degree] - knots[i]) + (real) 1 / (knots[i + degree + 1] - knots[i + 1])) / (knots[i + degree] - knots[i + 1]);
+      basis_a_col[i] -= (real) (degree * (degree - 1)) * N(i + 1, degree - 2) * (1 / (knots[i + degree] - knots[i]) + 1 / (knots[i + degree + 1] - knots[i + 1])) / (knots[i + degree] - knots[i + 1]);
     for (u32 i = 2; i < n_ctrl; i++)
-      basis_a_col[i] += (degree * (degree - 1)) * N(i, degree - 2) / ((knots[i + degree - 1] - knots[i]) * (knots[i + degree] - knots[i]));
+      basis_a_col[i] += (real) (degree * (degree - 1)) * N(i, degree - 2) / ((knots[i + degree - 1] - knots[i]) * (knots[i + degree] - knots[i]));
 
     // increment pointers
     basis_p_col += n_ctrl;
@@ -302,15 +302,15 @@ inline blast_fn void Bspline::compute_control(const Array& x, const Matrix& task
   using std::isnan;
   Assert(n_ctrl >= 6);
   const real T  = x[x.size - 1];
-  const real du = (real) 1 / (n_ctrl - degree);
+  const real du = (real) 1 / (real) (n_ctrl - degree);
   const real T2 = T * T;
 
   u32  ctr_i = 0;
   u32  x_i   = 0;
   auto ctr   = dst;
 
-  const real kv = T * du / degree;
-  const real ka = 2 * T2 * du * du / (degree * (degree - 1));
+  const real kv = T * du / (real) degree;
+  const real ka = 2 * T2 * du * du / (real) (degree * (degree - 1));
   for (u32 joint = 0; joint < n_joints; joint++) {
     // Initial PVA
     const auto pi = task(joint, 0);
@@ -364,12 +364,12 @@ inline blast_fn void Bspline::compute_trajectory(const Array& x, const Matrix& t
   compute_control(x, task, control.data);
 
   const real T           = x.back();
-  const real dt          = T / (n_points - 1);
+  const real dt          = T / (real) (n_points - 1);
   const real one_over_T  = 1 / T;
   const real one_over_T2 = one_over_T * one_over_T;
 
   for (u32 point = 0; point < n_points; point++) {
-    traj.t[point] = dt * point;
+    traj.t[point] = dt * (real) point;
     auto bp       = basis_p.col(point);
     auto bv       = basis_v.col(point);
     auto ba       = basis_a.col(point);
@@ -406,11 +406,11 @@ inline Array BsplineDerivative_book(real u, int n_ctrl, int p, int deriv_order) 
   // --- Uniform clamped knot vector ---
   Array knots(n_ctrl + p + 1);
   for (int i = 0; i <= p; ++i)
-    knots[i] = 0.0;
+    knots[i] = 0;
   for (int i = p + 1; i < n_ctrl; ++i)
     knots[i] = real(i - p) / real(n_ctrl - p);
   for (int i = n_ctrl; i <= n_ctrl + p; ++i)
-    knots[i] = 1.0;
+    knots[i] = 1;
 
   const int span  = uniformClampedSpan(u, n_ctrl, p);
   const int first = span - p;
@@ -419,13 +419,13 @@ inline Array BsplineDerivative_book(real u, int n_ctrl, int p, int deriv_order) 
   Matrix ndu(p + 1, p + 1);
   Array  left(p + 1), right(p + 1);
 
-  ndu(0, 0) = 1.0;
+  ndu(0, 0) = 1;
 
   for (int j = 1; j <= p; ++j) {
     left[j]  = u - knots[span + 1 - j];
     right[j] = knots[span + j] - u;
 
-    real saved = 0.0;
+    real saved = 0;
     for (int r = 0; r < j; ++r) {
       ndu(j, r) = right[r + 1] + left[j - r];
       real temp = ndu(r, j - 1) / ndu(j, r);
@@ -446,10 +446,10 @@ inline Array BsplineDerivative_book(real u, int n_ctrl, int p, int deriv_order) 
 
   for (int r = 0; r <= p; ++r) {
     int s1 = 0, s2 = 1;
-    a(0, 0) = 1.0;
+    a(0, 0) = 1;
 
     for (int k = 1; k <= deriv_order; ++k) {
-      real d  = 0.0;
+      real d  = 0;
       int  rk = r - k;
       int  pk = p - k;
 

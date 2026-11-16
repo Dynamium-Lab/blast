@@ -9,18 +9,18 @@ namespace blast {
 inline blast::Matrix lds_golden_ratio(const u32 n, const u32 d) {
   blast::Matrix result(d, n);
 
-  blast::real g = 1.6180339887498948482; // Recommanded by wikipedia article
+  blast::real g = (real) 1.6180339887498948482; // Recommanded by wikipedia article
 
   // precompute factors a
   std::vector<blast::real> a;
   a.reserve(d);
-  a.push_back(1.0 / g);
+  a.push_back(1 / g);
   for (u32 i = 1; i < d; i++)
     a.push_back(a.at(i - 1) * a.at(0));
 
   for (u32 i = 0; i < n; i++) {
     for (u32 j = 0; j < d; j++) {
-      result(j, i) = fmod(0.5 + a[j] * (i + 1), 1);
+      result(j, i) = std::fmod((real) 0.5 + a[j] * (real) (i + 1), (real) 1);
     }
   }
 
@@ -30,7 +30,7 @@ inline blast::Matrix lds_golden_ratio(const u32 n, const u32 d) {
 Array guess_random(Bspline& bspline, Matrix& task) {
   Array x(bspline.x_len(task));
   fill_random(x, 1);
-  x.back() = std::abs(x.back()) * 2 + 0.1;
+  x.back() = std::abs(x.back()) * 2 + (real) 0.1;
   return x;
 }
 
@@ -39,7 +39,7 @@ inline Matrix get_random_guesses(const u32 n, const u32 d) {
   Matrix result(d, n);
   for (int i = 0; i < n; i++) {
     fill_random(x, 1);
-    x.back() = std::abs(x.back()) * 5 + 0.1;
+    x.back() = std::abs(x.back()) * 5 + (real) 0.1;
     for (int j = 0; j < d; j++) {
       result(j, i) = x[j];
     }
@@ -90,7 +90,7 @@ inline Array guess_straight_line(Optimization* opt) {
   const u32 n_free = opt->bspline.n_ctrl - 6;
   Assert(x.size == (u32) opt->manip.n_joints * n_free + 1);
 
-  real total_time = 0.0;
+  real total_time = 0;
   u32  k          = 0;
   for (int j = 0; j < opt->manip.n_joints; j++) {
     const real start = opt->task(j, 0);
@@ -101,7 +101,7 @@ inline Array guess_straight_line(Optimization* opt) {
     const real amax = opt->manip.acceleration_max[j];
     if (vmax > 0 && amax > 0) {
       const real d_switch = vmax * vmax / amax; // dist covered while accelerating to vmax and back down
-      const real t_j      = (dist >= d_switch) ? dist / vmax + vmax / amax : 2.0 * std::sqrt(dist / amax);
+      const real t_j      = (dist >= d_switch) ? dist / vmax + vmax / amax : 2 * std::sqrt(dist / amax);
       total_time          = std::max(total_time, t_j);
     }
 
@@ -110,7 +110,7 @@ inline Array guess_straight_line(Optimization* opt) {
       x[k++]       = start + a * (goal - start);
     }
   }
-  x.back() = total_time > 0 ? total_time : 2.0;
+  x.back() = total_time > 0 ? total_time : 2;
   return x;
 }
 

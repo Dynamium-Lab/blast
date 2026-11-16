@@ -24,7 +24,7 @@ using ConstraintFunction       = void (*)(real*, Optimization*);
 using ObjectiveFunction = real (*)(Optimization* opt);
 
 struct Objective {
-  real time_weight = 1.0;
+  real time_weight = 1;
   // real energy_weight = 0; // not supported atm
   // real jerk_weight = 0; // not supported atm
   // real obstacle_avoidance_weight = 0; // not supported atm
@@ -120,29 +120,29 @@ struct Optimization {
   Objective           objective;
   Matrix              task;
   World               world;
-  real                trajectory_start_time = 0.0;
-  real                success_tolerance     = 0.01; // dimensionless constraint violation threshold; tightening ensures
-                                                    // this on the tightened limits implies zero violation on the true limits
-  bool tighten_for_tolerance = true;                // false skips the tightening (ablation only: an accepted
-                                                    // solve may then violate the real limits by up to success_tolerance)
-  real collision_buffer = 0.001;                    // metres, between any two objects during the solve (each grows
-                                                    // by half). success_tolerance may consume it, never more, so an
-                                                    // accepted solve has no contact. Must be > 0 (else 1e-3). The default
-                                                    // suits tight scenes; smaller values cost convergence
+  real                trajectory_start_time = 0;
+  real                success_tolerance     = (real) 0.01; // dimensionless constraint violation threshold; tightening ensures
+                                                           // this on the tightened limits implies zero violation on the true limits
+  bool tighten_for_tolerance = true;                       // false skips the tightening (ablation only: an accepted
+                                                           // solve may then violate the real limits by up to success_tolerance)
+  real collision_buffer = (real) 0.001;                    // metres, between any two objects during the solve (each grows
+                                                           // by half). success_tolerance may consume it, never more, so an
+                                                           // accepted solve has no contact. Must be > 0 (else 1e-3). The default
+                                                           // suits tight scenes; smaller values cost convergence
 
-  real min_duration               = 0.01;           // bounds on the trajectory duration T (seconds), the
-  real max_duration               = 30.0;           // last decision variable (see decision_bounds)
-  real control_point_bound_margin = 0.0;            // control points may leave the position limits by this fraction
-                                                    // of each joint's range; raise it (e.g. 0.05) for tasks that must
-                                                    // run close to a limit. See docs/guides/constraints.md
-  bool bound_control_points = true;                 // false: duration bounds only. Set false for continuous-rotation
-                                                    // joints, or when the task needs motion the box prevents
-  int  max_tries = 1;                               // Maximum number of tries in the optimization loop.
-  int  max_eval  = 1000;                            // Maximum number of function evaluations for a single NLopt call.
-  real max_time  = 30.0;                            // Maximum time (seconds) for a single NLopt call.
+  real min_duration               = (real) 0.01;           // bounds on the trajectory duration T (seconds), the
+  real max_duration               = 30;                    // last decision variable (see decision_bounds)
+  real control_point_bound_margin = 0;                     // control points may leave the position limits by this fraction
+                                                           // of each joint's range; raise it (e.g. 0.05) for tasks that must
+                                                           // run close to a limit. See docs/guides/constraints.md
+  bool bound_control_points = true;                        // false: duration bounds only. Set false for continuous-rotation
+                                                           // joints, or when the task needs motion the box prevents
+  int  max_tries = 1;                                      // Maximum number of tries in the optimization loop.
+  int  max_eval  = 1000;                                   // Maximum number of function evaluations for a single NLopt call.
+  real max_time  = 30;                                     // Maximum time (seconds) for a single NLopt call.
 
   // --- derived, do not set ---
-  real collision_scale = 1.0; // success_tolerance / collision_buffer while tightened, 1 otherwise
+  real collision_scale = 1; // success_tolerance / collision_buffer while tightened, 1 otherwise
   // While tightened, the first/last segment's constraints target what the pinned start [0] / goal [1]
   // configuration achieves, so a pinned configuration at or near a limit does not create a violated
   // zero-gradient constraint. Clearances are measured against the planning geometry (distance + collision_buffer).

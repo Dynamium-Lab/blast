@@ -14,8 +14,8 @@ inline Manipulator make_Kinova_Link6() {
   limits.velocity_max = {(real) 3.4907, (real) 3.4907, (real) 3.4907, (real) 5.5851, (real) 5.5851, (real) 5.5851}; // rad/s
   // 10.472 equals to the value of 600 deg/s^2 in rad/s^2
   limits.acceleration_max = {(real) 10.472, (real) 10.472, (real) 10.472, (real) 10.472, (real) 10.472, (real) 10.472}; // rad/s^2
-  limits.torque_max       = {(real) 210, (real) 210, (real) 210, (real) 100, (real) 100, (real) 100};                   // Nm
-  limits.tool_speed_max   = (real) 1;                                                                                   // m/s
+  limits.torque_max       = {210, 210, 210, 100, 100, 100};                                                             // Nm
+  limits.tool_speed_max   = 1;                                                                                          // m/s
 
   // kinematic properties
   ManipulatorKinematics kinematics; // using default Q_base
@@ -33,8 +33,8 @@ inline Manipulator make_Kinova_Link6() {
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1}}; // direction vectors of joint
-  kinematics.first_joint_position = {0.0, 0.0, (real) 0.0530};
-  kinematics.base_position        = {0.0, 0.0, 0.0};
+  kinematics.first_joint_position = {0, 0, (real) 0.0530};
+  kinematics.base_position        = {0, 0, 0};
   kinematics.base_rotation        = {1, 0, 0, 0, 1, 0, 0, 0, 1};
   kinematics.static_rotations[0]  = {1, 0, 0, 0, -1, 0, 0, 0, -1};
   kinematics.static_rotations[1]  = {1, 0, 0, 0, 0, -1, 0, 1, 0};
@@ -66,12 +66,12 @@ inline Manipulator make_Kinova_Link6() {
           {(real) 4.64E-06, -(real) 0.02451414, -(real) 0.02997969},
           {-(real) 0.00010793, -(real) 0.01056422, -(real) 0.08091102},
           {(real) 0.01243595, (real) 0.03284165, -(real) 0.04091434},
-          {(real) 0, (real) 0.00050624, -(real) 0.00388589}}; // centers of mass
+          {0, (real) 0.00050624, -(real) 0.00388589}}; // centers of mass
 
   // Collision model
   ManipulatorCapsules collisions;
   Sphere              base;
-  base.center               = {0, 0, 0.0}; // because this is relative to p_base and p_base is {0, 0, 0.053}
+  base.center               = {0, 0, 0}; // because this is relative to p_base and p_base is {0, 0, 0.053}
   base.radius               = (real) 0.2375;
   collisions.base_sphere    = base;
   collisions.collision_base = {0, 0, 0, 1, 1, 1};

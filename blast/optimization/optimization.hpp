@@ -26,9 +26,9 @@ struct Result {
   int           num_tries           = 0;
   Trajectory    trajectory;
 
-  real max_constraint_value             = 0.0;
+  real max_constraint_value             = 0;
   int  max_constraint_idx               = 0;
-  real max_constraint_more_points_value = 0.0;
+  real max_constraint_more_points_value = 0;
   int  max_constraint_more_points_idx   = 0;
 
   Result() = delete;
@@ -52,7 +52,7 @@ inline Optimization::Optimization(const Manipulator& new_manip, const Task& new_
   constraints.acceleration = true;
   constraints.tool_speed   = true;
 
-  objective.time_weight = 1.0;
+  objective.time_weight = 1;
 }
 
 inline Optimization::Optimization(const Manipulator& new_manip, const Task& new_task, const Bspline& new_bspline) :
@@ -70,7 +70,7 @@ inline Optimization::Optimization(const Manipulator& new_manip, const Task& new_
   constraints.acceleration = true;
   constraints.tool_speed   = true;
 
-  objective.time_weight = 1.0;
+  objective.time_weight = 1;
 }
 
 inline int Optimization::x_len() const {
@@ -238,7 +238,7 @@ inline void clamp_to_bounds(Array& x, const Array& lower_bounds, const Array& up
 inline void set_pinned_col_clearances(Optimization* opt) {
   const real collision_buffer = opt->collision_buffer;
   // Floor, as a fraction of collision_buffer: keeps tolerance / clearance finite for an endpoint at ~0 clearance.
-  constexpr real min_target_fraction = 0.01;
+  constexpr real min_target_fraction = (real) 0.01;
 
   if (!opt->constraints.external_collisions && !opt->constraints.self_collisions) {
     opt->pinned_self_clearance.fill(collision_buffer);
@@ -306,7 +306,7 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
 
   // Snapshot taken, nothing modified, so restore_from_tolerance() is a no-op.
   if (!opt->tighten_for_tolerance) {
-    opt->collision_scale          = 1.0;
+    opt->collision_scale          = 1;
     opt->pinned_tightening_active = false;
     return snap;
   }
@@ -316,7 +316,7 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
 
   // collision_buffer must be > 0: collision_scale divides by it. A non-positive value is
   // replaced by the default, which stays on opt.
-  constexpr real fallback_collision_buffer = 1e-3; // the default; smaller values cost convergence
+  constexpr real fallback_collision_buffer = (real) 1e-3; // the default; smaller values cost convergence
   if (!(opt->collision_buffer > 0)) {
     printf("optimize: collision_buffer %g must be > 0; using %g.\n", (double) opt->collision_buffer,
            (double) fallback_collision_buffer);
@@ -383,7 +383,7 @@ inline void restore_from_tolerance(Optimization* opt, const ToleranceSnapshot& s
   for (int i = 0; i < opt->manip._n_caps; i++)
     opt->manip._collision_model[i].radius = snap.capsule_radius[i];
   opt->world                    = snap.world;
-  opt->collision_scale          = 1.0; // raw metres again outside the tightening window
+  opt->collision_scale          = 1; // raw metres again outside the tightening window
   opt->pinned_tightening_active = false;
 }
 
@@ -408,7 +408,7 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
   const auto n = opt->bspline.x_len(opt->task);
 
   Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
-  Array x_tol(n, 0.001);
+  Array x_tol(n, (real) 0.001);
 
   opt->lower_bounds = Array(n);
   opt->upper_bounds = Array(n);
@@ -417,9 +417,9 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
 #ifdef BLAST_USE_NATIVE_SQP
   nlopt_stopping stop;
   stop.n          = n;
-  stop.minf_max   = -HUGE_VAL;
+  stop.minf_max   = -INF_REAL;
   stop.ftol_rel   = 0;
-  stop.ftol_abs   = 0.001;
+  stop.ftol_abs   = (real) 0.001;
   stop.xtol_rel   = 0;
   stop.xtol_abs   = x_tol.data;
   stop.x_weights  = nullptr;
@@ -527,8 +527,8 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Solution validation (more points)");
 #endif
-      u64 steps_ms    = (u64) (std::ceil(x.back() * 1e3 / output_steps_ms));
-      x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
+      u64 steps_ms    = (u64) (std::ceil(x.back() * 1000 / (real) output_steps_ms));
+      x.back()        = (real) (std::ceil(x.back() * 1000 / (real) output_steps_ms) * (real) output_steps_ms) * (real) 1e-3;
       int points_more = (int) (steps_ms + 1);
 
       Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints); // todo: this is expensive
@@ -562,7 +562,7 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
   opt->guess = start_guess;                        // reset to original
   restore_from_tolerance(opt, tolerance_snapshot); // undo tighten_for_success_tolerance(): caller keeps the real limits
 
-  auto time = (real) (get_tick_us() - T1) / 1000.0;
+  auto time = (real) (get_tick_us() - T1) / 1000;
 
   // Output results
   result.success       = is_valid && is_valid_more;
@@ -587,7 +587,7 @@ inline void initialize_optimization_with_segments(Optimization* opt) {
   {
     const int n_segments = (int) opt->bspline.n_ctrl - (int) opt->bspline.degree;
     if (n_segments > 0 && (int) opt->bspline.n_points % n_segments != 0) {
-      const u32 n_pts_aligned = (u32) (std::ceil((real) opt->bspline.n_points / n_segments) * n_segments);
+      const u32 n_pts_aligned = (u32) (std::ceil((real) opt->bspline.n_points / (real) n_segments) * (real) n_segments);
       printf("optimize: bspline n_points %u is not divisible by n_segments %u; rounding up to %u.\n",
              opt->bspline.n_points, n_segments, n_pts_aligned);
       opt->set_bspline(Bspline(opt->bspline.n_ctrl, n_pts_aligned, opt->bspline.degree, opt->bspline.n_joints));
@@ -679,7 +679,7 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
   const auto n = opt->bspline.x_len(opt->task);
 
   Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
-  Array x_tol(n, 0.001);
+  Array x_tol(n, (real) 0.001);
 
   opt->lower_bounds = Array(n);
   opt->upper_bounds = Array(n);
@@ -688,9 +688,9 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
 #ifdef BLAST_USE_NATIVE_SQP
   nlopt_stopping stop;
   stop.n          = n;
-  stop.minf_max   = -HUGE_VAL;
+  stop.minf_max   = -INF_REAL;
   stop.ftol_rel   = 0;
-  stop.ftol_abs   = 0.001;
+  stop.ftol_abs   = (real) 0.001;
   stop.xtol_rel   = 0;
   stop.xtol_abs   = x_tol.data;
   stop.x_weights  = nullptr;
@@ -800,8 +800,8 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Solution validation (more points)");
 #endif
-      u64 steps_ms    = (u64) (std::ceil(x.back() * 1e3 / output_steps_ms));
-      x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
+      u64 steps_ms    = (u64) (std::ceil(x.back() * 1000 / (real) output_steps_ms));
+      x.back()        = (real) (std::ceil(x.back() * 1000 / (real) output_steps_ms) * (real) output_steps_ms) * (real) 1e-3;
       int points_more = (int) (steps_ms + 1);
 
       Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints);
@@ -835,7 +835,7 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
   opt->guess = start_guess;                        // reset to original
   restore_from_tolerance(opt, tolerance_snapshot); // undo tighten_for_success_tolerance(): caller keeps the real limits
 
-  auto time = (real) (get_tick_us() - T1) / 1000.0;
+  auto time = (real) (get_tick_us() - T1) / 1000;
 
   // Output results
   result.success       = is_valid && is_valid_more;
@@ -874,7 +874,7 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
   const auto n = opt->bspline.x_len(opt->task);
 
   Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
-  Array x_tol(n, 0.001);
+  Array x_tol(n, (real) 0.001);
 
   opt->lower_bounds = Array(n);
   opt->upper_bounds = Array(n);
@@ -883,9 +883,9 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
 #ifdef BLAST_USE_NATIVE_SQP
   nlopt_stopping stop;
   stop.n          = n;
-  stop.minf_max   = -HUGE_VAL;
+  stop.minf_max   = -INF_REAL;
   stop.ftol_rel   = 0;
-  stop.ftol_abs   = 0.001;
+  stop.ftol_abs   = (real) 0.001;
   stop.xtol_rel   = 0;
   stop.xtol_abs   = x_tol.data;
   stop.x_weights  = nullptr;
@@ -995,8 +995,8 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Solution validation (more points)");
 #endif
-      u64 steps_ms    = (u64) (std::ceil(x.back() * 1e3 / output_steps_ms));
-      x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
+      u64 steps_ms    = (u64) (std::ceil(x.back() * 1000 / (real) output_steps_ms));
+      x.back()        = (real) (std::ceil(x.back() * 1000 / (real) output_steps_ms) * (real) output_steps_ms) * (real) 1e-3;
       int points_more = (int) (steps_ms + 1);
 
       Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints); // todo: this is expensive
@@ -1029,7 +1029,7 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
   opt->guess = start_guess;                        // reset to original
   restore_from_tolerance(opt, tolerance_snapshot); // undo tighten_for_success_tolerance(): caller keeps the real limits
 
-  auto time = (real) (get_tick_us() - T1) / 1000.0;
+  auto time = (real) (get_tick_us() - T1) / 1000;
 
   // Output results
   result.success       = is_valid && is_valid_more;
@@ -1068,7 +1068,7 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
   const auto n = opt->bspline.x_len(opt->task);
 
   Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
-  Array x_tol(n, 0.001);
+  Array x_tol(n, (real) 0.001);
 
   opt->lower_bounds = Array(n);
   opt->upper_bounds = Array(n);
@@ -1077,9 +1077,9 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
 #ifdef BLAST_USE_NATIVE_SQP
   nlopt_stopping stop;
   stop.n          = n;
-  stop.minf_max   = -HUGE_VAL;
+  stop.minf_max   = -INF_REAL;
   stop.ftol_rel   = 0;
-  stop.ftol_abs   = 0.001;
+  stop.ftol_abs   = (real) 0.001;
   stop.xtol_rel   = 0;
   stop.xtol_abs   = x_tol.data;
   stop.x_weights  = nullptr;
@@ -1189,8 +1189,8 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Solution validation (more points)");
 #endif
-      u64 steps_ms    = (u64) (std::ceil(x.back() * 1e3 / output_steps_ms));
-      x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
+      u64 steps_ms    = (u64) (std::ceil(x.back() * 1000 / (real) output_steps_ms));
+      x.back()        = (real) (std::ceil(x.back() * 1000 / (real) output_steps_ms) * (real) output_steps_ms) * (real) 1e-3;
       int points_more = (int) (steps_ms + 1);
 
       Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints); // todo: this is expensive
@@ -1223,7 +1223,7 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
   opt->guess = start_guess;                        // reset to original
   restore_from_tolerance(opt, tolerance_snapshot); // undo tighten_for_success_tolerance(): caller keeps the real limits
 
-  auto time = (real) (get_tick_us() - T1) / 1000.0;
+  auto time = (real) (get_tick_us() - T1) / 1000;
 
   // Output results
   result.success       = is_valid && is_valid_more;
@@ -1262,7 +1262,7 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
   const auto n = opt->bspline.x_len(opt->task);
 
   Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
-  Array x_tol(n, 0.001);
+  Array x_tol(n, (real) 0.001);
 
   opt->lower_bounds = Array(n);
   opt->upper_bounds = Array(n);
@@ -1271,9 +1271,9 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
 #ifdef BLAST_USE_NATIVE_SQP
   nlopt_stopping stop;
   stop.n          = n;
-  stop.minf_max   = -HUGE_VAL;
+  stop.minf_max   = -INF_REAL;
   stop.ftol_rel   = 0;
-  stop.ftol_abs   = 0.0001;
+  stop.ftol_abs   = (real) 0.0001;
   stop.xtol_rel   = 0;
   stop.xtol_abs   = x_tol.data;
   stop.x_weights  = nullptr;
@@ -1381,8 +1381,8 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Solution validation (more points)");
 #endif
-      u64 steps_ms    = (u64) (std::ceil(x.back() * 1e3 / output_steps_ms));
-      x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
+      u64 steps_ms    = (u64) (std::ceil(x.back() * 1000 / (real) output_steps_ms));
+      x.back()        = (real) (std::ceil(x.back() * 1000 / (real) output_steps_ms) * (real) output_steps_ms) * (real) 1e-3;
       int points_more = (int) (steps_ms + 1);
 
       Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints); // todo: this is expensive
@@ -1416,7 +1416,7 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
   opt->guess = start_guess;                        // reset to original
   restore_from_tolerance(opt, tolerance_snapshot); // undo tighten_for_success_tolerance(): caller keeps the real limits
 
-  auto time = (real) (get_tick_us() - T1) / 1000.0;
+  auto time = (real) (get_tick_us() - T1) / 1000;
 
   // Output results
   result.success       = is_valid && is_valid_more;
@@ -1453,7 +1453,7 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
   const auto n = opt->bspline.x_len(opt->task);
 
   Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
-  Array x_tol(n, 0.001);
+  Array x_tol(n, (real) 0.001);
 
   opt->lower_bounds = Array(n);
   opt->upper_bounds = Array(n);
@@ -1462,9 +1462,9 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
 #ifdef BLAST_USE_NATIVE_SQP
   nlopt_stopping stop;
   stop.n          = n;
-  stop.minf_max   = -HUGE_VAL;
+  stop.minf_max   = -INF_REAL;
   stop.ftol_rel   = 0;
-  stop.ftol_abs   = 0.0001;
+  stop.ftol_abs   = (real) 0.0001;
   stop.xtol_rel   = 0;
   stop.xtol_abs   = x_tol.data;
   stop.x_weights  = nullptr;
@@ -1572,8 +1572,8 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Solution validation (more points)");
 #endif
-      u64 steps_ms    = (u64) (std::ceil(x.back() * 1e3 / output_steps_ms));
-      x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
+      u64 steps_ms    = (u64) (std::ceil(x.back() * 1000 / (real) output_steps_ms));
+      x.back()        = (real) (std::ceil(x.back() * 1000 / (real) output_steps_ms) * (real) output_steps_ms) * (real) 1e-3;
       int points_more = (int) (steps_ms + 1);
 
       Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints); // todo: this is expensive
@@ -1607,7 +1607,7 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
   opt->guess = start_guess;                        // reset to original
   restore_from_tolerance(opt, tolerance_snapshot); // undo tighten_for_success_tolerance(): caller keeps the real limits
 
-  auto time = (real) (get_tick_us() - T1) / 1000.0;
+  auto time = (real) (get_tick_us() - T1) / 1000;
 
   // Output results
   result.success       = is_valid && is_valid_more;

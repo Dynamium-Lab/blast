@@ -13,8 +13,8 @@ inline Manipulator make_Kinova_Gen3() {
   limits.position_min     = -limits.position_max;                                                                               // rad
   limits.velocity_max     = {(real) 1.745, (real) 1.745, (real) 1.745, (real) 1.745, (real) 2.443, (real) 2.443, (real) 2.443}; // rad/s
   limits.acceleration_max = {INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL, INF_REAL};                             // rad/s^2
-  limits.torque_max       = {(real) 52, (real) 52, (real) 52, (real) 52, (real) 17, (real) 17, (real) 17};                      // Nm
-  limits.tool_speed_max   = (real) 1;
+  limits.torque_max       = {52, 52, 52, 52, 17, 17, 17};                                                                       // Nm
+  limits.tool_speed_max   = 1;
 
   // kinematic properties
   ManipulatorKinematics kinematics; // using default Q_base
@@ -57,12 +57,12 @@ inline Manipulator make_Kinova_Gen3() {
           (real) 0.364}; // link masses
   dynamics.inertia_tensors = {
           Mat3{(real) 0.004570, (real) 0.000001, (real) 0.000002, (real) 0.000001, (real) 0.004831, (real) 0.000448, (real) 0.000002, (real) 0.000448, (real) 0.001409},
-          {(real) 0.011088, (real) 0.000005, (real) 0, (real) 0.000005, (real) 0.001072, -(real) 0.000691, (real) 0, -(real) 0.000691, (real) 0.011255},
-          {(real) 0.010932, (real) 0, -(real) 0.000007, (real) 0, (real) 0.011127, (real) 0.000606, -(real) 0.000007, (real) 0.000606, (real) 0.001043},
-          {(real) 0.008147, -(real) 0.000001, (real) 0, -(real) 0.000001, (real) 0.000631, -(real) 0.000500, (real) 0, -(real) 0.000500, (real) 0.008316},
-          {(real) 0.001596, (real) 0, (real) 0, (real) 0, (real) 0.001607, (real) 0.000256, (real) 0, (real) 0.000256, (real) 0.000399},
-          {(real) 0.001641, (real) 0, (real) 0, (real) 0, (real) 0.000410, -(real) 0.000278, (real) 0, -(real) 0.000278, (real) 0.001641},
-          {(real) 0.000214, (real) 0, (real) 0.000001, (real) 0, (real) 0.000223, -(real) 0.000002, (real) 0.000001, -(real) 0.000002, (real) 0.000240}}; // Inertial tensors
+          {(real) 0.011088, (real) 0.000005, 0, (real) 0.000005, (real) 0.001072, -(real) 0.000691, 0, -(real) 0.000691, (real) 0.011255},
+          {(real) 0.010932, 0, -(real) 0.000007, 0, (real) 0.011127, (real) 0.000606, -(real) 0.000007, (real) 0.000606, (real) 0.001043},
+          {(real) 0.008147, -(real) 0.000001, 0, -(real) 0.000001, (real) 0.000631, -(real) 0.000500, 0, -(real) 0.000500, (real) 0.008316},
+          {(real) 0.001596, 0, 0, 0, (real) 0.001607, (real) 0.000256, 0, (real) 0.000256, (real) 0.000399},
+          {(real) 0.001641, 0, 0, 0, (real) 0.000410, -(real) 0.000278, 0, -(real) 0.000278, (real) 0.001641},
+          {(real) 0.000214, 0, (real) 0.000001, 0, (real) 0.000223, -(real) 0.000002, (real) 0.000001, -(real) 0.000002, (real) 0.000240}}; // Inertial tensors
   dynamics.cog_offsets = {
           Vec3{-(real) 0.000023, -(real) 0.010364, -(real) 0.073360},
           {-(real) 0.000044, -(real) 0.099580, -(real) 0.013278},

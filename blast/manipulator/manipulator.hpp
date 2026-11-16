@@ -86,8 +86,8 @@ inline host_fn void forward_kinematics(const Manipulator& manip, ManipulatorTemp
   // #endif
 
   for (u32 j = 0; j < manip.n_joints; ++j) {
-    auto       s      = sin(joint_pos[j]);
-    auto       c      = cos(joint_pos[j]);
+    auto       s      = std::sin(joint_pos[j]);
+    auto       c      = std::cos(joint_pos[j]);
     const Mat3 temp_Q = {c, s, 0, -s, c, 0, 0, 0, 1};
     temp.rotations[j] = manip.static_rotations[j] * temp_Q;
   }
@@ -288,7 +288,7 @@ inline host_fn void Manipulator::set_limits(const ManipulatorLimits& limits) {
     Assert(limits.torque_max.size == n_joints);
     std::copy_n(limits.torque_max.data, n_joints, torque_max.data());
   }
-  if (limits.tool_speed_max != 0.0) {
+  if (limits.tool_speed_max != 0) {
     tool_speed_max = limits.tool_speed_max;
   }
 }
@@ -418,7 +418,7 @@ inline host_fn real clamped_root(real slope, real h0, real h1) {
     if (h1 > 0) {
       r = -h0 / slope;
       if (r > 1)
-        r = 0.5;
+        r = (real) 0.5;
     } else
       r = 1;
   } else

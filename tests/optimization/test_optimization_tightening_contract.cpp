@@ -13,8 +13,8 @@ using namespace blast;
 static Manipulator UR5e_narrow_limits() {
   Manipulator m = make_UR5e();
   for (int j = 0; j < m.n_joints; j++) {
-    m.position_min[j] = -3.1416;
-    m.position_max[j] = 3.1416;
+    m.position_min[j] = -(real) 3.1416;
+    m.position_max[j] = (real) 3.1416;
   }
   return m;
 }
@@ -32,8 +32,8 @@ TEST_CASE("tightening introduces no violated zero-gradient constraint", "[Optimi
   Task         task  = Task::stop_to_stop(start, end);
   Optimization opt(robot, task);
   opt.constraints.torque = true;
-  opt.success_tolerance  = 0.01;
-  opt.collision_buffer   = 0.001;
+  opt.success_tolerance  = (real) 0.01;
+  opt.collision_buffer   = (real) 0.001;
 
   REQUIRE(validate_task(&opt) == true); // legal on true geometry
 
@@ -74,7 +74,7 @@ TEST_CASE("tightening introduces no violated zero-gradient constraint", "[Optimi
 //    c = -(d_true - collision_buffer) * (tol/collision_buffer) < tol  <=>  d_true > 0
 // ---------------------------------------------------------------------------
 TEST_CASE("a constraint within tolerance implies true clearance", "[Optimization]") {
-  const real tol = 0.01;
+  const real tol = (real) 0.01;
   Array      q   = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
 
   auto min_dist = [&](Manipulator m, const World& w) {
@@ -88,14 +88,14 @@ TEST_CASE("a constraint within tolerance implies true clearance", "[Optimization
     return worst;
   };
 
-  for (real collision_buffer: {0.0005, 0.001, 0.005, 0.01}) {
+  for (real collision_buffer: {(real) 0.0005, (real) 0.001, (real) 0.005, (real) 0.01}) {
     int checked = 0, both_sides = 0;
     // Sweep the obstacle through contact so the implication is tested on both sides.
     for (int step = -25; step <= 25; step++) {
-      const real x = 0.095 + (real) step * 0.0008;
+      const real x = (real) 0.095 + (real) step * (real) 0.0008;
 
       World w;
-      w.add_sphere(Vec3{x, 0.0, 0.35}, 0.10);
+      w.add_sphere(Vec3{x, 0, (real) 0.35}, (real) 0.10);
 
       Manipulator  robot = UR5e_narrow_limits();
       Task         task  = Task::stop_to_stop(q, q);
@@ -129,8 +129,8 @@ TEST_CASE("restore puts collision_scale back to 1", "[Optimization]") {
   Manipulator  robot = UR5e_narrow_limits();
   Task         task  = Task::stop_to_stop(q, q);
   Optimization opt(robot, task);
-  opt.success_tolerance = 0.01;
-  opt.collision_buffer  = 0.001;
+  opt.success_tolerance = (real) 0.01;
+  opt.collision_buffer  = (real) 0.001;
 
   auto snap = tighten_for_success_tolerance(&opt);
   CHECK(opt.collision_scale == Approx(10.0)); // tol / collision_buffer
@@ -144,9 +144,9 @@ TEST_CASE("a non-positive collision_buffer is replaced by the default", "[Optimi
   Manipulator  robot = UR5e_narrow_limits();
   Task         task  = Task::stop_to_stop(q, q);
   Optimization opt(robot, task);
-  opt.success_tolerance = 0.01;
+  opt.success_tolerance = (real) 0.01;
 
-  for (real collision_buffer: {0.0, -0.001}) {
+  for (real collision_buffer: {(real) 0, -(real) 0.001}) {
     opt.collision_buffer = collision_buffer;
     auto snap            = tighten_for_success_tolerance(&opt);
     CHECK(opt.collision_buffer == Approx(1e-3));
@@ -169,15 +169,15 @@ TEST_CASE("position is tightened up to the endpoints and success respects the tr
   Manipulator  robot = UR5e_narrow_limits();
   Task         task  = Task::stop_to_stop(start, end);
   Optimization opt(robot, task);
-  opt.success_tolerance = 0.01;
-  opt.collision_buffer  = 0.001;
+  opt.success_tolerance = (real) 0.01;
+  opt.collision_buffer  = (real) 0.001;
   initialize_optimization_with_segments(&opt);
 
-  const real true_limit = 3.1416;
+  const real true_limit = (real) 3.1416;
 #if BLAST_USE_DOUBLES
   const real exactness = 1e-9;
 #else
-  const real exactness = 1e-4; // float: scale ~ tolerance / 0.0016 amplifies ~1e-7 position error
+  const real exactness = (real) 1e-4; // float: scale ~ tolerance / 0.0016 amplifies ~1e-7 position error
 #endif
   auto      tolerance_snapshot = tighten_for_success_tolerance(&opt);
   const int n_segments         = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
@@ -203,11 +203,11 @@ TEST_CASE("position is tightened up to the endpoints and success respects the tr
   CHECK(position_constraint_params(opt, 0, 0, n_segments).value(true_limit) == Approx(0).margin(exactness)); // untightened: plain bound
 
   Optimization run(robot, task);
-  run.success_tolerance      = 0.01;
-  run.collision_buffer       = 0.001;
+  run.success_tolerance      = (real) 0.01;
+  run.collision_buffer       = (real) 0.001;
   run.guess.type             = Guess::custom;
   run.guess.initial_x        = blast::guess_straight_line(&run);
-  run.guess.initial_x.back() = 2.0;
+  run.guess.initial_x.back() = 2;
   const Result result        = optimize(&run);
   REQUIRE(result.success); // test is vacuous if the solve never succeeds
   const Matrix& pos = result.trajectory.pos;
@@ -234,10 +234,10 @@ TEST_CASE("tightened self-collision constraint matches across with_segments/broa
   Task         task  = Task::stop_to_stop(start, end);
   Optimization opt(robot, task);
   opt.constraints.self_collisions = true;
-  opt.success_tolerance           = 0.01;
-  opt.collision_buffer            = 0.001; // collision_scale = tol/collision_buffer = 10
+  opt.success_tolerance           = (real) 0.01;
+  opt.collision_buffer            = (real) 0.001; // collision_scale = tol/collision_buffer = 10
 
-  REQUIRE(validate_task(&opt) == true);    // legal on true geometry
+  REQUIRE(validate_task(&opt) == true);           // legal on true geometry
 
   initialize_optimization_with_segments(&opt);
   n_con_with_segments(&opt);
@@ -280,11 +280,11 @@ TEST_CASE("tightened self-collision constraint matches across with_segments/broa
 #if BLAST_USE_DOUBLES
 constexpr real exact_tolerance = 1e-9;
 #else
-constexpr real exact_tolerance = 1e-5;
+constexpr real exact_tolerance = (real) 1e-5;
 #endif
 
 TEST_CASE("collision constraints at a pinned endpoint target what the endpoint achieves", "[Optimization]") {
-  const real tolerance = 0.01, collision_buffer = 0.001, start_clearance = 0.0005; // start clears the sphere by half the collision_buffer
+  const real tolerance = (real) 0.01, collision_buffer = (real) 0.001, start_clearance = (real) 0.0005; // start clears the sphere by half the collision_buffer
   Array      start = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
   Array      end   = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.14};
 
@@ -297,7 +297,7 @@ TEST_CASE("collision constraints at a pinned endpoint target what the endpoint a
     compute_collision_model(robot, manip_data);
     const Capsule capsule       = manip_data.capsule_list[tool_capsule];
     const Vec3    axis          = (capsule.p2 - capsule.p1) / norm(capsule.p2 - capsule.p1);
-    const real    sphere_radius = 0.02;
+    const real    sphere_radius = (real) 0.02;
     world.add_sphere(capsule.p2 + axis * (capsule.radius + sphere_radius + start_clearance), sphere_radius); // beyond the capsule's end, on its axis
     for (int capsule_id = 0; capsule_id < robot._n_caps; capsule_id++)
       if (capsule_id != tool_capsule)
@@ -345,7 +345,7 @@ TEST_CASE("collision constraints at a pinned endpoint target what the endpoint a
     const int constraints_per_segment = hold.constraints.n_constraints_per_segment;
     const int n_segments              = (int) n_constraints / constraints_per_segment;
     Array     x                       = blast::guess_straight_line(&hold);
-    x.back()                          = 2.0; // start == goal: the limit-derived duration would be 0
+    x.back()                          = 2; // start == goal: the limit-derived duration would be 0
     Array  constraints(n_constraints);
     Matrix gradient(n_variables, n_constraints);
     constraints_and_gradients_with_segments(x, hold, constraints, gradient);
@@ -368,7 +368,7 @@ TEST_CASE("collision constraints at a pinned endpoint target what the endpoint a
   const int n_segments = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
   for (int segment: {0, n_segments / 2}) {
     const auto ext_coll_params = ext_collision_constraint_params(opt, segment, n_segments, tool_capsule);
-    for (real distance: {-collision_buffer - 1e-6, -collision_buffer + 1e-6}) {
+    for (real distance: {-collision_buffer - (real) 1e-6, -collision_buffer + (real) 1e-6}) {
       const real constraint = -(distance + ext_coll_params.shift) * ext_coll_params.scale;
       CHECK((constraint < tolerance) == (distance + collision_buffer > 0));
     }
@@ -382,7 +382,7 @@ TEST_CASE("collision constraints at a pinned endpoint target what the endpoint a
     const real start_distance = start_clearance - collision_buffer; // the start's distance in the tightened geometry
     CHECK(ext_collision_constraint_at_point(opt, 0, tool_capsule, start_distance) <= exact_tolerance);
     CHECK(ext_collision_constraint_at_point(opt, n_points / 2, tool_capsule, start_distance) > 0);
-    for (real distance: {-collision_buffer - 1e-6, -collision_buffer + 1e-6})
+    for (real distance: {-collision_buffer - (real) 1e-6, -collision_buffer + (real) 1e-6})
       for (u32 point: {0u, n_points / 2, n_points - 1})
         CHECK((ext_collision_constraint_at_point(opt, point, tool_capsule, distance) < tolerance) == (distance + collision_buffer > 0));
   }

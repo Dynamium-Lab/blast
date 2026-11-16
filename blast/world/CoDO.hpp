@@ -51,10 +51,10 @@ inline real distance(const Sphere& sphere, const Vec3& point) {
 
 // Gets the point by linear interpolation from caps_list according to values of x
 inline Vec3 get_point(const Array& x, const Matrix& capsule_list) {
-  real t            = x[0] * (capsule_list.cols - 1);
+  real t            = x[0] * (real) (capsule_list.cols - 1);
   int  t_step       = (int) floor(t);
   int  t_step_plus1 = (t_step == (capsule_list).cols - 1) ? t_step : t_step + 1;
-  real s            = x[1] * (capsule_list.rows / 3 - 1);
+  real s            = x[1] * (real) (capsule_list.rows / 3 - 1);
   int  s_step       = (int) floor(s);
   int  s_step_plus1 = (s_step == (capsule_list).rows / 3 - 1) ? s_step : s_step + 1;
 
@@ -63,10 +63,10 @@ inline Vec3 get_point(const Array& x, const Matrix& capsule_list) {
   Vec3 p2_1 = {capsule_list(3 * s_step_plus1, t_step), capsule_list(3 * s_step_plus1 + 1, t_step), capsule_list(3 * s_step_plus1 + 2, t_step)};
   Vec3 p2_2 = {capsule_list(3 * s_step_plus1, t_step_plus1), capsule_list(3 * s_step_plus1 + 1, t_step_plus1), capsule_list(3 * s_step_plus1 + 2, t_step_plus1)};
 
-  Vec3 p1 = (1 - (t - t_step)) * p1_1 + (t - t_step) * p1_2;
-  Vec3 p2 = (1 - (t - t_step)) * p2_1 + (t - t_step) * p2_2;
+  Vec3 p1 = (1 - (t - (real) t_step)) * p1_1 + (t - (real) t_step) * p1_2;
+  Vec3 p2 = (1 - (t - (real) t_step)) * p2_1 + (t - (real) t_step) * p2_2;
 
-  Vec3 p = (1 - (s - s_step)) * p1 + (s - s_step) * p2;
+  Vec3 p = (1 - (s - (real) s_step)) * p1 + (s - (real) s_step) * p2;
   return p;
 }
 
@@ -102,10 +102,10 @@ inline real obj_function(const Array& x, const Matrix& robot_cartesian_positions
 inline Vec3 get_point_with_directions(const Array& x, const Matrix& capsule_list, Array* directions) {
   Assert((*directions).size == 6);
 
-  real t            = x[0] * (capsule_list.cols - 1);
+  real t            = x[0] * (real) (capsule_list.cols - 1);
   int  t_step       = (int) floor(t);
   int  t_step_plus1 = (t_step == (capsule_list).cols - 1) ? t_step : t_step + 1;
-  real s            = x[1] * (capsule_list.rows / 3 - 1);
+  real s            = x[1] * (real) (capsule_list.rows / 3 - 1);
   int  s_step       = (int) floor(s);
   int  s_step_plus1 = (s_step == (capsule_list).rows / 3 - 1) ? s_step : s_step + 1;
 
@@ -118,20 +118,20 @@ inline Vec3 get_point_with_directions(const Array& x, const Matrix& capsule_list
   // t = 1, s = 1
   Vec3 p2_2 = {capsule_list(3 * s_step_plus1, t_step_plus1), capsule_list(3 * s_step_plus1 + 1, t_step_plus1), capsule_list(3 * s_step_plus1 + 2, t_step_plus1)};
 
-  Vec3 p1 = (1 - (t - t_step)) * p1_1 + (t - t_step) * p1_2;
-  Vec3 p2 = (1 - (t - t_step)) * p2_1 + (t - t_step) * p2_2;
+  Vec3 p1 = (1 - (t - (real) t_step)) * p1_1 + (t - (real) t_step) * p1_2;
+  Vec3 p2 = (1 - (t - (real) t_step)) * p2_1 + (t - (real) t_step) * p2_2;
 
-  Vec3 p = (1 - (s - s_step)) * p1 + (s - s_step) * p2;
+  Vec3 p = (1 - (s - (real) s_step)) * p1 + (s - (real) s_step) * p2;
 
   // Directions for gradient information
   Vec3 dy = p2 - p1;
 
-  Vec3 p1x = (1 - (s - s_step)) * p1_1 + (s - s_step) * p2_1;
-  Vec3 p2x = (1 - (s - s_step)) * p1_2 + (s - s_step) * p2_2;
+  Vec3 p1x = (1 - (s - (real) s_step)) * p1_1 + (s - (real) s_step) * p2_1;
+  Vec3 p2x = (1 - (s - (real) s_step)) * p1_2 + (s - (real) s_step) * p2_2;
   Vec3 dx  = p2x - p1x;
 
-  Vec3 dx_normalized = dx / (capsule_list.cols - 1);
-  Vec3 dy_normalized = dy / (capsule_list.rows / 3 - 1);
+  Vec3 dx_normalized = dx / (real) (capsule_list.cols - 1);
+  Vec3 dy_normalized = dy / (real) (capsule_list.rows / 3 - 1);
 
   Array dir(6);
   dir           = {dx_normalized[0], dx_normalized[1], dx_normalized[2], dy_normalized[0], dy_normalized[1], dy_normalized[2]};

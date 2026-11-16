@@ -12,7 +12,7 @@ namespace blast::test {
 #if BLAST_USE_DOUBLES
 constexpr real abs_tol = 1e-9;
 #else
-constexpr real abs_tol = 1e-4;
+constexpr real abs_tol = (real) 1e-4;
 #endif
 
 // Looser tolerance for inherently approximate checks: finite-difference vs.
@@ -23,7 +23,7 @@ constexpr real abs_tol = 1e-4;
 #if BLAST_USE_DOUBLES
 constexpr real approx_tol = 1e-5;
 #else
-constexpr real approx_tol = 1e-1;
+constexpr real approx_tol = (real) 1e-1;
 #endif
 
 } // namespace blast::test

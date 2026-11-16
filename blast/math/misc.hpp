@@ -34,12 +34,12 @@ inline host_fn float simd_hadd(__m256 v) {
 // Returns a rotation matrix from roll, pitch, yaw angles
 inline Mat3 rpy2rotation(Vec3 rpy) {
   // Pre-compute cosines and sines.
-  const real cx = cos(rpy.x);
-  const real sx = sin(rpy.x);
-  const real cy = cos(rpy.y);
-  const real sy = sin(rpy.y);
-  const real cz = cos(rpy.z);
-  const real sz = sin(rpy.z);
+  const real cx = std::cos(rpy.x);
+  const real sx = std::sin(rpy.x);
+  const real cy = std::cos(rpy.y);
+  const real sy = std::sin(rpy.y);
+  const real cz = std::cos(rpy.z);
+  const real sz = std::sin(rpy.z);
 
   // Compute the rotation matrix components.
   Mat3 R;
@@ -61,26 +61,26 @@ inline Mat3 rpy2rotation(Vec3 rpy) {
 inline Vec3 rotation2rpy(Mat3 rotation) {
   u32  condition = std::abs(rotation(0, 2)) != 1 ? 1 : rotation(0, 2) == 1 ? 2
                                                                            : 3; // allow for gimble lock
-  real rx        = condition == 1 ? atan2(-rotation(1, 2), rotation(2, 2))
+  real rx        = condition == 1 ? std::atan2(-rotation(1, 2), rotation(2, 2))
                                   : 0;
 
 
-  real ry = condition == 1   ? asin(rotation(0, 2))
+  real ry = condition == 1   ? std::asin(rotation(0, 2))
             : condition == 2 ? PI / 2
                              : -PI / 2;
 
 
-  real rz = condition == 1   ? atan2(-rotation(0, 1), rotation(0, 0))
-            : condition == 2 ? atan2(rotation(1, 0), rotation(1, 1))
-                             : atan2(-rotation(1, 0), -rotation(1, 1));
+  real rz = condition == 1   ? std::atan2(-rotation(0, 1), rotation(0, 0))
+            : condition == 2 ? std::atan2(rotation(1, 0), rotation(1, 1))
+                             : std::atan2(-rotation(1, 0), -rotation(1, 1));
 
   return {rx, ry, rz};
 }
 
 // Returns the sign of a real number (zero if it is zero).
 inline blast_fn real sign(real v) {
-  return v > 0 ? 1 : v == 0 ? 0
-                            : -1;
+  return v > 0 ? (real) 1 : v == 0 ? (real) 0
+                                   : (real) -1;
 }
 
 // Returns the sign of a real number (zero will return 1).
@@ -180,7 +180,7 @@ inline host_fn u32 random_int(u32 min, u32 max) {
 }
 #endif
 
-Mat3 move_inertia_tensor(const real& mass, const Vec3& center_of_gravity, const Mat3& inertia_tensor, Vec3 new_center_of_gravity = {0.0, 0.0, 0.0}) {
+Mat3 move_inertia_tensor(const real& mass, const Vec3& center_of_gravity, const Mat3& inertia_tensor, Vec3 new_center_of_gravity = {0, 0, 0}) {
   Mat3 result;
 
   Vec3 r = center_of_gravity - new_center_of_gravity;

@@ -18,9 +18,9 @@ TEST_CASE("optimization - task not valid", "[Optimization") {
 
   World world;
   world.add_box(
-          Vec3{0.0, 0.0, 0.0},            // centre: 0,0,0
-          Vec3{0.05, 0.3, 0.3},           // half-extents: thin vertical slab
-          Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1} // upright, axis-aligned
+          Vec3{0, 0, 0},                             // centre: 0,0,0
+          Vec3{(real) 0.05, (real) 0.3, (real) 0.3}, // half-extents: thin vertical slab
+          Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1}            // upright, axis-aligned
   );
 
   Optimization opt(robot, task); // default enables pva + tool_speed constraints
@@ -36,6 +36,6 @@ TEST_CASE("optimization - task not valid", "[Optimization") {
   Result result = optimize(&opt);
 
   CHECK(result.success == false);
-  CHECK(result.compute_time == (real) 0);
+  CHECK(result.compute_time == 0);
   CHECK(result.trajectory.t.size == 0);
 }

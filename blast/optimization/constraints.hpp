@@ -22,7 +22,7 @@ inline blast_fn real bound_constraint(const real& value, const real& value_min, 
   const real center = (value_max + value_min) / 2;
   const real range  = value_max - value_min;
 
-  auto result = 2 * std::abs(value - center) / range - (real) 1;
+  auto result = 2 * std::abs(value - center) / range - 1;
   // auto result2 = std::abs(2 * value) / range - 1.0; // note: fixed, there was an error here todo: this is not true, unless min = -max
   // Assert(result == result2);
   // todo: if this always passes, only keep result2 because it is slightly faster
@@ -31,7 +31,7 @@ inline blast_fn real bound_constraint(const real& value, const real& value_min, 
 }
 
 inline blast_fn real abs_constraint(const real& value, const real& value_max) {
-  return std::abs(value) / value_max - (real) 1;
+  return std::abs(value) / value_max - 1;
 }
 
 inline blast_fn Matrix get_J_tool(const Optimization* opt, const ManipulatorTempData& temp) {
@@ -92,7 +92,7 @@ struct CollisionConstraintParams {
 inline blast_fn CollisionConstraintParams self_collision_constraint_params(const Optimization& opt, int segment, int n_segments) {
   // Keep collision scale if not in endpoint segments or if the tightening is deactivated.
   if (!opt.pinned_tightening_active || (segment != 0 && segment != n_segments - 1))
-    return {0.0, opt.collision_scale};
+    return {0, opt.collision_scale};
   real pinned_clearance = INF_REAL;
   // Both conditions separate: when n_segments == 1 the segment is both first and last.
   if (segment == 0)
@@ -106,7 +106,7 @@ inline blast_fn CollisionConstraintParams self_collision_constraint_params(const
 inline blast_fn CollisionConstraintParams ext_collision_constraint_params(const Optimization& opt, int segment, int n_segments, int capsule_id) {
   // Keep collision scale if not in endpoint segments or if the tightening is deactivated.
   if (!opt.pinned_tightening_active || (segment != 0 && segment != n_segments - 1))
-    return {0.0, opt.collision_scale};
+    return {0, opt.collision_scale};
   real pinned_clearance = INF_REAL;
   // Both conditions separate: when n_segments == 1 the segment is both first and last.
   if (segment == 0)
@@ -167,15 +167,15 @@ struct PositionConstraintParams {
 /** @brief Position constraint parameters for a joint and segment. */
 inline blast_fn PositionConstraintParams position_constraint_params(const Optimization& opt, int joint, int segment, int n_segments) {
   // Floor on the remaining slack, as a fraction of the tightening: keeps the scale finite for an endpoint at the true limit.
-  constexpr real min_slack_fraction = 0.01;
+  constexpr real min_slack_fraction = (real) 0.01;
 
   const real position_max = opt.manip.position_max[joint];
   const real position_min = opt.manip.position_min[joint];
   if (position_max == INF_REAL || position_min == -INF_REAL)
-    return {0.0, 0.0, 0.0, -1.0};
+    return {0, 0, 0, -1};
   const real center     = (position_max + position_min) / 2;
   const real half_range = (position_max - position_min) / 2;
-  const auto interior   = PositionConstraintParams{center, 1 / half_range, 0.0, -1.0};
+  const auto interior   = PositionConstraintParams{center, 1 / half_range, 0, -1};
   if (!opt.pinned_tightening_active || (segment != 0 && segment != n_segments - 1))
     return interior;
 
@@ -308,7 +308,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 #if BLAST_TRACE_LEVEL >= 3
             PROFILE_SCOPE("Vel Constraints");
 #endif
-            if (const auto c = std::abs(v[j]) / vmax[j] - (real) 1;
+            if (const auto c = std::abs(v[j]) / vmax[j] - 1;
                 c > max_vel_constraints[j]) {
               max_vel_constraints[j] = c;
               max_vel_indices[j]     = point_in_segment;
@@ -319,7 +319,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 #if BLAST_TRACE_LEVEL >= 3
             PROFILE_SCOPE("Acc Constraints");
 #endif
-            if (const auto c = std::abs(a[j]) / amax[j] - (real) 1;
+            if (const auto c = std::abs(a[j]) / amax[j] - 1;
                 c > max_acc_constraints[j]) {
               max_acc_constraints[j] = c;
               max_acc_indices[j]     = point_in_segment;
@@ -330,7 +330,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 #if BLAST_TRACE_LEVEL >= 3
             PROFILE_SCOPE("Tau Constraints");
 #endif
-            if (const auto c = std::abs(manip_data.efforts[j]) / tau_max[j] - (real) 1;
+            if (const auto c = std::abs(manip_data.efforts[j]) / tau_max[j] - 1;
                 c > max_tor_constraints[j]) {
               max_tor_constraints[j] = c;
               max_tor_indices[j]     = point_in_segment;
@@ -982,7 +982,7 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
 #if BLAST_TRACE_LEVEL >= 3
             PROFILE_SCOPE("Vel Constraints");
 #endif
-            if (const auto c = std::abs(v[j]) / vmax[j] - (real) 1;
+            if (const auto c = std::abs(v[j]) / vmax[j] - 1;
                 c > max_vel_constraints[j]) {
               max_vel_constraints[j] = c;
               max_vel_indices[j]     = point_in_segment;
@@ -993,7 +993,7 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
 #if BLAST_TRACE_LEVEL >= 3
             PROFILE_SCOPE("Acc Constraints");
 #endif
-            if (const auto c = std::abs(a[j]) / amax[j] - (real) 1;
+            if (const auto c = std::abs(a[j]) / amax[j] - 1;
                 c > max_acc_constraints[j]) {
               max_acc_constraints[j] = c;
               max_acc_indices[j]     = point_in_segment;
@@ -1004,7 +1004,7 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
 #if BLAST_TRACE_LEVEL >= 3
             PROFILE_SCOPE("Tau Constraints");
 #endif
-            if (const auto c = std::abs(manip_data.efforts[j]) / tau_max[j] - (real) 1;
+            if (const auto c = std::abs(manip_data.efforts[j]) / tau_max[j] - 1;
                 c > max_tor_constraints[j]) {
               max_tor_constraints[j] = c;
               max_tor_indices[j]     = point_in_segment;
@@ -1586,7 +1586,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
 #if BLAST_TRACE_LEVEL >= 3
             PROFILE_SCOPE("Vel Constraints");
 #endif
-            if (const auto c = std::abs(v[j]) / vmax[j] - (real) 1;
+            if (const auto c = std::abs(v[j]) / vmax[j] - 1;
                 c > max_vel_constraints[j]) {
               max_vel_constraints[j] = c;
               max_vel_indices[j]     = point_in_segment;
@@ -1597,7 +1597,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
 #if BLAST_TRACE_LEVEL >= 3
             PROFILE_SCOPE("Acc Constraints");
 #endif
-            if (const auto c = std::abs(a[j]) / amax[j] - (real) 1;
+            if (const auto c = std::abs(a[j]) / amax[j] - 1;
                 c > max_acc_constraints[j]) {
               max_acc_constraints[j] = c;
               max_acc_indices[j]     = point_in_segment;
@@ -1608,7 +1608,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
 #if BLAST_TRACE_LEVEL >= 3
             PROFILE_SCOPE("Tau Constraints");
 #endif
-            if (const auto c = std::abs(manip_data.efforts[j]) / tau_max[j] - (real) 1;
+            if (const auto c = std::abs(manip_data.efforts[j]) / tau_max[j] - 1;
                 c > max_tor_constraints[j]) {
               max_tor_constraints[j] = c;
               max_tor_indices[j]     = point_in_segment;
@@ -2236,7 +2236,7 @@ inline blast_fn void compute_constraints(real* result, const Array& x, Optimizat
 #endif
       for (int j = 0; j < opt->manip.n_joints; j++) {
         // moving_result[0] = abs_constraint(opt->bspline.traj.vel(j, i), opt->manip.velocity_max[j]);
-        *moving_result++ = std::abs(opt->bspline.traj.vel(j, i)) / opt->manip.velocity_max[j] - (real) 1;
+        *moving_result++ = std::abs(opt->bspline.traj.vel(j, i)) / opt->manip.velocity_max[j] - 1;
       }
     }
 
@@ -2245,7 +2245,7 @@ inline blast_fn void compute_constraints(real* result, const Array& x, Optimizat
       PROFILE_SCOPE("Acceleration");
 #endif
       for (int j = 0; j < opt->manip.n_joints; j++) {
-        *moving_result++ = std::abs(opt->bspline.traj.acc(j, i)) / opt->manip.acceleration_max[j] - (real) 1;
+        *moving_result++ = std::abs(opt->bspline.traj.acc(j, i)) / opt->manip.acceleration_max[j] - 1;
       }
     }
 
@@ -2258,7 +2258,7 @@ inline blast_fn void compute_constraints(real* result, const Array& x, Optimizat
       dynamics(opt->manip, manip_data, vel, acc); // fills _efforts
 
       for (int j = 0; j < opt->manip.n_joints; j++) {
-        *moving_result++ = std::abs(manip_data.efforts[j]) / opt->manip.torque_max[j] - (real) 1;
+        *moving_result++ = std::abs(manip_data.efforts[j]) / opt->manip.torque_max[j] - 1;
       }
     }
 
@@ -2552,8 +2552,8 @@ struct ConstraintPerPoint {
 
 template<bool is_grad>
 inline blast_fn std::tuple<real, real> abs_constraint_analytical(const real& q, const real& q_max) {
-  real constraint = (std::abs(q)) / q_max - (real) 1;
-  real gradient   = 0.0;
+  real constraint = (std::abs(q)) / q_max - 1;
+  real gradient   = 0;
   if (is_grad)
     gradient = sign(q) * 1 / q_max;
   return std::make_tuple(constraint, gradient);
@@ -2568,10 +2568,10 @@ blast_fn std::tuple<real, real> bound_constraint_analytical(const real& q, const
     const real center = (q_max + q_min) / 2;
     const real range  = q_max - q_min;
 
-    auto result = 2 * std::abs(q - center) / range - (real) 1;
+    auto result = 2 * std::abs(q - center) / range - 1;
 
     // Conditionally compute gradient coefficient
-    real gradient_coeff = 0.0;
+    real gradient_coeff = 0;
     if constexpr (is_grad) {
       gradient_coeff = 2 * sign(q - center) / range;
     }
@@ -2636,7 +2636,7 @@ inline void compute_constraints_with_analytical_pva(ConstraintPerPoint& constrai
       ZoneScopedN("Velocity");
 #endif
       // for (int j = 0; j < opt->manip.n_joints; j++) {
-      constraints.vel_constraint[i - opt->bspline.lower_bounds[x_idx]] = std::abs(vel[joint_idx]) / opt->manip.velocity_max[joint_idx] - (real) 1;
+      constraints.vel_constraint[i - opt->bspline.lower_bounds[x_idx]] = std::abs(vel[joint_idx]) / opt->manip.velocity_max[joint_idx] - 1;
       // }
     }
 
@@ -2645,7 +2645,7 @@ inline void compute_constraints_with_analytical_pva(ConstraintPerPoint& constrai
       ZoneScopedN("Acceleration");
 #endif
       // for (int j = 0; j < opt->manip.n_joints; j++) {
-      constraints.acc_constraint[i - opt->bspline.lower_bounds[x_idx]] = std::abs(acc[joint_idx]) / opt->manip.acceleration_max[joint_idx] - (real) 1;
+      constraints.acc_constraint[i - opt->bspline.lower_bounds[x_idx]] = std::abs(acc[joint_idx]) / opt->manip.acceleration_max[joint_idx] - 1;
 
       // }
     }
@@ -2657,7 +2657,7 @@ inline void compute_constraints_with_analytical_pva(ConstraintPerPoint& constrai
       dynamics(opt->manip, manip_data, vel, acc); // fills _efforts
 
       for (int j = 0; j < opt->manip.n_joints; j++) {
-        constraints.tor_constraint(j, i - opt->bspline.lower_bounds[x_idx]) = std::abs(manip_data.efforts[j]) / opt->manip.torque_max[j] - (real) 1;
+        constraints.tor_constraint(j, i - opt->bspline.lower_bounds[x_idx]) = std::abs(manip_data.efforts[j]) / opt->manip.torque_max[j] - 1;
       }
     }
 

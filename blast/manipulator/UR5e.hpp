@@ -13,8 +13,8 @@ inline Manipulator make_UR5e() {
   limits.position_min     = {-(real) 6.283200, -(real) 6.283200, -(real) 3.141600, -(real) 6.283200, -(real) 6.283200, -(real) 6.283200}; // rad
   limits.velocity_max     = {(real) 3.141600, (real) 3.141600, (real) 3.141600, (real) 3.141600, (real) 3.141600, (real) 3.141600};       // rad/s
   limits.acceleration_max = {(real) 13.96, (real) 13.96, (real) 13.96, (real) 13.96, (real) 13.96, (real) 13.96};                         // rad/s^2
-  limits.torque_max       = {(real) 150, (real) 150, (real) 150, (real) 28, (real) 28, (real) 28};                                        // Nm
-  limits.tool_speed_max   = (real) 1;                                                                                                     // m/s
+  limits.torque_max       = {150, 150, 150, 28, 28, 28};                                                                                  // Nm
+  limits.tool_speed_max   = 1;                                                                                                            // m/s
 
   // kinematic properties
   ManipulatorKinematics kinematics; // using default Q_base
@@ -32,7 +32,7 @@ inline Manipulator make_UR5e() {
           {0, 0, 1},
           {0, 0, 1},
           {0, 0, 1}}; // direction vectors of joint
-  kinematics.base_position        = {0.0, 0.0, 0.0};
+  kinematics.base_position        = {0, 0, 0};
   kinematics.base_rotation        = {1, 0, 0, 0, 1, 0, 0, 0, 1};
   kinematics.static_rotations[0]  = {1, 0, 0, 0, 1, 0, 0, 0, 1};
   kinematics.static_rotations[1]  = {1, 0, 0, 0, 0, 1, 0, -1, 0};

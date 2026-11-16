@@ -24,8 +24,8 @@ int main() {
   Manipulator ur5e = make_UR5e();
 
   // Optionally reposition the robot in the world (metres, rotation matrix).
-  ur5e.base_position = {0.0, 0.0, 0.0}; // world-frame origin
-  ur5e.base_rotation = {1, 0, 0,        // identity rotation (robot upright)
+  ur5e.base_position = {0, 0, 0}; // world-frame origin
+  ur5e.base_rotation = {1, 0, 0,  // identity rotation (robot upright)
                         0, 1, 0,
                         0, 0, 1};
 
@@ -36,7 +36,7 @@ int main() {
   // -----------------------------------------------------------------------
   ManipulatorTempData temp;
 
-  Array config_home = {0.0, -1.5708, 1.5708, -1.5708, -1.5708, 0.0}; // ~upright
+  Array config_home = {0, -1.5708, 1.5708, -1.5708, -1.5708, 0}; // ~upright
 
   // -----------------------------------------------------------------------
   // Step 3 — Run forward kinematics.
@@ -69,7 +69,7 @@ int main() {
   }
 
   // Run a second configuration to demonstrate that temp is reusable.
-  Array config_stretched = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+  Array config_stretched = {0, 0, 0, 0, 0, 0};
   forward_kinematics(ur5e, temp, config_stretched);
 
   std::cout << "\n--- Forward kinematics: all-zeros configuration ---\n";

@@ -11,16 +11,16 @@ using namespace blast;
 // NLOPT_INVALID_ARGS for it).
 TEST_CASE("decision bounds are set and respected by every method", "[Optimization]") {
   Array       start = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
-  Array       end   = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.0};
+  Array       end   = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3};
   Manipulator robot = make_UR5e();
   for (int joint = 0; joint < robot.n_joints; joint++) {
-    robot.position_min[joint] = -3.1416;
-    robot.position_max[joint] = 3.1416;
+    robot.position_min[joint] = -(real) 3.1416;
+    robot.position_max[joint] = (real) 3.1416;
   }
 
-  for (real margin: {0.0, 0.1}) {
+  for (real margin: {(real) 0, (real) 0.1}) {
     Optimization opt(robot, Task::stop_to_stop(start, end));
-    opt.max_duration               = 3.0;
+    opt.max_duration               = 3;
     opt.control_point_bound_margin = margin;
     initialize_optimization_with_segments(&opt);
     auto      tolerance_snapshot    = tighten_for_success_tolerance(&opt);
@@ -50,18 +50,18 @@ TEST_CASE("decision bounds are set and respected by every method", "[Optimizatio
     opt.constraints.position     = true;
     opt.constraints.velocity     = true;
     opt.constraints.acceleration = true;
-    opt.max_duration             = 3.0;
+    opt.max_duration             = 3;
     opt.guess.type               = Guess::custom;
     Array initial_x              = blast::guess_straight_line(&opt);
-    initial_x.back()             = 5.0;  // T above the cap
-    initial_x[0]                 = 10.0; // a control point far outside
+    initial_x.back()             = 5;  // T above the cap
+    initial_x[0]                 = 10; // a control point far outside
     opt.guess.initial_x          = initial_x;
     const Result result          = optimize(&opt);
     INFO("method " << (int) method);
-    CHECK(result.nlopt_exit_criteria != NLOPT_INVALID_ARGS);                 // clamped, not refused
+    CHECK(result.nlopt_exit_criteria != NLOPT_INVALID_ARGS);                               // clamped, not refused
     REQUIRE(result.x.size == initial_x.size);
-    CHECK(result.x.back() <= 3.0 + 1e-3);                                    // + the millisecond round-up of the final validation
-    const real bound = 3.1416 + opt.control_point_bound_margin * 2 * 3.1416; // the true limits plus the margin
+    CHECK(result.x.back() <= 3.0 + 1e-3);                                                  // + the millisecond round-up of the final validation
+    const real bound = (real) 3.1416 + opt.control_point_bound_margin * 2 * (real) 3.1416; // the true limits plus the margin
     for (u32 variable = 0; variable + 1 < result.x.size; variable++) {
       CHECK(result.x[variable] <= bound);
       CHECK(result.x[variable] >= -bound);

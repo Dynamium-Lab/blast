@@ -10,7 +10,7 @@ inline host_fn Sphere DynamicSphere::lookup(const blast::real time) const {
   blast::real fraction = (time - start_time) / (end_time - start_time);
   fraction             = blast::clamp(fraction, 0, 1);
 
-  blast::real increment = fraction * (n_points - 1);
+  blast::real increment = fraction * (real) (n_points - 1);
 
   int         increment_low = (int) floor(increment);
   int         increment_up  = fraction == 1 ? increment_low : increment_low + 1;

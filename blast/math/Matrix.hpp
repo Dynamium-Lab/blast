@@ -579,7 +579,7 @@ inline blast_fn void SVD_decomp(const Matrix& A, Matrix& U, Matrix& S, Matrix& V
 
   for (u32 i = 0; i < A.rows; i++) {
     if (eig_val[i] > 0)
-      S(i, i) = sqrt(eig_val[i]);
+      S(i, i) = std::sqrt(eig_val[i]);
   }
 }
 

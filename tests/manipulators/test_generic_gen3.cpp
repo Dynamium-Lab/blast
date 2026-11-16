@@ -11,7 +11,7 @@ struct Gen3 {
   int joints = 7;
 
   // All limits are from webapp
-  Array pmax    = {INF_REAL, 2.25, INF_REAL, (real) 2.58, INF_REAL, (real) 2.1, INF_REAL};                            // rad
+  Array pmax    = {INF_REAL, (real) 2.25, INF_REAL, (real) 2.58, INF_REAL, (real) 2.1, INF_REAL};                     // rad
   Array pmin    = -pmax;                                                                                              // rad
   Array vmax    = {(real) 1.745, (real) 1.745, (real) 1.745, (real) 1.745, (real) 2.443, (real) 2.443, (real) 2.443}; // rad/s
   Array vmin    = -vmax;                                                                                              // rad/s
@@ -21,7 +21,7 @@ struct Gen3 {
   Array tau_min = -tau_max;                                                                                           // Nm
 
   // tcp & elbow speed limits
-  real tcp_max = 0.5; // from user guide
+  real tcp_max = (real) 0.5; // from user guide
 
   // kinematic properties
   Vec3 p_base = {0, 0, 0};
@@ -30,14 +30,14 @@ struct Gen3 {
   Vec3 p_j0 = {0, 0, (real) 0.1564};
 
   Vec3 dv[7] = {
-          {0.0, 0.0054, -0.1284},
-          {0.0, -0.2104, -0.0064},
-          {0.0, -0.0064, -0.2104},
-          {0.0, -0.2084, -0.0064},
-          {0.0, 0.0, -0.1059},
-          {0.0, -0.1059, 0.0},
-          {0.0, 0.0, -0.0615 /*- 0.164*/} // todo: add gripper capsule
-  }; // vector to next joint
+          {0, (real) 0.0054, -(real) 0.1284},
+          {0, -(real) 0.2104, -(real) 0.0064},
+          {0, -(real) 0.0064, -(real) 0.2104},
+          {0, -(real) 0.2084, -(real) 0.0064},
+          {0, 0, -(real) 0.1059},
+          {0, -(real) 0.1059, 0},
+          {0, 0, -(real) 0.0615 /*- (real) 0.164*/} // todo: add gripper capsule
+  };                                                // vector to next joint
 
   Vec3 ev[7] = {
           {0, 0, 1},
@@ -60,12 +60,12 @@ struct Gen3 {
 
   Mat3 I[7] = {
           {(real) 0.004570, (real) 0.000001, (real) 0.000002, (real) 0.000001, (real) 0.004831, (real) 0.000448, (real) 0.000002, (real) 0.000448, (real) 0.001409},
-          {(real) 0.011088, (real) 0.000005, (real) 0, (real) 0.000005, (real) 0.001072, -(real) 0.000691, (real) 0, -(real) 0.000691, (real) 0.011255},
-          {(real) 0.010932, (real) 0, -(real) 0.000007, (real) 0, (real) 0.011127, (real) 0.000606, -(real) 0.000007, (real) 0.000606, (real) 0.001043},
-          {(real) 0.008147, -(real) 0.000001, (real) 0, -(real) 0.000001, (real) 0.000631, -(real) 0.000500, (real) 0, -(real) 0.000500, (real) 0.008316},
-          {(real) 0.001596, (real) 0, (real) 0, (real) 0, (real) 0.001607, (real) 0.000256, (real) 0, (real) 0.000256, (real) 0.000399},
-          {(real) 0.001641, (real) 0, (real) 0, (real) 0, (real) 0.000410, -(real) 0.000278, (real) 0, -(real) 0.000278, (real) 0.001641},
-          {(real) 0.000214, (real) 0, (real) 0.000001, (real) 0, (real) 0.000223, -(real) 0.000002, (real) 0.000001, -(real) 0.000002, (real) 0.000240}}; // Inertial tensors
+          {(real) 0.011088, (real) 0.000005, 0, (real) 0.000005, (real) 0.001072, -(real) 0.000691, 0, -(real) 0.000691, (real) 0.011255},
+          {(real) 0.010932, 0, -(real) 0.000007, 0, (real) 0.011127, (real) 0.000606, -(real) 0.000007, (real) 0.000606, (real) 0.001043},
+          {(real) 0.008147, -(real) 0.000001, 0, -(real) 0.000001, (real) 0.000631, -(real) 0.000500, 0, -(real) 0.000500, (real) 0.008316},
+          {(real) 0.001596, 0, 0, 0, (real) 0.001607, (real) 0.000256, 0, (real) 0.000256, (real) 0.000399},
+          {(real) 0.001641, 0, 0, 0, (real) 0.000410, -(real) 0.000278, 0, -(real) 0.000278, (real) 0.001641},
+          {(real) 0.000214, 0, (real) 0.000001, 0, (real) 0.000223, -(real) 0.000002, (real) 0.000001, -(real) 0.000002, (real) 0.000240}}; // Inertial tensors
 
   Vec3 av[7] = {
           {-(real) 0.000023, -(real) 0.010364, -(real) 0.073360},
@@ -114,10 +114,10 @@ struct Gen3 {
 
 TEST_CASE("Gen3 compute_rotation_matrices() test", "[Generic]") {
   int  n_tests = 100;
-  real epsilon = 1e-6;
+  real epsilon = (real) 1e-6;
   Gen3 expected_manip;
   auto generic_manip          = make_Kinova_Gen3();
-  generic_manip.base_position = {0.0, 0.0, 0.0};
+  generic_manip.base_position = {0, 0, 0};
   generic_manip.base_rotation = {1, 0, 0, 0, 1, 0, 0, 0, 1};
 
   ManipulatorTempData data_expected;

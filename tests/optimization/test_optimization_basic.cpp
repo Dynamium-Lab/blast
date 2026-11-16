@@ -85,7 +85,7 @@ TEST_CASE("initialize_optimization task angle unwrapping", "[Optimization]") {
   SECTION("distance already <= PI is unchanged") {
     opt.manip.position_min[j] = -2 * PI;
     opt.manip.position_max[j] = 2 * PI;
-    opt.task(j, 0)            = -1.0;
+    opt.task(j, 0)            = -1;
     opt.task(j, 3)            = 1.5;
     initialize_optimization(&opt);
     CHECK_THAT(opt.task(j, 0), WithinAbs(-1.0, BLAST_EPSILON));
@@ -96,8 +96,8 @@ TEST_CASE("initialize_optimization task angle unwrapping", "[Optimization]") {
   SECTION("start is shifted when within limits") {
     opt.manip.position_min[j] = -2 * PI;
     opt.manip.position_max[j] = 2 * PI;
-    opt.task(j, 0)            = -3.0;
-    opt.task(j, 3)            = 3.0;
+    opt.task(j, 0)            = -3;
+    opt.task(j, 3)            = 3;
     initialize_optimization(&opt);
     CHECK_THAT(opt.task(j, 0), WithinAbs(-3.0 + 2 * PI, BLAST_EPSILON));
     CHECK_THAT(opt.task(j, 3), WithinAbs(3.0, BLAST_EPSILON));
@@ -106,10 +106,10 @@ TEST_CASE("initialize_optimization task angle unwrapping", "[Optimization]") {
 
   SECTION("end is shifted when start shift violates limits") {
     // start + 2PI = 3.283 > 3.2, end - 2PI = -3.283 > -3.5
-    opt.manip.position_min[j] = -3.5;
-    opt.manip.position_max[j] = 3.2;
-    opt.task(j, 0)            = -3.0;
-    opt.task(j, 3)            = 3.0;
+    opt.manip.position_min[j] = -(real) 3.5;
+    opt.manip.position_max[j] = (real) 3.2;
+    opt.task(j, 0)            = -3;
+    opt.task(j, 3)            = 3;
     initialize_optimization(&opt);
     CHECK_THAT(opt.task(j, 0), WithinAbs(-3.0, BLAST_EPSILON));
     CHECK_THAT(opt.task(j, 3), WithinAbs(3.0 - 2 * PI, BLAST_EPSILON));
@@ -117,10 +117,10 @@ TEST_CASE("initialize_optimization task angle unwrapping", "[Optimization]") {
   }
 
   SECTION("neither shift fits limits: unchanged, terminates") {
-    opt.manip.position_min[j] = -3.1;
-    opt.manip.position_max[j] = 3.1;
-    opt.task(j, 0)            = -3.0;
-    opt.task(j, 3)            = 3.0;
+    opt.manip.position_min[j] = -(real) 3.1;
+    opt.manip.position_max[j] = (real) 3.1;
+    opt.task(j, 0)            = -3;
+    opt.task(j, 3)            = 3;
     initialize_optimization(&opt);
     CHECK_THAT(opt.task(j, 0), WithinAbs(-3.0, BLAST_EPSILON));
     CHECK_THAT(opt.task(j, 3), WithinAbs(3.0, BLAST_EPSILON));
@@ -128,10 +128,10 @@ TEST_CASE("initialize_optimization task angle unwrapping", "[Optimization]") {
   }
 
   SECTION("multiple wraps until distance <= PI") {
-    opt.manip.position_min[j] = -20.0;
-    opt.manip.position_max[j] = 20.0;
-    opt.task(j, 0)            = -10.0;
-    opt.task(j, 3)            = 3.0;
+    opt.manip.position_min[j] = -20;
+    opt.manip.position_max[j] = 20;
+    opt.task(j, 0)            = -10;
+    opt.task(j, 3)            = 3;
     initialize_optimization(&opt);
     CHECK_THAT(opt.task(j, 0), WithinAbs(-10.0 + 4 * PI, BLAST_EPSILON));
     CHECK(std::abs(opt.task(j, 0) - opt.task(j, 3)) <= PI);
@@ -152,7 +152,7 @@ TEST_CASE("optimize stop-to-stop default pva + tool_speed constraints active", "
   Result result = optimize(&opt);
 
   CHECK(result.success == true);
-  CHECK(result.compute_time > (real) 0);
+  CHECK(result.compute_time > 0);
   CHECK(result.trajectory.t.size > 0);
 }
 
@@ -170,7 +170,7 @@ TEST_CASE("optimize stop-to-stop pva + tool_speed + torque constraints active", 
   Result result = optimize(&opt);
 
   CHECK(result.success == true);
-  CHECK(result.compute_time > (real) 0);
+  CHECK(result.compute_time > 0);
   CHECK(result.trajectory.t.size > 0);
 }
 
@@ -189,7 +189,7 @@ TEST_CASE("optimization stop-to-stop pva + tool_speed + torque + self_collisions
   Result result = optimize(&opt);
 
   CHECK(result.success == true);
-  CHECK(result.compute_time > (real) 0);
+  CHECK(result.compute_time > 0);
   CHECK(result.trajectory.t.size > 0);
 }
 
@@ -199,9 +199,9 @@ TEST_CASE("optimization stop-to-stop all constraints active", "[Optimization") {
 
   World world;
   world.add_box(
-          Vec3{0.4, 0.0, 0.6},            // centre: 40 cm in front, 60 cm high
-          Vec3{0.05, 0.3, 0.3},           // half-extents: thin vertical slab
-          Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1} // upright, axis-aligned
+          Vec3{(real) 0.4, 0, (real) 0.6},           // centre: 40 cm in front, 60 cm high
+          Vec3{(real) 0.05, (real) 0.3, (real) 0.3}, // half-extents: thin vertical slab
+          Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1}            // upright, axis-aligned
   );
 
   Optimization opt(robot, task, blast::Bspline(12, 140, 5, robot.n_joints)); // default enables pva + tool_speed constraints
@@ -220,7 +220,7 @@ TEST_CASE("optimization stop-to-stop all constraints active", "[Optimization") {
   Result result = optimize(&opt);
 
   CHECK(result.success == true);
-  CHECK(result.compute_time > (real) 0);
+  CHECK(result.compute_time > 0);
   CHECK(result.trajectory.t.size > 0);
 }
 
