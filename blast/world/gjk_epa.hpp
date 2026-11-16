@@ -147,14 +147,14 @@ inline host_fn TwoPts GJK_get_local_points(const ComplexSimplex& simplex, Vec3 p
 
     case 2:
       barycentric = GJK_convert_barycentric(simplex.a, simplex.b, p);
-      loc.p1      = GJK_convert_cartesian(simplex.a1, simplex.b1, barycentric);
-      loc.p2      = GJK_convert_cartesian(simplex.a2, simplex.b2, barycentric);
+      loc.p1 = GJK_convert_cartesian(simplex.a1, simplex.b1, barycentric);
+      loc.p2 = GJK_convert_cartesian(simplex.a2, simplex.b2, barycentric);
       break;
 
     case 3:
       barycentric3 = GJK_convert_barycentric(simplex.a, simplex.b, simplex.c, p);
-      loc.p1       = GJK_convert_cartesian(simplex.a1, simplex.b1, simplex.c1, barycentric3);
-      loc.p2       = GJK_convert_cartesian(simplex.a2, simplex.b2, simplex.c2, barycentric3);
+      loc.p1 = GJK_convert_cartesian(simplex.a1, simplex.b1, simplex.c1, barycentric3);
+      loc.p2 = GJK_convert_cartesian(simplex.a2, simplex.b2, simplex.c2, barycentric3);
       Assert(isnan(loc.p1.x) == false);
       break;
 
@@ -164,6 +164,7 @@ inline host_fn TwoPts GJK_get_local_points(const ComplexSimplex& simplex, Vec3 p
   Assert(isnan(loc.p1.x) == false);
   return loc;
 }
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 inline host_fn Vec3 GJK_get_support(Vec3* vertices, size_t count, Vec3 direction) {
@@ -183,7 +184,8 @@ inline host_fn Vec3 GJK_get_support(Vec3* vertices, size_t count, Vec3 direction
   return vertices[largest_idx];
 }
 
-inline host_fn TwoPts GJK_solve_simplex2(ComplexSimplex& simplex) { // finds next search direction (ao) and closest point on line (ab) for 2pt simplex
+inline host_fn TwoPts GJK_solve_simplex2(ComplexSimplex& simplex) {
+  // finds next search direction (ao) and closest point on line (ab) for 2pt simplex
 #if TRACY_ACTIVE >= 2 && GJK_ACTIVE >= 2
   ZoneScoped;
 #endif
@@ -368,25 +370,25 @@ inline host_fn TwoPts GJK_solve_simplex4(ComplexSimplex& simplex) {
 
   ComplexSimplex simplex_acd = simplex;
   // simplex_acd.b_all = simplex_acd.c_all;
-  simplex_acd.b  = simplex.c;
-  simplex_acd.b1 = simplex.c1;
-  simplex_acd.b2 = simplex.c2;
+  simplex_acd.b              = simplex.c;
+  simplex_acd.b1             = simplex.c1;
+  simplex_acd.b2             = simplex.c2;
   // simplex_acd.c_all = simplex_acd.d_all;
-  simplex_acd.c  = simplex.d;
-  simplex_acd.c1 = simplex.d1;
-  simplex_acd.c2 = simplex.d2;
+  simplex_acd.c              = simplex.d;
+  simplex_acd.c1             = simplex.d1;
+  simplex_acd.c2             = simplex.d2;
 
   // simplex_acd.count = 3;
 
   ComplexSimplex simplex_adb = simplex;
   // simplex_adb.c_all = simplex_adb.b_all;
-  simplex_adb.c  = simplex.b;
-  simplex_adb.c1 = simplex.b1;
-  simplex_adb.c2 = simplex.b2;
+  simplex_adb.c              = simplex.b;
+  simplex_adb.c1             = simplex.b1;
+  simplex_adb.c2             = simplex.b2;
   // simplex_adb.c_all = simplex_adb.d_all;
-  simplex_adb.b  = simplex.d;
-  simplex_adb.b1 = simplex.d1;
-  simplex_adb.b2 = simplex.d2;
+  simplex_adb.b              = simplex.d;
+  simplex_adb.b1             = simplex.d1;
+  simplex_adb.b2             = simplex.d2;
 
   // simplex_adb.count = 3;
 
@@ -434,45 +436,45 @@ inline host_fn real distmin_origin(const PolytopeFace& face) {
   Vec3 bc = c - b;
 
   // Check origin outisde vertex A
-  float snom = dot(-a, ab);
-  float tnom = dot(-a, ac);
+  real snom = dot(-a, ab);
+  real tnom = dot(-a, ac);
   if (snom <= (real) 0 && tnom <= (real) 0)
     return norm(a);
 
   // Check origin outisde vertex B
-  float sdenom = dot(b, ab);
-  float unom   = dot(-b, bc);
+  real sdenom = dot(b, ab);
+  real unom   = dot(-b, bc);
   if (sdenom <= (real) 0 && unom <= (real) 0)
     return norm(b);
 
   // Check origin outisde vertex C
-  float tdenom = dot(c, ac);
-  float udenom = dot(c, bc);
+  real tdenom = dot(c, ac);
+  real udenom = dot(c, bc);
   if (tdenom <= (real) 0 && udenom <= (real) 0)
     return norm(c);
 
   Vec3 n = cross(b - a, c - a);
 
   // Check origin outside edge AB
-  float vc = dot(n, cross(a, b));
+  real vc = dot(n, cross(a, b));
   if (vc <= (real) 0 && snom >= (real) 0 && sdenom >= (real) 0)
     return norm(a + snom / (snom + sdenom) * ab);
 
   // Check origin outside edge BC
-  float va = dot(n, cross(b, c));
+  real va = dot(n, cross(b, c));
   if (va <= (real) 0 && unom >= (real) 0 && udenom >= (real) 0)
     return norm(b + unom / (unom + udenom) * bc);
 
   // Check origin outside edge AC
-  float vb = dot(n, cross(c, a));
+  real vb = dot(n, cross(c, a));
   if (vb <= (real) 0 && tnom >= (real) 0 && tdenom >= (real) 0)
     return norm(a + tnom / (tnom + tdenom) * ac);
 
   // Origin must be on ABC
-  float denom = va + vb + vc;
-  float u     = va / denom;
-  float v     = vb / denom;
-  float w     = (real) 1 - u - v; // = vc / denom
+  real denom = va + vb + vc;
+  real u     = va / denom;
+  real v     = vb / denom;
+  real w     = (real) 1 - u - v; // = vc / denom
   return norm(u * a + v * b + w * c);
 }
 
@@ -577,7 +579,8 @@ inline host_fn real solve_EPA(ComplexSimplex simplex, Vec3* v1, size_t count1, V
         bool found_edge     = false;
         for (const auto& edge: current_edge) {
           found_edge = false;
-          for (int k = 0; k < n_edges; k++) { // Is the current edge already in loose_edges ?
+          for (int k = 0; k < n_edges; k++) {
+            // Is the current edge already in loose_edges ?
             if ((edge.p1 == loose_edges[k].p1 && edge.p2 == loose_edges[k].p2) ||
                 (edge.p2 == loose_edges[k].p1 && edge.p1 == loose_edges[k].p2)) {
               // edge is already in list
@@ -609,7 +612,8 @@ inline host_fn real solve_EPA(ComplexSimplex simplex, Vec3* v1, size_t count1, V
 
       dist             = distmin_origin({loose_edges[i].p1, loose_edges[i].p2, p, n});
       faces[n_faces++] = {loose_edges[i].p1, loose_edges[i].p2, p, n, dist};
-      if (n_faces == 64) { // remove?
+      if (n_faces == 64) {
+        // remove?
         break;
       }
     }
@@ -666,17 +670,18 @@ inline host_fn real solve_general_GJK(Vec3* v1, size_t count1, Vec3* v2, size_t 
 
     // if no improvement, terminate
     if (new_support - old_support <= BLAST_GJK_EPSILON) {
-      if (simplex.count == 3 && norm(cross(simplex.b - simplex.a, simplex.c - simplex.a)) < 1e-9) { // if 3 pt simplex is line when it should be triangle
+      if (simplex.count == 3 && norm(cross(simplex.b - simplex.a, simplex.c - simplex.a)) < BLAST_GEOMETRY_EPSILON) {
+        // if 3 pt simplex is line when it should be triangle
         Segment seg_test;
         // Calculate all points in minkowski difference and find the two points which are the most extreme
         // Create a segment with these two points and test segment-point with the origin
-        Vec3 new_dir = simplex.b - simplex.a;
-        real max_dot = -INF_REAL;
-        real min_dot = INF_REAL;
-        int  min_id1 = -1;
-        int  min_id2 = -1;
-        int  max_id1 = -1;
-        int  max_id2 = -1;
+        Vec3    new_dir = simplex.b - simplex.a;
+        real    max_dot = -INF_REAL;
+        real    min_dot = INF_REAL;
+        int     min_id1 = -1;
+        int     min_id2 = -1;
+        int     max_id1 = -1;
+        int     max_id2 = -1;
         for (int i = 0; i < count1; i++) {
           for (int j = 0; j < count2; j++) {
             Vec3 new_pt = v2[j] - v1[i];
@@ -1181,7 +1186,8 @@ inline host_fn real solve_EPA(Simplex simplex, Vec3* v1, size_t count1, Vec3* v2
         bool found_edge     = false;
         for (const auto& edge: current_edge) {
           found_edge = false;
-          for (int k = 0; k < n_edges; k++) { // Is the current edge already in loose_edges ?
+          for (int k = 0; k < n_edges; k++) {
+            // Is the current edge already in loose_edges ?
             if ((edge.p1 == loose_edges[k].p1 && edge.p2 == loose_edges[k].p2) ||
                 (edge.p2 == loose_edges[k].p1 && edge.p1 == loose_edges[k].p2)) {
               // edge is already in list
@@ -1243,7 +1249,8 @@ inline host_fn real general_GJK(Vec3* set1, size_t count1, Vec3* set2, size_t co
   simplex.size   = 1;
   real dot_P;
 
-  for (int i = 0; i < MAX_ITERATIONS; i++) { // max iteration count
+  for (int i = 0; i < MAX_ITERATIONS; i++) {
+    // max iteration count
     // 2. Computing the point P of minimum norm in CH(simplex)
     switch (simplex.size) {
       case 1:

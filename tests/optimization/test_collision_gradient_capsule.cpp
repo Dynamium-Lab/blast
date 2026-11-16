@@ -43,7 +43,7 @@ static void check_gradients(ConstraintsAndGradientsFunction constraints_and_grad
 
   const u32                        n_variables = opt.bspline.x_len(opt.task), n_constraints = opt.constraints.n_constraints;
   std::mt19937                     random_engine(7);
-  std::normal_distribution<double> noise(0, 0.3);
+  std::normal_distribution<real> noise(0, 0.3);
   int                              mismatched = 0, checked = 0;
   for (int trial = 0; trial < 10; trial++) {
     Array x  = blast::guess_straight_line(&opt);
@@ -95,7 +95,7 @@ TEST_CASE("analytical_dynamics collision gradients against world capsules match 
 
   const u32                        n_variables = opt.bspline.x_len(opt.task), n_constraints = opt.constraints.n_constraints;
   std::mt19937                     random_engine(7);
-  std::normal_distribution<double> noise(0, 0.3);
+  std::normal_distribution<real> noise(0, 0.3);
   int                              mismatched = 0, checked = 0;
   for (int trial = 0; trial < 10; trial++) {
     Array x  = blast::guess_straight_line(&opt);

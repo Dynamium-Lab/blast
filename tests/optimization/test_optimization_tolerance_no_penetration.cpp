@@ -58,7 +58,7 @@ TEST_CASE("large success_tolerance does not allow real constraint violation", "[
   Array constraints_points(opt_check.constraints.n_constraints);
   compute_constraints(constraints_points.data, result.x, &opt_check);
 
-  CHECK(max(constraints_points) < 1e-6f);
+  CHECK(max(constraints_points) < (real) 1e-6);
 }
 
 // Regression test for the retry-loop overwrite bug: is_valid/is_valid_more/result.trajectory

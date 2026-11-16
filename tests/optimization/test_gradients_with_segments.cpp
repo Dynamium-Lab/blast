@@ -39,7 +39,7 @@ static void check_gradients(ConstraintsAndGradientsFunction constraints_and_grad
 
   const u32                        n_variables = opt.bspline.x_len(opt.task), n_constraints = opt.constraints.n_constraints;
   std::mt19937                     random_engine(7);
-  std::normal_distribution<double> noise(0, 0.3);
+  std::normal_distribution<real> noise(0, 0.3);
   int                              mismatched_control_points = 0, checked_control_points = 0;
   int                              mismatched_durations = 0, checked_durations = 0; // the duration column on its own
   for (int trial = 0; trial < 10; trial++) {

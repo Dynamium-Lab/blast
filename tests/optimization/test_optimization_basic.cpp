@@ -144,7 +144,7 @@ TEST_CASE("optimize stop-to-stop default pva + tool_speed constraints active", "
   Task        task  = make_UR5e_task();
 
   Optimization opt(robot, task, blast::Bspline(12, 140, 5, robot.n_joints)); // default enables pva + tool_speed constraints
-  opt.success_tolerance = 0.01f;
+  opt.success_tolerance = (real) 0.01;
   // Deterministic guess: Guess::random makes `success == true` a claim about
   // the solver, not about this test.
   opt.guess.type = Guess::straight_line;
@@ -231,7 +231,7 @@ TEST_CASE("optimize aligns non-divisible n_points to segment boundary", "[Optimi
   // 100 points, 7 segments (12 ctrl - degree 5): 100 % 7 = 2, not aligned.
   // optimize() must round up to 105 (15 * 7) before solving.
   Optimization opt(robot, task, blast::Bspline(12, 100, 5, robot.n_joints));
-  opt.success_tolerance = 0.01f;
+  opt.success_tolerance = (real) 0.01;
   opt.guess.type        = Guess::straight_line;
 
   Result result = optimize(&opt);

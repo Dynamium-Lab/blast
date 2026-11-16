@@ -85,7 +85,7 @@ TEST_CASE("Test - GJK Box vs Capsule (random generation)") {
 
   // Tests
   int                num_tests = 1e5;
-  std::vector<float> epa(num_tests);
+  std::vector<real>  epa(num_tests);
   for (int i = 0; i < num_tests; i++) {
 
     // Random capsule
@@ -197,7 +197,7 @@ TEST_CASE("Benchmark - GJK computation time vs point cloud size") {
 
 
   int                num_tests = 2;
-  std::vector<float> epa(num_tests);
+  std::vector<real>  epa(num_tests);
   for (int i = 0; i < num_tests; i++) {
     // Random capsule
     real a         = 3.0;
