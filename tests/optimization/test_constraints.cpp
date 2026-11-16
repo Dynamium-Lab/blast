@@ -76,6 +76,22 @@ TEST_CASE("bound_constraint_analytical<false> - gradient is zero", "[Optimizatio
   CHECK(g == 0.0);
 }
 
+TEST_CASE("abs_constraint(p - center, half_range) == bound_constraint(p, pmin, pmax)", "[Optimization][Constraints]") {
+  auto check_equiv = [](real p, real pmin, real pmax) {
+    const real center     = (pmax + pmin) / 2;
+    const real half_range = (pmax - pmin) / 2;
+    CHECK(abs_constraint(p - center, half_range) == Approx(bound_constraint(p, pmin, pmax)));
+  };
+  check_equiv(0.0, -1.0, 1.0);  // center, symmetric bounds
+  check_equiv(0.5, -1.0, 1.0);  // positive offset, symmetric bounds
+  check_equiv(-0.5, -1.0, 1.0); // negative offset, symmetric bounds
+  check_equiv(1.0, -1.0, 1.0);  // at boundary
+  check_equiv(3.0, 1.0, 5.0);   // center, asymmetric bounds
+  check_equiv(1.5, 1.0, 5.0);   // inside, asymmetric bounds
+  check_equiv(5.0, 1.0, 5.0);   // at boundary, asymmetric bounds
+  check_equiv(0.0, -2.0, 1.0);  // offset center
+}
+
 TEST_CASE("bound_constraint_analytical - INF limits return -1 (unconstrained)", "[Optimization][Constraints]") {
   {
     auto [c, g] = bound_constraint_analytical<true>(100.0, -INF_REAL, 1.0);

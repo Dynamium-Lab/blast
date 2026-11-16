@@ -68,16 +68,63 @@ opt.collision_buffer = 0.001;  // default: 1 mm
 ```
 
 Capsules and obstacles are each grown by `collision_buffer / 2` during the solve, so a
-pairwise check carries exactly this margin, and the collision constraint is rescaled so
+pairwise check carries exactly `collision_buffer`, and the collision constraint is rescaled so
 `success_tolerance` lands on it. An accepted solve is therefore strictly clear of the
-true geometry. The buffer is the slack the solver may consume, not clearance left over:
-a 1 mm buffer guarantees no penetration, not 1 mm of remaining gap. Larger values
+true geometry. `collision_buffer` is the slack the solver may consume, not clearance left over:
+a 1 mm `collision_buffer` guarantees no penetration, not 1 mm of remaining gap. Larger values
 perturb the geometry more during the solve and can make tightly constrained problems
-harder to solve. Set it to `0` to fall back to `success_tolerance`.
+harder to solve. It must be positive and should stay small for tight environments: the
+default `1e-3` works well, while smaller values steepen the collision gradients
+(`collision_scale = success_tolerance / collision_buffer`) and cost convergence. A value of
+`0` or less is replaced by the default `1e-3`, with a printed notice.
+
+Two exceptions keep the tightening from making a task impossible. The start and goal of a
+stop-to-stop task are fixed, so constraints there cannot be improved by the solver:
+
+- **Position** limits are tightened like the others. If the start or goal of a joint lies
+  closer to its limit than the tightened bound, the first or last segment aims for that
+  endpoint instead, and is rescaled so the solver's tolerance still ends exactly at the true
+  limit. Every other part of the trajectory keeps the tightened bound.
+- **Collisions** next to the start or goal (the first and last segment) aim for at most the
+  clearance that endpoint itself has, instead of the full `collision_buffer`. A start that
+  clears an obstacle by less than `collision_buffer` is still accepted; every other part of the
+  trajectory keeps the full `collision_buffer`.
+
+Velocity, acceleration, torque, and tool speed do not need this exception: a stop-to-stop task
+starts and ends at rest, so the endpoint values for those constraints are zero, well within any
+tightened limit.
 
 `opt.tighten_for_tolerance = false` disables the tightening entirely. It exists to
 isolate its effect when measuring; with it off, an accepted solve may violate the real
 limits by up to `success_tolerance`.
+
+## Decision bounds: duration and control points
+
+The solver's variables are the free B-spline control points and the duration `T`. Each has
+a box the solver cannot leave, enforced exactly at every step:
+
+```cpp
+opt.min_duration = 0.01;               // T in [min_duration, max_duration], seconds
+opt.max_duration = 30.0;
+opt.control_point_bound_margin = 0.0;  // widen control-point box by this fraction of each joint's range
+opt.bound_control_points = true;       // false: duration bounds only, no control-point box
+```
+
+With the control points inside the position limits, the whole trajectory is inside them
+too (a B-spline stays within the hull of its control points).
+
+The bounds are on by default. Set `bound_control_points = false` to keep only the duration bounds.
+
+**Tasks close to a joint limit**: because the convex-hull property is conservative, control
+points capped at the limit produce a trajectory that stays strictly inside it. Raise
+`control_point_bound_margin` (e.g. `0.05`) to give the free control points room to create
+a smooth curve through a near-limit region.
+
+**Joints without position limits**: the control-point box falls back to `[-2π, 2π]`, which
+covers all non-screwing stop-to-stop tasks. Set `bound_control_points = false` to remove
+the box entirely, for example for continuous-rotation joints.
+
+An initial guess outside the box is clamped into it.
 
 See the [API reference](../api/cpp/index.md) for the full `ConstraintSelection` and
 `OptimizationMethod` definitions.

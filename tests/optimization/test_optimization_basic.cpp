@@ -12,7 +12,6 @@ inline blast::Task make_UR5e_task() {
   return blast::Task::stop_to_stop(kStart, kEnd);
 }
 
-
 using Catch::Matchers::WithinAbs;
 
 TEST_CASE("initialize_optimization collision constraints", "[Optimization]") {
@@ -36,23 +35,26 @@ TEST_CASE("initialize_optimization collision constraints", "[Optimization]") {
   }
 }
 
-TEST_CASE("initialize_optimization bounds", "[Optimization]") {
+TEST_CASE("decision_bounds fills the solver bounds", "[Optimization]") {
   Manipulator robot = make_UR5e();
   Task        task  = make_UR5e_task();
 
   Optimization opt(robot, task);
   initialize_optimization(&opt);
+  auto tolerance_snapshot = tighten_for_success_tolerance(&opt);
 
-  const int n = opt.x_len();
-  REQUIRE(opt.lb.size == n);
-  REQUIRE(opt.ub.size == n);
+  const int n      = opt.x_len();
+  opt.lower_bounds = Array(n);
+  opt.upper_bounds = Array(n);
+  decision_bounds(&opt, opt.lower_bounds, opt.upper_bounds);
 
-  for (int i = 0; i < n - 1; i++) {
-    CHECK(opt.lb[i] == -HUGE_VAL);
-    CHECK(opt.ub[i] == HUGE_VAL);
+  for (int i = 0; i < n - 1; i++) { // control points: bounded by default (bound_control_points)
+    CHECK(std::isfinite(opt.lower_bounds[i]));
+    CHECK(std::isfinite(opt.upper_bounds[i]));
   }
-  CHECK_THAT(opt.lb.back(), WithinAbs(0.1, BLAST_EPSILON));
-  CHECK_THAT(opt.ub.back(), WithinAbs(60.0, BLAST_EPSILON));
+  CHECK_THAT(opt.lower_bounds.back(), WithinAbs(opt.min_duration, BLAST_EPSILON));
+  CHECK_THAT(opt.upper_bounds.back(), WithinAbs(opt.max_duration, BLAST_EPSILON));
+  restore_from_tolerance(&opt, tolerance_snapshot);
 }
 
 TEST_CASE("initialize_optimization task angle unwrapping", "[Optimization]") {
@@ -141,8 +143,8 @@ TEST_CASE("optimize stop-to-stop default pva + tool_speed constraints active", "
   Manipulator robot = make_UR5e();
   Task        task  = make_UR5e_task();
 
-  Optimization opt(robot, task); // default enables pva + tool_speed constraints
-  opt.success_tolerance = (real) 0.01;
+  Optimization opt(robot, task, blast::Bspline(12, 140, 5, robot.n_joints)); // default enables pva + tool_speed constraints
+  opt.success_tolerance = 0.01f;
   // Deterministic guess: Guess::random makes `success == true` a claim about
   // the solver, not about this test.
   opt.guess.type = Guess::straight_line;
@@ -158,7 +160,7 @@ TEST_CASE("optimize stop-to-stop pva + tool_speed + torque constraints active", 
   Manipulator robot = make_UR5e();
   Task        task  = make_UR5e_task();
 
-  Optimization opt(robot, task); // default enables pva + tool_speed constraints
+  Optimization opt(robot, task, blast::Bspline(12, 140, 5, robot.n_joints)); // default enables pva + tool_speed constraints
   opt.constraints.torque = true;
   opt.success_tolerance  = (real) 0.01;
   // Deterministic guess: Guess::random makes `success == true` a claim about
@@ -176,7 +178,7 @@ TEST_CASE("optimization stop-to-stop pva + tool_speed + torque + self_collisions
   Manipulator robot = make_UR5e();
   Task        task  = make_UR5e_task();
 
-  Optimization opt(robot, task); // default enables pva + tool_speed constraints
+  Optimization opt(robot, task, blast::Bspline(12, 140, 5, robot.n_joints)); // default enables pva + tool_speed constraints
   opt.constraints.torque          = true;
   opt.constraints.self_collisions = true;
   opt.success_tolerance           = (real) 0.01;
@@ -202,7 +204,7 @@ TEST_CASE("optimization stop-to-stop all constraints active", "[Optimization") {
           Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1} // upright, axis-aligned
   );
 
-  Optimization opt(robot, task); // default enables pva + tool_speed constraints
+  Optimization opt(robot, task, blast::Bspline(12, 140, 5, robot.n_joints)); // default enables pva + tool_speed constraints
   opt.world = world;
 
   opt.constraints.torque              = true;
@@ -220,4 +222,21 @@ TEST_CASE("optimization stop-to-stop all constraints active", "[Optimization") {
   CHECK(result.success == true);
   CHECK(result.compute_time > (real) 0);
   CHECK(result.trajectory.t.size > 0);
+}
+
+TEST_CASE("optimize aligns non-divisible n_points to segment boundary", "[Optimization]") {
+  Manipulator robot = make_UR5e();
+  Task        task  = make_UR5e_task();
+
+  // 100 points, 7 segments (12 ctrl - degree 5): 100 % 7 = 2, not aligned.
+  // optimize() must round up to 105 (15 * 7) before solving.
+  Optimization opt(robot, task, blast::Bspline(12, 100, 5, robot.n_joints));
+  opt.success_tolerance = 0.01f;
+  opt.guess.type        = Guess::straight_line;
+
+  Result result = optimize(&opt);
+
+  CHECK(opt.bspline.n_points == 105);
+  CHECK(result.trajectory.t.size != opt.bspline.n_points); // output is ms-based, not the aligned count
+  CHECK(result.success == true);
 }
