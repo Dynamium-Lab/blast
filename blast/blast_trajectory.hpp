@@ -44,7 +44,7 @@ struct Bspline {
   inline blast_fn Bspline(u32 n_control, u32 n_points, u32 degree, u32 n_joints);
 
   inline blast_fn explicit Bspline(u32 n_joints) :
-      Bspline(12, 100, 5, n_joints) {}
+      Bspline(12, 105, 5, n_joints) {}
 
   inline blast_fn Bspline(const Bspline& other) = default;
 

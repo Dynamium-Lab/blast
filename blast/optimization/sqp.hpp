@@ -2854,7 +2854,7 @@ inline nlopt_result sqp(blast::Array& x, blast::Optimization& opt, nlopt_stoppin
 
   do {
     slsqp(&mpi, &pi, &mpi1, &ni,
-          xcur, opt.lb.data, opt.ub.data, &fcur,
+          xcur, opt.lower_bounds.data, opt.upper_bounds.data, &fcur,
           c, grad, cgrad,
           &acc, &iter, &mode,
           w, &len_w, jw, &len_jw,
