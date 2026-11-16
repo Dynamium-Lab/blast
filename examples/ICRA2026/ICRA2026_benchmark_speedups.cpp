@@ -1,5 +1,7 @@
 #define BLAST_TRACE_LEVEL 0
+#ifndef BLAST_USE_NATIVE_SQP
 #define BLAST_USE_NATIVE_SQP
+#endif
 
 #include <blast>
 #include <iostream>
@@ -45,20 +47,20 @@ inline std::vector<Task> get_UR5e_tasks() {
 
 inline World get_kitchen_open_doors() {
   World world;
-  world.add_box(Vec3{0.427, -1.0847, 1.1974}, Vec3{0.36029, 0.06, 0.36242}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
-  world.add_box(Vec3{0.427, 0.48791, 1.1974}, Vec3{0.36029, 0.06, 0.36242}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
-  world.add_box(Vec3{0.427, -0.29838, 1.5298}, Vec3{0.36029, 0.84629, 0.03}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
-  world.add_box(Vec3{0.427, -0.29838, 1.2074}, Vec3{0.36029, 0.84629, 0.03}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
-  world.add_box(Vec3{0.427, -0.29838, 0.86498}, Vec3{0.36029, 0.84629, 0.03}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
-  world.add_box(Vec3{0.72729, -0.29838, 1.2074}, Vec3{0.06, 0.84629, 0.36242}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
-  world.add_box(Vec3{-0.20911, 0.86968, 1.2009}, Vec3{0.032523, 0.42256, 0.36242}, Mat3{-0.70706, -0.70716, 0, -0.70716, -0.70706, 0, 0, 0, 1});
-  world.add_box(Vec3{-0.20549, -1.4701, 1.2009}, Vec3{0.037648, 0.42257, 0.36244}, Mat3{-0.70706, 0.70716, 0, 0.70716, -0.70706, 0, 0, 0, 1});
-  world.add_box(Vec3{-0.47232, -0.77127, -0.48346}, Vec3{0.023735, 0.41378, 0.41552}, Mat3{4.6327e-05, 0, 1, 0, 1, 0, 1, 0, 4.6327e-05});
-  world.add_box(Vec3{0.35698, 0.425, -0.066059}, Vec3{0.41378, 0.8425, 0.43736}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
-  world.add_box(Vec3{0.35698, -1.1546, -0.066059}, Vec3{0.41378, 0.03, 0.43736}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
-  world.add_box(Vec3{0.35698, -0.80106, 0.31136}, Vec3{0.41378, 0.38356, 0.06}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
-  world.add_box(Vec3{0.35698, -0.80106, -0.055}, Vec3{0.41378, 0.38356, 0.025}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
-  world.add_box(Vec3{0.35698, -0.80106, -0.47336}, Vec3{0.41378, 0.38356, 0.03}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_box(Vec3{(real) 0.427, -(real) 1.0847, (real) 1.1974}, Vec3{(real) 0.36029, (real) 0.06, (real) 0.36242}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_box(Vec3{(real) 0.427, (real) 0.48791, (real) 1.1974}, Vec3{(real) 0.36029, (real) 0.06, (real) 0.36242}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_box(Vec3{(real) 0.427, -(real) 0.29838, (real) 1.5298}, Vec3{(real) 0.36029, (real) 0.84629, (real) 0.03}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_box(Vec3{(real) 0.427, -(real) 0.29838, (real) 1.2074}, Vec3{(real) 0.36029, (real) 0.84629, (real) 0.03}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_box(Vec3{(real) 0.427, -(real) 0.29838, (real) 0.86498}, Vec3{(real) 0.36029, (real) 0.84629, (real) 0.03}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_box(Vec3{(real) 0.72729, -(real) 0.29838, (real) 1.2074}, Vec3{(real) 0.06, (real) 0.84629, (real) 0.36242}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_box(Vec3{-(real) 0.20911, (real) 0.86968, (real) 1.2009}, Vec3{(real) 0.032523, (real) 0.42256, (real) 0.36242}, Mat3{-(real) 0.70706, -(real) 0.70716, 0, -(real) 0.70716, -(real) 0.70706, 0, 0, 0, 1});
+  world.add_box(Vec3{-(real) 0.20549, -(real) 1.4701, (real) 1.2009}, Vec3{(real) 0.037648, (real) 0.42257, (real) 0.36244}, Mat3{-(real) 0.70706, (real) 0.70716, 0, (real) 0.70716, -(real) 0.70706, 0, 0, 0, 1});
+  world.add_box(Vec3{-(real) 0.47232, -(real) 0.77127, -(real) 0.48346}, Vec3{(real) 0.023735, (real) 0.41378, (real) 0.41552}, Mat3{(real) 4.6327e-05, 0, 1, 0, 1, 0, 1, 0, (real) 4.6327e-05});
+  world.add_box(Vec3{(real) 0.35698, (real) 0.425, -(real) 0.066059}, Vec3{(real) 0.41378, (real) 0.8425, (real) 0.43736}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_box(Vec3{(real) 0.35698, -(real) 1.1546, -(real) 0.066059}, Vec3{(real) 0.41378, (real) 0.03, (real) 0.43736}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_box(Vec3{(real) 0.35698, -(real) 0.80106, (real) 0.31136}, Vec3{(real) 0.41378, (real) 0.38356, (real) 0.06}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_box(Vec3{(real) 0.35698, -(real) 0.80106, -(real) 0.055}, Vec3{(real) 0.41378, (real) 0.38356, (real) 0.025}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_box(Vec3{(real) 0.35698, -(real) 0.80106, -(real) 0.47336}, Vec3{(real) 0.41378, (real) 0.38356, (real) 0.03}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
   return world;
 }
 
@@ -378,7 +380,7 @@ void eval_function_UR5e() {
     auto& task     = config.task;
 
     auto manip          = make_UR5e();
-    manip.base_position = {-0.5, -0.3, 0.35};
+    manip.base_position = {-(real) 0.5, -(real) 0.3, (real) 0.35};
     manip.base_rotation = {-1, 0, 0, 0, -1, 0, 0, 0, 1};
 
     Optimization opt(manip, task);
@@ -396,7 +398,7 @@ void eval_function_UR5e() {
     opt.constraints.external_collisions = true;
 
     opt.max_tries                    = 1;
-    opt.success_tolerance            = 0.01;
+    opt.success_tolerance            = (real) 0.01;
     opt.constraints.n_collision_skip = 1;
 
     opt.guess.type = Guess::custom;

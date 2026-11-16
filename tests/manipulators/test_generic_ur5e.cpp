@@ -7,27 +7,27 @@ using namespace blast;
 
 Tool make_gripper() {
   Tool t;
-  t.position       = {0.0, 0.0, 0.05};
+  t.position       = {0, 0, (real) 0.05};
   t.rotation       = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  t.mass           = 0.85;
-  t.cog_offset     = {0.0, 0.0, 0.03};
+  t.mass           = (real) 0.85;
+  t.cog_offset     = {0, 0, (real) 0.03};
   t.inertia_tensor = Mat3{
-          0.001, 0.0, 0.0,
-          0.0, 0.001, 0.0,
-          0.0, 0.0, 0.0005};
+          (real) 0.001, 0, 0,
+          0, (real) 0.001, 0,
+          0, 0, (real) 0.0005};
   return t;
 }
 
 Payload make_payload() {
   Payload p;
-  p.position       = {0.0, 0.0, 0.02};
+  p.position       = {0, 0, (real) 0.02};
   p.rotation       = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  p.mass           = 1.2;
-  p.cog_offset     = {0.0, 0.0, 0.04};
+  p.mass           = (real) 1.2;
+  p.cog_offset     = {0, 0, (real) 0.04};
   p.inertia_tensor = Mat3{
-          0.0008, 0.0, 0.0,
-          0.0, 0.0008, 0.0,
-          0.0, 0.0, 0.0003};
+          (real) 0.0008, 0, 0,
+          0, (real) 0.0008, 0,
+          0, 0, (real) 0.0003};
   return p;
 }
 
@@ -37,23 +37,23 @@ TEST_CASE("UR5e forward_kinematics() test", "[Generic]") {
   ManipulatorTempData data;
 
   //  @ home position
-  Vec3  expected_tool_position = {0.0, -0.233, 1.08};
-  Array test_position          = {0.0, -PI / 2, 0.0, -PI / 2, 0.0, 0.0};
+  Vec3  expected_tool_position = {0, -(real) 0.233, (real) 1.08};
+  Array test_position          = {0, -PI / 2, 0, -PI / 2, 0, 0};
   forward_kinematics(generic_manip, data, test_position);
-  CHECK(is_close(data.p_j[generic_manip.n_joints], expected_tool_position, 1e-2));
+  CHECK(is_close(data.p_j[generic_manip.n_joints], expected_tool_position, (real) 1e-2));
 
   //  @ 2nd position
-  Vec3  expected_tool_position_2 = {-0.1179, -0.436, 0.152};
+  Vec3  expected_tool_position_2 = {-(real) 0.1179, -(real) 0.436, (real) 0.152};
   Array test_position_2          = {-1.54, -1.83, -2.28, -0.59, 1.60, 0.023};
   forward_kinematics(generic_manip, data, test_position_2);
 
-  CHECK(is_close(data.p_j[generic_manip.n_joints], expected_tool_position_2, 1e-2));
+  CHECK(is_close(data.p_j[generic_manip.n_joints], expected_tool_position_2, (real) 1e-2));
 }
 
 TEST_CASE("UR5e jacobian() - dimensions are 6 x n_joints", "[Generic]") {
   Manipulator         manip = make_UR5e();
   ManipulatorTempData data;
-  Array               q = {0.0, -PI / 2, 0.0, -PI / 2, 0.0, 0.0};
+  Array               q = {0, -PI / 2, 0, -PI / 2, 0, 0};
 
   forward_kinematics(manip, data, q);
   Matrix J = jacobian(manip, data);
@@ -65,7 +65,7 @@ TEST_CASE("UR5e jacobian() - dimensions are 6 x n_joints", "[Generic]") {
 TEST_CASE("UR5e jacobian() - all entries are finite", "[Generic]") {
   Manipulator         manip = make_UR5e();
   ManipulatorTempData data;
-  Array               q = {0.0, -PI / 2, 0.0, -PI / 2, 0.0, 0.0};
+  Array               q = {0, -PI / 2, 0, -PI / 2, 0, 0};
 
   forward_kinematics(manip, data, q);
   Matrix J = jacobian(manip, data);
@@ -78,22 +78,22 @@ TEST_CASE("UR5e jacobian() - all entries are finite", "[Generic]") {
 TEST_CASE("UR5e jacobian() - linear velocity rows are non-trivial at home position", "[Generic]") {
   Manipulator         manip = make_UR5e();
   ManipulatorTempData data;
-  Array               q = {0.0, -PI / 2, 0.0, -PI / 2, 0.0, 0.0};
+  Array               q = {0, -PI / 2, 0, -PI / 2, 0, 0};
 
   forward_kinematics(manip, data, q);
   Matrix J = jacobian(manip, data);
 
   // linear velocity part (rows 0-2): at least one column must be nonzero
-  real col_norm_sum = 0.0;
+  real col_norm_sum = 0;
   for (u32 c = 0; c < J.cols; c++)
     col_norm_sum += J(0, c) * J(0, c) + J(1, c) * J(1, c) + J(2, c) * J(2, c);
-  CHECK(col_norm_sum > 0.0);
+  CHECK(col_norm_sum > 0);
 }
 
 TEST_CASE("UR5e dynamics() - efforts are finite at home position with zero motion", "[Generic]") {
   Manipulator         manip = make_UR5e();
   ManipulatorTempData data;
-  Array               q = {0.0, -PI / 2, 0.0, -PI / 2, 0.0, 0.0};
+  Array               q = {0, -PI / 2, 0, -PI / 2, 0, 0};
   Array               vel(manip.n_joints, 0.0);
   Array               acc(manip.n_joints, 0.0);
 
@@ -107,7 +107,7 @@ TEST_CASE("UR5e dynamics() - efforts are finite at home position with zero motio
 TEST_CASE("UR5e dynamics() - efforts change with nonzero accelerations (Coriolis/centrifugal terms)", "[Generic]") {
   Manipulator         manip = make_UR5e();
   ManipulatorTempData data;
-  Array               q = {0.0, -PI / 2, 0.0, -PI / 2, 0.0, 0.0};
+  Array               q = {0, -PI / 2, 0, -PI / 2, 0, 0};
   Array               vel(manip.n_joints, 0.0);
   Array               acc_zero(manip.n_joints, 0.0);
   Array               acc_nonzero = {0.5, 0.5, 0.5, 0.5, 0.5, 0.5};
@@ -130,7 +130,7 @@ TEST_CASE("UR5e dynamics() - efforts change with nonzero accelerations (Coriolis
 TEST_CASE("UR5e dynamics() - efforts differ with vs without tool+payload", "[Tool]") {
   Manipulator         manip_bare = make_UR5e();
   ManipulatorTempData data_bare;
-  Array               q = {0.0, 0.0, -PI / 2, PI / 2, 0.0, 0.0};
+  Array               q = {0, 0, -PI / 2, PI / 2, 0, 0};
   Array               vel(manip_bare.n_joints, 0.0);
   Array               acc(manip_bare.n_joints, 0.0);
 
@@ -170,7 +170,7 @@ TEST_CASE("Zero-offset tool equals flange", "[Manipulator]") {
 
   ManipulatorTempData data;
 
-  Array q = {0.2, -1.0, 0.4, -1.3, 0.2, 0.1};
+  Array q = {0.2, -1, 0.4, -1.3, 0.2, 0.1};
 
   forward_kinematics(manip, data, q);
 
@@ -182,13 +182,13 @@ TEST_CASE("Manipulator tool FK transform", "[Manipulator]") {
   Manipulator manip = make_UR5e();
 
   Tool tool;
-  tool.position = {0.1, 0, 0};
+  tool.position = {(real) 0.1, 0, 0};
   tool.rotation = rpy2rotation({0, 0, PI / 2});
   manip.set_tool(tool);
 
   ManipulatorTempData data;
 
-  Array q = {0.2, -1.0, 0.5, -1.2, 0.3, 0.1};
+  Array q = {0.2, -1, 0.5, -1.2, 0.3, 0.1};
   forward_kinematics(manip, data, q);
 
   Vec3 expected_position = data.p_j[manip.n_joints - 1] + data.rotations_mult[manip.n_joints - 1] * tool.position;
@@ -202,7 +202,7 @@ TEST_CASE("Manipulator payload FK transform", "[Manipulator]") {
   Manipulator manip = make_UR5e();
 
   Payload payload;
-  payload.position = {0.2, 0, 0};
+  payload.position = {(real) 0.2, 0, 0};
   manip.set_payload(payload);
 
   ManipulatorTempData data;
@@ -221,13 +221,13 @@ TEST_CASE("Tool Jacobian finite difference", "[Manipulator]") {
   Manipulator manip = make_UR5e();
 
   Tool tool;
-  tool.position             = {0.15, 0.02, 0.1};
+  tool.position             = {(real) 0.15, (real) 0.02, (real) 0.1};
   tool.tool_center_position = {0, 0, 0};
   manip.set_tool(tool);
 
   ManipulatorTempData data;
 
-  Array q = {0.3, -1.0, 0.5, -1.5, 0.2, 0.1};
+  Array q = {0.3, -1, 0.5, -1.5, 0.2, 0.1};
   forward_kinematics(manip, data, q);
 
   Matrix J = jacobian(manip, data);
@@ -250,8 +250,8 @@ TEST_CASE("Tool Jacobian finite difference", "[Manipulator]") {
     Vec3 expected_position = (dp.tool_position - dm.tool_position) / (2 * eps);
     Vec3 expected_rotation = data.rotations_mult[i] * manip.joint_axes[i];
 
-    CHECK(is_close(expected_position, Vec3(J(0, i), J(1, i), J(2, i)), 1e-3));
-    CHECK(is_close(expected_rotation, Vec3(J(3, i), J(4, i), J(5, i)), 1e-3));
+    CHECK(is_close(expected_position, Vec3(J(0, i), J(1, i), J(2, i)), (real) 1e-3));
+    CHECK(is_close(expected_rotation, Vec3(J(3, i), J(4, i), J(5, i)), (real) 1e-3));
   }
 }
 
@@ -261,11 +261,11 @@ TEST_CASE("Removing tool restores flange FK", "[Manipulator]") {
   ManipulatorTempData data1;
   ManipulatorTempData data2;
 
-  Array q = {0.2, -1.0, 0.3, -1.4, 0.2, 0.1};
+  Array q = {0.2, -1, 0.3, -1.4, 0.2, 0.1};
   forward_kinematics(manip, data1, q);
 
   Tool tool;
-  tool.position = {0.5, 0, 0};
+  tool.position = {(real) 0.5, 0, 0};
 
   manip.set_tool(tool);
   manip.remove_tool();
@@ -281,14 +281,14 @@ TEST_CASE("Tool changes dynamics", "[Manipulator]") {
 
   Tool tool;
 
-  tool.mass     = 5.0;
-  tool.position = {0.2, 0, 0};
+  tool.mass     = 5;
+  tool.position = {(real) 0.2, 0, 0};
   manip2.set_tool(tool);
 
   ManipulatorTempData d1;
   ManipulatorTempData d2;
 
-  Array q   = {0.1, -1.0, 0.5, -1.2, 0.3, 0.2};
+  Array q   = {0.1, -1, 0.5, -1.2, 0.3, 0.2};
   Array qd  = {0, 0, 0, 0, 0, 0};
   Array qdd = {0, 0, 0, 0, 0, 0};
   forward_kinematics(manip1, d1, q);
@@ -307,12 +307,12 @@ TEST_CASE("Massless tool leaves dynamics unchanged", "[Manipulator]") {
   Tool tool;
 
   tool.mass           = 0;
-  tool.position       = {0.3, 0, 0};
+  tool.position       = {(real) 0.3, 0, 0};
   tool.inertia_tensor = {};
 
   manip2.set_tool(tool);
 
-  Array q   = {0.3, -1.0, 0.4, -1.1, 0.3, 0.1};
+  Array q   = {0.3, -1, 0.4, -1.1, 0.3, 0.1};
   Array qd  = {0.2, 0.1, -0.1, 0.2, 0.1, 0};
   Array qdd = {0.3, -0.2, 0.4, 0.1, -0.1, 0.2};
 
@@ -331,7 +331,7 @@ TEST_CASE("Removing tool restores dynamics", "[Manipulator]") {
 
   Manipulator manip = make_UR5e();
 
-  Array q   = {0.2, -1.0, 0.4, -1.2, 0.3, 0.1};
+  Array q   = {0.2, -1, 0.4, -1.2, 0.3, 0.1};
   Array qd  = {0.1, 0.2, -0.1, 0.3, 0.1, -0.2};
   Array qdd = {0.2, -0.3, 0.1, 0.4, -0.2, 0.1};
 
@@ -343,7 +343,7 @@ TEST_CASE("Removing tool restores dynamics", "[Manipulator]") {
 
   Tool tool;
   tool.mass     = 5;
-  tool.position = {0.2, 0, 0};
+  tool.position = {(real) 0.2, 0, 0};
 
   manip.set_tool(tool);
   manip.remove_tool();
@@ -360,14 +360,14 @@ TEST_CASE("Payload changes dynamics", "[Manipulator]") {
 
   Payload payload;
 
-  payload.mass     = 5.0;
-  payload.position = {0.2, 0, 0};
+  payload.mass     = 5;
+  payload.position = {(real) 0.2, 0, 0};
   manip2.set_payload(payload);
 
   ManipulatorTempData d1;
   ManipulatorTempData d2;
 
-  Array q   = {0.1, -1.0, 0.5, -1.2, 0.3, 0.2};
+  Array q   = {0.1, -1, 0.5, -1.2, 0.3, 0.2};
   Array qd  = {0, 0, 0, 0, 0, 0};
   Array qdd = {0, 0, 0, 0, 0, 0};
   forward_kinematics(manip1, d1, q);
@@ -385,9 +385,9 @@ TEST_CASE("Equivalent tool and payload have identical dynamics", "[Manipulator]"
   Manipulator manip_payload = make_UR5e();
 
   Tool tool;
-  tool.mass           = 5.0;
-  tool.position       = {0.2, 0.0, 0.0};
-  tool.inertia_tensor = {0.01, 0.0, 0.0, 0.0, 0.02, 0.0, 0.0, 0.0, 0.03};
+  tool.mass           = 5;
+  tool.position       = {(real) 0.2, 0, 0};
+  tool.inertia_tensor = {(real) 0.01, 0, 0, 0, (real) 0.02, 0, 0, 0, (real) 0.03};
 
   Payload payload;
   payload.mass           = tool.mass;
@@ -400,7 +400,7 @@ TEST_CASE("Equivalent tool and payload have identical dynamics", "[Manipulator]"
   ManipulatorTempData d_tool;
   ManipulatorTempData d_payload;
 
-  Array q   = {0.3, -1.0, 0.5, -1.2, 0.4, 0.2};
+  Array q   = {0.3, -1, 0.5, -1.2, 0.4, 0.2};
   Array qd  = {0.2, -0.1, 0.3, 0.1, -0.2, 0.05};
   Array qdd = {0.5, 0.2, -0.3, 0.1, 0.4, -0.2};
 
@@ -422,7 +422,7 @@ TEST_CASE("Payload gravity matches Jacobian torque at TCP", "[Manipulator]") {
   Manipulator manip2 = make_UR5e();
 
   Payload payload;
-  payload.mass     = 5.0;
+  payload.mass     = 5;
   payload.position = {0, 0, 0};
 
   manip2.set_payload(payload);
@@ -430,7 +430,7 @@ TEST_CASE("Payload gravity matches Jacobian torque at TCP", "[Manipulator]") {
   ManipulatorTempData data1;
   ManipulatorTempData data2;
 
-  Array q = {0.4, -1.1, 0.7, -1.0, 0.2, 0.1};
+  Array q = {0.4, -1.1, 0.7, -1, 0.2, 0.1};
   Array qd(6, 0.0);
   Array qdd(6, 0.0);
 
@@ -442,14 +442,14 @@ TEST_CASE("Payload gravity matches Jacobian torque at TCP", "[Manipulator]") {
 
   Matrix J = jacobian(manip2, data2);
 
-  Vec3 F = {0, 0, payload.mass * 9.81};
+  Vec3 F = {0, 0, payload.mass * (real) 9.81};
 
   for (int i = 0; i < manip2.n_joints; i++) {
     Vec3 Ji = {J(0, i), J(1, i), J(2, i)};
 
-    double expected = dot(Ji, F);
+    real expected = dot(Ji, F);
 
-    double measured =
+    real measured =
             data2.efforts[i] - data1.efforts[i];
 
     CHECK(measured == Approx(expected).margin(BLAST_EPSILON));
@@ -459,7 +459,7 @@ TEST_CASE("Payload gravity matches Jacobian torque at TCP", "[Manipulator]") {
 TEST_CASE("Removing payload restores dynamics", "[Manipulator]") {
   Manipulator manip = make_UR5e();
 
-  Array q   = {0.2, -1.0, 0.4, -1.2, 0.3, 0.1};
+  Array q   = {0.2, -1, 0.4, -1.2, 0.3, 0.1};
   Array qd  = {0.1, 0.2, -0.1, 0.3, 0.1, -0.2};
   Array qdd = {0.2, -0.3, 0.1, 0.4, -0.2, 0.1};
 
@@ -471,7 +471,7 @@ TEST_CASE("Removing payload restores dynamics", "[Manipulator]") {
 
   Payload payload;
   payload.mass     = 5;
-  payload.position = {0.2, 0, 0};
+  payload.position = {(real) 0.2, 0, 0};
 
   manip.set_payload(payload);
   manip.remove_payload();
@@ -486,19 +486,19 @@ TEST_CASE("Tool and payload together modify dynamics", "[Manipulator]") {
   Manipulator manip = make_UR5e();
 
   Tool tool;
-  tool.mass     = 2.0;
-  tool.position = {0.1, 0, 0};
+  tool.mass     = 2;
+  tool.position = {(real) 0.1, 0, 0};
 
   Payload payload;
-  payload.mass     = 3.0;
-  payload.position = {0.3, 0, 0};
+  payload.mass     = 3;
+  payload.position = {(real) 0.3, 0, 0};
 
   manip.set_tool(tool);
   manip.set_payload(payload);
 
   ManipulatorTempData data;
 
-  Array q   = {0.3, -1.0, 0.4, -1.2, 0.2, 0.1};
+  Array q   = {0.3, -1, 0.4, -1.2, 0.2, 0.1};
   Array qd  = {0.2, 0.1, -0.2, 0.3, 0.1, -0.1};
   Array qdd = {0.3, -0.1, 0.2, 0.1, -0.2, 0.4};
 

@@ -16,7 +16,9 @@
 // Run:
 //   ./build/examples/example_03_collision_avoidance
 
+#ifndef BLAST_USE_NATIVE_SQP
 #define BLAST_USE_NATIVE_SQP // use the built-in SQP solver
+#endif
 
 #include <blast>
 #include <iostream>
@@ -50,9 +52,9 @@ int main() {
   // -----------------------------------------------------------------------
   World world;
   world.add_box(
-          Vec3{0.4, 0.0, 0.6},            // centre: 40 cm in front, 60 cm high
-          Vec3{0.05, 0.3, 0.3},           // half-extents: thin vertical slab
-          Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1} // upright, axis-aligned
+          Vec3{(real) 0.4, 0, (real) 0.6},           // centre: 40 cm in front, 60 cm high
+          Vec3{(real) 0.05, (real) 0.3, (real) 0.3}, // half-extents: thin vertical slab
+          Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1}            // upright, axis-aligned
   );
 
   // -----------------------------------------------------------------------
@@ -71,7 +73,7 @@ int main() {
   opt.constraints.self_collisions     = true; // avoid self-contact
   opt.constraints.external_collisions = true; // avoid world obstacles
 
-  opt.success_tolerance = 0.01;
+  opt.success_tolerance = (real) 0.01;
 
   // -----------------------------------------------------------------------
   // Step 5 — Retry loop.

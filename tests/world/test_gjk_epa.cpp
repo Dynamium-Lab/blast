@@ -60,14 +60,14 @@ TEST_CASE("Test - GJK Box vs Capsule (random generation)") {
 
   // Run GJKs to warm up (for benchmarking purposes)
   for (int i = 0; i < 20; i++) {
-    real a         = 3.0;
+    real a         = 3;
     capsule.radius = 0.5;
     capsule.p1     = {a * random_real(), a * random_real(), a * random_real()};
     capsule.p2     = {a * random_real(), a * random_real(), a * random_real()};
 
     // Random box
-    real b  = 3.0;
-    real c  = 5.0;
+    real b  = 3;
+    real c  = 5;
     center  = {b * random_real(), b * random_real(), b * random_real()};
     extents = {c * random_real(), c * random_real(), c * random_real()};
     // center -= Vec3{20, 20, 20}; // enforce never reaching EPA
@@ -84,19 +84,19 @@ TEST_CASE("Test - GJK Box vs Capsule (random generation)") {
   }
 
   // Tests
-  int                num_tests = 1e5;
-  std::vector<float> epa(num_tests);
+  int               num_tests = 1e5;
+  std::vector<real> epa(num_tests);
   for (int i = 0; i < num_tests; i++) {
 
     // Random capsule
-    real a         = 3.0;
+    real a         = 3;
     capsule.radius = 0.5;
     capsule.p1     = {a * random_real(), a * random_real(), a * random_real()};
     capsule.p2     = {a * random_real(), a * random_real(), a * random_real()};
 
     // Random box
-    real b  = 3.0;
-    real c  = 5.0;
+    real b  = 3;
+    real c  = 5;
     center  = {b * random_real(), b * random_real(), b * random_real()};
     extents = {c * random_real(), c * random_real(), c * random_real()};
     // center -= Vec3{20, 20, 20}; // enforce never reaching EPA
@@ -138,9 +138,9 @@ TEST_CASE("Test - GJK Box vs Capsule (random generation)") {
     }
 
     if (real_dist + capsule.radius < 0) {
-      epa[i] = 1.0f;
+      epa[i] = 1;
     } else {
-      epa[i] = 0.0f;
+      epa[i] = 0;
     }
 
 #if TRACY_ACTIVE
@@ -179,7 +179,7 @@ TEST_CASE("Test - GJK Box vs Capsule (random generation)") {
     // std::cout << "\n--------------------------------------------" << std::endl;
   }
 
-  real sum = 0.0;
+  real sum = 0;
   for (int i = 0; i < epa.size(); i++) {
     sum += epa[i];
   }
@@ -196,18 +196,18 @@ TEST_CASE("Benchmark - GJK computation time vs point cloud size") {
   Mat3              rotation;
 
 
-  int                num_tests = 2;
-  std::vector<float> epa(num_tests);
+  int               num_tests = 2;
+  std::vector<real> epa(num_tests);
   for (int i = 0; i < num_tests; i++) {
     // Random capsule
-    real a         = 3.0;
+    real a         = 3;
     capsule.radius = 0.5;
     capsule.p1     = {a * random_real(), a * random_real(), a * random_real()};
     capsule.p2     = {a * random_real(), a * random_real(), a * random_real()};
 
     // Random box
-    real b  = 3.0;
-    real c  = 5.0;
+    real b  = 3;
+    real c  = 5;
     center  = {b * random_real(), b * random_real(), b * random_real()};
     extents = {c * random_real(), c * random_real(), c * random_real()};
     // center -= Vec3{20, 20, 20}; // enforce never reaching EPA
@@ -220,9 +220,9 @@ TEST_CASE("Benchmark - GJK computation time vs point cloud size") {
 
     real real_dist = distance(capsule, box);
     if (real_dist + capsule.radius < 0) {
-      epa[i] = 1.0f;
+      epa[i] = 1;
     } else {
-      epa[i] = 0.0f;
+      epa[i] = 0;
     }
 
     // Benchmarking
@@ -249,7 +249,7 @@ TEST_CASE("Benchmark - GJK computation time vs point cloud size") {
     // std::cout << "\n--------------------------------------------" << std::endl;
   }
 
-  real sum = 0.0;
+  real sum = 0;
   for (int i = 0; i < epa.size(); i++) {
     sum += epa[i];
   }

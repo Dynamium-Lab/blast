@@ -47,7 +47,7 @@ inline host_fn void print_to_csv(const std::vector<Trajectory>& traj, const std:
   std::ofstream file;
   file.open(filename);
 
-  real start_time = 0.0;
+  real start_time = 0;
 
   file << traj[0].t[0];
   for (u32 j = 0; j < traj[0].pos.rows; j++)
@@ -115,7 +115,7 @@ inline host_fn blast::Matrix read_csv_matrix(const std::string& filename, const 
     for (u32 j = 0; j < num_cols; j++) {
       std::string value;
       if (std::getline(iss, value, *csv_sep)) {
-        pos(i, j) = std::stod(value);
+        pos(i, j) = (real) std::stod(value);
       }
     }
   }
@@ -157,7 +157,7 @@ inline host_fn blast::Matrix read_csv_matrix_no_header(const std::string& filena
     for (u32 j = 0; j < num_cols; j++) {
       std::string value;
       if (std::getline(iss, value, *csv_sep)) {
-        pos(i, j) = std::stod(value);
+        pos(i, j) = (real) std::stod(value);
       }
     }
   }
@@ -203,14 +203,14 @@ inline host_fn Trajectory read_csv_trajectory_no_header(const std::string& filen
     {
       std::string value;
       if (std::getline(iss, value, *csv_sep))
-        trajectory.t[i] = std::stod(value);
+        trajectory.t[i] = (real) std::stod(value);
     }
 
     // Gets position
     for (col = 0; col < num_joints; col++) {
       std::string value;
       if (std::getline(iss, value, *csv_sep)) {
-        trajectory.pos(col, i) = std::stod(value);
+        trajectory.pos(col, i) = (real) std::stod(value);
       }
     }
 
@@ -218,7 +218,7 @@ inline host_fn Trajectory read_csv_trajectory_no_header(const std::string& filen
     for (col = 0; col < num_joints; col++) {
       std::string value;
       if (std::getline(iss, value, *csv_sep)) {
-        trajectory.vel(col, i) = std::stod(value);
+        trajectory.vel(col, i) = (real) std::stod(value);
       }
     }
 
@@ -226,7 +226,7 @@ inline host_fn Trajectory read_csv_trajectory_no_header(const std::string& filen
     for (col = 0; col < num_joints; col++) {
       std::string value;
       if (std::getline(iss, value, *csv_sep)) {
-        trajectory.acc(col, i) = std::stod(value);
+        trajectory.acc(col, i) = (real) std::stod(value);
       }
     }
   }

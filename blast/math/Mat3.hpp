@@ -124,7 +124,7 @@ inline blast_fn Mat3 operator-(Mat3 m1, Mat3 m2) {
 }
 
 inline blast_fn Mat3 operator-(Mat3 m1) {
-  return -1.0 * m1;
+  return (real) -1 * m1;
 }
 
 inline blast_fn Mat3 transpose(Mat3 m) {

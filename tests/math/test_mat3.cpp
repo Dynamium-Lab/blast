@@ -11,24 +11,24 @@ TEST_CASE("Mat3 - default constructor zeroes all elements", "[Math][Mat3]") {
   using namespace blast;
   Mat3 m;
   for (int i = 0; i < 9; i++)
-    CHECK(m[i] == 0.0);
+    CHECK(m[i] == 0);
 }
 
 TEST_CASE("Mat3 - 9-element constructor stores values in column-major order", "[Math][Mat3]") {
   using namespace blast;
   Mat3 m(1, 2, 3, 4, 5, 6, 7, 8, 9);
   // Column 0
-  CHECK(m(0, 0) == 1.0);
-  CHECK(m(1, 0) == 2.0);
-  CHECK(m(2, 0) == 3.0);
+  CHECK(m(0, 0) == 1);
+  CHECK(m(1, 0) == 2);
+  CHECK(m(2, 0) == 3);
   // Column 1
-  CHECK(m(0, 1) == 4.0);
-  CHECK(m(1, 1) == 5.0);
-  CHECK(m(2, 1) == 6.0);
+  CHECK(m(0, 1) == 4);
+  CHECK(m(1, 1) == 5);
+  CHECK(m(2, 1) == 6);
   // Column 2
-  CHECK(m(0, 2) == 7.0);
-  CHECK(m(1, 2) == 8.0);
-  CHECK(m(2, 2) == 9.0);
+  CHECK(m(0, 2) == 7);
+  CHECK(m(1, 2) == 8);
+  CHECK(m(2, 2) == 9);
 }
 
 TEST_CASE("Mat3 - copy constructor produces an independent copy", "[Math][Mat3]") {
@@ -36,8 +36,8 @@ TEST_CASE("Mat3 - copy constructor produces an independent copy", "[Math][Mat3]"
   Mat3 m(1, 2, 3, 4, 5, 6, 7, 8, 9);
   Mat3 copy(m);
   CHECK(is_close(copy, m));
-  copy[0] = 99.0;
-  CHECK(m[0] == 1.0);
+  copy[0] = 99;
+  CHECK(m[0] == 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -47,15 +47,15 @@ TEST_CASE("Mat3 - copy constructor produces an independent copy", "[Math][Mat3]"
 TEST_CASE("Mat3 - operator()(row, col) provides mutable access", "[Math][Mat3]") {
   using namespace blast;
   Mat3 m;
-  m(1, 2) = 42.0;
-  CHECK(m(1, 2) == 42.0);
+  m(1, 2) = 42;
+  CHECK(m(1, 2) == 42);
 }
 
 TEST_CASE("Mat3 - operator()(row, col) provides const access", "[Math][Mat3]") {
   using namespace blast;
   const Mat3 m(1, 2, 3, 4, 5, 6, 7, 8, 9);
-  CHECK(m(0, 0) == 1.0);
-  CHECK(m(2, 2) == 9.0);
+  CHECK(m(0, 0) == 1);
+  CHECK(m(2, 2) == 9);
 }
 
 TEST_CASE("Mat3 - operator[] provides flat index access matching constructor order", "[Math][Mat3]") {
@@ -72,14 +72,14 @@ TEST_CASE("Mat3 - operator[] provides flat index access matching constructor ord
 TEST_CASE("Mat3 - is_close() returns true when all elements are within epsilon", "[Math][Mat3]") {
   using namespace blast;
   Mat3 a(1, 2, 3, 4, 5, 6, 7, 8, 9);
-  Mat3 b(1 + 1e-6, 2 + 1e-6, 3 + 1e-6, 4 + 1e-6, 5 + 1e-6, 6 + 1e-6, 7 + 1e-6, 8 + 1e-6, 9 + 1e-6);
+  Mat3 b(1 + (real) 1e-6, 2 + (real) 1e-6, 3 + (real) 1e-6, 4 + (real) 1e-6, 5 + (real) 1e-6, 6 + (real) 1e-6, 7 + (real) 1e-6, 8 + (real) 1e-6, 9 + (real) 1e-6);
   CHECK(is_close(a, b));
 }
 
 TEST_CASE("Mat3 - is_close() returns false when any element difference exceeds epsilon", "[Math][Mat3]") {
   using namespace blast;
   Mat3 a(1, 2, 3, 4, 5, 6, 7, 8, 9);
-  Mat3 b(1 + 2e-5, 2, 3, 4, 5, 6, 7, 8, 9);
+  Mat3 b(1 + (real) 2e-5, 2, 3, 4, 5, 6, 7, 8, 9);
   CHECK_FALSE(is_close(a, b));
 }
 
@@ -115,7 +115,7 @@ TEST_CASE("Mat3 - operator+= adds element-wise in place", "[Math][Mat3]") {
 TEST_CASE("Mat3 - left scalar operator* scales all elements", "[Math][Mat3]") {
   using namespace blast;
   Mat3 m(1, 2, 3, 4, 5, 6, 7, 8, 9);
-  real c = 2.0;
+  real c = 2;
   Mat3 expected(2, 4, 6, 8, 10, 12, 14, 16, 18);
   CHECK(is_close(c * m, expected));
 }
@@ -193,15 +193,15 @@ TEST_CASE("Mat3 - double transpose returns the original matrix", "[Math][Mat3]")
 TEST_CASE("Mat3 - eye() returns the 3x3 identity matrix", "[Math][Mat3]") {
   using namespace blast;
   Mat3 I = eye();
-  CHECK(I(0, 0) == 1.0);
-  CHECK(I(1, 1) == 1.0);
-  CHECK(I(2, 2) == 1.0);
-  CHECK(I(0, 1) == 0.0);
-  CHECK(I(0, 2) == 0.0);
-  CHECK(I(1, 0) == 0.0);
-  CHECK(I(1, 2) == 0.0);
-  CHECK(I(2, 0) == 0.0);
-  CHECK(I(2, 1) == 0.0);
+  CHECK(I(0, 0) == 1);
+  CHECK(I(1, 1) == 1);
+  CHECK(I(2, 2) == 1);
+  CHECK(I(0, 1) == 0);
+  CHECK(I(0, 2) == 0);
+  CHECK(I(1, 0) == 0);
+  CHECK(I(1, 2) == 0);
+  CHECK(I(2, 0) == 0);
+  CHECK(I(2, 1) == 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -219,8 +219,8 @@ TEST_CASE("Mat3 - col_copy() returns the correct column as a Vec3", "[Math][Mat3
 TEST_CASE("Mat3 - col() alias allows element write-through to matrix data", "[Math][Mat3]") {
   using namespace blast;
   Mat3 m(1, 2, 3, 4, 5, 6, 7, 8, 9);
-  m.col(0)[1] = 99.0;
-  CHECK(m(1, 0) == 99.0);
+  m.col(0)[1] = 99;
+  CHECK(m(1, 0) == 99);
 }
 
 // ---------------------------------------------------------------------------
@@ -246,7 +246,7 @@ TEST_CASE("Mat3 - constant() sets all elements to the given value", "[Math][Mat3
   Mat3 m;
   constant(m, 5.0);
   for (int i = 0; i < 9; i++)
-    CHECK(m[i] == 5.0);
+    CHECK(m[i] == 5);
 }
 
 TEST_CASE("Mat3 - constant() returns a reference to the same object", "[Math][Mat3]") {
@@ -258,13 +258,13 @@ TEST_CASE("Mat3 - constant() returns a reference to the same object", "[Math][Ma
 
 TEST_CASE("Mat3 - is_small() returns true when all elements are within epsilon", "[Math][Mat3]") {
   using namespace blast;
-  Mat3 m(1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6);
+  Mat3 m((real) 1e-6, (real) 1e-6, (real) 1e-6, (real) 1e-6, (real) 1e-6, (real) 1e-6, (real) 1e-6, (real) 1e-6, (real) 1e-6);
   CHECK(is_small(m));
 }
 
 TEST_CASE("Mat3 - is_small() returns false when any element exceeds epsilon", "[Math][Mat3]") {
   using namespace blast;
-  CHECK_FALSE(is_small(Mat3(2e-5, 0, 0, 0, 0, 0, 0, 0, 0)));
-  CHECK_FALSE(is_small(Mat3(0, 0, 0, 0, 2e-5, 0, 0, 0, 0)));
-  CHECK_FALSE(is_small(Mat3(0, 0, 0, 0, 0, 0, 0, 0, 2e-5)));
+  CHECK_FALSE(is_small(Mat3((real) 2e-5, 0, 0, 0, 0, 0, 0, 0, 0)));
+  CHECK_FALSE(is_small(Mat3(0, 0, 0, 0, (real) 2e-5, 0, 0, 0, 0)));
+  CHECK_FALSE(is_small(Mat3(0, 0, 0, 0, 0, 0, 0, 0, (real) 2e-5)));
 }

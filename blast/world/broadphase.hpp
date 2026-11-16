@@ -80,8 +80,8 @@ inline host_fn void create_AABB_from_AABBs(AxisAlignedBoundingBox& b1, AxisAlign
   b        = b2.center - b2.extents;
   Vec3 min = {std::min(a[0], b[0]), std::min(a[1], b[1]), std::min(a[2], b[2])};
 
-  aabb.center  = (max + min) * 0.5;
-  aabb.extents = (max - min) * 0.5;
+  aabb.center  = (max + min) * (real) 0.5;
+  aabb.extents = (max - min) * (real) 0.5;
 
   aabb.children[0] = id1;
   aabb.children[1] = id2;
@@ -639,7 +639,7 @@ inline host_fn real minimum_distance_static_objects_time(BoundingVolumeHierarchy
 }
 
 inline host_fn real minimum_distance_dynamic_objects_time(BoundingVolumeHierarchy<int>& BVH_obj, BoundingVolumeHierarchy<AABBPair>& BVH_time, real dist_min_old, CollisionEntities& collision_objects,
-                                                          int start_point_in_segment, int n_points_per_segment, real opt_time, int n_segments, int trajectory_start_time) {
+                                                          int start_point_in_segment, int n_points_per_segment, real opt_time, int n_segments, real trajectory_start_time) {
 
   BVH_time.queue.clear_and_reserve(BVH_obj.num_objects * BVH_time.num_objects * 4);
 

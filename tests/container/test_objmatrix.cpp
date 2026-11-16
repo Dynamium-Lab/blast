@@ -108,14 +108,14 @@ TEST_CASE("ObjMatrix Capsules", "[ObjMatrix]") {
 
   blast::Manipulator manip = blast::make_UR5e();
 
-  blast::Array               pos = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+  blast::Array               pos = {0, 0, 0, 0, 0, 0};
   blast::ManipulatorTempData data;
 
   blast::forward_kinematics(manip, data, pos);
   blast::compute_collision_model(manip, data);
 
   blast::World world;
-  world.add_box({1.0, 0.0, 0.0}, {0.5, 0.5, 0.5}, {1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_box({1, 0, 0}, {0.5, 0.5, 0.5}, {1, 0, 0, 0, 1, 0, 0, 0, 1});
 
   for (blast::u32 i = 0; i < manip.n_joints; i++)
     caps_matrix(i, 0) = data.capsule_list[i];

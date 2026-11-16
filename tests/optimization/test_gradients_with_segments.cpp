@@ -15,8 +15,8 @@ using namespace blast;
 constexpr real finite_difference_step      = 1e-6;
 constexpr real finite_difference_tolerance = 1e-3;
 #else
-constexpr real finite_difference_step      = 1e-3;
-constexpr real finite_difference_tolerance = 1e-1;
+constexpr real finite_difference_step      = (real) 1e-3;
+constexpr real finite_difference_tolerance = (real) 1e-1;
 #endif
 
 using ConstraintsAndGradientsFunction = void (*)(const Array&, Optimization&, Array&, Matrix&);
@@ -25,9 +25,9 @@ static void check_gradients(ConstraintsAndGradientsFunction constraints_and_grad
   Array start = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
   Array end   = {-0.5825, -1.0700, 1.3892, -1.3196, 0.9927, 1.14};
   World world;
-  world.add_sphere(Vec3{0.35, 0.25, 0.45}, 0.08);
-  world.add_sphere(Vec3{-0.2, 0.45, 0.30}, 0.06);
-  world.add_sphere(Vec3{0.1, -0.4, 0.6}, 0.07);
+  world.add_sphere(Vec3{(real) 0.35, (real) 0.25, (real) 0.45}, (real) 0.08);
+  world.add_sphere(Vec3{-(real) 0.2, (real) 0.45, (real) 0.30}, (real) 0.06);
+  world.add_sphere(Vec3{(real) 0.1, -(real) 0.4, (real) 0.6}, (real) 0.07);
   Optimization opt(make_UR5e(), Task::stop_to_stop(start, end));
   opt.world = world;
   create_static_bounding_volume_hierarchy(opt.world, opt.world.static_bounding_volume_hierarchy); // the broadphase methods read it; the caller builds it
@@ -37,14 +37,14 @@ static void check_gradients(ConstraintsAndGradientsFunction constraints_and_grad
   initialize_optimization_with_segments(&opt);
   n_con_with_segments(&opt);
 
-  const u32                        n_variables = opt.bspline.x_len(opt.task), n_constraints = opt.constraints.n_constraints;
-  std::mt19937                     random_engine(7);
-  std::normal_distribution<double> noise(0, 0.3);
-  int                              mismatched_control_points = 0, checked_control_points = 0;
-  int                              mismatched_durations = 0, checked_durations = 0; // the duration column on its own
+  const u32                      n_variables = opt.bspline.x_len(opt.task), n_constraints = opt.constraints.n_constraints;
+  std::mt19937                   random_engine(7);
+  std::normal_distribution<real> noise(0, (real) 0.3);
+  int                            mismatched_control_points = 0, checked_control_points = 0;
+  int                            mismatched_durations = 0, checked_durations = 0; // the duration column on its own
   for (int trial = 0; trial < 10; trial++) {
     Array x  = blast::guess_straight_line(&opt);
-    x.back() = 1.0 + 0.2 * trial;
+    x.back() = 1 + (real) 0.2 * (real) trial;
     for (u32 variable = 0; variable + 1 < n_variables; variable++)
       x[variable] += noise(random_engine);
     Array  constraints(n_constraints);

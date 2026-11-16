@@ -27,9 +27,9 @@ TEST_CASE("large success_tolerance does not allow real constraint violation", "[
 
   World world;
   world.add_box(
-          Vec3{0.4, 0.0, 0.6},            // centre: 40 cm in front, 60 cm high
-          Vec3{0.05, 0.3, 0.3},           // half-extents: thin vertical slab
-          Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1} // upright, axis-aligned
+          Vec3{(real) 0.4, 0, (real) 0.6},           // centre: 40 cm in front, 60 cm high
+          Vec3{(real) 0.05, (real) 0.3, (real) 0.3}, // half-extents: thin vertical slab
+          Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1}            // upright, axis-aligned
   );
 
   Optimization opt(robot, task); // default enables pva + tool_speed constraints
@@ -41,7 +41,7 @@ TEST_CASE("large success_tolerance does not allow real constraint violation", "[
   opt.constraints.self_collisions     = true; // avoid self-contact
   opt.constraints.external_collisions = true; // avoid world obstacles
 
-  opt.success_tolerance = 0.05f;
+  opt.success_tolerance = (real) 0.05;
 
   opt.guess.type = Guess::straight_line; // deterministic first try; deliberately large - well above the 0.01 default
   opt.max_tries  = 10;                   // optimize() falls back to random guesses after try 1; a tightened obstacle needs a few
@@ -63,7 +63,7 @@ TEST_CASE("large success_tolerance does not allow real constraint violation", "[
   Array constraints_points(opt_check.constraints.n_constraints);
   compute_constraints(constraints_points.data, result.x, &opt_check);
 
-  CHECK(max(constraints_points) < 1e-6f);
+  CHECK(max(constraints_points) < (real) 1e-6);
 }
 
 // Regression test for the retry-loop overwrite bug: is_valid/is_valid_more/result.trajectory
@@ -74,7 +74,7 @@ TEST_CASE("optimize stops at the first valid try instead of always using the las
   Task        task  = make_UR5e_task();
 
   Optimization opt(robot, task);                // default enables pva + tool_speed constraints, no obstacles
-  opt.success_tolerance = 0.01f;
+  opt.success_tolerance = (real) 0.01;
   opt.guess.type        = Guess::straight_line; // deterministic
   opt.max_tries         = 5;
 

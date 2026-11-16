@@ -20,7 +20,9 @@
 // Run:
 //   ./build/examples/example_04_two_stage_optimization [vel|acc]   (default: acc)
 
+#ifndef BLAST_USE_NATIVE_SQP
 #define BLAST_USE_NATIVE_SQP // use the built-in SQP solver
+#endif
 
 #include <blast>
 #include <cmath>
@@ -43,7 +45,7 @@ using namespace blast;
 // -------------------------------------------------------------------------
 template<typename M>
 static real sum_abs(const M& m) {
-  real sum = 0.0;
+  real sum = 0;
   for (int i = 0; i < m.cols; ++i)
     for (int j = 0; j < m.rows; ++j)
       sum += std::abs(m(j, i));
@@ -106,11 +108,11 @@ int main(int argc, char** argv) {
   // The UR5e is mounted with a custom base pose inside a kitchen scene.
   // -----------------------------------------------------------------------
   Manipulator ur5e   = make_UR5e();
-  ur5e.base_position = {-0.5, -0.3, 0.35};
+  ur5e.base_position = {-(real) 0.5, -(real) 0.3, (real) 0.35};
   ur5e.base_rotation = {-1, 0, 0, 0, -1, 0, 0, 0, 1}; // 180° about z
 
-  Array start = {-0.704868, 2.17507, 0.834305, 0.132228, 2.27799, 0.00328674};
-  Array end   = {3.12394, -0.553571, -0.509807, 1.06314, 1.52902, -3.10058};
+  Array start = {-(real) 0.704868, (real) 2.17507, (real) 0.834305, (real) 0.132228, (real) 2.27799, (real) 0.00328674};
+  Array end   = {(real) 3.12394, -(real) 0.553571, -(real) 0.509807, (real) 1.06314, (real) 1.52902, -(real) 3.10058};
   Task  task  = Task::stop_to_stop(start, end);
 
   World world = get_kitchen_no_doors();
@@ -130,13 +132,13 @@ int main(int argc, char** argv) {
   opt.constraints.acceleration        = true;
   opt.constraints.external_collisions = true;
 
-  opt.success_tolerance = 0.01;
+  opt.success_tolerance = (real) 0.01;
 
   // -----------------------------------------------------------------------
   // Step 3 — Stage 1: minimize trajectory duration.
   // time_weight is the weight of the built-in duration objective.
   // -----------------------------------------------------------------------
-  opt.objective.time_weight = 1.0;
+  opt.objective.time_weight = 1;
 
   std::cout << "Stage 1: minimizing trajectory duration...\n";
   Result time_result = optimize(&opt);
@@ -174,8 +176,8 @@ int main(int argc, char** argv) {
   refined.guess.type      = Guess::custom;
   refined.guess.initial_x = time_result.x;
 
-  refined.objective.time_weight = 0.0;
-  refined.objective.add_custom_objective(secondary_fn, 1.0);
+  refined.objective.time_weight = 0;
+  refined.objective.add_custom_objective(secondary_fn, 1);
 
   refined.custom_data = &optimal_duration;
   refined.constraints.add_constraint(constraint_max_duration, 1);
@@ -207,7 +209,7 @@ int main(int argc, char** argv) {
   std::cout << "Refined:\n";
   if (refined_result.success && !refined_result.x.is_empty()) {
     const real obj_refined = secondary_fn(&evaluator, &refined_result.x);
-    const real improvement = obj_time > 0.0 ? 100.0 * (obj_time - obj_refined) / obj_time : 0.0;
+    const real improvement = obj_time > 0 ? 100 * (obj_time - obj_refined) / obj_time : 0;
 
     std::cout << "  Duration (s):      " << refined_result.x.back() << "\n"
               << "  " << secondary_label << ": " << obj_refined << "\n"
