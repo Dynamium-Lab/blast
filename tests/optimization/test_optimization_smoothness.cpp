@@ -15,7 +15,9 @@
 // Run:
 //   ./build/examples/example_05_two_stage_optimization_selectable [vel|acc]   (default: vel)
 
+#ifndef BLAST_USE_NATIVE_SQP
 #define BLAST_USE_NATIVE_SQP
+#endif
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch.hpp>
 
@@ -43,7 +45,7 @@ static const char* objective_suffix(SecondaryObjective o) {
 
 template<typename M>
 static real sum_abs(const M& m) {
-  real sum = 0.0;
+  real sum = 0;
   for (int i = 0; i < m.cols; ++i)
     for (int j = 0; j < m.rows; ++j)
       sum += std::abs(m(j, i));
@@ -93,11 +95,17 @@ Array constraint_max_duration(Optimization* opt, Array* x) {
 struct SmoothnessOptimization : Optimization {
   real total_time;
 
-  SmoothnessOptimization(const Optimization& base, real new_total_time) : Optimization(base), total_time(new_total_time) {}
+  SmoothnessOptimization(const Optimization& base, real new_total_time) :
+      Optimization(base),
+      total_time(new_total_time) {}
 
-  SmoothnessOptimization(const Manipulator& new_manip, const Task& new_task, real new_total_time) : Optimization(new_manip, new_task), total_time(new_total_time) {}
+  SmoothnessOptimization(const Manipulator& new_manip, const Task& new_task, real new_total_time) :
+      Optimization(new_manip, new_task),
+      total_time(new_total_time) {}
 
-  SmoothnessOptimization(const Manipulator& new_manip, const Task& new_task, const Bspline& new_bspline, real new_total_time) : Optimization(new_manip, new_task, new_bspline), total_time(new_total_time) {}
+  SmoothnessOptimization(const Manipulator& new_manip, const Task& new_task, const Bspline& new_bspline, real new_total_time) :
+      Optimization(new_manip, new_task, new_bspline),
+      total_time(new_total_time) {}
 
   void set_total_time(real new_total_time) { total_time = new_total_time; }
 };
@@ -163,14 +171,14 @@ inline Result optimize_for_smoothness(SmoothnessOptimization* opt, u32 output_st
   const auto n_red = n - 1;                                     // what the solver sees
 
   Array con_tol(opt->constraints.n_constraints, opt->success_tolerance);
-  Array x_tol(n_red, 0.001);
+  Array x_tol(n_red, (real) 0.001);
 
 #ifdef BLAST_USE_NATIVE_SQP
   nlopt_stopping stop;
   stop.n          = n_red;
   stop.minf_max   = -HUGE_VAL;
   stop.ftol_rel   = 0;
-  stop.ftol_abs   = 0.001;
+  stop.ftol_abs   = (real) 0.001;
   stop.xtol_rel   = 0;
   stop.xtol_abs   = x_tol.data;
   stop.x_weights  = nullptr;
@@ -279,8 +287,8 @@ inline Result optimize_for_smoothness(SmoothnessOptimization* opt, u32 output_st
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Solution validation (more points)");
 #endif
-      u64 steps_ms    = (u64) (std::ceil(x.back() * 1e3 / output_steps_ms));
-      x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
+      u64 steps_ms    = (u64) (std::ceil(x.back() * 1000 / (real) output_steps_ms));
+      x.back()        = (real) (std::ceil(x.back() * 1000 / (real) output_steps_ms) * (real) output_steps_ms) * (real) 1e-3;
       int points_more = (int) (steps_ms + 1);
 
       Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints); // todo: this is expensive
@@ -313,7 +321,7 @@ inline Result optimize_for_smoothness(SmoothnessOptimization* opt, u32 output_st
   opt->guess = start_guess;                        // reset to original
   restore_from_tolerance(opt, tolerance_snapshot); // undo tighten_for_success_tolerance(): caller keeps the real limits
 
-  auto time = (real) (get_tick_us() - T1) / 1000.0;
+  auto time = (real) (get_tick_us() - T1) / 1000;
 
   // Output results
   result.success       = is_valid && is_valid_more;
@@ -349,11 +357,11 @@ TEST_CASE("Smoothness optimization test + benchmark", "[Optimization]") {
   // Step 1 — Define the robot, task, and B-spline representation.
   // -----------------------------------------------------------------------
   Manipulator ur5e   = make_UR5e();
-  ur5e.base_position = {-0.5, -0.3, 0.35};
+  ur5e.base_position = {-(real) 0.5, -(real) 0.3, (real) 0.35};
   ur5e.base_rotation = {-1, 0, 0, 0, -1, 0, 0, 0, 1};
 
-  Array start = {-0.704868, 2.17507, 0.834305, 0.132228, 2.27799, 0.00328674};
-  Array end   = {3.12394, -0.553571, -0.509807, 1.06314, 1.52902, -3.10058};
+  Array start = {-(real) 0.704868, (real) 2.17507, (real) 0.834305, (real) 0.132228, (real) 2.27799, (real) 0.00328674};
+  Array end   = {(real) 3.12394, -(real) 0.553571, -(real) 0.509807, (real) 1.06314, (real) 1.52902, -(real) 3.10058};
   Task  task  = Task::stop_to_stop(start, end);
 
   auto world = get_kitchen_no_doors();
@@ -367,7 +375,7 @@ TEST_CASE("Smoothness optimization test + benchmark", "[Optimization]") {
   opt.constraints.acceleration        = true;
   opt.constraints.external_collisions = true;
   opt.set_world(world);
-  opt.success_tolerance = 0.01;
+  opt.success_tolerance = (real) 0.01;
 
   // Using baseline method to have sensible computation time comparisons
   opt.method = OptimizationMethod::baseline;
@@ -375,7 +383,7 @@ TEST_CASE("Smoothness optimization test + benchmark", "[Optimization]") {
   // -----------------------------------------------------------------------
   // Step 2 — Primary optimization: minimize trajectory duration.
   // -----------------------------------------------------------------------
-  opt.objective.time_weight = 1.0;
+  opt.objective.time_weight = 1;
 
   std::cout << "Stage 1: minimizing trajectory duration...\n";
 
@@ -400,8 +408,8 @@ TEST_CASE("Smoothness optimization test + benchmark", "[Optimization]") {
   smooth_base.guess.type      = Guess::custom;
   smooth_base.guess.initial_x = time_result.x;
 
-  smooth_base.objective.time_weight = 0.0;
-  smooth_base.objective.add_custom_objective(secondary_fn, 1.0);
+  smooth_base.objective.time_weight = 0;
+  smooth_base.objective.add_custom_objective(secondary_fn, 1);
 
   // 2a: duration free but bounded by the stage-1 optimum.
   // The referenced value must remain alive throughout optimize().
@@ -431,7 +439,7 @@ TEST_CASE("Smoothness optimization test + benchmark", "[Optimization]") {
   Optimization evaluator = smooth_base;
 
   const real obj_time    = secondary_fn(&evaluator, &time_result.x);
-  const auto improvement = [&](real v) { return obj_time > 0.0 ? 100.0 * (obj_time - v) / obj_time : 0.0; };
+  const auto improvement = [&](real v) { return obj_time > 0 ? 100 * (obj_time - v) / obj_time : 0; };
 
   std::cout << "\n--- Pipeline results (" << secondary_label << ") ---\n"
             << "Time-optimal:\n"

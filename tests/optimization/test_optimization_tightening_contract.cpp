@@ -398,17 +398,17 @@ TEST_CASE("collision constraints at a pinned endpoint target what the endpoint a
 // restore_from_tolerance must hand the caller's BVH back.
 // ---------------------------------------------------------------------------
 TEST_CASE("tightening keeps the static BVH in step with the world", "[Optimization]") {
-  Array start = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
-  Array end   = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.17328};
+  Array start = {(real) 1.94822, (real) 0.473555, -(real) 0.0255247, -(real) 0.448375, (real) 0.370356, -(real) 3.12883};
+  Array end   = {(real) 2.5825, (real) 0.0700, -(real) 0.3892, (real) 0.3196, (real) 0.9927, -(real) 3.17328};
   World world;
-  world.add_sphere(Vec3{0.35, 0.25, 0.45}, 0.08);
-  world.add_capsule({Vec3{-0.3, 0.45, 0.30}, Vec3{-0.1, 0.45, 0.30}, 0.05});
-  world.add_box(Vec3{0.4, 0.0, 0.6}, Vec3{0.05, 0.3, 0.3}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
+  world.add_sphere(Vec3{(real) 0.35, (real) 0.25, (real) 0.45}, (real) 0.08);
+  world.add_capsule({Vec3{-(real) 0.3, (real) 0.45, (real) 0.30}, Vec3{-(real) 0.1, (real) 0.45, (real) 0.30}, (real) 0.05});
+  world.add_box(Vec3{(real) 0.4, 0, (real) 0.6}, Vec3{(real) 0.05, (real) 0.3, (real) 0.3}, Mat3{1, 0, 0, 0, 1, 0, 0, 0, 1});
   Optimization opt(make_UR5e(), Task::stop_to_stop(start, end));
   opt.world                           = world;
   opt.constraints.external_collisions = true;
-  opt.success_tolerance               = 0.01;
-  opt.collision_buffer                = 0.01;
+  opt.success_tolerance               = (real) 0.01;
+  opt.collision_buffer                = (real) 0.01;
   create_static_bounding_volume_hierarchy(opt.world, opt.world.static_bounding_volume_hierarchy);
   initialize_optimization_with_segments(&opt);
   n_con_with_segments(&opt);
@@ -438,8 +438,8 @@ TEST_CASE("tightening keeps the static BVH in step with the world", "[Optimizati
 // The pinned-endpoint rows of section 5, through the broadphase methods: on a trajectory that holds
 // the start, every first/last-segment row has to be satisfied, as it is for with_segments.
 TEST_CASE("broadphase methods apply the pinned-endpoint collision targets", "[Optimization]") {
-  const real tolerance = 0.01, buffer = 0.001, start_clearance = 0.0005; // start clears the sphere by half the buffer
-  Array      start = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
+  const real tolerance = (real) 0.01, buffer = (real) 0.001, start_clearance = (real) 0.0005; // start clears the sphere by half the buffer
+  Array      start = {(real) 1.94822, (real) 0.473555, -(real) 0.0255247, -(real) 0.448375, (real) 0.370356, -(real) 3.12883};
 
   Manipulator robot = make_UR5e();
   World       world;
@@ -447,9 +447,9 @@ TEST_CASE("broadphase methods apply the pinned-endpoint collision targets", "[Op
     ManipulatorTempData manip_data;
     forward_kinematics(robot, manip_data, start);
     compute_collision_model(robot, manip_data);
-    const Capsule capsule = manip_data.capsule_list[robot._n_caps - 1];                    // the tool capsule
+    const Capsule capsule = manip_data.capsule_list[robot._n_caps - 1];                                  // the tool capsule
     const Vec3    axis    = (capsule.p2 - capsule.p1) / norm(capsule.p2 - capsule.p1);
-    world.add_sphere(capsule.p2 + axis * (capsule.radius + 0.02 + start_clearance), 0.02); // beyond the capsule's end, on its axis
+    world.add_sphere(capsule.p2 + axis * (capsule.radius + (real) 0.02 + start_clearance), (real) 0.02); // beyond the capsule's end, on its axis
   }
 
   Optimization hold(robot, Task::stop_to_stop(start, start));
@@ -467,7 +467,7 @@ TEST_CASE("broadphase methods apply the pinned-endpoint collision targets", "[Op
   const int constraints_per_segment = hold.constraints.n_constraints_per_segment;
   const int n_segments              = (int) n_constraints / constraints_per_segment;
   Array     x                       = blast::guess_straight_line(&hold);
-  x.back()                          = 2.0; // start == goal: the limit-derived duration would be 0
+  x.back()                          = 2; // start == goal: the limit-derived duration would be 0
 
   using ConstraintsAndGradientsFunction = void (*)(const Array&, Optimization&, Array&, Matrix&);
   for (auto [constraints_and_gradients, method_name]:
