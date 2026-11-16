@@ -2,6 +2,7 @@
 #include "catch2/catch.hpp"
 
 #include <blast>
+#include "test_helper.hpp"
 
 using namespace blast;
 
@@ -38,7 +39,7 @@ TEST_CASE("time objective", "[Optimization][Objective]") {
     for (int i = 0; i < grad.size - 1; i++) {
       CHECK(grad[i] == 0.0);
     }
-    CHECK(grad.back() == Approx(1.0));
+    CHECK(grad.back() == Approx(1.0).epsilon(test::approx_tol));
 
     // Changing objective value
     x.back() = 2;
@@ -47,7 +48,7 @@ TEST_CASE("time objective", "[Optimization][Objective]") {
     for (int i = 0; i < grad.size - 1; i++) {
       CHECK(grad[i] == 0.0);
     }
-    CHECK(grad.back() == Approx(1.0));
+    CHECK(grad.back() == Approx(1.0).epsilon(test::approx_tol));
 
     // Changing time weight
     opt.objective.time_weight = 2;
@@ -56,7 +57,7 @@ TEST_CASE("time objective", "[Optimization][Objective]") {
     for (int i = 0; i < grad.size - 1; i++) {
       CHECK(grad[i] == 0.0);
     }
-    CHECK(grad.back() == Approx(2.0));
+    CHECK(grad.back() == Approx(2.0).epsilon(test::approx_tol));
 
     // Zero-ing time weight
     opt.objective.time_weight = 0;
@@ -114,7 +115,7 @@ TEST_CASE("Custom objective", "[Optimization][Objective]") {
     for (int i = 0; i < grad.size - 1; i++) {
       CHECK(grad[i] == 0.5 * original_gradient_value[i]);
     }
-    CHECK(grad.back() == Approx(0.25 * original_gradient_value.back()));
+    CHECK(grad.back() == Approx(0.25 * original_gradient_value.back()).epsilon(test::approx_tol));
 
     x.back() = 1;
 
