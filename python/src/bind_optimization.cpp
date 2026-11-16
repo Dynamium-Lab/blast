@@ -123,9 +123,10 @@ void bind_optimization(nb::module_& m) {
           .def_rw("success_tolerance", &Optimization::success_tolerance,
                   "Fraction of constraint violation still considered a success (default 0.01).")
           .def_rw("collision_buffer", &Optimization::collision_buffer,
-                  "How close, in metres, the trajectory may come to real contact (default 0.001). "
-                  "The collision analogue of success_tolerance, which is dimensionless and so "
-                  "cannot express a distance. 0 falls back to success_tolerance itself.")
+                  "Collision buffer, in metres, between any two objects during the solve (default 0.001); "
+                  "each object grows by half. success_tolerance may consume it, never more, so an "
+                  "accepted solve has no contact. Must be > 0 (0 or less is replaced by 1e-3). The default "
+                  "suits tight scenes; smaller values cost convergence.")
           .def_ro("collision_scale", &Optimization::collision_scale,
                   "DERIVED, read-only: success_tolerance/collision_buffer while the optimizer "
                   "holds tightened geometry, 1.0 otherwise.")
@@ -137,6 +138,16 @@ void bind_optimization(nb::module_& m) {
                   "Maximum wall time per NLopt call in seconds (default 30).")
           .def_rw("trajectory_start_time", &Optimization::trajectory_start_time,
                   "Trajectory start time for dynamic obstacle synchronisation.")
+          .def_rw("min_duration", &Optimization::min_duration,
+                  "Lower bound on the trajectory duration T in seconds (default 0.01).")
+          .def_rw("control_point_bound_margin", &Optimization::control_point_bound_margin,
+                  "Control points may leave the position limits by this fraction of each joint's range "
+                  "(default 0: strictly inside). Raise it for tasks that must run close to a joint limit.")
+          .def_rw("max_duration", &Optimization::max_duration,
+                  "Upper bound on the trajectory duration T in seconds (default 30).")
+          .def_rw("bound_control_points", &Optimization::bound_control_points,
+                  "Bound the free control points to the position limits (default True). "
+                  "False applies the duration bounds only.")
           .def("set_task", &Optimization::set_task, nb::arg("task"))
           .def("set_world", &Optimization::set_world, nb::arg("world"))
           .def("x_len", &Optimization::x_len,
