@@ -12,9 +12,9 @@ Tool make_gripper() {
   t.mass           = 0.85;
   t.cog_offset     = {0.0, 0.0, 0.03};
   t.inertia_tensor = Mat3{
-    0.001, 0.0, 0.0,
-    0.0, 0.001, 0.0,
-    0.0, 0.0, 0.0005};
+          0.001, 0.0, 0.0,
+          0.0, 0.001, 0.0,
+          0.0, 0.0, 0.0005};
   return t;
 }
 
@@ -25,9 +25,9 @@ Payload make_payload() {
   p.mass           = 1.2;
   p.cog_offset     = {0.0, 0.0, 0.04};
   p.inertia_tensor = Mat3{
-    0.0008, 0.0, 0.0,
-    0.0, 0.0008, 0.0,
-    0.0, 0.0, 0.0003};
+          0.0008, 0.0, 0.0,
+          0.0, 0.0008, 0.0,
+          0.0, 0.0, 0.0003};
   return p;
 }
 
@@ -413,7 +413,7 @@ TEST_CASE("Equivalent tool and payload have identical dynamics", "[Manipulator]"
 
   for (int i = 0; i < manip_tool.n_joints; i++) {
     CHECK(d_tool.efforts[i] ==
-      Approx(d_payload.efforts[i]).margin(1e-10));
+          Approx(d_payload.efforts[i]).margin(1e-10));
   }
 }
 
@@ -450,7 +450,7 @@ TEST_CASE("Payload gravity matches Jacobian torque at TCP", "[Manipulator]") {
     real expected = dot(Ji, F);
 
     real measured =
-      data2.efforts[i] - data1.efforts[i];
+            data2.efforts[i] - data1.efforts[i];
 
     CHECK(measured == Approx(expected).margin(BLAST_EPSILON));
   }

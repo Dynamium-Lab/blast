@@ -147,14 +147,14 @@ inline host_fn TwoPts GJK_get_local_points(const ComplexSimplex& simplex, Vec3 p
 
     case 2:
       barycentric = GJK_convert_barycentric(simplex.a, simplex.b, p);
-      loc.p1 = GJK_convert_cartesian(simplex.a1, simplex.b1, barycentric);
-      loc.p2 = GJK_convert_cartesian(simplex.a2, simplex.b2, barycentric);
+      loc.p1      = GJK_convert_cartesian(simplex.a1, simplex.b1, barycentric);
+      loc.p2      = GJK_convert_cartesian(simplex.a2, simplex.b2, barycentric);
       break;
 
     case 3:
       barycentric3 = GJK_convert_barycentric(simplex.a, simplex.b, simplex.c, p);
-      loc.p1 = GJK_convert_cartesian(simplex.a1, simplex.b1, simplex.c1, barycentric3);
-      loc.p2 = GJK_convert_cartesian(simplex.a2, simplex.b2, simplex.c2, barycentric3);
+      loc.p1       = GJK_convert_cartesian(simplex.a1, simplex.b1, simplex.c1, barycentric3);
+      loc.p2       = GJK_convert_cartesian(simplex.a2, simplex.b2, simplex.c2, barycentric3);
       Assert(isnan(loc.p1.x) == false);
       break;
 
@@ -370,25 +370,25 @@ inline host_fn TwoPts GJK_solve_simplex4(ComplexSimplex& simplex) {
 
   ComplexSimplex simplex_acd = simplex;
   // simplex_acd.b_all = simplex_acd.c_all;
-  simplex_acd.b              = simplex.c;
-  simplex_acd.b1             = simplex.c1;
-  simplex_acd.b2             = simplex.c2;
+  simplex_acd.b  = simplex.c;
+  simplex_acd.b1 = simplex.c1;
+  simplex_acd.b2 = simplex.c2;
   // simplex_acd.c_all = simplex_acd.d_all;
-  simplex_acd.c              = simplex.d;
-  simplex_acd.c1             = simplex.d1;
-  simplex_acd.c2             = simplex.d2;
+  simplex_acd.c  = simplex.d;
+  simplex_acd.c1 = simplex.d1;
+  simplex_acd.c2 = simplex.d2;
 
   // simplex_acd.count = 3;
 
   ComplexSimplex simplex_adb = simplex;
   // simplex_adb.c_all = simplex_adb.b_all;
-  simplex_adb.c              = simplex.b;
-  simplex_adb.c1             = simplex.b1;
-  simplex_adb.c2             = simplex.b2;
+  simplex_adb.c  = simplex.b;
+  simplex_adb.c1 = simplex.b1;
+  simplex_adb.c2 = simplex.b2;
   // simplex_adb.c_all = simplex_adb.d_all;
-  simplex_adb.b              = simplex.d;
-  simplex_adb.b1             = simplex.d1;
-  simplex_adb.b2             = simplex.d2;
+  simplex_adb.b  = simplex.d;
+  simplex_adb.b1 = simplex.d1;
+  simplex_adb.b2 = simplex.d2;
 
   // simplex_adb.count = 3;
 
@@ -675,13 +675,13 @@ inline host_fn real solve_general_GJK(Vec3* v1, size_t count1, Vec3* v2, size_t 
         Segment seg_test;
         // Calculate all points in minkowski difference and find the two points which are the most extreme
         // Create a segment with these two points and test segment-point with the origin
-        Vec3    new_dir = simplex.b - simplex.a;
-        real    max_dot = -INF_REAL;
-        real    min_dot = INF_REAL;
-        int     min_id1 = -1;
-        int     min_id2 = -1;
-        int     max_id1 = -1;
-        int     max_id2 = -1;
+        Vec3 new_dir = simplex.b - simplex.a;
+        real max_dot = -INF_REAL;
+        real min_dot = INF_REAL;
+        int  min_id1 = -1;
+        int  min_id2 = -1;
+        int  max_id1 = -1;
+        int  max_id2 = -1;
         for (int i = 0; i < count1; i++) {
           for (int j = 0; j < count2; j++) {
             Vec3 new_pt = v2[j] - v1[i];
