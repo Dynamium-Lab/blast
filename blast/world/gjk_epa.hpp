@@ -196,7 +196,7 @@ inline host_fn TwoPts GJK_solve_simplex2(ComplexSimplex& simplex) {
   if (d > 0) {
     simplex.count = 2;
     ao            = cross(cross(ab, ao), ab);
-    ab            = simplex.a + (1.0 / dot(ab, ab)) * d * ab;
+    ab            = simplex.a + ((real) 1 / dot(ab, ab)) * d * ab;
   } else {
     simplex.count = 1;
     ab            = simplex.a;

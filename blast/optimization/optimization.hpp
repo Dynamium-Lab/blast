@@ -141,7 +141,8 @@ inline void initialize_optimization(Optimization* opt) {
   // Task
   auto task = opt->task;
   for (int i = 0; i < opt->manip.n_joints; i++) {
-    while (std::abs(task(i, 0) - task(i, 3)) > PI) { // PI since the highest angle between two points on a circle is halfway through, so PI
+    while (std::abs(task(i, 0) - task(i, 3)) > PI) {
+      // PI since the highest angle between two points on a circle is halfway through, so PI
       // Try updating start value
       real tmp_value = task(i, 0);
       if (task(i, 0) < task(i, 3)) {
@@ -396,7 +397,8 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
   n_con(opt);
 
   // Initial validation
-  if (!validate_task(opt)) { // todo: support validate_task when there are no capsules...
+  if (!validate_task(opt)) {
+    // todo: support validate_task when there are no capsules...
     print(opt->task);
     return result;
   }
@@ -461,7 +463,8 @@ inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 
   int  try_count     = 0;
   bool is_valid_more = false;
   bool is_valid      = false;
-  for (; try_count < opt->max_tries; try_count++) { // todo: add nlopt stop criteria to list, add max_time for full loop
+  for (; try_count < opt->max_tries; try_count++) {
+    // todo: add nlopt stop criteria to list, add max_time for full loop
 #if BLAST_TRACE_LEVEL >= 1
     PROFILE_SCOPE("Optimization");
 #endif
@@ -600,7 +603,8 @@ inline void initialize_optimization_with_segments(Optimization* opt) {
   // Task
   auto task = opt->task;
   for (int i = 0; i < opt->manip.n_joints; i++) {
-    while (std::abs(task(i, 0) - task(i, 3)) > PI) { // PI since the highest angle between two points on a circle is halfway through, so PI
+    while (std::abs(task(i, 0) - task(i, 3)) > PI) {
+      // PI since the highest angle between two points on a circle is halfway through, so PI
       // Try updating start value
       real tmp_value = task(i, 0);
       if (task(i, 0) < task(i, 3)) {
@@ -664,7 +668,8 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
   result.opt->task = opt->task;
 
   // Initial validation
-  if (!validate_task(opt)) { // todo: support validate_task when there are no capsules...
+  if (!validate_task(opt)) {
+    // todo: support validate_task when there are no capsules...
     print(opt->task);
     return result;
   }
@@ -729,7 +734,8 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
   int  try_count     = 0;
   bool is_valid_more = false;
   bool is_valid      = false;
-  for (; try_count < opt->max_tries; try_count++) { // todo: add nlopt stop criteria to list, add max_time for full loop
+  for (; try_count < opt->max_tries; try_count++) {
+    // todo: add nlopt stop criteria to list, add max_time for full loop
 #if BLAST_TRACE_LEVEL >= 1
     PROFILE_SCOPE("Optimization");
 #endif
@@ -794,8 +800,8 @@ inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms
 #if BLAST_TRACE_LEVEL >= 1
       PROFILE_SCOPE("Solution validation (more points)");
 #endif
-      u64 steps_ms    = (u64) (ceil(x.back() * 1e3 / output_steps_ms));
-      x.back()        = (real) (ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
+      u64 steps_ms    = (u64) (std::ceil(x.back() * 1e3 / output_steps_ms));
+      x.back()        = (real) (std::ceil(x.back() * 1000.0 / output_steps_ms) * output_steps_ms) * 1e-3;
       int points_more = (int) (steps_ms + 1);
 
       Bspline bspline_val_more(opt->bspline.n_ctrl, points_more, opt->bspline.degree, opt->manip.n_joints);
@@ -857,7 +863,8 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
   result.opt->task = opt->task;
 
   // Initial validation
-  if (!validate_task(opt)) { // todo: support validate_task when there are no capsules...
+  if (!validate_task(opt)) {
+    // todo: support validate_task when there are no capsules...
     print(opt->task);
     return result;
   }
@@ -922,7 +929,8 @@ inline Result optimize_with_broadphase_impl(Optimization* opt, u32 output_steps_
   int  try_count     = 0;
   bool is_valid_more = false;
   bool is_valid      = false;
-  for (; try_count < opt->max_tries; try_count++) { // todo: add nlopt stop criteria to list, add max_time for full loop
+  for (; try_count < opt->max_tries; try_count++) {
+    // todo: add nlopt stop criteria to list, add max_time for full loop
 #if BLAST_TRACE_LEVEL >= 1
     PROFILE_SCOPE("Optimization");
 #endif
@@ -1049,7 +1057,8 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
   result.opt->task = opt->task;
 
   // Initial validation
-  if (!validate_task(opt)) { // todo: support validate_task when there are no capsules...
+  if (!validate_task(opt)) {
+    // todo: support validate_task when there are no capsules...
     print(opt->task);
     return result;
   }
@@ -1114,7 +1123,8 @@ inline Result optimize_with_double_broadphase_impl(Optimization* opt, u32 output
   int  try_count     = 0;
   bool is_valid_more = false;
   bool is_valid      = false;
-  for (; try_count < opt->max_tries; try_count++) { // todo: add nlopt stop criteria to list, add max_time for full loop
+  for (; try_count < opt->max_tries; try_count++) {
+    // todo: add nlopt stop criteria to list, add max_time for full loop
 #if BLAST_TRACE_LEVEL >= 1
     PROFILE_SCOPE("Optimization");
 #endif
@@ -1241,7 +1251,8 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
   n_con(opt);
 
   // Initial validation
-  if (!validate_task(opt)) { // todo: support validate_task when there are no capsules...
+  if (!validate_task(opt)) {
+    // todo: support validate_task when there are no capsules...
     print(opt->task);
     return result;
   }
@@ -1306,7 +1317,8 @@ inline Result optimize_with_analytical_pva_impl(Optimization* opt, u32 output_st
   int  try_count     = 0;
   bool is_valid_more = false;
   bool is_valid      = false;
-  for (; try_count < opt->max_tries; try_count++) { // todo: add nlopt stop criteria to list, add max_time for full loop
+  for (; try_count < opt->max_tries; try_count++) {
+    // todo: add nlopt stop criteria to list, add max_time for full loop
 #if BLAST_TRACE_LEVEL >= 1
     PROFILE_SCOPE("Optimization");
 #endif
@@ -1430,7 +1442,8 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
   n_con(opt);
 
   // Initial validation
-  if (!validate_task(opt)) { // todo: support validate_task when there are no capsules...
+  if (!validate_task(opt)) {
+    // todo: support validate_task when there are no capsules...
     print(opt->task);
     return result;
   }
@@ -1495,7 +1508,8 @@ inline Result optimize_with_analytical_dynamics_impl(Optimization* opt, u32 outp
   int  try_count     = 0;
   bool is_valid_more = false;
   bool is_valid      = false;
-  for (; try_count < opt->max_tries; try_count++) { // todo: add nlopt stop criteria to list, add max_time for full loop
+  for (; try_count < opt->max_tries; try_count++) {
+    // todo: add nlopt stop criteria to list, add max_time for full loop
 #if BLAST_TRACE_LEVEL >= 1
     PROFILE_SCOPE("Optimization");
 #endif

@@ -80,8 +80,8 @@ inline host_fn void create_AABB_from_AABBs(AxisAlignedBoundingBox& b1, AxisAlign
   b        = b2.center - b2.extents;
   Vec3 min = {std::min(a[0], b[0]), std::min(a[1], b[1]), std::min(a[2], b[2])};
 
-  aabb.center  = (max + min) * 0.5;
-  aabb.extents = (max - min) * 0.5;
+  aabb.center  = (max + min) * (real) 0.5;
+  aabb.extents = (max - min) * (real) 0.5;
 
   aabb.children[0] = id1;
   aabb.children[1] = id2;
