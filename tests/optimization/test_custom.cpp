@@ -15,7 +15,7 @@ inline blast::Task make_UR5e_task() {
 Optimization make_base_optimization() {
   Manipulator manip = make_UR5e();
 
-  int     n_pts  = 100;
+  int     n_pts  = 105;
   int     p      = 5;
   int     n_ctrl = 12;
   Bspline bspline(n_ctrl, n_pts, p, manip.n_joints);

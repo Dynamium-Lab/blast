@@ -137,7 +137,6 @@ inline void initialize_optimization(Optimization* opt) {
     opt->constraints.n_collision_constraints = 0;
   }
 
-
   // Task
   auto task = opt->task;
   for (int i = 0; i < opt->manip.n_joints; i++) {
