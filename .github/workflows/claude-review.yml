@@ -42,7 +42,7 @@ jobs:
         run: >-
           gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments --paginate
           --jq '.[] | select(.user.login == "github-actions[bot]") | "\(.path):\(.line // .original_line) \(.body | split("\n")[0])"'
-          > .claude-earlier-comments.txt
+          > "$RUNNER_TEMP/claude-earlier-comments.txt"
 
       - uses: anthropics/claude-code-action@v1
         with:
@@ -53,12 +53,13 @@ jobs:
             The repository is checked out at the head of the pull request. Read AGENTS.md or CLAUDE.md at its root for the project's conventions.
 
             1. Run `/code-review medium ${{ github.event.pull_request.html_url }}` and keep its findings.
-            2. Read `.claude-earlier-comments.txt`: the inline comments earlier reviews posted, one per line as "path:line first line". Skip any finding that one of them already reports for the same problem in the same file, even if the line moved.
-            3. For each remaining finding, post an inline comment on the line concerned with mcp__github_inline_comment__create_inline_comment: the problem, then the concrete failure scenario.
-            4. Post the summary with `gh pr comment ${{ github.event.pull_request.number }} --edit-last --create-if-none --body-file <file>`, so the pull request keeps a single summary that each run replaces. Start it with "Automated review by Claude (head ${{ github.event.pull_request.head.sha }})", then give the number of findings for this head, each in one line ranked most severe first, or "No findings." when there are none.
+            2. Read `${{ runner.temp }}/claude-earlier-comments.txt`: the inline comments earlier reviews posted, one per line as "path:line first line". A finding that one of them already reports for the same problem in the same file, even if the line moved, gets no new inline comment.
+            3. For each other finding, post an inline comment on the line concerned with mcp__github_inline_comment__create_inline_comment: the problem, then the concrete failure scenario.
+            4. Write the summary to `${{ runner.temp }}/claude-summary.md` and post it with `gh pr comment ${{ github.event.pull_request.number }} --edit-last --create-if-none --body-file ${{ runner.temp }}/claude-summary.md`, so the pull request keeps a single summary that each run replaces. Start it with "Automated review by Claude (head ${{ github.event.pull_request.head.sha }})", then list every finding for this head, including those already commented earlier (mark them "(earlier)"), each in one line ranked most severe first, or "No findings." when there are none.
 
             Write in English, like the rest of the repository. Do not use em dashes or en dashes.
-            Do not approve, request changes, push, or edit any file.
+            Do not approve, request changes, push, or edit any file other than the summary.
           claude_args: >-
             --model claude-opus-5-5
+            --add-dir ${{ runner.temp }}
             --allowedTools "Skill,Agent,Read,Write,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git merge-base:*),Bash(git rev-parse:*),Bash(git status:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment ${{ github.event.pull_request.number }} --edit-last --create-if-none --body-file:*),mcp__github_inline_comment__create_inline_comment"
