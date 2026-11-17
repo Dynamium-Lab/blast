@@ -21,7 +21,7 @@ jobs:
     if: >-
       github.event.pull_request.draft == false &&
       github.event.pull_request.head.repo.full_name == github.repository &&
-      github.actor != 'dependabot[bot]'
+      github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -32,6 +32,17 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
+          persist-credentials: false
+
+      # Claude gets no gh api access: the comments it already posted are
+      # listed here, one per line as "path:line first line of the comment".
+      - name: List earlier review comments
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments --paginate
+          --jq '.[] | select(.user.login == "github-actions[bot]") | "\(.path):\(.line // .original_line) \(.body | split("\n")[0])"'
+          > .claude-earlier-comments.txt
 
       - uses: anthropics/claude-code-action@v1
         with:
@@ -42,7 +53,7 @@ jobs:
             The repository is checked out at the head of the pull request. Read AGENTS.md or CLAUDE.md at its root for the project's conventions.
 
             1. Run `/code-review medium ${{ github.event.pull_request.html_url }}` and keep its findings.
-            2. List the inline comments already on the pull request with `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments --paginate`. Skip any finding that a comment by github-actions[bot] already reports on the same file and line.
+            2. Read `.claude-earlier-comments.txt`: the inline comments earlier reviews posted, one per line as "path:line first line". Skip any finding that one of them already reports for the same problem in the same file, even if the line moved.
             3. For each remaining finding, post an inline comment on the line concerned with mcp__github_inline_comment__create_inline_comment: the problem, then the concrete failure scenario.
             4. Post the summary with `gh pr comment ${{ github.event.pull_request.number }} --edit-last --create-if-none --body-file <file>`, so the pull request keeps a single summary that each run replaces. Start it with "Automated review by Claude (head ${{ github.event.pull_request.head.sha }})", then give the number of findings for this head, each in one line ranked most severe first, or "No findings." when there are none.
 
@@ -50,4 +61,4 @@ jobs:
             Do not approve, request changes, push, or edit any file.
           claude_args: >-
             --model claude-opus-5-5
-            --allowedTools "Skill,Agent,Read,Write,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git merge-base:*),Bash(git rev-parse:*),Bash(git status:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments:*),mcp__github_inline_comment__create_inline_comment"
+            --allowedTools "Skill,Agent,Read,Write,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git merge-base:*),Bash(git rev-parse:*),Bash(git status:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment ${{ github.event.pull_request.number }} --edit-last --create-if-none --body-file:*),mcp__github_inline_comment__create_inline_comment"
