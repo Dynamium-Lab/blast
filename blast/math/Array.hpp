@@ -80,6 +80,7 @@ inline blast_fn Array& Array::operator=(const Array& a) {
   if (this != &a) {
     if (data && !is_alias)
       Free(data);
+    data = nullptr; // an empty Array has no data: nothing dangling (or not owned) is kept
     size = a.size;
     if (size) {
       data = (real*) Malloc(ALIGN, a.size * sizeof(real));
@@ -107,7 +108,8 @@ inline blast_fn Array& Array::operator=(Array&& a) noexcept {
 inline blast_fn Array& Array::operator=(const std::initializer_list<real>& other) {
   if (size < other.size())
     resize((u32) other.size());
-  memcpy(data, other.begin(), other.size() * sizeof(real));
+  if (other.size() > 0) // an empty list on an empty Array: data is null
+    memcpy(data, other.begin(), other.size() * sizeof(real));
   return *this;
 }
 

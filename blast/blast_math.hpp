@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdlib> // aligned_alloc (blast_aligned_alloc)
 #include <immintrin.h>
 #include <limits>
 #include <vector>
