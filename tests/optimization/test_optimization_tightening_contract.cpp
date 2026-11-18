@@ -158,8 +158,9 @@ TEST_CASE("a non-positive collision_buffer is replaced by the default", "[Optimi
 // ---------------------------------------------------------------------------
 // 4. Position is tightened like every other limit, except that a joint whose pinned start/goal lies
 // outside the tightened band is widened past that endpoint (halfway to the true limit) over the
-// whole trajectory: the pinned sample is strictly inside (c < 0), never an active zero-gradient
-// row. A reported success never leaves the true bounds.
+// whole trajectory, on that side only: the pinned sample is strictly inside (c < 0), never an
+// active zero-gradient row, and acceptance (c < tol) still ends exactly at the true limit on both
+// sides. A reported success never leaves the true bounds.
 // ---------------------------------------------------------------------------
 TEST_CASE("position is widened past the endpoints and success respects the true bounds",
           "[Optimization]") {
@@ -178,19 +179,28 @@ TEST_CASE("position is widened past the endpoints and success respects the true 
   auto       tolerance_snapshot = tighten_for_success_tolerance(&opt);
   for (int joint = 0; joint < opt.manip.n_joints; joint++) {
     INFO("joint " << joint);
-    const real q_hi = std::max(start[joint], end[joint]);
-    const real q_lo = std::min(start[joint], end[joint]);
-    CHECK(opt.manip.position_max[joint] == Approx(std::max(tightened, q_hi + (true_limit - q_hi) / 2)));
-    CHECK(opt.manip.position_min[joint] == Approx(std::min(-tightened, q_lo - (q_lo + true_limit) / 2)));
-    CHECK(opt.manip.position_max[joint] <= true_limit);
-    CHECK(opt.manip.position_min[joint] >= -true_limit);
+    const real q_hi   = std::max(start[joint], end[joint]);
+    const real q_lo   = std::min(start[joint], end[joint]);
+    const auto bounds = position_bounds(opt, joint);
+    CHECK(opt.manip.position_max[joint] == Approx(tightened)); // the limits themselves stay tightened
+    CHECK(bounds.upper == Approx(std::max(tightened, q_hi + (true_limit - q_hi) / 2)));
+    CHECK(bounds.lower == Approx(std::min(-tightened, q_lo - (q_lo + true_limit) / 2)));
+    CHECK(bounds.true_upper == Approx(true_limit));
+    CHECK(bounds.true_lower == Approx(-true_limit));
     const auto params = position_constraint_params(opt, joint);
+    // Acceptance (c < tol) ends exactly at the true limit on both sides, widened or not.
+    const double eps = sizeof(real) == 4 ? 1e-5 : 1e-12; // rounding of c in single precision
+    CHECK(params.value(true_limit) == Approx(opt.success_tolerance).margin(eps));
+    CHECK(params.value(-true_limit) == Approx(opt.success_tolerance).margin(eps));
+    CHECK(params.value(bounds.upper) == Approx(0).margin(eps));
+    CHECK(params.value(bounds.lower) == Approx(0).margin(eps));
     CHECK(params.value(start[joint]) < 0); // pinned start and goal strictly inside
     CHECK(params.value(end[joint]) < 0);
   }
-  // Joint 0's start (3.14) is outside the tightened band (3.1105): widened to 3.1408.
-  CHECK(opt.manip.position_max[0] == Approx(3.1408));
-  CHECK(opt.manip.position_min[1] == Approx(-tightened)); // untouched joint keeps the tightened bound
+  // Joint 0's start (3.14) is outside the tightened band (3.1105): widened to 3.1408 on that side only.
+  CHECK(position_bounds(opt, 0).upper == Approx(3.1408));
+  CHECK(position_bounds(opt, 0).lower == Approx(-tightened));
+  CHECK(position_bounds(opt, 1).upper == Approx(tightened)); // untouched joint keeps the tightened bounds
   restore_from_tolerance(&opt, tolerance_snapshot);
   CHECK_FALSE(opt.pinned_tightening_active);
   CHECK(opt.manip.position_max[0] == Approx(true_limit));
@@ -209,6 +219,24 @@ TEST_CASE("position is widened past the endpoints and success respects the true 
       CHECK(pos(joint, point) <= robot.position_max[joint]);
       CHECK(pos(joint, point) >= robot.position_min[joint]);
     }
+}
+
+TEST_CASE("an endpoint at the true limit is not widened", "[Optimization]") {
+  Array        start = {3.1416, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
+  Array        end   = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.14};
+  Manipulator  robot = UR5e_narrow_limits();
+  Task         task  = Task::stop_to_stop(start, end);
+  Optimization opt(robot, task);
+  opt.success_tolerance = (real) 0.01;
+  opt.collision_buffer  = (real) 0.001;
+  initialize_optimization_with_segments(&opt);
+  auto tolerance_snapshot = tighten_for_success_tolerance(&opt);
+  // No trajectory from it passes the true-limit validation, so the bound stays tightened (finite scale).
+  CHECK(position_bounds(opt, 0).upper == Approx(3.1416 / (1 + opt.success_tolerance)));
+  const auto params = position_constraint_params(opt, 0);
+  CHECK(std::isfinite(params.value(start[0])));
+  CHECK(params.value((real) 3.1416) == Approx(opt.success_tolerance).margin(sizeof(real) == 4 ? 1e-5 : 1e-12));
+  restore_from_tolerance(&opt, tolerance_snapshot);
 }
 
 // ---------------------------------------------------------------------------

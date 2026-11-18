@@ -102,7 +102,10 @@ stop-to-stop task are fixed, so constraints there cannot be improved by the solv
 
 - **Position** limits are tightened like the others. If the start or goal of a joint lies
   outside the tightened bound, that bound is moved out for the whole trajectory, to halfway
-  between the endpoint and the true limit, so the fixed endpoint is strictly inside it.
+  between the endpoint and the true limit, so the fixed endpoint is strictly inside it. Only
+  that side moves: on each side the constraint is still exactly `success_tolerance` at the true
+  limit, so an accepted solve stays within the true limits on both sides. An endpoint at or
+  past the true limit is not moved: no trajectory from it can pass the check below.
 - **Collisions** next to the start or goal (the first and last segment) aim for at most the
   clearance that endpoint itself has, instead of the full `collision_buffer`. A start that
   clears an obstacle by less than `collision_buffer` is still accepted; every other part of the
@@ -110,10 +113,8 @@ stop-to-stop task are fixed, so constraints there cannot be improved by the solv
 
 A solve is reported as a success only if the output trajectory (every `output_steps_ms`,
 1 ms by default) also meets the true, untightened limits and has no contact with the true
-geometry. Where an exception above relaxes a tightened bound, this check is what guarantees
-the true limits: for example a position bound moved out next to a limit, with
-`bound_control_points = false`, can let the solver stop slightly past the true limit, and
-the solve is then reported as failed.
+geometry. The solver only sees its constraint points; this check also covers the trajectory
+between them.
 
 Velocity, acceleration, torque, and tool speed do not need this exception: a stop-to-stop task
 starts and ends at rest, so the endpoint values for those constraints are zero, well within any
