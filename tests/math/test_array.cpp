@@ -461,6 +461,17 @@ TEST_CASE("Array - copy-assigning an empty Array leaves no data behind", "[Math]
   CHECK(a[3] == 0);
 }
 
+TEST_CASE("Array - copy-assigning an empty Array to a view drops the view", "[Math][Array]") {
+  using namespace blast;
+  real  buffer[3] = {1, 2, 3}; // not owned by the Array
+  Array view(buffer, 3);
+  Array empty;
+  view = empty;
+  CHECK(view.size == 0);
+  CHECK(view.data == nullptr); // used to keep buffer and become its owner: the destructor freed it
+  CHECK(buffer[0] == 1);       // the viewed memory is untouched
+}
+
 TEST_CASE("Array - assigning an empty list to an empty Array", "[Math][Array]") {
   using namespace blast;
   Array a;
