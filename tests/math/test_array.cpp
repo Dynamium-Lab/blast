@@ -1,6 +1,7 @@
 #define CATCH_CONFIG_MAIN
 
 #include <blast>
+#include <cstdint>
 #include "catch2/catch.hpp"
 #include "test_helper.hpp"
 
@@ -426,7 +427,7 @@ TEST_CASE("Array - an allocation whose byte size is not a multiple of the alignm
   using namespace blast;
   Array a(3u); // 3 * sizeof(real) bytes, rounded up to ALIGN by the allocator
   REQUIRE(a.data != nullptr);
-  CHECK(reinterpret_cast<uintptr_t>(a.data) % ALIGN == 0);
+  CHECK(reinterpret_cast<std::uintptr_t>(a.data) % ALIGN == 0);
   a[0] = 1;
   a[1] = 2;
   a[2] = 3;
