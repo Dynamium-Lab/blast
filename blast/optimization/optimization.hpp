@@ -264,9 +264,10 @@ inline void set_pinned_col_clearances(Optimization* opt) {
  *        at success_tolerance (the solver's con_tol) satisfies the true limits.
  *
  * Limits shrink by a factor 1 + success_tolerance about their center; each pair of collision
- * objects grows by collision_buffer (each object by half). Where the pinned start/goal is closer to a limit than that, the first/last
- * segment's constraints target the endpoint instead (see position_constraint_params,
- * set_pinned_col_clearances).
+ * objects grows by collision_buffer (each object by half). A position limit is widened to include
+ * the pinned start/goal, over the whole trajectory. Where the pinned start/goal is closer to an obstacle
+ * than collision_buffer, the first/last segment's collision constraints target the endpoint instead
+ * (see set_pinned_col_clearances). Success is re-validated on the true limits.
  * Must be paired with restore_from_tolerance() before the Optimization is returned or reused.
  *
  * @return The true limits and geometry, for restore_from_tolerance().
@@ -309,10 +310,25 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   for (int joint = 0; joint < opt->manip.n_joints; joint++) {
     if (opt->manip.position_max[joint] == INF_REAL || opt->manip.position_min[joint] == -INF_REAL)
       continue;
-    const real center              = (opt->manip.position_max[joint] + opt->manip.position_min[joint]) / 2;
-    const real half_range          = (opt->manip.position_max[joint] - opt->manip.position_min[joint]) / 2 / tightening_factor;
-    opt->manip.position_max[joint] = center + half_range;
-    opt->manip.position_min[joint] = center - half_range;
+    const real center        = (opt->manip.position_max[joint] + opt->manip.position_min[joint]) / 2;
+    const real half_range    = (opt->manip.position_max[joint] - opt->manip.position_min[joint]) / 2 / tightening_factor;
+    const real tightened_max = center + half_range;
+    const real tightened_min = center - half_range;
+    const real true_max      = snap.position_max[joint]; // the untightened limits
+    const real true_min      = snap.position_min[joint];
+    const real start         = opt->task(joint, 0);      // pinned start and goal (stop-to-stop task)
+    const real goal          = opt->task(joint, 3);
+    const real endpoint_max  = std::max(start, goal);
+    const real endpoint_min  = std::min(start, goal);
+    // Widen to include the pinned start/goal, for the whole trajectory: a tightened bound the
+    // endpoint violates is a zero-gradient constraint the solver cannot fix. Widen past the
+    // endpoint, halfway to the true limit: a bound ON the endpoint leaves the pinned sample's row
+    // active (c = 0) with zero gradient, and NLopt's SLSQP can take a wrong QP step with such a
+    // row. Never past the true limit.
+    const real widened_max         = endpoint_max + std::max((real) 0, true_max - endpoint_max) / 2;
+    const real widened_min         = endpoint_min - std::max((real) 0, endpoint_min - true_min) / 2;
+    opt->manip.position_max[joint] = std::max(tightened_max, widened_max);
+    opt->manip.position_min[joint] = std::min(tightened_min, widened_min);
   }
   for (int j = 0; j < opt->manip.n_joints; j++) {
     opt->manip.velocity_max[j] /= tightening_factor;

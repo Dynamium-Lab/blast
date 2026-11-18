@@ -156,12 +156,12 @@ TEST_CASE("a non-positive collision_buffer is replaced by the default", "[Optimi
 }
 
 // ---------------------------------------------------------------------------
-// 4. Position is tightened like every other limit. In every segment the solver's acceptance
-// (c < tolerance) lands exactly on the TRUE limit, and the first/last segment of a joint whose
-// pinned start/goal lies outside the tightened band targets that endpoint (c <= 0 there) instead
-// of leaving it violated with a zero gradient. A reported success never leaves the true bounds.
+// 4. Position is tightened like every other limit, except that a joint whose pinned start/goal lies
+// outside the tightened band is widened past that endpoint (halfway to the true limit) over the
+// whole trajectory: the pinned sample is strictly inside (c < 0), never an active zero-gradient
+// row. A reported success never leaves the true bounds.
 // ---------------------------------------------------------------------------
-TEST_CASE("position is tightened up to the endpoints and success respects the true bounds",
+TEST_CASE("position is widened past the endpoints and success respects the true bounds",
           "[Optimization]") {
   Array start = {3.14, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
   Array end   = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.14};
@@ -173,34 +173,27 @@ TEST_CASE("position is tightened up to the endpoints and success respects the tr
   opt.collision_buffer  = (real) 0.001;
   initialize_optimization_with_segments(&opt);
 
-  const real true_limit = (real) 3.1416;
-#if BLAST_USE_DOUBLES
-  const real exactness = 1e-9;
-#else
-  const real exactness = (real) 1e-4; // float: scale ~ tolerance / 0.0016 amplifies ~1e-7 position error
-#endif
-  auto      tolerance_snapshot = tighten_for_success_tolerance(&opt);
-  const int n_segments         = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
-  REQUIRE(n_segments >= 3);
+  const real true_limit         = (real) 3.1416;
+  const real tightened          = true_limit / (1 + opt.success_tolerance);
+  auto       tolerance_snapshot = tighten_for_success_tolerance(&opt);
   for (int joint = 0; joint < opt.manip.n_joints; joint++) {
-    CHECK(opt.manip.position_max[joint] == Approx(true_limit / (1 + opt.success_tolerance))); // symmetric, no endpoint clamp
-    CHECK(opt.manip.position_min[joint] == Approx(-true_limit / (1 + opt.success_tolerance)));
-    for (int segment: {0, n_segments / 2, n_segments - 1}) {
-      const auto params = position_constraint_params(opt, joint, segment, n_segments);
-      INFO("joint " << joint << ", segment " << segment);
-      CHECK(params.value(true_limit) == Approx(opt.success_tolerance).margin(exactness)); // acceptance ends at the true limit
-      CHECK(params.value(-true_limit) == Approx(opt.success_tolerance).margin(exactness));
-    }
-    CHECK(position_constraint_params(opt, joint, 0, n_segments).value(start[joint]) < 0); // pinned start strictly satisfied (zero gradient there)
-    CHECK(position_constraint_params(opt, joint, n_segments - 1, n_segments).value(end[joint]) < 0);
+    INFO("joint " << joint);
+    const real q_hi = std::max(start[joint], end[joint]);
+    const real q_lo = std::min(start[joint], end[joint]);
+    CHECK(opt.manip.position_max[joint] == Approx(std::max(tightened, q_hi + (true_limit - q_hi) / 2)));
+    CHECK(opt.manip.position_min[joint] == Approx(std::min(-tightened, q_lo - (q_lo + true_limit) / 2)));
+    CHECK(opt.manip.position_max[joint] <= true_limit);
+    CHECK(opt.manip.position_min[joint] >= -true_limit);
+    const auto params = position_constraint_params(opt, joint);
+    CHECK(params.value(start[joint]) < 0); // pinned start and goal strictly inside
+    CHECK(params.value(end[joint]) < 0);
   }
-  // Joint 0's start (3.14) is outside the tightened band (3.1416 / 1.01 = 3.1105): only the
-  // first segment targets it, the interior keeps the tightened bound.
-  CHECK(position_constraint_params(opt, 0, 0, n_segments).value(start[0]) == Approx(0).margin(exactness));
-  CHECK(position_constraint_params(opt, 0, n_segments / 2, n_segments).value(start[0]) > opt.success_tolerance / 2);
+  // Joint 0's start (3.14) is outside the tightened band (3.1105): widened to 3.1408.
+  CHECK(opt.manip.position_max[0] == Approx(3.1408));
+  CHECK(opt.manip.position_min[1] == Approx(-tightened)); // untouched joint keeps the tightened bound
   restore_from_tolerance(&opt, tolerance_snapshot);
   CHECK_FALSE(opt.pinned_tightening_active);
-  CHECK(position_constraint_params(opt, 0, 0, n_segments).value(true_limit) == Approx(0).margin(exactness)); // untightened: plain bound
+  CHECK(opt.manip.position_max[0] == Approx(true_limit));
 
   Optimization run(robot, task);
   run.success_tolerance      = (real) 0.01;
