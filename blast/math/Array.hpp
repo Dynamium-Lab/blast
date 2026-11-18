@@ -188,7 +188,8 @@ inline blast_fn void Array::resize(u32 new_size) {
   if (new_size > size) {
     auto tmp = (real*) Malloc(ALIGN, new_size * sizeof(real));
     memset(tmp, 0, new_size * sizeof(real));
-    memcpy(tmp, data, size * sizeof(real));
+    if (size > 0) // an empty Array has no data to copy (data is null; memcpy from null is undefined)
+      memcpy(tmp, data, size * sizeof(real));
     Free(data);
     data = tmp;
   }

@@ -392,7 +392,11 @@ inline host_fn float  simd_hadd(__m256 v);
 #define Malloc(a, s) malloc(s)
 #define Free free
 #else
-#define Malloc aligned_alloc
+/** @brief aligned_alloc with the size rounded up to a multiple of the alignment, as aligned_alloc requires (else undefined behaviour). */
+inline void* blast_aligned_alloc(size_t alignment, size_t size) {
+  return aligned_alloc(alignment, (size + alignment - 1) / alignment * alignment);
+}
+#define Malloc blast_aligned_alloc
 #define Free free
 #endif
 
