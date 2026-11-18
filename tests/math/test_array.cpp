@@ -425,6 +425,11 @@ TEST_CASE("Array - is_close() returns false when any element difference exceeds 
 
 TEST_CASE("Array - an allocation whose byte size is not a multiple of the alignment", "[Math][Array]") {
   using namespace blast;
+  // The rounding itself: glibc accepts an unrounded size, so only these checks catch losing it.
+  CHECK(aligned_size(64, 24) == 64); // 3 doubles -> one aligned block
+  CHECK(aligned_size(64, 64) == 64);
+  CHECK(aligned_size(64, 65) == 128);
+
   Array a(3u); // 3 * sizeof(real) bytes, rounded up to ALIGN by the allocator
   REQUIRE(a.data != nullptr);
   CHECK(reinterpret_cast<std::uintptr_t>(a.data) % ALIGN == 0);
