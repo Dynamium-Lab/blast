@@ -76,9 +76,12 @@ inline blast_fn Matrix get_J_tool(const Optimization* opt, const ManipulatorTemp
  * - scale = collision_scale
  *
  * Constraints of the first or last segment, where the pinned endpoint may already sit inside
- * the collision_buffer with only `clearance` of it left (see set_pinned_col_clearances):
- * - shift = collision_buffer - clearance (may sink in as deep as the endpoint does)
+ * the collision_buffer; `clearance` is the target set_pinned_col_clearances picks (half the
+ * endpoint's true clearance, capped at collision_buffer):
+ * - shift = collision_buffer - clearance (c = 0 at a true distance of `clearance`)
  * - scale = tolerance / clearance        (tolerance worth the remaining clearance)
+ * At the pinned endpoint itself c <= -tolerance, strictly inside, unless the endpoint is closer
+ * than 2% of collision_buffer (the target's floor is 1% of it).
  *
  * Either way c < tolerance <=> d + collision_buffer > 0 (no contact on the true geometry). See
  * docs/guides/constraints.md.

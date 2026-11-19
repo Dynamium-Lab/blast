@@ -141,7 +141,7 @@ struct Optimization {
   // --- derived, do not set ---
   real collision_scale = 1; // success_tolerance / collision_buffer while tightened, 1 otherwise
   // While tightened, the first/last segment's constraints target what the pinned start [0] / goal [1]
-  // configuration achieves, so a pinned configuration at or near a limit does not create a violated
+  // configuration achieves (half of it, for collisions), so a pinned configuration at or near a limit does not create a violated
   // zero-gradient constraint. Clearances are measured against the planning geometry (distance + collision_buffer).
   // See tighten_for_success_tolerance, position_constraint_params, ext_collision_constraint_params.
   bool                                          pinned_tightening_active = false;

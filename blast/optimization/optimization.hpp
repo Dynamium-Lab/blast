@@ -209,8 +209,10 @@ inline void clamp_to_bounds(Array& x, const Array& lower_bounds, const Array& up
 }
 
 /**
- * @brief Sets the clearance targets of the first/last segment's collision constraints to what
- *        the pinned start/goal configuration achieves, capped at collision_buffer.
+ * @brief Sets the clearance targets of the first/last segment's collision constraints to half of
+ *        what the pinned start/goal configuration achieves, capped at collision_buffer, so the
+ *        endpoint is strictly inside its own constraint (c <= -success_tolerance, for an endpoint
+ *        at least 2% of collision_buffer clear; the target's floor is 1% of it).
  *
  * Measured per capsule (external) and for self-collision, on the tightened geometry. Static
  * obstacles only. Why the endpoints need a target: docs/guides/constraints.md.
@@ -228,7 +230,12 @@ inline void set_pinned_col_clearances(Optimization* opt) {
   }
   const real min_target = collision_buffer * min_target_fraction;
   // Measured in the tightened geometry, so the endpoint's planning clearance is distance + collision_buffer.
-  const auto endpoint_target = [&](real tightened_distance) { return std::clamp(tightened_distance + collision_buffer, min_target, collision_buffer); };
+  // Half the endpoint's true clearance (d + collision_buffer), capped at collision_buffer: the pinned sample
+  // stays strictly satisfied (c <= -tolerance). Targeting the clearance itself left it at c = 0 with zero
+  // gradient, a row NLopt's SLSQP can take a wrong QP step with.
+  const auto endpoint_target = [&](real tightened_distance) {
+    return std::clamp((tightened_distance + collision_buffer) / 2, min_target, collision_buffer);
+  };
 
   ManipulatorTempData manip_data;
   Array               endpoint_position(opt->manip.n_joints);

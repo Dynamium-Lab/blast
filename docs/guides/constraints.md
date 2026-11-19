@@ -104,10 +104,13 @@ stop-to-stop task are fixed, so constraints there cannot be improved by the solv
   closer to its limit than the tightened bound, the first or last segment aims for that
   endpoint instead, and is rescaled so the solver's tolerance still ends exactly at the true
   limit. Every other part of the trajectory keeps the tightened bound.
-- **Collisions** next to the start or goal (the first and last segment) aim for at most the
-  clearance that endpoint itself has, instead of the full `collision_buffer`. A start that
-  clears an obstacle by less than `collision_buffer` is still accepted; every other part of the
-  trajectory keeps the full `collision_buffer`.
+- **Collisions** next to the start or goal (the first and last segment) aim for half the
+  clearance that endpoint itself has, capped at `collision_buffer`, so the fixed endpoint is
+  strictly inside its constraint. A start that clears an obstacle by less than
+  `collision_buffer` is still accepted; every other part of the trajectory keeps the full
+  `collision_buffer`. The target never goes below 1% of `collision_buffer` (0.01 mm at the
+  default): an endpoint closer than 2% of it is no longer strictly inside, and one closer than
+  1% violates its own constraint.
 
 Velocity, acceleration, torque, and tool speed do not need this exception: a stop-to-stop task
 starts and ends at rest, so the endpoint values for those constraints are zero, well within any

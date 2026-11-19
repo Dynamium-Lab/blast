@@ -271,8 +271,9 @@ TEST_CASE("tightened self-collision constraint matches across with_segments/broa
 // 5. The collision analogue of the position test above. A task start that clears an obstacle by
 // less than the collision_buffer is acceptable (clearance > 0), but using the full collision_buffer as the target
 // would leave that constraint entry violated with a zero gradient (the start is pinned). The first
-// segment's constraint entries target what the start achieves instead, every other entry keeps the
-// collision_buffer, and acceptance (c < tol <=> d + collision_buffer > 0) does not move.
+// segment's constraint entries target half of what the start achieves instead (the start is then
+// strictly inside, c = -tol), every other entry keeps the collision_buffer, and acceptance
+// (c < tol <=> d + collision_buffer > 0) does not move.
 // ---------------------------------------------------------------------------
 // What "exactly" means for distances and constraint entries below. Float entries carry ~1e-7
 // relative distance error times the scale (tolerance / target, ~20 here); the bug they guard is
@@ -283,7 +284,7 @@ constexpr real exact_tolerance = 1e-9;
 constexpr real exact_tolerance = (real) 1e-5;
 #endif
 
-TEST_CASE("collision constraints at a pinned endpoint target what the endpoint achieves", "[Optimization]") {
+TEST_CASE("collision constraints at a pinned endpoint target half of what the endpoint achieves", "[Optimization]") {
   const real tolerance = (real) 0.01, collision_buffer = (real) 0.001, start_clearance = (real) 0.0005; // start clears the sphere by half the collision_buffer
   Array      start = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
   Array      end   = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.14};
@@ -318,14 +319,15 @@ TEST_CASE("collision constraints at a pinned endpoint target what the endpoint a
   auto tolerance_snapshot = tighten_for_success_tolerance(&opt);
 
   REQUIRE(opt.pinned_tightening_active);
-  CHECK(opt.pinned_col_clearance[0][tool_capsule] == Approx(start_clearance).margin(exact_tolerance)); // what the start achieves
+  CHECK(opt.pinned_col_clearance[0][tool_capsule] == Approx(start_clearance / 2).margin(exact_tolerance)); // half what the start achieves
   for (int capsule_id = 0; capsule_id < robot._n_caps; capsule_id++)
     if (capsule_id != tool_capsule)
       CHECK(opt.pinned_col_clearance[0][capsule_id] == Approx(collision_buffer)); // far capsules keep the full collision_buffer
 
   // The endpoint must satisfy its own constraint entries. On a trajectory that holds the start
   // (goal == start) every sample IS the start, so every entry of the first and last segment has
-  // to be <= 0. Without the per-entry target the tool capsule's entry sits at +tol/2 there, and
+  // to be < 0; with half the start's clearance as the target the tool capsule's entry is exactly
+  // -tol (the worst one; the far capsules are more negative). Without the per-entry target the tool capsule's entry sits at +tol/2 there, and
   // its worst sample is beside the pinned start where the free control points barely reach:
   // gradient ~1e-3 against ~4 for the same entry mid-trajectory. Not exactly zero, so the
   // zero-gradient check of 1 cannot see it; the SQP needs a huge step to move it, which is the
@@ -358,8 +360,9 @@ TEST_CASE("collision constraints at a pinned endpoint target what the endpoint a
         else
           worst_interior = std::max(worst_interior, constraint);
       }
-    CHECK(worst_boundary <= exact_tolerance);
-    CHECK(worst_interior > 0); // interior constraints keep the full collision_buffer: not vacuous
+    CHECK(worst_boundary < 0);                                           // strictly: an endpoint row at 0 with zero gradient mis-steps SLSQP
+    CHECK(worst_boundary == Approx(-tolerance).margin(exact_tolerance)); // half the start's clearance as target
+    CHECK(worst_interior > 0);                                           // interior constraints keep the full collision_buffer: not vacuous
     restore_from_tolerance(&hold, hold_tolerance_snapshot);
   }
 
@@ -486,8 +489,9 @@ TEST_CASE("broadphase methods apply the pinned-endpoint collision targets", "[Op
         else
           worst_interior = std::max(worst_interior, constraint);
       }
-    CHECK(worst_boundary <= exact_tolerance);
-    CHECK(worst_interior > 0); // interior rows keep the full buffer: not vacuous
+    CHECK(worst_boundary < 0);                                           // strictly: an endpoint row at 0 with zero gradient mis-steps SLSQP
+    CHECK(worst_boundary == Approx(-tolerance).margin(exact_tolerance)); // half the start's clearance as target
+    CHECK(worst_interior > 0);                                           // interior rows keep the full buffer: not vacuous
   }
   restore_from_tolerance(&hold, tolerance_snapshot);
 }
