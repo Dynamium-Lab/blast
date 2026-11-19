@@ -148,8 +148,8 @@ struct Optimization {
   bool                                          pinned_tightening_active = false;
   std::array<std::array<real, MAX_CAPSULES>, 2> pinned_col_clearance{};
   std::array<real, 2>                           pinned_self_clearance{};
-  std::array<real, MAX_JOINTS>                  solver_position_min{};                          // position bounds the solver enforces while pinned_tightening_active:
-  std::array<real, MAX_JOINTS>                  solver_position_max{};                          // tightened, or widened past a pinned start/goal (tighten_for_success_tolerance)
+  std::array<real, MAX_JOINTS>                  pinned_position_min{};                          // while pinned_tightening_active, the position bounds the solver
+  std::array<real, MAX_JOINTS>                  pinned_position_max{};                          // enforces (read them through solver_position_min/max)
 
   std::array<BoundingVolumeHierarchy<AABBPair>, MAX_CAPSULES> time_bounding_volume_hierarchies; // should be std::array<> ? Never changes size
 

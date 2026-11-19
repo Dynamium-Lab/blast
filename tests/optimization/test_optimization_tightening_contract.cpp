@@ -184,8 +184,12 @@ TEST_CASE("position is widened past the endpoints and success respects the true 
     const real bound_min = solver_position_min(opt, joint);
     const real bound_max = solver_position_max(opt, joint);
     CHECK(opt.manip.position_max[joint] == Approx(tightened)); // the limits themselves stay tightened
-    CHECK(bound_max == Approx(std::max(tightened, q_hi + (true_limit - q_hi) / 2)));
-    CHECK(bound_min == Approx(std::min(-tightened, q_lo - (q_lo + true_limit) / 2)));
+    // Widened exactly when the code widens: the endpoint on or outside the tightened bound, within a few ulps.
+    const real margin   = 16 * std::numeric_limits<real>::epsilon() * 2 * true_limit;
+    const bool widen_hi = q_hi + margin > tightened;
+    const bool widen_lo = q_lo - margin < -tightened;
+    CHECK(bound_max == Approx(widen_hi ? q_hi + (true_limit - q_hi) / 2 : tightened));
+    CHECK(bound_min == Approx(widen_lo ? q_lo - (q_lo + true_limit) / 2 : -tightened));
     const auto params = position_constraint_params(opt, joint);
     // c = tol exactly at the true limit on a side that is not widened; below it on a widened side,
     // where the validation on the true limits decides.

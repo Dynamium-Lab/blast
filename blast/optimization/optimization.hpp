@@ -165,16 +165,16 @@ struct ToleranceSnapshot {
 
 /**
  * @brief The lower position bound the solver enforces on a joint, for every segment and sample: the
- *        limit in opt.manip untightened, opt.solver_position_min while tightened (the tightened limit,
+ *        limit in opt.manip untightened, opt.pinned_position_min while tightened (the tightened limit,
  *        or widened past a pinned start/goal; see tighten_for_success_tolerance).
  */
 inline blast_fn real solver_position_min(const Optimization& opt, int joint) {
-  return opt.pinned_tightening_active ? opt.solver_position_min[joint] : opt.manip.position_min[joint];
+  return opt.pinned_tightening_active ? opt.pinned_position_min[joint] : opt.manip.position_min[joint];
 }
 
 /** @brief The upper position bound the solver enforces on a joint; see solver_position_min. */
 inline blast_fn real solver_position_max(const Optimization& opt, int joint) {
-  return opt.pinned_tightening_active ? opt.solver_position_max[joint] : opt.manip.position_max[joint];
+  return opt.pinned_tightening_active ? opt.pinned_position_max[joint] : opt.manip.position_max[joint];
 }
 
 /**
@@ -331,16 +331,16 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   // ulps of the true limit is left alone: there is no room to widen into, and no trajectory from an
   // endpoint at the limit passes the true-limit validation. An unbounded joint stays unbounded.
   for (int joint = 0; joint < opt->manip.n_joints; joint++) {
-    opt->solver_position_min[joint] = opt->manip.position_min[joint];
-    opt->solver_position_max[joint] = opt->manip.position_max[joint];
+    opt->pinned_position_min[joint] = opt->manip.position_min[joint];
+    opt->pinned_position_max[joint] = opt->manip.position_max[joint];
     if (opt->manip.position_max[joint] == INF_REAL || opt->manip.position_min[joint] == -INF_REAL)
       continue;
     const real center               = (opt->manip.position_max[joint] + opt->manip.position_min[joint]) / 2;
     const real half_range           = (opt->manip.position_max[joint] - opt->manip.position_min[joint]) / 2 / tightening_factor;
     opt->manip.position_max[joint]  = center + half_range;
     opt->manip.position_min[joint]  = center - half_range;
-    opt->solver_position_max[joint] = opt->manip.position_max[joint];
-    opt->solver_position_min[joint] = opt->manip.position_min[joint];
+    opt->pinned_position_max[joint] = opt->manip.position_max[joint];
+    opt->pinned_position_min[joint] = opt->manip.position_min[joint];
     if (!(tol > 0))
       continue;
     const real true_max     = snap.position_max[joint];
@@ -354,9 +354,9 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
     const real slack_upper = (true_max - endpoint_max) / 2; // left between the widened bound and the true limit
     const real slack_lower = (endpoint_min - true_min) / 2;
     if (endpoint_max + margin > opt->manip.position_max[joint] && slack_upper > margin)
-      opt->solver_position_max[joint] = true_max - slack_upper;
+      opt->pinned_position_max[joint] = true_max - slack_upper;
     if (endpoint_min - margin < opt->manip.position_min[joint] && slack_lower > margin)
-      opt->solver_position_min[joint] = true_min + slack_lower;
+      opt->pinned_position_min[joint] = true_min + slack_lower;
   }
   for (int j = 0; j < opt->manip.n_joints; j++) {
     opt->manip.velocity_max[j] /= tightening_factor;
