@@ -350,8 +350,9 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
     const real goal         = opt->task(joint, 3);
     const real endpoint_max = std::max(start, goal);
     const real endpoint_min = std::min(start, goal);
-    // A few ulps: an endpoint on the tightened bound is still on it after rounding in the trajectory evaluation.
-    const real margin      = (real) 16 * std::numeric_limits<real>::epsilon() * (true_max - true_min);
+    // A few ulps of the limits (their magnitude or the range, whichever is larger): an endpoint on the
+    // tightened bound is still on it after rounding in the trajectory evaluation.
+    const real margin      = (real) 16 * std::numeric_limits<real>::epsilon() * std::max({std::abs(true_max), std::abs(true_min), true_max - true_min});
     const real slack_upper = (true_max - endpoint_max) / (real) 2; // left between the widened bound and the true limit
     const real slack_lower = (endpoint_min - true_min) / (real) 2;
     if (endpoint_max + margin > opt->manip.position_max[joint] && slack_upper > margin)
