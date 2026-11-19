@@ -12,7 +12,7 @@ inline blast::Task make_UR5e_task() {
   return blast::Task::stop_to_stop(start, end);
 }
 
-TEST_CASE("optimization - task not valid", "[Optimization") {
+TEST_CASE("optimization - task not valid", "[Optimization]") {
   Manipulator robot = make_UR5e();
   Task        task  = make_UR5e_task();
 
