@@ -19,6 +19,9 @@ namespace blast {
  * Detects a view (Array or Matrix alias) of a container's own storage, which that container must
  * not free before it is done reading the view. Compared as integers: the pointers may belong to
  * unrelated objects, where the built-in < is unspecified.
+ *
+ * Only the first size elements are checked: after a shrinking resize the block can be longer.
+ * A view is meant to be short-lived, with no guarantee past a change to the container it views.
  */
 inline blast_fn bool points_into(const real* p, const real* block, u32 size) {
   const auto address = reinterpret_cast<std::uintptr_t>(p);
@@ -96,6 +99,7 @@ inline blast_fn Array& Array::operator=(const Array& a) {
     real* new_data = nullptr; // an empty Array has no data: nothing dangling (or not owned) is kept
     if (a.size) {
       new_data = (real*) Malloc(ALIGN, a.size * sizeof(real));
+      Assert(new_data);
       memcpy(new_data, a.data, a.size * sizeof(real));
     }
     if (data && !is_alias)
