@@ -136,7 +136,10 @@ inline blast_fn Array& Array::operator=(const std::initializer_list<real>& other
   // through a view too; another size gives an owned Array of the list's size.
   const u32 new_size = (u32) other.size();
   if (new_size != size) {
-    if (is_alias) { // a view cannot change size: drop it (the viewed memory is not freed)
+    // Writing a list of another size through a view is a mistake: the values would not reach the
+    // viewed memory. Debug builds stop here.
+    Assert(!is_alias);
+    if (is_alias) { // release: a view cannot change size, so drop it (the viewed memory is not freed)
       data     = nullptr;
       size     = 0;
       is_alias = false;
@@ -192,6 +195,7 @@ inline blast_fn Array& Array::alias(std::vector<real>& v) {
 }
 
 inline blast_fn Array& Array::alias(Matrix& m) {
+  Assert(is_alias || !points_into(m.data, data, size)); // a view of the block about to be freed
   if (data && !is_alias)
     Free(data);
   data     = m.data;
@@ -202,6 +206,7 @@ inline blast_fn Array& Array::alias(Matrix& m) {
 
 inline blast_fn Array& Array::alias(real* p, u32 n) {
   Assert(p);
+  Assert(is_alias || !points_into(p, data, size)); // a view of the block about to be freed
   if (data && !is_alias)
     Free(data);
   data     = p;

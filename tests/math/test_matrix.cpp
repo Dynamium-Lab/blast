@@ -481,3 +481,23 @@ TEST_CASE("Matrix - copy-assigning an empty Matrix to a view drops the view", "[
   view.resize(2, 2);     // owns its storage again: resize is allowed
   CHECK(view(1, 1) == 0);
 }
+
+#if BLAST_TEST_DEATH_TESTS
+TEST_CASE("Matrix - debug: aliasing its own block asserts", "[Math][Matrix]") {
+  using namespace blast;
+  CHECK(blast::test::aborts([] {
+    Matrix m(2u, 2u);
+    m.alias(m.data + 2, 2, 1); // would free the block, then view it
+  }));
+  CHECK(blast::test::aborts([] {
+    Matrix m(2u, 2u);
+    Array  column(m.data, 2);
+    m.alias(column);
+  }));
+  CHECK_FALSE(blast::test::aborts([] { // a view re-aliasing what it views frees nothing
+    real   buffer[4] = {1, 2, 3, 4};
+    Matrix view(buffer, 2, 2);
+    view.alias(buffer + 2, 2, 1);
+  }));
+}
+#endif

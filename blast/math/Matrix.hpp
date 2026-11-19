@@ -157,6 +157,7 @@ inline blast_fn bool Matrix::operator!=(const Matrix& m) const {
 
 inline blast_fn Matrix& Matrix::alias(Array& a) {
   Assert(a.data);
+  Assert(is_alias || !points_into(a.data, data, size)); // a view of the block about to be freed
   if (data && !is_alias)
     Free(data);
   size     = a.size;
@@ -181,6 +182,7 @@ inline blast_fn Matrix& Matrix::alias(std::vector<real>& v) {
 
 inline blast_fn Matrix& Matrix::alias(real* p, u32 r, u32 c) {
   Assert(p);
+  Assert(is_alias || !points_into(p, data, size)); // a view of the block about to be freed
   if (data && !is_alias)
     Free(data);
   size     = r * c;

@@ -561,7 +561,8 @@ TEST_CASE("Array - assigning a list of the same size writes through a view", "[M
   CHECK(buffer[2] == 6);
 }
 
-TEST_CASE("Array - assigning a list of another size to a view drops the view", "[Math][Array]") {
+#if !BLAST_TEST_ASSERTS_ON
+TEST_CASE("Array - release: assigning a list of another size to a view drops the view", "[Math][Array]") {
   using namespace blast;
   real  buffer[3] = {1, 2, 3};
   Array view(buffer, 3);
@@ -578,3 +579,43 @@ TEST_CASE("Array - assigning a list of another size to a view drops the view", "
   CHECK(short_view.is_alias == false);
   CHECK(buffer[0] == 1);
 }
+#endif
+
+#if BLAST_TEST_DEATH_TESTS
+TEST_CASE("Array - debug: assigning a list of another size to a view asserts", "[Math][Array]") {
+  using namespace blast;
+  CHECK(test::aborts([] {
+    real  buffer[3] = {1, 2, 3};
+    Array view(buffer, 3);
+    view = {4, 5};
+  }));
+  CHECK(test::aborts([] {
+    real  buffer[3] = {1, 2, 3};
+    Array view(buffer, 3);
+    view = {4, 5, 6, 7};
+  }));
+  CHECK_FALSE(test::aborts([] { // same size: written through the view
+    real  buffer[3] = {1, 2, 3};
+    Array view(buffer, 3);
+    view = {4, 5, 6};
+  }));
+}
+
+TEST_CASE("Array - debug: aliasing its own block asserts", "[Math][Array]") {
+  using namespace blast;
+  CHECK(test::aborts([] {
+    Array a{1, 2, 3, 4};
+    a.alias(a.data + 1, 2); // would free the block, then view it
+  }));
+  CHECK(test::aborts([] {
+    Array  a{1, 2, 3, 4};
+    Matrix m(a.data, 2, 2);
+    a.alias(m);
+  }));
+  CHECK_FALSE(test::aborts([] { // a view re-aliasing what it views frees nothing
+    real  buffer[4] = {1, 2, 3, 4};
+    Array view(buffer, 4);
+    view.alias(buffer + 1, 2);
+  }));
+}
+#endif
