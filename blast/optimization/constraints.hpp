@@ -145,9 +145,10 @@ inline blast_fn real ext_collision_constraint_at_point(const Optimization& opt, 
  *
  * c = 0 at each of the solver's bounds (solver_position_min/max) and is continuous, with the same slope 1 / half_range of
  * the limits in opt.manip on both sides. On a side that is not widened c = success_tolerance exactly
- * at the true limit while tightened. On a widened side c = 0 is between the pinned endpoint and the
- * true limit, so the endpoint is strictly inside (c < 0), and c reaches success_tolerance past the
- * true limit by less than the tightening: the validation on the true limits decides there. Untightened,
+ * at the true limit while tightened. A widened side applies to every segment and sample, not only
+ * near the endpoints: c = 0 is between the pinned endpoint and the true limit, so the endpoint is
+ * strictly inside (c < 0), and c reaches success_tolerance past the true limit by less than the
+ * tightening, anywhere along the trajectory: the validation on the true limits decides there. Untightened,
  * c = 0 at the limits. An unbounded joint gives c = -1. See docs/guides/constraints.md.
  */
 struct PositionConstraintParams {
