@@ -215,8 +215,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
     Assert(grad.rows == x.size);
     Assert(grad.cols == constraints.size);
   }
-  const int n_segments = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
-  Assert(opt.bspline.n_points % n_segments == 0);
+  const int n_segments                = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
   const int n_points_per_segment      = (int) opt.bspline.n_points / n_segments;
   const int n_joints                  = (int) opt.manip.n_joints;
   const int n_ctrl                    = (int) opt.bspline.n_ctrl;
@@ -253,12 +252,14 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
     const int last_affected_control_point  = std::min((n_ctrl - 1) - 3, segment + (int) opt.bspline.degree);
     const int n_affected_control_points    = last_affected_control_point - first_affected_control_point + 1; // note: affected_control_points are inclusive, so when we have last = 5, first = 3, we want 3 (5 - 3) + 1
     const int start_point_for_segment      = segment * n_points_per_segment;
+    // The last segment takes the remainder, so every sample is checked when n_points is not a multiple of n_segments.
+    const int n_points_in_segment = segment == n_segments - 1 ? (int) opt.bspline.n_points - start_point_for_segment : n_points_per_segment;
     Assert(n_affected_control_points >= 3);
     Assert(n_affected_control_points <= 6);
 
-    Matrix bp(&opt.bspline.basis_p(0, start_point_for_segment), n_ctrl, n_points_per_segment);
-    Matrix bv(&opt.bspline.basis_v(0, start_point_for_segment), n_ctrl, n_points_per_segment);
-    Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_per_segment);
+    Matrix bp(&opt.bspline.basis_p(0, start_point_for_segment), n_ctrl, n_points_in_segment);
+    Matrix bv(&opt.bspline.basis_v(0, start_point_for_segment), n_ctrl, n_points_in_segment);
+    Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_in_segment);
 
     std::array<PositionConstraintParams, MAX_JOINTS> pos_params;
     for (int j = 0; j < n_joints; j++)
@@ -276,7 +277,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
     for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++)
       ext_coll_params[capsule_id] = ext_collision_constraint_params(opt, segment, n_segments, capsule_id);
 
-    for (int point_in_segment = 0; point_in_segment < n_points_per_segment; point_in_segment++) {
+    for (int point_in_segment = 0; point_in_segment < n_points_in_segment; point_in_segment++) {
       {
 #if BLAST_TRACE_LEVEL >= 2
         PROFILE_SCOPE("All Point Constraints");
@@ -420,7 +421,7 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
 
             // --- Dynamic tests --- todo: check & fix gradients
             int  current_point = segment * n_points_per_segment + point_in_segment;
-            int  max_point     = n_segments * n_points_per_segment - 1;
+            int  max_point     = (int) opt.bspline.n_points - 1;
             real current_time  = x.back() * ((real) current_point / (real) max_point) + opt.trajectory_start_time; // trajectory time * progression along trajectory
 
             count = 0;
@@ -893,8 +894,7 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
     Assert(grad.rows == x.size);
     Assert(grad.cols == constraints.size);
   }
-  const int n_segments = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
-  Assert(opt.bspline.n_points % n_segments == 0);
+  const int n_segments                = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
   const int n_points_per_segment      = (int) opt.bspline.n_points / n_segments;
   const int n_joints                  = (int) opt.manip.n_joints;
   const int n_ctrl                    = (int) opt.bspline.n_ctrl;
@@ -931,12 +931,14 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
     const int last_affected_control_point  = std::min((n_ctrl - 1) - 3, segment + (int) opt.bspline.degree);
     const int n_affected_control_points    = last_affected_control_point - first_affected_control_point + 1; // note: affected_control_points are inclusive, so when we have last = 5, first = 3, we want 3 (5 - 3) + 1
     const int start_point_for_segment      = segment * n_points_per_segment;
+    // The last segment takes the remainder, so every sample is checked when n_points is not a multiple of n_segments.
+    const int n_points_in_segment = segment == n_segments - 1 ? (int) opt.bspline.n_points - start_point_for_segment : n_points_per_segment;
     Assert(n_affected_control_points >= 3);
     Assert(n_affected_control_points <= 6);
 
-    Matrix bp(&opt.bspline.basis_p(0, start_point_for_segment), n_ctrl, n_points_per_segment);
-    Matrix bv(&opt.bspline.basis_v(0, start_point_for_segment), n_ctrl, n_points_per_segment);
-    Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_per_segment);
+    Matrix bp(&opt.bspline.basis_p(0, start_point_for_segment), n_ctrl, n_points_in_segment);
+    Matrix bv(&opt.bspline.basis_v(0, start_point_for_segment), n_ctrl, n_points_in_segment);
+    Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_in_segment);
 
     std::array<PositionConstraintParams, MAX_JOINTS> pos_params;
     for (int j = 0; j < n_joints; j++)
@@ -954,7 +956,7 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
     real  max_internal_col_constraints = -INF_REAL; // todo: worst or worst per capsule ?
     Array max_col_constraints(n_capsules, -INF_REAL);
 
-    for (int point_in_segment = 0; point_in_segment < n_points_per_segment; point_in_segment++) {
+    for (int point_in_segment = 0; point_in_segment < n_points_in_segment; point_in_segment++) {
       {
 #if BLAST_TRACE_LEVEL >= 2
         PROFILE_SCOPE("All Point Constraints");
@@ -1049,7 +1051,7 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
           PROFILE_SCOPE("Ext Constraints");
 #endif
           int  current_point = segment * n_points_per_segment + point_in_segment;
-          int  max_point     = n_segments * n_points_per_segment - 1;
+          int  max_point     = (int) opt.bspline.n_points - 1;
           real current_time  = x.back() * ((real) current_point / (real) max_point) + opt.trajectory_start_time; // trajectory time * progression along trajectory
 
                                                                                                                  // dynamic BVH doesn't have to be created inside capsule for-loop since its the same for every capsule
@@ -1498,8 +1500,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
     Assert(grad.rows == x.size);
     Assert(grad.cols == constraints.size);
   }
-  const int n_segments = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
-  Assert(opt.bspline.n_points % n_segments == 0);
+  const int n_segments                = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
   const int n_points_per_segment      = (int) opt.bspline.n_points / n_segments;
   const int n_joints                  = (int) opt.manip.n_joints;
   const int n_ctrl                    = (int) opt.bspline.n_ctrl;
@@ -1526,7 +1527,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
   u8                                          max_tool_index               = 0;
 
   std::vector<std::array<Capsule, MAX_CAPSULES>> capsules{};
-  capsules.resize(n_points_per_segment);
+  capsules.resize(n_points_per_segment + n_segments); // room for the last segment's remainder
 
   opt.bspline.compute_trajectory(x, opt.task);
 
@@ -1539,12 +1540,14 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
     const int last_affected_control_point  = std::min((n_ctrl - 1) - 3, segment + (int) opt.bspline.degree);
     const int n_affected_control_points    = last_affected_control_point - first_affected_control_point + 1; // note: affected_control_points are inclusive, so when we have last = 5, first = 3, we want 3 (5 - 3) + 1
     const int start_point_for_segment      = segment * n_points_per_segment;
+    // The last segment takes the remainder, so every sample is checked when n_points is not a multiple of n_segments.
+    const int n_points_in_segment = segment == n_segments - 1 ? (int) opt.bspline.n_points - start_point_for_segment : n_points_per_segment;
     Assert(n_affected_control_points >= 3);
     Assert(n_affected_control_points <= 6);
 
-    Matrix bp(&opt.bspline.basis_p(0, start_point_for_segment), n_ctrl, n_points_per_segment);
-    Matrix bv(&opt.bspline.basis_v(0, start_point_for_segment), n_ctrl, n_points_per_segment);
-    Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_per_segment);
+    Matrix bp(&opt.bspline.basis_p(0, start_point_for_segment), n_ctrl, n_points_in_segment);
+    Matrix bv(&opt.bspline.basis_v(0, start_point_for_segment), n_ctrl, n_points_in_segment);
+    Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_in_segment);
 
     std::array<PositionConstraintParams, MAX_JOINTS> pos_params;
     for (int j = 0; j < n_joints; j++)
@@ -1562,7 +1565,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
     real  max_internal_col_constraints = -INF_REAL; // todo: worst or worst per capsule ?
     Array max_col_constraints(n_capsules, -INF_REAL);
 
-    for (int point_in_segment = 0; point_in_segment < n_points_per_segment; point_in_segment++) {
+    for (int point_in_segment = 0; point_in_segment < n_points_in_segment; point_in_segment++) {
       {
 #if BLAST_TRACE_LEVEL >= 2
         PROFILE_SCOPE("All Point Constraints");
@@ -1670,8 +1673,8 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
       auto& static_bvh  = opt.world.static_bounding_volume_hierarchy;
       auto& dynamic_bvh = opt.world.dynamic_bounding_volume_hierarchy;
 
-      create_time_bounding_volume_hierarchies(opt.time_bounding_volume_hierarchies, capsules, n_capsules, n_points_per_segment);
-      create_time_bvh_dynamic_objects(opt.world, dynamic_bvh, segment * n_points_per_segment, n_points_per_segment, x.back(), n_segments, opt.trajectory_start_time);
+      create_time_bounding_volume_hierarchies(opt.time_bounding_volume_hierarchies, capsules, n_capsules, n_points_in_segment);
+      create_time_bvh_dynamic_objects(opt.world, dynamic_bvh, segment * n_points_per_segment, n_points_in_segment, x.back(), (int) opt.bspline.n_points - 1, opt.trajectory_start_time);
       for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++) {
         CollisionEntities  collision_object_static{}, collision_object_dynamic{};
         CollisionEntities* collision_object;
@@ -1685,7 +1688,7 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
 
         // dynamic objects
         if (dynamic_bvh.num_objects > 0)
-          dist_min_dynamic = minimum_distance_dynamic_objects_time(dynamic_bvh, opt.time_bounding_volume_hierarchies[capsule_id], dist_min_static, collision_object_dynamic, segment * n_points_per_segment, n_points_per_segment, x.back(), n_segments, opt.trajectory_start_time);
+          dist_min_dynamic = minimum_distance_dynamic_objects_time(dynamic_bvh, opt.time_bounding_volume_hierarchies[capsule_id], dist_min_static, collision_object_dynamic, segment * n_points_per_segment, x.back(), (int) opt.bspline.n_points - 1, opt.trajectory_start_time);
 
         // add constraint
         if (dist_min_static <= dist_min_dynamic) {

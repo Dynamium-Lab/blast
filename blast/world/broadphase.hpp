@@ -300,21 +300,20 @@ inline host_fn void create_dynamic_bounding_volume_hierarchy(World& world, Bound
 }
 
 template<typename T>
-inline host_fn void create_time_bvh_dynamic_objects(World& world, BoundingVolumeHierarchy<T>& BVH, int start_point_in_segment, int n_points_per_segment,
-                                                    real opt_time, int n_segments, real trajectory_start_time) {
+inline host_fn void create_time_bvh_dynamic_objects(World& world, BoundingVolumeHierarchy<T>& BVH, int start_point_in_segment, int n_points_in_segment,
+                                                    real opt_time, int max_point, real trajectory_start_time) {
   // Create leaves
-  BVH.num_objects = (world.dynamic_boxes.size() + world.dynamic_spheres.size() + world.dynamic_capsules.size() + world.dynamic_doors.size()) * n_points_per_segment;
+  BVH.num_objects = (world.dynamic_boxes.size() + world.dynamic_spheres.size() + world.dynamic_capsules.size() + world.dynamic_doors.size()) * n_points_in_segment;
 
   if (BVH.num_objects == 0)
     return;
 
   BVH.leaves.resize(2 * BVH.num_objects - 1);
   std::vector<int> objects;
-  int              max_point = n_segments * n_points_per_segment - 1;
 
   int n_leaves = 0;
   // Add objects
-  for (int point_in_segment = 0; point_in_segment < n_points_per_segment; point_in_segment++) {
+  for (int point_in_segment = 0; point_in_segment < n_points_in_segment; point_in_segment++) {
     int  current_point = start_point_in_segment + point_in_segment;
     real current_time  = opt_time * ((real) current_point / (real) max_point) + trajectory_start_time; // trajectory time * progression along trajectory
 
@@ -639,7 +638,7 @@ inline host_fn real minimum_distance_static_objects_time(BoundingVolumeHierarchy
 }
 
 inline host_fn real minimum_distance_dynamic_objects_time(BoundingVolumeHierarchy<int>& BVH_obj, BoundingVolumeHierarchy<AABBPair>& BVH_time, real dist_min_old, CollisionEntities& collision_objects,
-                                                          int start_point_in_segment, int n_points_per_segment, real opt_time, int n_segments, real trajectory_start_time) {
+                                                          int start_point_in_segment, real opt_time, int max_point, real trajectory_start_time) {
 
   BVH_time.queue.clear_and_reserve(BVH_obj.num_objects * BVH_time.num_objects * 4);
 
@@ -725,7 +724,6 @@ inline host_fn real minimum_distance_dynamic_objects_time(BoundingVolumeHierarch
       BVH_time.queue.push(pair);
     } else if (leaves_obj[pair.aabb_obj].point_in_segment == leaves_time[pair.aabb_cap].point_in_segment) {
       int  current_point = start_point_in_segment + leaves_obj[pair.aabb_obj].point_in_segment;
-      int  max_point     = n_segments * n_points_per_segment - 1;
       real current_time  = opt_time * ((real) current_point / (real) max_point) + trajectory_start_time;
 
       if (child_type1 == CollisionObjectType::box && child_type2 == CollisionObjectType::capsule) {

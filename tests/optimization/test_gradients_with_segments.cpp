@@ -95,3 +95,39 @@ TEST_CASE("constraint gradients match finite differences", "[Optimization]") {
   check_gradients(constraints_and_gradients_with_broadphase, "broadphase");
   check_gradients(constraints_and_gradients_with_double_broadphase, "double_broadphase");
 }
+
+// Every sample is checked, also when n_points is not a multiple of the segment count: the last
+// segment takes the remainder. Joint 0 rises monotonically to the goal, so the last segment's
+// position constraint must be the value at the final sample, the goal itself. The expected value
+// is the untightened position constraint at the goal, from the joint's limits:
+// |goal - center| / half_range - 1.
+static void check_last_sample(ConstraintsAndGradientsFunction constraints_and_gradients, const char* method_name) {
+  INFO(method_name);
+  Array        start = {0.0, 0.4, -0.2, -0.4, 0.3, 0.0};
+  Array        end   = {3.0, 0.4, -0.2, -0.4, 0.3, 0.0};
+  Optimization opt(make_UR5e(), Task::stop_to_stop(start, end));
+  create_static_bounding_volume_hierarchy(opt.world, opt.world.static_bounding_volume_hierarchy);
+  opt.constraints.position = true;
+  initialize_optimization_with_segments(&opt);
+  const int  n_segments = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
+  const real center     = (opt.manip.position_max[0] + opt.manip.position_min[0]) / 2;
+  const real half_range = (opt.manip.position_max[0] - opt.manip.position_min[0]) / 2;
+  const real at_goal    = std::abs(end[0] - center) / half_range - 1;
+  for (int n_points: {10 * n_segments, 10 * n_segments + 3, 10 * n_segments + n_segments - 1}) {
+    INFO("n_points " << n_points);
+    Bspline bspline(opt.bspline.n_ctrl, n_points, opt.bspline.degree, opt.manip.n_joints);
+    opt.set_bspline(bspline);
+    n_con_with_segments(&opt);
+    Array  x = blast::guess_straight_line(&opt);
+    Array  constraints(opt.constraints.n_constraints);
+    Matrix gradient;
+    constraints_and_gradients(x, opt, constraints, gradient);
+    CHECK(constraints[(n_segments - 1) * opt.constraints.n_constraints_per_segment] == Approx(at_goal).margin(1e-5));
+  }
+}
+
+TEST_CASE("the last segment checks every remaining sample", "[Optimization]") {
+  check_last_sample(constraints_and_gradients_with_segments, "with_segments");
+  check_last_sample(constraints_and_gradients_with_broadphase, "broadphase");
+  check_last_sample(constraints_and_gradients_with_double_broadphase, "double_broadphase");
+}
