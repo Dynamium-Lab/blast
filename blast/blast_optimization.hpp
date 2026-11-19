@@ -195,6 +195,10 @@ inline void nlopt_constraints(unsigned m, real* result, unsigned x_len, const re
 inline real compute_objective(Array& current_x, Optimization* opt);
 inline bool validate_task(Optimization* opt);
 
+// Defined in optimization/optimization.hpp, used by optimization/constraints.hpp.
+inline blast_fn real solver_position_min(const Optimization& opt, int joint);
+inline blast_fn real solver_position_max(const Optimization& opt, int joint);
+
 inline void nlopt_constraints_with_analytical_pva(unsigned m, real* result, unsigned xlen, const real* x, real* grad, void* f_data);
 inline void nlopt_constraints_with_analytical_dynamics(unsigned m, real* result, unsigned xlen, const real* x, real* grad, void* f_data);
 
