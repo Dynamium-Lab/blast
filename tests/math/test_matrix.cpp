@@ -432,3 +432,52 @@ TEST_CASE("Matrix - solveLU() solution satisfies Ax = b", "[Math][Matrix]") {
   Array expected{1, 2};
   CHECK(Ax == expected);
 }
+
+// ---------------------------------------------------------------------------
+// Assignment and views (#97)
+// ---------------------------------------------------------------------------
+
+TEST_CASE("Matrix - copy-assigning a view of its own storage", "[Math][Matrix]") {
+  using namespace blast;
+  Matrix m(2u, 2u);
+  m(0, 0) = 1;
+  m(1, 0) = 2;
+  m(0, 1) = 3;
+  m(1, 1) = 4;
+  Matrix view(m.data + 2, 2, 1); // second column {3, 4}, inside m's block
+  m = view;                      // used to free m's block, then copy from it
+  REQUIRE(m.rows == 2);
+  REQUIRE(m.cols == 1);
+  CHECK(m.is_alias == false);
+  CHECK(m(0, 0) == 3);
+  CHECK(m(1, 0) == 4);
+}
+
+TEST_CASE("Matrix - move-assigning a view of its own storage", "[Math][Matrix]") {
+  using namespace blast;
+  Matrix m(2u, 2u);
+  m(0, 1) = 3;
+  m(1, 1) = 4;
+  Matrix view(m.data + 2, 2, 1);
+  m = std::move(view); // used to free m's block and keep a pointer into it
+  REQUIRE(m.size == 2);
+  CHECK(m.is_alias == false);
+  CHECK(m(0, 0) == 3);
+  CHECK(m(1, 0) == 4);
+  CHECK(view.data == nullptr);
+  CHECK(view.size == 0);
+}
+
+TEST_CASE("Matrix - copy-assigning an empty Matrix to a view drops the view", "[Math][Matrix]") {
+  using namespace blast;
+  real   buffer[4] = {1, 2, 3, 4}; // not owned by the Matrix
+  Matrix view(buffer, 2, 2);
+  Matrix empty;
+  view = empty; // used to free buffer, and leave is_alias set
+  CHECK(view.size == 0);
+  CHECK(view.data == nullptr);
+  CHECK(view.is_alias == false);
+  CHECK(buffer[0] == 1); // the viewed memory is untouched
+  view.resize(2, 2);     // owns its storage again: resize is allowed
+  CHECK(view(1, 1) == 0);
+}
