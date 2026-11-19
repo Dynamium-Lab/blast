@@ -510,7 +510,7 @@ TEST_CASE("Array - move-assigning a view of its own storage", "[Math][Array]") {
   using namespace blast;
   Array a{1, 2, 3, 4};
   Array view(a.data + 1, 2);
-  a = std::move(view); // used to free a's block and keep a pointer into it
+  a = std::move(view);        // used to free a's block and keep a pointer into it
   REQUIRE(a.size == 2);
   CHECK(a.is_alias == false); // owns a copy of the viewed values
   CHECK(a[0] == 2);
