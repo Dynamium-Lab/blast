@@ -74,10 +74,10 @@ opt.max_eval          = 5000;  // cap on function evaluations
 ```
 
 It is the only feasibility bar: the solver's own constraint tolerance, the margin the
-limits are tightened by during the solve, and the post-solve accept gate. Because the
-limits are tightened by exactly this amount, **a solve reported successful satisfies the
-original, untightened limits** -- the tolerance buys the solver an early exit, not a
-violation you have to check for afterwards.
+limits are tightened by during the solve, and the post-solve accept gate. The limits are
+tightened by exactly this amount, and the output trajectory is validated on the true limits,
+so **a solve reported successful satisfies the original, untightened limits** -- the
+tolerance buys the solver an early exit, not a violation you have to check for afterwards.
 
 `success_tolerance` is dimensionless (a fraction of a limit), so it cannot express a
 collision distance. `collision_buffer` is its counterpart in metres:

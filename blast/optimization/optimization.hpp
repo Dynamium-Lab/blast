@@ -278,7 +278,8 @@ inline void set_pinned_col_clearances(Optimization* opt) {
 
 /**
  * @brief Tightens the limits and collision geometry by success_tolerance, so that a solve accepted
- *        at success_tolerance (the solver's con_tol) satisfies the true limits.
+ *        at success_tolerance (the solver's con_tol) satisfies the true limits, except on a position
+ *        side widened past a pinned start/goal, where the validation on the true limits decides.
  *
  * Limits shrink by a factor 1 + success_tolerance about their center; each pair of collision
  * objects grows by collision_buffer (each object by half). A position limit the pinned start/goal

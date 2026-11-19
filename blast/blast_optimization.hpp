@@ -120,6 +120,8 @@ struct Optimization {
   real                trajectory_start_time = 0;
   real                success_tolerance     = (real) 0.01; // dimensionless constraint violation threshold; tightening ensures
                                                            // this on the tightened limits implies zero violation on the true limits
+                                                           // (except a position side widened past a pinned start/goal, where the
+                                                           // validation on the true limits decides)
   bool tighten_for_tolerance = true;                       // false skips the tightening (ablation only: an accepted
                                                            // solve may then violate the real limits by up to success_tolerance)
   real collision_buffer = (real) 0.001;                    // metres, between any two objects during the solve (each grows
