@@ -453,6 +453,10 @@ TEST_CASE("broadphase methods apply the pinned-endpoint collision targets", "[Op
     const Capsule capsule = manip_data.capsule_list[robot._n_caps - 1];                                  // the tool capsule
     const Vec3    axis    = (capsule.p2 - capsule.p1) / norm(capsule.p2 - capsule.p1);
     world.add_sphere(capsule.p2 + axis * (capsule.radius + (real) 0.02 + start_clearance), (real) 0.02); // beyond the capsule's end, on its axis
+    // Only the tool capsule is within 2 * buffer of the sphere (4x is margin), so the boundary check below tests it
+    // alone. Only external collisions are enabled: no self-collision or position rows.
+    for (int capsule_id = 0; capsule_id < robot._n_caps - 1; capsule_id++)
+      REQUIRE(distance(manip_data.capsule_list[capsule_id], world.spheres[0]) > 4 * buffer);
   }
 
   Optimization hold(robot, Task::stop_to_stop(start, start));
