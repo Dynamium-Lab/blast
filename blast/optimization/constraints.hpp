@@ -176,7 +176,7 @@ inline blast_fn PositionConstraintParams position_constraint_params(const Optimi
   }
   params.upper_bound    = solver_position_max(opt, joint);
   params.lower_bound    = solver_position_min(opt, joint);
-  params.inv_half_range = 2 / (position_max - position_min);
+  params.inv_half_range = (real) 2 / (position_max - position_min);
   return params;
 }
 
