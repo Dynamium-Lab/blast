@@ -5,8 +5,8 @@
 
 using namespace blast;
 
-// decision_bounds: control points within the position bounds (solver_position_min/max) widened by
-// control_point_bound_margin of the range, T within [min_duration, max_duration], in every
+// decision_bounds: control points within the solver's position bounds (the tightened limits, widened
+// past a pinned start/goal) widened by control_point_bound_margin of the tightened range, T within [min_duration, max_duration], in every
 // optimization method; a start outside the box is clamped rather than refused (NLopt returns
 // NLOPT_INVALID_ARGS for it).
 TEST_CASE("decision bounds are set and respected by every method", "[Optimization]") {
@@ -31,16 +31,26 @@ TEST_CASE("decision bounds are set and respected by every method", "[Optimizatio
     CHECK(lower_bounds.back() == Approx(opt.min_duration));
     CHECK(upper_bounds.back() == Approx(3.0));
     INFO("margin " << margin);
+    // Expected box computed from the test data alone, independently of the code under test: the tightened
+    // limit, or halfway between a pinned endpoint outside it and the true limit; plus margin times the
+    // tightened range. The endpoints here are well clear of the tightened bound, so no ulp margin is needed.
+    const real true_limit = (real) 3.1416;
+    const real tightened  = true_limit / (1 + opt.success_tolerance);
+    int        n_widened  = 0;
     for (int joint = 0; joint < opt.manip.n_joints; joint++) {
-      // Box: the solver's bounds, widened by margin times the tightened range.
-      const real bound_min = solver_position_min(opt, joint); // tightened, widened past a pinned start/goal
-      const real bound_max = solver_position_max(opt, joint);
-      const real range     = opt.manip.position_max[joint] - opt.manip.position_min[joint];
+      INFO("joint " << joint);
+      const real q_hi         = std::max(start[joint], end[joint]);
+      const real q_lo         = std::min(start[joint], end[joint]);
+      const real expected_max = q_hi > tightened ? q_hi + (true_limit - q_hi) / 2 : tightened;
+      const real expected_min = q_lo < -tightened ? q_lo - (q_lo + true_limit) / 2 : -tightened;
+      n_widened += (q_hi > tightened) + (q_lo < -tightened);
+      const real range = 2 * tightened;
       for (int control_point = 0; control_point < n_free_control_points; control_point++) {
-        CHECK(lower_bounds[joint * n_free_control_points + control_point] == Approx(bound_min - margin * range));
-        CHECK(upper_bounds[joint * n_free_control_points + control_point] == Approx(bound_max + margin * range));
+        CHECK(lower_bounds[joint * n_free_control_points + control_point] == Approx(expected_min - margin * range));
+        CHECK(upper_bounds[joint * n_free_control_points + control_point] == Approx(expected_max + margin * range));
       }
     }
+    CHECK(n_widened == 1); // joint 5's start (-3.12883) is outside the tightened band: the widening is exercised
     restore_from_tolerance(&opt, tolerance_snapshot);
   }
 

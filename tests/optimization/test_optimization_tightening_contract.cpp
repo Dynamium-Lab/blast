@@ -216,6 +216,12 @@ TEST_CASE("position is widened past the endpoints and success respects the true 
   restore_from_tolerance(&opt, tolerance_snapshot);
   CHECK_FALSE(opt.pinned_tightening_active);
   CHECK(opt.manip.position_max[0] == Approx(true_limit));
+  // Untightened: the solver's bounds are the true limits again and c = 0 exactly on them (no stale widened bound).
+  const double restored_eps = sizeof(real) == 4 ? 1e-5 : 1e-12;
+  CHECK(solver_position_max(opt, 0) == Approx(true_limit));
+  CHECK(solver_position_min(opt, 5) == Approx(-true_limit));
+  CHECK(position_constraint_params(opt, 0).value(true_limit) == Approx(0).margin(restored_eps));
+  CHECK(position_constraint_params(opt, 5).value(-true_limit) == Approx(0).margin(restored_eps));
 
   Optimization run(robot, task);
   run.success_tolerance      = (real) 0.01;
