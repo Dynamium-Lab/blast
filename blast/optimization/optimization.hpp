@@ -203,14 +203,15 @@ inline void decision_bounds(const Optimization* opt, Array& lower_bounds, Array&
   upper_bounds.back() = opt->max_duration;
   if (!opt->bound_control_points)
     return;
-  // Joints without position limits fall back to ±2π, without margin.
+  // Joints without position limits fall back to ±2π, without margin. The margin is a fraction of the
+  // joint's tightened range, so widening one side for a pinned endpoint does not enlarge the other.
   for (int joint = 0; joint < n_joints; joint++) {
     const real bound_min            = solver_position_min(*opt, joint);
     const real bound_max            = solver_position_max(*opt, joint);
     const real position_lower       = std::isfinite(bound_min) ? bound_min : -2 * PI;
     const real position_upper       = std::isfinite(bound_max) ? bound_max : 2 * PI;
     const bool has_position_limits  = std::isfinite(opt->manip.position_max[joint] - opt->manip.position_min[joint]);
-    const real control_point_margin = has_position_limits ? opt->control_point_bound_margin * (position_upper - position_lower) : real(0);
+    const real control_point_margin = has_position_limits ? opt->control_point_bound_margin * (opt->manip.position_max[joint] - opt->manip.position_min[joint]) : real(0);
     for (int control_point = 0; control_point < n_free_control_points; control_point++) {
       lower_bounds[joint * n_free_control_points + control_point] = position_lower - control_point_margin;
       upper_bounds[joint * n_free_control_points + control_point] = position_upper + control_point_margin;

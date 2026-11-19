@@ -2171,7 +2171,7 @@ inline blast_fn void compute_constraints(real* result, Array& x, Optimization* o
   // todo: compute n_con_per_point() so that every worker knows where to put their result
 
   std::array<PositionConstraintParams, MAX_JOINTS> pos_params; // the same for every point
-  for (int j = 0; j < opt->manip.n_joints; j++)
+  for (int j = 0; j < (int) opt->manip.n_joints; j++)
     pos_params[j] = position_constraint_params(*opt, j);
 
   for (int i = 0; i < opt->bspline.n_points; i++) {

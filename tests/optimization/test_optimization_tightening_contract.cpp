@@ -270,7 +270,6 @@ TEST_CASE("asymmetric limits: endpoint at the limit not widened, acceptance exac
       opt.collision_buffer  = (real) 0.001;
       initialize_optimization_with_segments(&opt);
       auto       tolerance_snapshot = tighten_for_success_tolerance(&opt);
-      const real bound_min          = solver_position_min(opt, 0);
       const real bound_max          = solver_position_max(opt, 0);
       const auto params             = position_constraint_params(opt, 0);
       CHECK(params.inv_half_range == Approx(2 / (hi - lo) * (1 + tol)));
@@ -303,7 +302,6 @@ TEST_CASE("an endpoint nanoradians inside the limit is still widened", "[Optimiz
   initialize_optimization_with_segments(&opt);
   auto       tolerance_snapshot = tighten_for_success_tolerance(&opt);
   const real bound_min          = solver_position_min(opt, 5);
-  const real bound_max          = solver_position_max(opt, 5);
   const auto params             = position_constraint_params(opt, 5);
   CHECK(bound_min < opt.manip.position_min[5]); // widened past the goal
   CHECK(bound_min < end[5]);                    // between the goal and the true limit
