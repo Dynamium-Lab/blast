@@ -234,7 +234,7 @@ inline void set_pinned_col_clearances(Optimization* opt) {
   // stays strictly satisfied (c <= -tolerance). Targeting the clearance itself left it at c = 0 with zero
   // gradient, a row NLopt's SLSQP can take a wrong QP step with.
   const auto endpoint_target = [&](real tightened_distance) {
-    return std::clamp((tightened_distance + collision_buffer) / 2, min_target, collision_buffer);
+    return std::clamp((tightened_distance + collision_buffer) / (real) 2, min_target, collision_buffer);
   };
 
   ManipulatorTempData manip_data;
