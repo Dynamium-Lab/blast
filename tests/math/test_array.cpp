@@ -1,6 +1,7 @@
 #define CATCH_CONFIG_MAIN
 
 #include <blast>
+#include <cstdint>
 #include "catch2/catch.hpp"
 #include "test_helper.hpp"
 
@@ -416,4 +417,64 @@ TEST_CASE("Array - is_close() returns false when any element difference exceeds 
   Array a{1, 2};
   Array b{1.0 + 2e-5, 2};
   CHECK_FALSE(is_close(a, b));
+}
+
+// ---------------------------------------------------------------------------
+// Memory
+// ---------------------------------------------------------------------------
+
+TEST_CASE("Array - an allocation whose byte size is not a multiple of the alignment", "[Math][Array]") {
+  using namespace blast;
+  // The rounding itself: glibc accepts an unrounded size, so only these checks catch losing it.
+  CHECK(aligned_size(64, 24) == 64); // 3 doubles -> one aligned block
+  CHECK(aligned_size(64, 64) == 64);
+  CHECK(aligned_size(64, 65) == 128);
+
+  Array a(3u); // 3 * sizeof(real) bytes, rounded up to ALIGN by the allocator
+  REQUIRE(a.data != nullptr);
+  CHECK(reinterpret_cast<std::uintptr_t>(a.data) % ALIGN == 0);
+  a[0] = 1;
+  a[1] = 2;
+  a[2] = 3;
+  CHECK(a[0] == 1);
+  CHECK(a[2] == 3);
+}
+
+TEST_CASE("Array - resize grows an empty Array", "[Math][Array]") {
+  using namespace blast;
+  Array a;
+  a.resize(3);
+  REQUIRE(a.size == 3);
+  CHECK(a[0] == 0);
+  CHECK(a[2] == 0);
+}
+
+TEST_CASE("Array - copy-assigning an empty Array leaves no data behind", "[Math][Array]") {
+  using namespace blast;
+  Array a(3);
+  Array empty;
+  a = empty;
+  CHECK(a.size == 0);
+  CHECK(a.data == nullptr);
+  a.resize(4); // used to free the old block a second time
+  CHECK(a.size == 4);
+  CHECK(a[3] == 0);
+}
+
+TEST_CASE("Array - copy-assigning an empty Array to a view drops the view", "[Math][Array]") {
+  using namespace blast;
+  real  buffer[3] = {1, 2, 3}; // not owned by the Array
+  Array view(buffer, 3);
+  Array empty;
+  view = empty;
+  CHECK(view.size == 0);
+  CHECK(view.data == nullptr); // used to keep buffer and become its owner: the destructor freed it
+  CHECK(buffer[0] == 1);       // the viewed memory is untouched
+}
+
+TEST_CASE("Array - assigning an empty list to an empty Array", "[Math][Array]") {
+  using namespace blast;
+  Array a;
+  a = {};
+  CHECK(a.size == 0);
 }

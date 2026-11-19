@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdlib> // aligned_alloc (blast_aligned_alloc)
 #include <immintrin.h>
 #include <limits>
 #include <vector>
@@ -34,6 +35,9 @@ static_assert(sizeof(real) == BLAST_SIZEOF_REAL);
 constexpr u32  ALIGN         = 64;
 constexpr real BLAST_EPSILON = (real) 0.00001; // default tolerance for is_close / is_small / operator==
 constexpr real PI            = (real) 3.141592653589793;
+
+/** @brief size rounded up to a multiple of alignment (aligned_alloc requires it, else undefined behaviour). */
+constexpr size_t aligned_size(size_t alignment, size_t size) { return (size + alignment - 1) / alignment * alignment; }
 
 // Precision-aware tolerances. blast::real may be float (machine eps ~1.2e-7) or
 // double (~2.2e-16). Constants tuned for double fall below float's resolution and
@@ -392,7 +396,11 @@ inline host_fn float  simd_hadd(__m256 v);
 #define Malloc(a, s) malloc(s)
 #define Free free
 #else
-#define Malloc aligned_alloc
+/** @brief aligned_alloc with the size rounded up to a multiple of the alignment, as aligned_alloc requires (else undefined behaviour). */
+inline void* blast_aligned_alloc(size_t alignment, size_t size) {
+  return aligned_alloc(alignment, blast::aligned_size(alignment, size));
+}
+#define Malloc blast_aligned_alloc
 #define Free free
 #endif
 
