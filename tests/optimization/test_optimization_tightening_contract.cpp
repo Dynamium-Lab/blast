@@ -438,6 +438,71 @@ TEST_CASE("tightening keeps the static BVH in step with the world", "[Optimizati
   check_in_step("restored");
 }
 
+// The pinned collision target across its regimes, computed from the test data alone: half the
+// endpoint's true clearance D, capped at collision_buffer and floored at 1% of it, so
+// target = clamp(D / 2, 0.01 * buffer, buffer). External collisions (tool capsule against a sphere at
+// a chosen clearance) and self-collision (the buffer chosen from the start's own self clearance).
+TEST_CASE("pinned collision target: half the clearance, capped and floored, external and self", "[Optimization]") {
+  const real tolerance = (real) 0.01, buffer = (real) 0.001;
+  Array      start = {1.94822, 0.473555, -0.0255247, -0.448375, 0.370356, -3.12883};
+  Array      end   = {2.5825, 0.0700, -0.3892, 0.3196, 0.9927, -3.14};
+  // Distances carry ~1e-7 m of float error; the targets checked here are as small as 1e-5 m.
+  const double distance_tolerance = sizeof(real) == 4 ? 1e-6 : 1e-12;
+  const auto   expected_target    = [](real clearance, real collision_buffer) {
+    return std::clamp(clearance / 2, (real) 0.01 * collision_buffer, collision_buffer);
+  };
+
+  Manipulator robot        = make_UR5e();
+  const int   tool_capsule = robot._n_caps - 1;
+  // Below the buffer, between one and two buffers, beyond two buffers (capped), and at the 1% floor.
+  for (const real clearance_factor: {(real) 0.5, (real) 1.5, (real) 3, (real) 0.015}) {
+    const real clearance = clearance_factor * buffer;
+    INFO("external, clearance " << clearance_factor << " * buffer");
+    World world;
+    {
+      ManipulatorTempData manip_data;
+      forward_kinematics(robot, manip_data, start);
+      compute_collision_model(robot, manip_data);
+      const Capsule capsule = manip_data.capsule_list[tool_capsule];
+      const Vec3    axis    = (capsule.p2 - capsule.p1) / norm(capsule.p2 - capsule.p1);
+      world.add_sphere(capsule.p2 + axis * (capsule.radius + (real) 0.02 + clearance), (real) 0.02);
+      for (int capsule_id = 0; capsule_id < tool_capsule; capsule_id++)
+        REQUIRE(distance(manip_data.capsule_list[capsule_id], world.spheres[0]) > 4 * buffer); // only the tool capsule is near
+    }
+    Optimization opt(robot, Task::stop_to_stop(start, end));
+    opt.world                           = world;
+    opt.constraints.external_collisions = true;
+    opt.success_tolerance               = tolerance;
+    opt.collision_buffer                = buffer;
+    initialize_optimization_with_segments(&opt);
+    auto tolerance_snapshot = tighten_for_success_tolerance(&opt);
+    CHECK(opt.pinned_col_clearance[0][tool_capsule] == Approx(expected_target(clearance, buffer)).margin(distance_tolerance));
+    restore_from_tolerance(&opt, tolerance_snapshot);
+  }
+
+  // Self-collision: the buffer is set from the start's own self clearance D so that D = 1.5 * buffer,
+  // between one and two buffers, where the target is D / 2 = 0.75 * buffer.
+  {
+    INFO("self-collision");
+    ManipulatorTempData manip_data;
+    forward_kinematics(robot, manip_data, start);
+    compute_collision_model(robot, manip_data);
+    const real self_clearance = min(get_internal_collisions(robot, manip_data)); // true geometry
+    REQUIRE(self_clearance > 0);
+    const real self_buffer = self_clearance / (real) 1.5;
+
+    Optimization opt(robot, Task::stop_to_stop(start, end));
+    opt.constraints.self_collisions = true;
+    opt.success_tolerance           = tolerance;
+    opt.collision_buffer            = self_buffer;
+    initialize_optimization_with_segments(&opt);
+    auto tolerance_snapshot = tighten_for_success_tolerance(&opt);
+    CHECK(opt.pinned_self_clearance[0] == Approx(expected_target(self_clearance, self_buffer)).margin(distance_tolerance));
+    CHECK(opt.pinned_self_clearance[0] == Approx((real) 0.75 * self_buffer).margin(distance_tolerance));
+    restore_from_tolerance(&opt, tolerance_snapshot);
+  }
+}
+
 // The pinned-endpoint rows of section 5, through the broadphase methods: on a trajectory that holds
 // the start, every first/last-segment row has to be satisfied, as it is for with_segments.
 TEST_CASE("broadphase methods apply the pinned-endpoint collision targets", "[Optimization]") {
