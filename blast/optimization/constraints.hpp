@@ -140,46 +140,42 @@ inline blast_fn real ext_collision_constraint_at_point(const Optimization& opt, 
 }
 
 /**
- * @brief Parameters of one joint's position constraint, one line per side of the center:
- *        c = (p - center) * upper_scale - upper_offset for p >= center,
- *        c = (center - p) * lower_scale - lower_offset below.
+ * @brief Parameters of one joint's position constraint:
+ *        c = max(p - upper_bound, lower_bound - p) * inv_half_range + unbounded_offset.
  *
- * Each side is 0 at its bound and success_tolerance at its true limit (see position_bounds), so
- * c < success_tolerance <=> the true limits hold, and c < 0 at a pinned endpoint inside them. An
- * unbounded joint gives c = -1. See docs/guides/constraints.md.
+ * c = 0 at each of the solver's bounds (solver_position_min/max) and is continuous, with the same slope 1 / half_range of
+ * the limits in opt.manip on both sides. On a side that is not widened c = success_tolerance exactly
+ * at the true limit while tightened. On a widened side c = 0 is between the pinned endpoint and the
+ * true limit, so the endpoint is strictly inside (c < 0), and c reaches success_tolerance past the
+ * true limit by less than the tightening: the validation on the true limits decides there. Untightened,
+ * c = 0 at the limits. An unbounded joint gives c = -1. See docs/guides/constraints.md.
  */
 struct PositionConstraintParams {
-  real center;
-  real upper_scale;
-  real upper_offset;
-  real lower_scale;
-  real lower_offset;
+  real upper_bound;          // c = 0 here: the tightened upper limit, or widened past a pinned start/goal
+  real lower_bound;          // c = 0 here: the tightened lower limit, or widened past a pinned start/goal
+  real inv_half_range;       // slope of c on both sides: 1 / half the range of the tightened limits
+  real unbounded_offset = 0; // -1 for a joint without position limits (then c = -1 everywhere), else 0
 
   blast_fn real value(real position) const {
-    return position >= center ? (position - center) * upper_scale - upper_offset : (center - position) * lower_scale - lower_offset;
+    return std::max(position - upper_bound, lower_bound - position) * inv_half_range + unbounded_offset;
   }
-  blast_fn real gradient(real position) const { return position >= center ? upper_scale : -lower_scale; }
+  blast_fn real gradient(real position) const {
+    return position - upper_bound >= lower_bound - position ? inv_half_range : -inv_half_range;
+  }
 };
 
 /** @brief Position constraint parameters of a joint, the same for every segment and sample. */
 inline blast_fn PositionConstraintParams position_constraint_params(const Optimization& opt, int joint) {
-  const real position_max = opt.manip.position_max[joint];
-  const real position_min = opt.manip.position_min[joint];
-  if (position_max == INF_REAL || position_min == -INF_REAL)
-    return {0, 0, 1, 0, 1};
-  const real               center     = (position_max + position_min) / 2;
-  const real               half_range = (position_max - position_min) / 2;
-  PositionConstraintParams params{center, 1 / half_range, 1, 1 / half_range, 1};
-  const auto               bounds = position_bounds(opt, joint);
-  const real               tol    = opt.success_tolerance;
-  if (bounds.upper > position_max) { // widened: 0 at the widened bound, tol at the true limit
-    params.upper_scale  = tol / (bounds.true_upper - bounds.upper);
-    params.upper_offset = (bounds.upper - center) * params.upper_scale;
+  const real               position_max = opt.manip.position_max[joint];
+  const real               position_min = opt.manip.position_min[joint];
+  PositionConstraintParams params{};
+  if (position_max == INF_REAL || position_min == -INF_REAL) {
+    params.unbounded_offset = -1; // bounds and slope stay 0
+    return params;
   }
-  if (bounds.lower < position_min) {
-    params.lower_scale  = tol / (bounds.lower - bounds.true_lower);
-    params.lower_offset = (center - bounds.lower) * params.lower_scale;
-  }
+  params.upper_bound    = solver_position_max(opt, joint);
+  params.lower_bound    = solver_position_min(opt, joint);
+  params.inv_half_range = 2 / (position_max - position_min);
   return params;
 }
 

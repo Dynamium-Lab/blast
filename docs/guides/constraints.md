@@ -103,9 +103,12 @@ stop-to-stop task are fixed, so constraints there cannot be improved by the solv
 - **Position** limits are tightened like the others. If the start or goal of a joint lies
   outside the tightened bound, that bound is moved out for the whole trajectory, to halfway
   between the endpoint and the true limit, so the fixed endpoint is strictly inside it. Only
-  that side moves: on each side the constraint is still exactly `success_tolerance` at the true
-  limit, so an accepted solve stays within the true limits on both sides. An endpoint at or
-  past the true limit is not moved: no trajectory from it can pass the check below.
+  that side moves, and the constraint keeps its slope. The other side still reaches
+  `success_tolerance` exactly at its true limit; on the widened side the solver may accept a
+  position slightly past the true limit (by less than the tightening), and the check below then
+  reports the solve as failed. An endpoint at, past, or within rounding of the true limit is not
+  moved: there is no room left to widen into, and no trajectory from an endpoint at the limit can
+  pass the check below.
 - **Collisions** next to the start or goal (the first and last segment) aim for at most the
   clearance that endpoint itself has, instead of the full `collision_buffer`. A start that
   clears an obstacle by less than `collision_buffer` is still accepted; every other part of the

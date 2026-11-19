@@ -5,7 +5,7 @@
 
 using namespace blast;
 
-// decision_bounds: control points within the position bounds (position_bounds) widened by
+// decision_bounds: control points within the position bounds (solver_position_min/max) widened by
 // control_point_bound_margin of the range, T within [min_duration, max_duration], in every
 // optimization method; a start outside the box is clamped rather than refused (NLopt returns
 // NLOPT_INVALID_ARGS for it).
@@ -32,11 +32,12 @@ TEST_CASE("decision bounds are set and respected by every method", "[Optimizatio
     CHECK(upper_bounds.back() == Approx(3.0));
     INFO("margin " << margin);
     for (int joint = 0; joint < opt.manip.n_joints; joint++) {
-      const auto bounds = position_bounds(opt, joint); // tightened, widened past a pinned start/goal
-      const real range  = bounds.upper - bounds.lower;
+      const real bound_min = solver_position_min(opt, joint); // tightened, widened past a pinned start/goal
+      const real bound_max = solver_position_max(opt, joint);
+      const real range     = bound_max - bound_min;
       for (int control_point = 0; control_point < n_free_control_points; control_point++) {
-        CHECK(lower_bounds[joint * n_free_control_points + control_point] == Approx(bounds.lower - margin * range));
-        CHECK(upper_bounds[joint * n_free_control_points + control_point] == Approx(bounds.upper + margin * range));
+        CHECK(lower_bounds[joint * n_free_control_points + control_point] == Approx(bound_min - margin * range));
+        CHECK(upper_bounds[joint * n_free_control_points + control_point] == Approx(bound_max + margin * range));
       }
     }
     restore_from_tolerance(&opt, tolerance_snapshot);

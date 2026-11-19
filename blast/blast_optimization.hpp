@@ -140,14 +140,16 @@ struct Optimization {
 
   // --- derived, do not set ---
   real collision_scale = 1; // success_tolerance / collision_buffer while tightened, 1 otherwise
-  // True while tightened. Then a position bound the pinned start/goal lies outside is widened past it
-  // (position_bounds), and the first/last segment's collision constraints target the clearance the pinned
+  // True while tightened. Then a position bound the pinned start/goal lies on or outside is widened
+  // past it (solver_position_min/max), and the first/last segment's collision constraints target the clearance the pinned
   // start [0] / goal [1] configuration achieves, so a pinned configuration at or near a limit does not create a
   // violated zero-gradient constraint. Clearances are measured against the planning geometry (distance +
-  // collision_buffer). See tighten_for_success_tolerance, position_bounds, ext_collision_constraint_params.
+  // collision_buffer). See tighten_for_success_tolerance, solver_position_min, ext_collision_constraint_params.
   bool                                          pinned_tightening_active = false;
   std::array<std::array<real, MAX_CAPSULES>, 2> pinned_col_clearance{};
   std::array<real, 2>                           pinned_self_clearance{};
+  std::array<real, MAX_JOINTS>                  solver_position_min{};                          // position bounds the solver enforces while pinned_tightening_active:
+  std::array<real, MAX_JOINTS>                  solver_position_max{};                          // tightened, or widened past a pinned start/goal (tighten_for_success_tolerance)
 
   std::array<BoundingVolumeHierarchy<AABBPair>, MAX_CAPSULES> time_bounding_volume_hierarchies; // should be std::array<> ? Never changes size
 
