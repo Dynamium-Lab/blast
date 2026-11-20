@@ -22,17 +22,24 @@
 namespace blast::test {
 
 #if BLAST_TEST_DEATH_TESTS
-/** @brief True when f aborts (a failing Assert), run in a child process. */
+/** @brief True when f aborts (a failing Assert), run in a child process. Aborts the test run if no child can be run. */
 template<typename F>
 bool aborts(F&& f) {
   const pid_t pid = fork();
+  if (pid < 0) { // no child ran f: neither answer would be true
+    fprintf(stderr, "aborts(): fork failed\n");
+    std::abort();
+  }
   if (pid == 0) {
     (void) !freopen("/dev/null", "w", stderr); // hide the expected assertion message
     f();
     _exit(0);
   }
   int status = 0;
-  waitpid(pid, &status, 0);
+  if (waitpid(pid, &status, 0) != pid) {
+    fprintf(stderr, "aborts(): waitpid failed\n");
+    std::abort();
+  }
   return WIFSIGNALED(status) && WTERMSIG(status) == SIGABRT;
 }
 #endif

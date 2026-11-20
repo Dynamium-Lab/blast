@@ -542,6 +542,17 @@ TEST_CASE("Array - assigning a shorter list shrinks the Array", "[Math][Array]")
   CHECK(a[0] == 4);
 }
 
+TEST_CASE("Array - assigning an empty list to an owned Array frees its data", "[Math][Array]") {
+  using namespace blast;
+  Array a{1, 2, 3};
+  a = {};
+  CHECK(a.size == 0);
+  CHECK(a.data == nullptr); // an empty Array has no data, as after copy assignment
+  a = {4, 5};
+  REQUIRE(a.size == 2);
+  CHECK(a[1] == 5);
+}
+
 TEST_CASE("Array - assigning a longer list grows the Array", "[Math][Array]") {
   using namespace blast;
   Array a{1};

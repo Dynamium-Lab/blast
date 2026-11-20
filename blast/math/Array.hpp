@@ -115,7 +115,9 @@ inline blast_fn Array& Array::operator=(Array&& a) noexcept {
   if (this != &a) {
     if (!is_alias && a.is_alias && points_into(a.data, data, size)) {
       // a views this Array's own block: adopting its pointer and freeing the block would leave
-      // this Array on freed memory. Copy the viewed values instead.
+      // this Array on freed memory. Copy the viewed values instead: the only path where this
+      // move allocates. It stays noexcept so containers of Array move; a failed allocation is
+      // fatal here as everywhere else in Blast.
       *this = static_cast<const Array&>(a);
     } else {
       if (data && !is_alias)
@@ -144,7 +146,13 @@ inline blast_fn Array& Array::operator=(const std::initializer_list<real>& other
       size     = 0;
       is_alias = false;
     }
-    resize(new_size);
+    if (new_size == 0) { // an empty Array has no data, as after copy assignment
+      Free(data);
+      data = nullptr;
+      size = 0;
+    } else {
+      resize(new_size);
+    }
   }
   if (new_size > 0) // an empty list on an empty Array: data may be null
     memcpy(data, other.begin(), new_size * sizeof(real));

@@ -117,7 +117,9 @@ inline blast_fn Matrix& Matrix::operator=(Matrix&& m) noexcept {
   if (this != &m) {
     if (!is_alias && m.is_alias && points_into(m.data, data, size)) {
       // m views this Matrix's own block: adopting its pointer and freeing the block would leave
-      // this Matrix on freed memory. Copy the viewed values instead.
+      // this Matrix on freed memory. Copy the viewed values instead: the only path where this
+      // move allocates. It stays noexcept so containers of Matrix move; a failed allocation is
+      // fatal here as everywhere else in Blast.
       *this = static_cast<const Matrix&>(m);
     } else {
       if (data && !is_alias)
