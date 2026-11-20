@@ -74,10 +74,10 @@ opt.max_eval          = 5000;  // cap on function evaluations
 ```
 
 It is the only feasibility bar: the solver's own constraint tolerance, the margin the
-limits are tightened by during the solve, and the post-solve accept gate. Because the
-limits are tightened by exactly this amount, **a solve reported successful satisfies the
-original, untightened limits** -- the tolerance buys the solver an early exit, not a
-violation you have to check for afterwards.
+limits are tightened by during the solve, and the post-solve accept gate. The limits are
+tightened by exactly this amount, and the output trajectory is validated on the true limits,
+so **a solve reported successful satisfies the original, untightened limits** -- the
+tolerance buys the solver an early exit, not a violation you have to check for afterwards.
 
 `success_tolerance` is dimensionless (a fraction of a limit), so it cannot express a
 collision distance. `collision_buffer` is its counterpart in metres:
@@ -101,13 +101,23 @@ Two exceptions keep the tightening from making a task impossible. The start and 
 stop-to-stop task are fixed, so constraints there cannot be improved by the solver:
 
 - **Position** limits are tightened like the others. If the start or goal of a joint lies
-  closer to its limit than the tightened bound, the first or last segment aims for that
-  endpoint instead, and is rescaled so the solver's tolerance still ends exactly at the true
-  limit. Every other part of the trajectory keeps the tightened bound.
+  outside the tightened bound, that bound is moved out for the whole trajectory, to halfway
+  between the endpoint and the true limit, so the fixed endpoint is strictly inside it. Only
+  that side moves, and the constraint keeps its slope. The other side still reaches
+  `success_tolerance` exactly at its true limit; on the widened side the solver may accept a
+  position slightly past the true limit (by less than the tightening), and the check below then
+  reports the solve as failed. An endpoint at, past, or within rounding of the true limit is not
+  moved: there is no room left to widen into, and no trajectory from an endpoint at the limit can
+  pass the check below.
 - **Collisions** next to the start or goal (the first and last segment) aim for at most the
   clearance that endpoint itself has, instead of the full `collision_buffer`. A start that
   clears an obstacle by less than `collision_buffer` is still accepted; every other part of the
   trajectory keeps the full `collision_buffer`.
+
+A solve is reported as a success only if the output trajectory (every `output_steps_ms`,
+1 ms by default) also meets the true, untightened limits and has no contact with the true
+geometry. The solver only sees its constraint points; this check also covers the trajectory
+between them.
 
 Velocity, acceleration, torque, and tool speed do not need this exception: a stop-to-stop task
 starts and ends at rest, so the endpoint values for those constraints are zero, well within any
