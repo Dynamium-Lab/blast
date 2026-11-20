@@ -114,6 +114,173 @@ inline Array guess_straight_line(Optimization* opt) {
   return x;
 }
 
+/**
+ * @brief Initial guess that follows a joint-space waypoint path, e.g. from a sampling-based planner.
+ *
+ * The B-spline curve, with this optimizer's own knots and basis, is fitted to the path by least
+ * squares: at `n_samples` parameter values u_k = k / (n_samples - 1), spread uniformly over the
+ * curve's parameter and therefore over time (t = u T), the curve should be at the point a fraction
+ * u_k of the way along the path, by joint-space arc length. The first and last three control points
+ * are pinned by the stop-to-stop task, as in Bspline::compute_control, so only the free interior
+ * control points are fitted. They end up off the path, past its corners, so that the curve itself
+ * follows it.
+ *
+ * The duration T is the smallest for which joint velocity and acceleration provably stay within the
+ * manipulator's limits over the whole curve, not only at samples (convex-hull property of the
+ * derivative control polygons), and at least opt->min_duration.
+ *
+ * Requires a stop-to-stop task with finite start and goal (zero boundary velocity and acceleration).
+ * The path is expected to start at the task's start and end at its goal: the curve is pinned to the
+ * task's, so a mismatch shows up as fit error near the ends. A path of zero length gives
+ * guess_straight_line().
+ *
+ * @param opt        Optimization whose bspline, task and manipulator limits define the guess.
+ * @param path       Waypoints, each an Array of n_joints joint positions; at least two.
+ * @param n_samples  Points the curve is fitted at; 0 (the default) means max(100, 4 * n_ctrl). An explicit
+ *                   value must be at least 4 * n_ctrl, so that every free control point influences several
+ *                   samples and the fit is well posed.
+ * @return The optimization vector x (free control points, joint-major, then T), laid out as
+ *         guess_straight_line() returns it.
+ */
+inline Array guess_from_path(Optimization* opt, const std::vector<Array>& path, u32 n_samples = 0) {
+  const u32 n_ctrl   = opt->bspline.n_ctrl;
+  const u32 degree   = opt->bspline.degree;
+  const u32 n_joints = opt->bspline.n_joints;
+  const u32 n_free   = n_ctrl - 6;
+  Assert(n_ctrl > 6);
+  Assert(path.size() >= 2);
+  if (n_samples == 0)
+    n_samples = std::max((u32) 100, 4 * n_ctrl);
+  Assert(n_samples >= 4 * n_ctrl);
+  for (size_t i = 0; i < path.size(); i++)
+    Assert(path[i].size == n_joints);
+  for (u32 j = 0; j < n_joints; j++) {
+    Assert(std::isfinite(opt->task(j, 0)) && std::isfinite(opt->task(j, 3)));
+    Assert(opt->task(j, 1) == 0 && opt->task(j, 2) == 0 && opt->task(j, 4) == 0 && opt->task(j, 5) == 0);
+  }
+
+  // Cumulative joint-space arc length along the path.
+  std::vector<real> cumulative(path.size(), 0);
+  for (size_t i = 1; i < path.size(); i++) {
+    real squared = 0;
+    for (u32 j = 0; j < n_joints; j++) {
+      const real d = path[i][j] - path[i - 1][j];
+      squared += d * d;
+    }
+    cumulative[i] = cumulative[i - 1] + std::sqrt(squared);
+  }
+  const real length = cumulative.back();
+  if (!(length > 0))
+    return guess_straight_line(opt);
+
+  // Full control polygon (n_ctrl x n_joints): boundary triples pinned, as compute_control builds them
+  // for a stop-to-stop task; interior rows fitted below.
+  Matrix control(n_ctrl, n_joints);
+  for (u32 j = 0; j < n_joints; j++) {
+    for (u32 i = 0; i < 3; i++) {
+      control(i, j)              = opt->task(j, 0);
+      control(n_ctrl - 1 - i, j) = opt->task(j, 3);
+    }
+  }
+
+  // Normal equations (A^T A) p_j = A^T r_j, one n_free x n_free system shared by every joint:
+  // A_ki = N_{3+i}(u_k) and r_kj = path_j(u_k) minus the pinned control points' contribution.
+  // The basis values come from this optimizer's own Bspline, sampled at u_k = k / (n_samples - 1).
+  const Bspline     samples(n_ctrl, n_samples, degree, n_joints);
+  std::vector<real> normal(n_free * n_free, 0), rhs(n_free * n_joints, 0), point(n_joints);
+  size_t            segment = 0;
+  for (u32 k = 0; k < n_samples; k++) {
+    // The point a fraction u_k of the way along the path (u_k only grows, so the segment only advances).
+    const real distance = length * (real) k / (real) (n_samples - 1);
+    while (segment + 2 < path.size() && cumulative[segment + 1] < distance)
+      segment++;
+    const real span     = cumulative[segment + 1] - cumulative[segment];
+    const real fraction = span > 0 ? std::clamp((distance - cumulative[segment]) / span, (real) 0, (real) 1) : (real) 0;
+    for (u32 j = 0; j < n_joints; j++)
+      point[j] = path[segment][j] + fraction * (path[segment + 1][j] - path[segment][j]);
+
+    for (u32 j = 0; j < n_joints; j++) {
+      real residual = point[j];
+      for (u32 i = 0; i < 3; i++)
+        residual -= samples.basis_p(i, k) * control(i, j) + samples.basis_p(n_ctrl - 1 - i, k) * control(n_ctrl - 1 - i, j);
+      for (u32 a = 0; a < n_free; a++)
+        rhs[a * n_joints + j] += samples.basis_p(3 + a, k) * residual;
+    }
+    for (u32 a = 0; a < n_free; a++)
+      for (u32 b = 0; b < n_free; b++)
+        normal[a * n_free + b] += samples.basis_p(3 + a, k) * samples.basis_p(3 + b, k);
+  }
+
+  // Cholesky factorization normal = L L^T, in place (lower triangle); positive definite because every
+  // free control point's basis function is nonzero at several samples (n_samples >= 4 * n_ctrl).
+  for (u32 a = 0; a < n_free; a++) {
+    for (u32 b = 0; b <= a; b++) {
+      real sum = normal[a * n_free + b];
+      for (u32 c = 0; c < b; c++)
+        sum -= normal[a * n_free + c] * normal[b * n_free + c];
+      if (a == b) {
+        Assert(sum > 0);
+        normal[a * n_free + a] = std::sqrt(sum);
+      } else {
+        normal[a * n_free + b] = sum / normal[b * n_free + b];
+      }
+    }
+  }
+  std::vector<real> solution(n_free);
+  for (u32 j = 0; j < n_joints; j++) {
+    for (u32 a = 0; a < n_free; a++) { // L y = rhs
+      real sum = rhs[a * n_joints + j];
+      for (u32 c = 0; c < a; c++)
+        sum -= normal[a * n_free + c] * solution[c];
+      solution[a] = sum / normal[a * n_free + a];
+    }
+    for (u32 a = n_free; a-- > 0;) { // L^T p = y
+      real sum = solution[a];
+      for (u32 c = a + 1; c < n_free; c++)
+        sum -= normal[c * n_free + a] * solution[c];
+      solution[a] = sum / normal[a * n_free + a];
+    }
+    for (u32 a = 0; a < n_free; a++)
+      control(3 + a, j) = solution[a];
+  }
+
+  // Duration: velocity is (degree-scaled first differences of the control polygon) / T and acceleration
+  // the same second differences / T^2; by the convex-hull property their control polygons bound them
+  // everywhere on the curve. Clamped uniform knots, as Bspline::compute_basis builds them.
+  const auto knot = [&](u32 i) -> real {
+    if (i <= degree)
+      return 0;
+    if (i >= n_ctrl)
+      return 1;
+    return (real) (i - degree) / (real) (n_ctrl - degree);
+  };
+  real              duration = opt->min_duration;
+  std::vector<real> velocity(n_ctrl - 1);
+  for (u32 j = 0; j < n_joints; j++) {
+    const real vmax = opt->manip.velocity_max[j];
+    const real amax = opt->manip.acceleration_max[j];
+    for (u32 i = 0; i + 1 < n_ctrl; i++) {
+      velocity[i] = (real) degree * (control(i + 1, j) - control(i, j)) / (knot(i + degree + 1) - knot(i + 1));
+      if (vmax > 0)
+        duration = std::max(duration, std::abs(velocity[i]) / vmax);
+    }
+    for (u32 i = 0; i + 2 < n_ctrl; i++) {
+      const real acceleration = (real) (degree - 1) * (velocity[i + 1] - velocity[i]) / (knot(i + degree + 1) - knot(i + 2));
+      if (amax > 0)
+        duration = std::max(duration, std::sqrt(std::abs(acceleration) / amax));
+    }
+  }
+
+  Array x(opt->bspline.x_len(opt->task));
+  Assert(x.size == n_joints * n_free + 1);
+  u32 k = 0;
+  for (u32 j = 0; j < n_joints; j++)
+    for (u32 i = 3; i < n_ctrl - 3; i++)
+      x[k++] = control(i, j);
+  x.back() = duration;
+  return x;
+}
+
 inline Array init_guess_segments(Optimization* opt) {
   Array x(opt->bspline.x_len(opt->task));
   switch (opt->guess.type) {
