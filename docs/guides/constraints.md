@@ -109,10 +109,17 @@ stop-to-stop task are fixed, so constraints there cannot be improved by the solv
   reports the solve as failed. An endpoint at, past, or within rounding of the true limit is not
   moved: there is no room left to widen into, and no trajectory from an endpoint at the limit can
   pass the check below.
-- **Collisions** next to the start or goal (the first and last segment) aim for at most the
-  clearance that endpoint itself has, instead of the full `collision_buffer`. A start that
-  clears an obstacle by less than `collision_buffer` is still accepted; every other part of the
-  trajectory keeps the full `collision_buffer`.
+- **Collisions** next to the start or goal (the first and last segment) aim for half the
+  clearance that endpoint itself has, capped at `collision_buffer`, so the fixed endpoint is
+  strictly inside its constraint. This applies to any endpoint closer than twice
+  `collision_buffer` to an obstacle (or to itself): a start that clears an obstacle by less
+  than `collision_buffer` is still accepted, and one between one and two `collision_buffer`
+  lowers the target of its segment below `collision_buffer`. Every other part of the
+  trajectory keeps the full `collision_buffer`. The target never goes below 1% of
+  `collision_buffer` (0.01 mm at the default): an endpoint closer than 2% of it is no longer
+  strictly inside, and one closer than 1% violates its own constraint. The endpoint's clearance
+  is measured to static obstacles only: a start or goal inside a dynamic obstacle's
+  `collision_buffer` keeps the full target there.
 
 A solve is reported as a success only if the output trajectory (every `output_steps_ms`,
 1 ms by default) also meets the true, untightened limits and has no contact with the true

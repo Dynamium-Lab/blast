@@ -291,8 +291,8 @@ inline void set_pinned_col_clearances(Optimization* opt) {
  * Limits shrink by a factor 1 + success_tolerance about their center; each pair of collision
  * objects grows by collision_buffer (each object by half). A position limit the pinned start/goal
  * lies outside is widened past it, over the whole trajectory (see solver_position_min). Where the pinned start/goal is closer to an obstacle
- * than collision_buffer, the first/last segment's collision constraints target the endpoint instead
- * (see set_pinned_col_clearances). Success is re-validated on the true limits.
+ * than 2 * collision_buffer, the first/last segment's collision constraints target half the endpoint's clearance
+ * instead (see set_pinned_col_clearances). Success is re-validated on the true limits.
  * Must be paired with restore_from_tolerance() before the Optimization is returned or reused.
  *
  * @return The true limits and geometry, for restore_from_tolerance().
