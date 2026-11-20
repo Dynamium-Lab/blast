@@ -49,5 +49,22 @@ More random shots improves robustness on hard problems at the cost of solve time
 with `random` + 50 shots and increase only if optimization fails to converge.
 ```
 
+### Starting from another planner's path
+
+A joint-space waypoint path, for example from a sampling-based planner, can seed the
+optimizer through `guess_from_path`, which returns a `Guess::custom` starting vector:
+
+```cpp
+std::vector<Array> path = ...;                 // waypoints from start to goal, each n_joints values
+opt.guess = Guess(guess_from_path(&opt, path));
+```
+
+It fits the B-spline curve to the path by least squares: the curve covers the path at a
+uniform rate of arc length over time, with the start and goal control points pinned as for any
+stop-to-stop task, so the free control points sit just outside the path's corners and the curve
+follows it. The duration is the shortest for which joint velocity and acceleration provably
+stay within the limits everywhere on the curve. It requires a stop-to-stop task; a path of zero
+length gives the straight-line guess.
+
 See the [API reference](../api/cpp/index.md) for the full `Objective` and `Guess`
 definitions.
