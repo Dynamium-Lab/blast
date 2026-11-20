@@ -178,6 +178,21 @@ TEST_CASE("the duration keeps velocity and acceleration within limits over the w
   }
 }
 
+TEST_CASE("the default sample count works for any number of control points", "[Optimization]") {
+  // 30 control points: the automatic count, max(100, 4 * n_ctrl) = 120, keeps the fit well posed.
+  Optimization opt(make_UR5e(), Task::stop_to_stop(start, goal));
+  opt.set_bspline(Bspline(30, 150, 5, 6));
+  const Array x = guess_from_path(&opt, corner_path());
+  REQUIRE(x.size == opt.bspline.x_len(opt.task));
+  for (u32 i = 0; i < x.size; i++)
+    CHECK(std::isfinite(x[i]));
+  opt.bspline.compute_trajectory(x, opt.task);
+  for (u32 j = 0; j < start.size; j++) {
+    CHECK(opt.bspline.traj.pos(j, 0) == Approx(start[j]).margin(tolerance));
+    CHECK(opt.bspline.traj.pos(j, opt.bspline.n_points - 1) == Approx(goal[j]).margin(tolerance));
+  }
+}
+
 TEST_CASE("a path of zero length gives the straight-line guess", "[Optimization]") {
   Optimization opt(make_UR5e(), Task::stop_to_stop(start, start));
   const Array  fitted   = guess_from_path(&opt, {start, start});
