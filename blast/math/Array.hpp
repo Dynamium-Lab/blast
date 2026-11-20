@@ -1,5 +1,6 @@
 #pragma once
 #include <blast>
+#include <cstdint>
 #include <cstdlib>
 // #include <xmmintrin.h>
 // #include <immintrin.h>
@@ -11,6 +12,22 @@
 #endif
 
 namespace blast {
+
+/**
+ * @brief True when p points inside the block [block, block + size).
+ *
+ * Detects a view (Array or Matrix alias) of a container's own storage, which that container must
+ * not free before it is done reading the view. Compared as integers: the pointers may belong to
+ * unrelated objects, where the built-in < is unspecified.
+ *
+ * Only the first size elements are checked: after a shrinking resize the block can be longer.
+ * A view is meant to be short-lived, with no guarantee past a change to the container it views.
+ */
+inline blast_fn bool points_into(const real* p, const real* block, u32 size) {
+  const auto address = reinterpret_cast<std::uintptr_t>(p);
+  const auto begin   = reinterpret_cast<std::uintptr_t>(block);
+  return p != nullptr && block != nullptr && address >= begin && address < begin + size * sizeof(real);
+}
 
 // Member functions
 inline blast_fn Array::Array(u32 new_size) :
@@ -78,14 +95,17 @@ inline blast_fn Array::~Array() {
 
 inline blast_fn Array& Array::operator=(const Array& a) {
   if (this != &a) {
+    // Copy first, free after: a may be a view of this Array's own block.
+    real* new_data = nullptr; // an empty Array has no data: nothing dangling (or not owned) is kept
+    if (a.size) {
+      new_data = (real*) Malloc(ALIGN, a.size * sizeof(real));
+      Assert(new_data);
+      memcpy(new_data, a.data, a.size * sizeof(real));
+    }
     if (data && !is_alias)
       Free(data);
-    data = nullptr; // an empty Array has no data: nothing dangling (or not owned) is kept
-    size = a.size;
-    if (size) {
-      data = (real*) Malloc(ALIGN, a.size * sizeof(real));
-      memcpy(data, a.data, size * sizeof(real));
-    }
+    data     = new_data;
+    size     = a.size;
     is_alias = false;
   }
   return *this;
@@ -93,11 +113,19 @@ inline blast_fn Array& Array::operator=(const Array& a) {
 
 inline blast_fn Array& Array::operator=(Array&& a) noexcept {
   if (this != &a) {
-    if (data && !is_alias)
-      Free(data);
-    data       = a.data;
-    size       = a.size;
-    is_alias   = a.is_alias;
+    if (!is_alias && a.is_alias && points_into(a.data, data, size)) {
+      // a views this Array's own block: adopting its pointer and freeing the block would leave
+      // this Array on freed memory. Copy the viewed values instead: the only path where this
+      // move allocates. It stays noexcept so containers of Array move; a failed allocation is
+      // fatal here as everywhere else in Blast.
+      *this = static_cast<const Array&>(a);
+    } else {
+      if (data && !is_alias)
+        Free(data);
+      data     = a.data;
+      size     = a.size;
+      is_alias = a.is_alias;
+    }
     a.is_alias = true;
     a.data     = nullptr;
     a.size     = 0;
@@ -106,10 +134,28 @@ inline blast_fn Array& Array::operator=(Array&& a) noexcept {
 }
 
 inline blast_fn Array& Array::operator=(const std::initializer_list<real>& other) {
-  if (size < other.size())
-    resize((u32) other.size());
-  if (other.size() > 0) // an empty list on an empty Array: data is null
-    memcpy(data, other.begin(), other.size() * sizeof(real));
+  // Replaces the contents, like copy assignment. A list of the current size writes in place,
+  // through a view too; another size gives an owned Array of the list's size.
+  const u32 new_size = (u32) other.size();
+  if (new_size != size) {
+    // Writing a list of another size through a view is a mistake: the values would not reach the
+    // viewed memory. Debug builds stop here.
+    Assert(!is_alias);
+    if (is_alias) { // release: a view cannot change size, so drop it (the viewed memory is not freed)
+      data     = nullptr;
+      size     = 0;
+      is_alias = false;
+    }
+    if (new_size == 0) { // an empty Array has no data, as after copy assignment
+      Free(data);
+      data = nullptr;
+      size = 0;
+    } else {
+      resize(new_size);
+    }
+  }
+  if (new_size > 0) // an empty list on an empty Array: data may be null
+    memcpy(data, other.begin(), new_size * sizeof(real));
   return *this;
 }
 
@@ -157,6 +203,7 @@ inline blast_fn Array& Array::alias(std::vector<real>& v) {
 }
 
 inline blast_fn Array& Array::alias(Matrix& m) {
+  Assert(is_alias || !points_into(m.data, data, size)); // a view of the block about to be freed
   if (data && !is_alias)
     Free(data);
   data     = m.data;
@@ -167,6 +214,7 @@ inline blast_fn Array& Array::alias(Matrix& m) {
 
 inline blast_fn Array& Array::alias(real* p, u32 n) {
   Assert(p);
+  Assert(is_alias || !points_into(p, data, size)); // a view of the block about to be freed
   if (data && !is_alias)
     Free(data);
   data     = p;

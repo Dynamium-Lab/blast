@@ -245,10 +245,6 @@ inline blast_fn void Bspline::compute_basis_open() {
       knots[i] = (real) i * du;
   }
 
-#ifdef BLAST_DEBUG
-  print(knots);
-#endif
-
   Matrix     N(m, (degree + 1)); // triangle basis function
   const real du = (real) 1 / (real) (n_points - 1);
   zero(basis_p);
