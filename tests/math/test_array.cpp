@@ -478,3 +478,155 @@ TEST_CASE("Array - assigning an empty list to an empty Array", "[Math][Array]") 
   a = {};
   CHECK(a.size == 0);
 }
+
+// ---------------------------------------------------------------------------
+// Assignment from a view of the destination's own storage (#97)
+// ---------------------------------------------------------------------------
+
+TEST_CASE("Array - points_into() detects a pointer inside a block", "[Math][Array]") {
+  using namespace blast;
+  real buffer[4] = {};
+  CHECK(points_into(buffer, buffer, 4));
+  CHECK(points_into(buffer + 3, buffer, 4));
+  CHECK_FALSE(points_into(buffer + 4, buffer, 4)); // one past the end
+  CHECK_FALSE(points_into(buffer, buffer + 1, 3));
+  CHECK_FALSE(points_into(nullptr, buffer, 4));
+  CHECK_FALSE(points_into(buffer, nullptr, 4));
+  CHECK_FALSE(points_into(buffer, buffer, 0));
+}
+
+TEST_CASE("Array - copy-assigning a view of its own storage", "[Math][Array]") {
+  using namespace blast;
+  Array a{1, 2, 3, 4};
+  Array view(a.data + 1, 2); // {2, 3}, inside a's block
+  a = view;                  // used to free a's block, then copy from it
+  REQUIRE(a.size == 2);
+  CHECK(a.is_alias == false);
+  CHECK(a[0] == 2);
+  CHECK(a[1] == 3);
+}
+
+TEST_CASE("Array - move-assigning a view of its own storage", "[Math][Array]") {
+  using namespace blast;
+  Array a{1, 2, 3, 4};
+  Array view(a.data + 1, 2);
+  a = std::move(view);        // used to free a's block and keep a pointer into it
+  REQUIRE(a.size == 2);
+  CHECK(a.is_alias == false); // owns a copy of the viewed values
+  CHECK(a[0] == 2);
+  CHECK(a[1] == 3);
+  CHECK(view.data == nullptr);
+  CHECK(view.size == 0);
+}
+
+TEST_CASE("Array - move-assigning a view of other storage keeps the view", "[Math][Array]") {
+  using namespace blast;
+  real  buffer[3] = {1, 2, 3};
+  Array a{7, 8};
+  a = Array(buffer, 3);
+  CHECK(a.is_alias == true);
+  CHECK(a.data == buffer);
+  a[0] = 9;
+  CHECK(buffer[0] == 9);
+}
+
+// ---------------------------------------------------------------------------
+// Initializer-list assignment replaces the contents (#97)
+// ---------------------------------------------------------------------------
+
+TEST_CASE("Array - assigning a shorter list shrinks the Array", "[Math][Array]") {
+  using namespace blast;
+  Array a{1, 2, 3};
+  a = {4};
+  REQUIRE(a.size == 1); // used to stay at 3, with contents {4, 2, 3}
+  CHECK(a[0] == 4);
+}
+
+TEST_CASE("Array - assigning an empty list to an owned Array frees its data", "[Math][Array]") {
+  using namespace blast;
+  Array a{1, 2, 3};
+  a = {};
+  CHECK(a.size == 0);
+  CHECK(a.data == nullptr); // an empty Array has no data, as after copy assignment
+  a = {4, 5};
+  REQUIRE(a.size == 2);
+  CHECK(a[1] == 5);
+}
+
+TEST_CASE("Array - assigning a longer list grows the Array", "[Math][Array]") {
+  using namespace blast;
+  Array a{1};
+  a = {4, 5, 6};
+  REQUIRE(a.size == 3);
+  CHECK(a[0] == 4);
+  CHECK(a[2] == 6);
+}
+
+TEST_CASE("Array - assigning a list of the same size writes through a view", "[Math][Array]") {
+  using namespace blast;
+  real  buffer[3] = {1, 2, 3};
+  Array view(buffer, 3);
+  view = {4, 5, 6};
+  CHECK(view.is_alias == true);
+  CHECK(buffer[0] == 4);
+  CHECK(buffer[2] == 6);
+}
+
+#if !BLAST_TEST_ASSERTS_ON
+TEST_CASE("Array - release: assigning a list of another size to a view drops the view", "[Math][Array]") {
+  using namespace blast;
+  real  buffer[3] = {1, 2, 3};
+  Array view(buffer, 3);
+  view = {4, 5, 6, 7}; // used to resize a view: frees memory it does not own
+  REQUIRE(view.size == 4);
+  CHECK(view.is_alias == false);
+  CHECK(view.data != buffer);
+  CHECK(view[3] == 7);
+  CHECK(buffer[0] == 1); // the viewed memory is untouched
+
+  Array short_view(buffer, 3);
+  short_view = {9};
+  REQUIRE(short_view.size == 1);
+  CHECK(short_view.is_alias == false);
+  CHECK(buffer[0] == 1);
+}
+#endif
+
+#if BLAST_TEST_DEATH_TESTS
+TEST_CASE("Array - debug: assigning a list of another size to a view asserts", "[Math][Array]") {
+  using namespace blast;
+  CHECK(test::aborts([] {
+    real  buffer[3] = {1, 2, 3};
+    Array view(buffer, 3);
+    view = {4, 5};
+  }));
+  CHECK(test::aborts([] {
+    real  buffer[3] = {1, 2, 3};
+    Array view(buffer, 3);
+    view = {4, 5, 6, 7};
+  }));
+  CHECK_FALSE(test::aborts([] { // same size: written through the view
+    real  buffer[3] = {1, 2, 3};
+    Array view(buffer, 3);
+    view = {4, 5, 6};
+  }));
+}
+
+TEST_CASE("Array - debug: aliasing its own block asserts", "[Math][Array]") {
+  using namespace blast;
+  CHECK(test::aborts([] {
+    Array a{1, 2, 3, 4};
+    a.alias(a.data + 1, 2); // would free the block, then view it
+  }));
+  CHECK(test::aborts([] {
+    Array  a{1, 2, 3, 4};
+    Matrix m(a.data, 2, 2);
+    a.alias(m);
+  }));
+  CHECK_FALSE(test::aborts([] { // a view re-aliasing what it views frees nothing
+    real  buffer[4] = {1, 2, 3, 4};
+    Array view(buffer, 4);
+    view.alias(buffer + 1, 2);
+  }));
+}
+#endif
