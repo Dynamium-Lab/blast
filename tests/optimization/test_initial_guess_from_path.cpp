@@ -19,7 +19,8 @@ constexpr double tolerance = 1e-3;
 const Array start = {0.0, 0.4, -0.2, -0.4, 0.3, 0.0};
 const Array goal  = {1.2, -0.3, 0.5, 0.2, -0.4, 0.8};
 
-// The point a fraction `fraction` of the way along a polyline, by joint-space arc length.
+// The point a fraction `fraction` of the way along a polyline, where distance is the sum of Euclidean
+// joint-space segment lengths (the same target guess_from_path fits to).
 Array point_along(const std::vector<Array>& path, real fraction) {
   std::vector<real> cumulative(path.size(), 0);
   for (size_t i = 1; i < path.size(); i++) {

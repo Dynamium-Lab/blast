@@ -117,17 +117,23 @@ inline Array guess_straight_line(Optimization* opt) {
 /**
  * @brief Initial guess that follows a joint-space waypoint path, e.g. from a sampling-based planner.
  *
- * The B-spline curve, with this optimizer's own knots and basis, is fitted to the path by least
- * squares: at `n_samples` parameter values u_k = k / (n_samples - 1), spread uniformly over the
- * curve's parameter and therefore over time (t = u T), the curve should be at the point a fraction
- * u_k of the way along the path, by joint-space arc length. The first and last three control points
- * are pinned by the stop-to-stop task, as in Bspline::compute_control, so only the free interior
- * control points are fitted. They end up off the path, past its corners, so that the curve itself
- * follows it.
+ * Fits the B-spline (this optimizer's own knots and basis) to the path by least squares:
+ * - The path is a polyline in joint space. Its length is the sum of the Euclidean joint-space
+ *   distances between consecutive waypoints.
+ * - At `n_samples` evenly spaced spline parameters u_k = k / (n_samples - 1) in [0, 1] (evenly
+ *   spaced in time too, since t = u T), the target is the point a fraction u_k of the way along that
+ *   length. E.g. the curve at u = 0.3 should be 30 % of the way along the path. This is not waypoint
+ *   0.3 * (n - 1), so unevenly spaced waypoints do not skew the fit.
+ * - The free control points minimize the sum of squared distances between the curve and these
+ *   targets. The first and last three control points stay pinned, as Bspline::compute_control sets
+ *   them for a stop-to-stop task, so the curve starts and ends at rest.
+ * - The fitted control points sit just outside the path's corners, so the curve follows the path
+ *   instead of cutting them.
  *
- * The duration T is the smallest for which joint velocity and acceleration provably stay within the
- * manipulator's limits over the whole curve, not only at samples (convex-hull property of the
- * derivative control polygons), and at least opt->min_duration.
+ * The duration T is the shortest for which every control point of the velocity and acceleration
+ * curves (the derivative control polygons) is within the manipulator's limits, and at least
+ * opt->min_duration. By the convex-hull property this is a conservative choice for the whole curve,
+ * not only at the samples.
  *
  * Requires a stop-to-stop task with finite start and goal (zero boundary velocity and acceleration).
  * The path is expected to start at the task's start and end at its goal: the curve is pinned to the
@@ -159,7 +165,9 @@ inline Array guess_from_path(Optimization* opt, const std::vector<Array>& path, 
     Assert(opt->task(j, 1) == 0 && opt->task(j, 2) == 0 && opt->task(j, 4) == 0 && opt->task(j, 5) == 0);
   }
 
-  // Cumulative joint-space arc length along the path.
+  // cumulative[i]: distance along the path from its start to waypoint i (sum of Euclidean
+  // joint-space segment lengths). This only places the targets; nothing is minimized here. The
+  // square root is needed: squared lengths do not add up along a path.
   std::vector<real> cumulative(path.size(), 0);
   for (size_t i = 1; i < path.size(); i++) {
     real squared = 0;
@@ -173,8 +181,8 @@ inline Array guess_from_path(Optimization* opt, const std::vector<Array>& path, 
   if (!(length > 0))
     return guess_straight_line(opt);
 
-  // Full control polygon (n_ctrl x n_joints): boundary triples pinned, as compute_control builds them
-  // for a stop-to-stop task; interior rows fitted below.
+  // Full control polygon (n_ctrl x n_joints). The first and last three rows are pinned to the task's
+  // start and goal, as compute_control sets them for a stop-to-stop task; the rows between are fitted below.
   Matrix control(n_ctrl, n_joints);
   for (u32 j = 0; j < n_joints; j++) {
     for (u32 i = 0; i < 3; i++) {
@@ -183,14 +191,17 @@ inline Array guess_from_path(Optimization* opt, const std::vector<Array>& path, 
     }
   }
 
-  // Normal equations (A^T A) p_j = A^T r_j, one n_free x n_free system shared by every joint:
-  // A_ki = N_{3+i}(u_k) and r_kj = path_j(u_k) minus the pinned control points' contribution.
-  // The basis values come from this optimizer's own Bspline, sampled at u_k = k / (n_samples - 1).
+  // Least squares: over the free control points, minimize sum_k |C(u_k) - target_k|^2, C being the
+  // curve. Normal equations (A^T A) p_j = A^T r_j, with one n_free x n_free matrix shared by every joint j:
+  //   A_ki = N_{3+i}(u_k), the basis function of free control point i at sample k;
+  //   r_kj = target_kj minus the pinned control points' contribution at u_k.
+  // Basis values come from this optimizer's own Bspline, sampled at u_k = k / (n_samples - 1).
   const Bspline     samples(n_ctrl, n_samples, degree, n_joints);
   std::vector<real> normal(n_free * n_free, 0), rhs(n_free * n_joints, 0), point(n_joints);
   size_t            segment = 0;
   for (u32 k = 0; k < n_samples; k++) {
-    // The point a fraction u_k of the way along the path (u_k only grows, so the segment only advances).
+    // target_k: the point at distance u_k * length along the path, interpolated linearly within its
+    // segment. u_k only grows, so the segment index only advances.
     const real distance = length * (real) k / (real) (n_samples - 1);
     while (segment + 2 < path.size() && cumulative[segment + 1] < distance)
       segment++;
@@ -244,9 +255,11 @@ inline Array guess_from_path(Optimization* opt, const std::vector<Array>& path, 
       control(3 + a, j) = solution[a];
   }
 
-  // Duration: velocity is (degree-scaled first differences of the control polygon) / T and acceleration
-  // the same second differences / T^2; by the convex-hull property their control polygons bound them
-  // everywhere on the curve. Clamped uniform knots, as Bspline::compute_basis builds them.
+  // Duration. Velocity is itself a B-spline whose control points are the degree-scaled first
+  // differences of the control polygon, divided by T; acceleration likewise uses second differences
+  // over T^2. T is the smallest value that brings every one of those control points within its
+  // limit (conservative by the convex-hull property).
+  // Knots are clamped uniform, as Bspline::compute_basis builds them.
   const auto knot = [&](u32 i) -> real {
     if (i <= degree)
       return 0;

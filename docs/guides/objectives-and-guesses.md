@@ -59,12 +59,16 @@ std::vector<Array> path = ...;                 // waypoints from start to goal, 
 opt.guess = Guess(guess_from_path(&opt, path));
 ```
 
-It fits the B-spline curve to the path by least squares: the curve covers the path at a
-uniform rate of arc length over time, with the start and goal control points pinned as for any
-stop-to-stop task, so the free control points sit just outside the path's corners and the curve
-follows it. The duration is the shortest for which joint velocity and acceleration provably
-stay within the limits everywhere on the curve. It requires a stop-to-stop task; a path of zero
-length gives the straight-line guess.
+It fits the B-spline curve to the path by least squares, so that the curve moves along the path
+at a steady rate: at 30 % of the duration it should be 30 % of the way along the path. Distance
+along the path is the sum of the Euclidean joint-space distances between waypoints, so unevenly
+spaced waypoints do not skew the fit. The start and goal control points stay pinned as for any
+stop-to-stop task, so the curve starts and ends at rest. The fitted control points sit just
+outside the path's corners, so the curve follows the path instead of cutting them.
+
+The duration is the shortest for which the control points of the velocity and acceleration
+curves are within the joint limits, a conservative choice for the whole curve. It requires a
+stop-to-stop task; a path of zero length gives the straight-line guess.
 
 See the [API reference](../api/cpp/index.md) for the full `Objective` and `Guess`
 definitions.
