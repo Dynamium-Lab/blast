@@ -93,6 +93,26 @@ Matrix as_matrix(const std::vector<Array>& path) {
   return m;
 }
 
+// Normal equations: at the least-squares optimum over `n_samples` samples, sum_k N_i(u_k) (C(u_k) - path(u_k))
+// = 0 for every free control point i. C is evaluated by Bspline::compute_trajectory and path(u_k) by the
+// test's own interpolation, so the fit and the optimizer must agree on knots, basis and pinned control points.
+void check_least_squares_optimum(const Optimization& opt, const std::vector<Array>& path, const Array& x, u32 n_samples) {
+  Bspline check(opt.bspline.n_ctrl, n_samples, opt.bspline.degree, opt.bspline.n_joints);
+  check.compute_trajectory(x, opt.task);
+  for (u32 i = 3; i < opt.bspline.n_ctrl - 3; i++) {
+    for (u32 j = 0; j < opt.bspline.n_joints; j++) {
+      real gradient = 0, scale = 0;
+      for (u32 k = 0; k < n_samples; k++) {
+        const Array target = point_along(path, (real) k / (real) (n_samples - 1));
+        gradient += check.basis_p(i, k) * (check.traj.pos(j, k) - target[j]);
+        scale += check.basis_p(i, k) * std::abs(target[j]);
+      }
+      INFO("control point " << i << ", joint " << j);
+      CHECK(std::abs(gradient) <= tolerance * std::max(scale, (real) 1));
+    }
+  }
+}
+
 Array sample(const Bspline& bspline, u32 point) {
   Array q(bspline.n_joints);
   for (u32 j = 0; j < bspline.n_joints; j++)
@@ -121,27 +141,25 @@ TEST_CASE("a two-point path gives a straight curve from start to goal", "[Optimi
 }
 
 TEST_CASE("the fit is the least-squares optimum in this optimizer's B-spline", "[Optimization]") {
-  // Normal equations: at the optimum, sum_k N_i(u_k) (C(u_k) - path(u_k)) = 0 for every free control
-  // point i. C is evaluated by Bspline::compute_trajectory and path(u_k) by the test's own arc-length
-  // interpolation, so the fit and the optimizer must agree on knots, basis and pinned control points.
-  Optimization             opt(make_UR5e(), Task::stop_to_stop(start, goal));
-  const std::vector<Array> path      = corner_path();
-  const u32                n_samples = 100;
-  const Array              x         = guess_from_path(&opt, as_matrix(path), n_samples);
-  Bspline                  check(opt.bspline.n_ctrl, n_samples, opt.bspline.degree, opt.bspline.n_joints);
-  check.compute_trajectory(x, opt.task);
-  for (u32 i = 3; i < opt.bspline.n_ctrl - 3; i++) {
-    for (u32 j = 0; j < start.size; j++) {
-      real gradient = 0, scale = 0;
-      for (u32 k = 0; k < n_samples; k++) {
-        const Array target = point_along(path, (real) k / (real) (n_samples - 1));
-        gradient += check.basis_p(i, k) * (check.traj.pos(j, k) - target[j]);
-        scale += check.basis_p(i, k) * std::abs(target[j]);
-      }
-      INFO("control point " << i << ", joint " << j);
-      CHECK(std::abs(gradient) <= tolerance * std::max(scale, (real) 1));
-    }
-  }
+  Optimization opt(make_UR5e(), Task::stop_to_stop(start, goal));
+  check_least_squares_optimum(opt, corner_path(), guess_from_path(&opt, as_matrix(corner_path()), 100), 100);
+}
+
+TEST_CASE("an explicit low sample count is used as given", "[Optimization]") {
+  // 12 control points, degree 5: 10 samples still determine the 6 free control points.
+  Optimization opt(make_UR5e(), Task::stop_to_stop(start, goal));
+  check_least_squares_optimum(opt, corner_path(), guess_from_path(&opt, as_matrix(corner_path()), 10), 10);
+}
+
+TEST_CASE("a sample count too low for the fit falls back to the default", "[Optimization]") {
+  // 12 control points, degree 5: 7 samples are more than the 6 free control points but still leave
+  // the normal equations singular, so this exercises the pivot check, not only the count check.
+  Optimization opt(make_UR5e(), Task::stop_to_stop(start, goal));
+  const Array  low      = guess_from_path(&opt, as_matrix(corner_path()), 7);
+  const Array  fallback = guess_from_path(&opt, as_matrix(corner_path()));
+  REQUIRE(low.size == fallback.size);
+  for (u32 i = 0; i < low.size; i++)
+    CHECK(low[i] == fallback[i]);
 }
 
 TEST_CASE("the fitted curve follows a path with a corner much closer than the straight line", "[Optimization]") {
@@ -188,14 +206,13 @@ TEST_CASE("the duration keeps velocity and acceleration within limits over the w
   }
 }
 
-TEST_CASE("the default sample count works for any number of control points", "[Optimization]") {
-  // 30 control points: the automatic count, max(100, 4 * n_ctrl) = 120, keeps the fit well posed.
+TEST_CASE("the default sample count scales with the number of segments", "[Optimization]") {
+  // 40 control points, degree 5: 35 segments, so the default is max(100, 4 * 35) = 140 samples.
   Optimization opt(make_UR5e(), Task::stop_to_stop(start, goal));
-  opt.set_bspline(Bspline(30, 150, 5, 6));
+  opt.set_bspline(Bspline(40, 150, 5, 6));
   const Array x = guess_from_path(&opt, as_matrix(corner_path()));
   REQUIRE(x.size == opt.bspline.x_len(opt.task));
-  for (u32 i = 0; i < x.size; i++)
-    CHECK(std::isfinite(x[i]));
+  check_least_squares_optimum(opt, corner_path(), x, 140);
   opt.bspline.compute_trajectory(x, opt.task);
   for (u32 j = 0; j < start.size; j++) {
     CHECK(opt.bspline.traj.pos(j, 0) == Approx(start[j]).margin(tolerance));

@@ -143,9 +143,10 @@ inline Array guess_straight_line(Optimization* opt) {
  * @param opt        Optimization whose bspline, task and manipulator limits define the guess.
  * @param path       Waypoints as an n_joints x n_waypoints Matrix, one column per waypoint (the layout of
  *                   Bspline trajectories); at least two columns.
- * @param n_samples  Points the curve is fitted at; 0 (the default) means max(100, 4 * n_ctrl). An explicit
- *                   value must be at least 4 * n_ctrl, so that every free control point influences several
- *                   samples and the fit is well posed.
+ * @param n_samples  Points the curve is fitted at; 0 (the default) means max(100, 4 * n_segments), with
+ *                   n_segments = n_ctrl - degree. An explicit value is used as given; if it is too few to
+ *                   determine the free control points (about n_ctrl - 4), a message is printed and the
+ *                   default is used instead.
  * @return The optimization vector x (free control points, joint-major, then T), laid out as
  *         guess_straight_line() returns it.
  */
@@ -156,9 +157,9 @@ inline Array guess_from_path(Optimization* opt, const Matrix& path, u32 n_sample
   const u32 n_free   = n_ctrl - 6;
   Assert(n_ctrl > 6);
   Assert(path.rows == n_joints && path.cols >= 2);
+  const u32 default_samples = std::max((u32) 100, 4 * (n_ctrl - degree));
   if (n_samples == 0)
-    n_samples = std::max((u32) 100, 4 * n_ctrl);
-  Assert(n_samples >= 4 * n_ctrl);
+    n_samples = default_samples;
   for (u32 j = 0; j < n_joints; j++) {
     Assert(std::isfinite(opt->task(j, 0)) && std::isfinite(opt->task(j, 3)));
     Assert(opt->task(j, 1) == 0 && opt->task(j, 2) == 0 && opt->task(j, 4) == 0 && opt->task(j, 5) == 0);
@@ -194,48 +195,70 @@ inline Array guess_from_path(Optimization* opt, const Matrix& path, u32 n_sample
   // curve. Normal equations (A^T A) p_j = A^T r_j, with one n_free x n_free matrix shared by every joint j:
   //   A_ki = N_{3+i}(u_k), the basis function of free control point i at sample k;
   //   r_kj = target_kj minus the pinned control points' contribution at u_k.
-  // Basis values come from this optimizer's own Bspline, sampled at u_k = k / (n_samples - 1).
-  const Bspline     samples(n_ctrl, n_samples, degree, n_joints);
-  std::vector<real> normal(n_free * n_free, 0), rhs(n_free * n_joints, 0), point(n_joints);
-  u32               segment = 0;
-  for (u32 k = 0; k < n_samples; k++) {
-    // target_k: the point at distance u_k * length along the path, interpolated linearly within its
-    // segment. u_k only grows, so the segment index only advances.
-    const real distance = length * (real) k / (real) (n_samples - 1);
-    while (segment + 2 < path.cols && cumulative[segment + 1] < distance)
-      segment++;
-    const real span     = cumulative[segment + 1] - cumulative[segment];
-    const real fraction = span > 0 ? std::clamp((distance - cumulative[segment]) / span, (real) 0, (real) 1) : (real) 0;
-    for (u32 j = 0; j < n_joints; j++)
-      point[j] = path(j, segment) + fraction * (path(j, segment + 1) - path(j, segment));
+  // Basis values come from this optimizer's own Bspline, sampled at u_k = k / (count - 1).
+  //
+  // build_and_factor(count) builds the normal equations from `count` samples and factors them in place
+  // (Cholesky, normal = L L^T in the lower triangle). It returns false when the samples are too few to
+  // determine the free control points: a pivot then drops to rounding level relative to the largest
+  // diagonal entry, while a well-posed fit keeps every pivot within a small factor of it.
+  std::vector<real> normal, rhs, point(n_joints);
+  const auto        build_and_factor = [&](u32 count) -> bool {
+    if (count < std::max(n_free, (u32) 2))
+      return false;
+    normal.assign(n_free * n_free, 0);
+    rhs.assign(n_free * n_joints, 0);
+    const Bspline samples(n_ctrl, count, degree, n_joints);
+    u32           segment = 0;
+    for (u32 k = 0; k < count; k++) {
+      // target_k: the point at distance u_k * length along the path, interpolated linearly within its
+      // segment. u_k only grows, so the segment index only advances.
+      const real distance = length * (real) k / (real) (count - 1);
+      while (segment + 2 < path.cols && cumulative[segment + 1] < distance)
+        segment++;
+      const real span     = cumulative[segment + 1] - cumulative[segment];
+      const real fraction = span > 0 ? std::clamp((distance - cumulative[segment]) / span, (real) 0, (real) 1) : (real) 0;
+      for (u32 j = 0; j < n_joints; j++)
+        point[j] = path(j, segment) + fraction * (path(j, segment + 1) - path(j, segment));
 
-    for (u32 j = 0; j < n_joints; j++) {
-      real residual = point[j];
-      for (u32 i = 0; i < 3; i++)
-        residual -= samples.basis_p(i, k) * control(i, j) + samples.basis_p(n_ctrl - 1 - i, k) * control(n_ctrl - 1 - i, j);
+      for (u32 j = 0; j < n_joints; j++) {
+        real residual = point[j];
+        for (u32 i = 0; i < 3; i++)
+          residual -= samples.basis_p(i, k) * control(i, j) + samples.basis_p(n_ctrl - 1 - i, k) * control(n_ctrl - 1 - i, j);
+        for (u32 a = 0; a < n_free; a++)
+          rhs[a * n_joints + j] += samples.basis_p(3 + a, k) * residual;
+      }
       for (u32 a = 0; a < n_free; a++)
-        rhs[a * n_joints + j] += samples.basis_p(3 + a, k) * residual;
+        for (u32 b = 0; b < n_free; b++)
+          normal[a * n_free + b] += samples.basis_p(3 + a, k) * samples.basis_p(3 + b, k);
     }
-    for (u32 a = 0; a < n_free; a++)
-      for (u32 b = 0; b < n_free; b++)
-        normal[a * n_free + b] += samples.basis_p(3 + a, k) * samples.basis_p(3 + b, k);
-  }
 
-  // Cholesky factorization normal = L L^T, in place (lower triangle); positive definite because every
-  // free control point's basis function is nonzero at several samples (n_samples >= 4 * n_ctrl).
-  for (u32 a = 0; a < n_free; a++) {
-    for (u32 b = 0; b <= a; b++) {
-      real sum = normal[a * n_free + b];
-      for (u32 c = 0; c < b; c++)
-        sum -= normal[a * n_free + c] * normal[b * n_free + c];
-      if (a == b) {
-        Assert(sum > 0);
-        normal[a * n_free + a] = std::sqrt(sum);
-      } else {
-        normal[a * n_free + b] = sum / normal[b * n_free + b];
+    real diagonal_max = 0;
+    for (u32 a = 0; a < n_free; a++)
+      diagonal_max = std::max(diagonal_max, normal[a * n_free + a]);
+    const real pivot_min = std::sqrt(std::numeric_limits<real>::epsilon()) * diagonal_max;
+    for (u32 a = 0; a < n_free; a++) {
+      for (u32 b = 0; b <= a; b++) {
+        real sum = normal[a * n_free + b];
+        for (u32 c = 0; c < b; c++)
+          sum -= normal[a * n_free + c] * normal[b * n_free + c];
+        if (a == b) {
+          if (!(sum > pivot_min))
+            return false;
+          normal[a * n_free + a] = std::sqrt(sum);
+        } else {
+          normal[a * n_free + b] = sum / normal[b * n_free + b];
+        }
       }
     }
+    return true;
+  };
+  if (!build_and_factor(n_samples)) {
+    printf("guess_from_path: n_samples %u too few for %u control points; using %u.\n", n_samples, n_ctrl, default_samples);
+    const bool factored = build_and_factor(default_samples);
+    Assert(factored);
+    (void) factored;
   }
+
   std::vector<real> solution(n_free);
   for (u32 j = 0; j < n_joints; j++) {
     for (u32 a = 0; a < n_free; a++) { // L y = rhs
