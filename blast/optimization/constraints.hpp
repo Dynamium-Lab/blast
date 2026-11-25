@@ -140,68 +140,44 @@ inline blast_fn real ext_collision_constraint_at_point(const Optimization& opt, 
 }
 
 /**
- * @brief Parameters of one joint's position constraint: c = (|p - center| - target) * scale + offset.
+ * @brief Parameters of one joint's position constraint:
+ *        c = max(p - upper_bound, lower_bound - p) * inv_half_range + unbounded_offset.
  *
- * Constraints away from the task endpoints (and all of them when untightened):
- * - target = 0, offset = -1
- * - scale  = 1 / half_range (the tightened half range)
- *
- * Constraints of the first or last segment, while tightened, when the pinned start/goal lies
- * outside the tightened band:
- * - target = |endpoint - center| (plus a few ulps), offset = 0
- * - scale  = tolerance / (true_half_range - target)
- *
- * Either way c < tolerance <=> |p - center| < true_half_range, and c < 0 at a pinned endpoint.
- * An unbounded joint gives c = -1. See docs/guides/constraints.md.
+ * c = 0 at each of the solver's bounds (solver_position_min/max) and is continuous, with the same slope 1 / half_range of
+ * the limits in opt.manip on both sides. On a side that is not widened c = success_tolerance exactly
+ * at the true limit while tightened. A widened side applies to every segment and sample, not only
+ * near the endpoints: c = 0 is between the pinned endpoint and the true limit, so the endpoint is
+ * strictly inside (c < 0), and c reaches success_tolerance past the true limit by less than the
+ * tightening, anywhere along the trajectory: the validation on the true limits decides there. Untightened,
+ * c = 0 at the limits. An unbounded joint gives c = -1. See docs/guides/constraints.md.
  */
 struct PositionConstraintParams {
-  real center;
-  real scale;
-  real target;
-  real offset = 0;
+  real upper_bound;          // c = 0 here: the tightened upper limit, or widened past a pinned start/goal
+  real lower_bound;          // c = 0 here: the tightened lower limit, or widened past a pinned start/goal
+  real inv_half_range;       // slope of c on both sides: 1 / half the range of the tightened limits
+  real unbounded_offset = 0; // -1 for a joint without position limits (then c = -1 everywhere), else 0
 
-  blast_fn real value(real position) const { return (std::abs(position - center) - target) * scale + offset; }
-  blast_fn real gradient(real position) const { return sign(position - center) * scale; }
+  blast_fn real value(real position) const {
+    return std::max(position - upper_bound, lower_bound - position) * inv_half_range + unbounded_offset;
+  }
+  blast_fn real gradient(real position) const {
+    return position - upper_bound >= lower_bound - position ? inv_half_range : -inv_half_range;
+  }
 };
 
-/** @brief Position constraint parameters for a joint and segment. */
-inline blast_fn PositionConstraintParams position_constraint_params(const Optimization& opt, int joint, int segment, int n_segments) {
-  // Floor on the remaining slack, as a fraction of the tightening: keeps the scale finite for an endpoint at the true limit.
-  constexpr real min_slack_fraction = (real) 0.01;
-
-  const real position_max = opt.manip.position_max[joint];
-  const real position_min = opt.manip.position_min[joint];
-  if (position_max == INF_REAL || position_min == -INF_REAL)
-    return {0, 0, 0, -1};
-  const real center     = (position_max + position_min) / 2;
-  const real half_range = (position_max - position_min) / 2;
-  const auto interior   = PositionConstraintParams{center, 1 / half_range, 0, -1};
-  if (!opt.pinned_tightening_active || (segment != 0 && segment != n_segments - 1))
-    return interior;
-
-  const real tolerance       = opt.success_tolerance;
-  const real true_half_range = half_range * (1 + tolerance); // tighten_for_success_tolerance divided it by 1 + tolerance
-  // A few ulps past the endpoint, so the pinned sample is strictly satisfied despite rounding in
-  // the trajectory evaluation (its gradient is exactly zero).
-  const real margin   = 16 * std::numeric_limits<real>::epsilon() * true_half_range;
-  real       endpoint = 0;
-  // Both conditions separate: when n_segments == 1 the segment is both first and last.
-  if (segment == 0)
-    endpoint = std::max(endpoint, std::abs(opt.task(joint, 0) - center));
-  if (segment == n_segments - 1)
-    endpoint = std::max(endpoint, std::abs(opt.task(joint, 3) - center));
-  if (endpoint + margin <= half_range)
-    return interior;
-  const real target = std::min(endpoint + margin, true_half_range - min_slack_fraction * (true_half_range - half_range));
-  return {center, tolerance / (true_half_range - target), target};
-}
-
-/** @brief Position constraint parameters of one sample, for the point-based methods. */
-inline blast_fn PositionConstraintParams position_constraint_params_at_point(const Optimization& opt, u32 point, int joint) {
-  const int n_segments = (int) opt.bspline.n_ctrl - (int) opt.bspline.degree;
-  const int n_points   = (int) opt.bspline.n_points;
-  const int segment    = std::min((int) point * n_segments / std::max(n_points, 1), n_segments - 1);
-  return position_constraint_params(opt, joint, segment, n_segments);
+/** @brief Position constraint parameters of a joint, the same for every segment and sample. */
+inline blast_fn PositionConstraintParams position_constraint_params(const Optimization& opt, int joint) {
+  const real               position_max = opt.manip.position_max[joint];
+  const real               position_min = opt.manip.position_min[joint];
+  PositionConstraintParams params{};
+  if (position_max == INF_REAL || position_min == -INF_REAL) {
+    params.unbounded_offset = -1; // bounds and slope stay 0
+    return params;
+  }
+  params.upper_bound    = solver_position_max(opt, joint);
+  params.lower_bound    = solver_position_min(opt, joint);
+  params.inv_half_range = (real) 2 / (position_max - position_min);
+  return params;
 }
 
 inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Optimization& opt, Array& constraints, Matrix& grad) {
@@ -245,6 +221,11 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
   opt.bspline.compute_trajectory(x, opt.task);
 
 
+  // Position constraint parameters: the same for every segment.
+  std::array<PositionConstraintParams, MAX_JOINTS> pos_params;
+  for (int j = 0; j < n_joints; j++)
+    pos_params[j] = position_constraint_params(opt, j);
+
   for (int segment = 0; segment < n_segments; segment++) {
 #if BLAST_TRACE_LEVEL >= 2
     PROFILE_SCOPE("All Segment Constraints");
@@ -260,9 +241,6 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
     Matrix bv(&opt.bspline.basis_v(0, start_point_for_segment), n_ctrl, n_points_per_segment);
     Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_per_segment);
 
-    std::array<PositionConstraintParams, MAX_JOINTS> pos_params;
-    for (int j = 0; j < n_joints; j++)
-      pos_params[j] = position_constraint_params(opt, j, segment, n_segments);
 
     Array                                               max_pos_constraints(n_joints, -INF_REAL);
     Array                                               max_vel_constraints(n_joints, -INF_REAL);
@@ -923,6 +901,11 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
   opt.bspline.compute_trajectory(x, opt.task);
 
 
+  // Position constraint parameters: the same for every segment.
+  std::array<PositionConstraintParams, MAX_JOINTS> pos_params;
+  for (int j = 0; j < n_joints; j++)
+    pos_params[j] = position_constraint_params(opt, j);
+
   for (int segment = 0; segment < n_segments; segment++) {
 #if BLAST_TRACE_LEVEL >= 2
     PROFILE_SCOPE("All Segment Constraints");
@@ -938,9 +921,6 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
     Matrix bv(&opt.bspline.basis_v(0, start_point_for_segment), n_ctrl, n_points_per_segment);
     Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_per_segment);
 
-    std::array<PositionConstraintParams, MAX_JOINTS> pos_params;
-    for (int j = 0; j < n_joints; j++)
-      pos_params[j] = position_constraint_params(opt, j, segment, n_segments);
     const auto                                          self_coll_params = self_collision_constraint_params(opt, segment, n_segments);
     std::array<CollisionConstraintParams, MAX_CAPSULES> ext_coll_params;
     for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++)
@@ -1531,6 +1511,11 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
   opt.bspline.compute_trajectory(x, opt.task);
 
 
+  // Position constraint parameters: the same for every segment.
+  std::array<PositionConstraintParams, MAX_JOINTS> pos_params;
+  for (int j = 0; j < n_joints; j++)
+    pos_params[j] = position_constraint_params(opt, j);
+
   for (int segment = 0; segment < n_segments; segment++) {
 #if BLAST_TRACE_LEVEL >= 2
     PROFILE_SCOPE("All Segment Constraints");
@@ -1546,9 +1531,6 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
     Matrix bv(&opt.bspline.basis_v(0, start_point_for_segment), n_ctrl, n_points_per_segment);
     Matrix ba(&opt.bspline.basis_a(0, start_point_for_segment), n_ctrl, n_points_per_segment);
 
-    std::array<PositionConstraintParams, MAX_JOINTS> pos_params;
-    for (int j = 0; j < n_joints; j++)
-      pos_params[j] = position_constraint_params(opt, j, segment, n_segments);
     const auto                                          self_coll_params = self_collision_constraint_params(opt, segment, n_segments);
     std::array<CollisionConstraintParams, MAX_CAPSULES> ext_coll_params;
     for (int capsule_id = 0; capsule_id < n_capsules; capsule_id++)
@@ -2189,6 +2171,10 @@ inline blast_fn void compute_constraints(real* result, Array& x, Optimization* o
 
   // todo: compute n_con_per_point() so that every worker knows where to put their result
 
+  std::array<PositionConstraintParams, MAX_JOINTS> pos_params; // the same for every point
+  for (int j = 0; j < (int) opt->manip.n_joints; j++)
+    pos_params[j] = position_constraint_params(*opt, j);
+
   for (int i = 0; i < opt->bspline.n_points; i++) {
 #if BLAST_TRACE_LEVEL >= 3
     PROFILE_SCOPE("ConstraintSinglePoint");
@@ -2234,7 +2220,7 @@ inline blast_fn void compute_constraints(real* result, Array& x, Optimization* o
       PROFILE_SCOPE("Position");
 #endif
       for (int j = 0; j < opt->manip.n_joints; j++) {
-        *moving_result++ = position_constraint_params_at_point(*opt, i, j).value(opt->bspline.traj.pos(j, i));
+        *moving_result++ = pos_params[j].value(opt->bspline.traj.pos(j, i));
       }
     }
 
@@ -2598,6 +2584,7 @@ inline void compute_constraints_with_analytical_pva(ConstraintPerPoint& constrai
   auto n_joints = opt->manip.n_joints;
 
   // ObjMatrix<Capsule> capsules(opt->manip._n_caps, (u32) (opt->bspline.upper_bounds[x_idx] - opt->bspline.lower_bounds[x_idx] + 1) / opt->constraints.n_collision_skip);
+  const auto pos_params = position_constraint_params(*opt, (int) joint_idx); // the same for every point
   for (u32 i = opt->bspline.lower_bounds[x_idx]; i <= opt->bspline.upper_bounds[x_idx]; i++) {
 #if BLAST_TRACE_LEVEL >= 3
     ZoneScopedN("ConstraintSinglePoint");
@@ -2638,7 +2625,7 @@ inline void compute_constraints_with_analytical_pva(ConstraintPerPoint& constrai
       ZoneScopedN("Position");
 #endif
       // for (int j = 0; j < opt->manip.n_joints; j++) {
-      constraints.pos_constraint[i - opt->bspline.lower_bounds[x_idx]] = position_constraint_params_at_point(*opt, i, joint_idx).value(pos[joint_idx]);
+      constraints.pos_constraint[i - opt->bspline.lower_bounds[x_idx]] = pos_params.value(pos[joint_idx]);
 
       // }
     }
@@ -2794,6 +2781,10 @@ blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& 
     gradient_coeffs[grad_idx++]       = gradient_coeff;
   };
 
+  std::array<PositionConstraintParams, MAX_JOINTS> pos_params; // the same for every point
+  for (int j = 0; j < (int) joints; j++)
+    pos_params[j] = position_constraint_params(*opt, j);
+
   for (u32 i = 0; i < opt->bspline.n_points; i++) {
 #if BLAST_TRACE_LEVEL >= 2
     ZoneScopedN("ConstraintSinglePoint");
@@ -2837,9 +2828,8 @@ blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& 
 #endif
           for (int j = 0; j < joints; j++) {
             const real position         = opt->bspline.traj.pos(j, i);
-            const auto pos_params       = position_constraint_params_at_point(*opt, i, j);
-            *moving_result++            = pos_params.value(position);
-            gradient_coeffs[grad_idx++] = is_grad ? pos_params.gradient(position) : 0;
+            *moving_result++            = pos_params[j].value(position);
+            gradient_coeffs[grad_idx++] = is_grad ? pos_params[j].gradient(position) : 0;
           }
         }
 

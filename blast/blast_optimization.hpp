@@ -120,6 +120,8 @@ struct Optimization {
   real                trajectory_start_time = 0;
   real                success_tolerance     = (real) 0.01; // dimensionless constraint violation threshold; tightening ensures
                                                            // this on the tightened limits implies zero violation on the true limits
+                                                           // (except a position side widened past a pinned start/goal, at every
+                                                           // sample of the trajectory, where the validation on the true limits decides)
   bool tighten_for_tolerance = true;                       // false skips the tightening (ablation only: an accepted
                                                            // solve may then violate the real limits by up to success_tolerance)
   real collision_buffer = (real) 0.001;                    // metres, between any two objects during the solve (each grows
@@ -140,13 +142,16 @@ struct Optimization {
 
   // --- derived, do not set ---
   real collision_scale = 1; // success_tolerance / collision_buffer while tightened, 1 otherwise
-  // While tightened, the first/last segment's constraints target what the pinned start [0] / goal [1]
-  // configuration achieves, so a pinned configuration at or near a limit does not create a violated
-  // zero-gradient constraint. Clearances are measured against the planning geometry (distance + collision_buffer).
-  // See tighten_for_success_tolerance, position_constraint_params, ext_collision_constraint_params.
+  // True while tightened. Then a position bound the pinned start/goal lies on or outside is widened
+  // past it (solver_position_min/max), and the first/last segment's collision constraints target the clearance the pinned
+  // start [0] / goal [1] configuration achieves, so a pinned configuration at or near a limit does not create a
+  // violated zero-gradient constraint. Clearances are measured against the planning geometry (distance +
+  // collision_buffer). See tighten_for_success_tolerance, solver_position_min, ext_collision_constraint_params.
   bool                                          pinned_tightening_active = false;
   std::array<std::array<real, MAX_CAPSULES>, 2> pinned_col_clearance{};
   std::array<real, 2>                           pinned_self_clearance{};
+  std::array<real, MAX_JOINTS>                  pinned_position_min{};                          // while pinned_tightening_active, the position bounds the solver
+  std::array<real, MAX_JOINTS>                  pinned_position_max{};                          // enforces (read them through solver_position_min/max)
 
   std::array<BoundingVolumeHierarchy<AABBPair>, MAX_CAPSULES> time_bounding_volume_hierarchies; // should be std::array<> ? Never changes size
 
@@ -191,6 +196,10 @@ inline void nlopt_constraints(unsigned m, real* result, unsigned x_len, const re
                               void* f_data);
 inline real compute_objective(Array& current_x, Optimization* opt);
 inline bool validate_task(Optimization* opt);
+
+// Defined in optimization/optimization.hpp, used by optimization/constraints.hpp.
+inline blast_fn real solver_position_min(const Optimization& opt, int joint);
+inline blast_fn real solver_position_max(const Optimization& opt, int joint);
 
 inline void nlopt_constraints_with_analytical_pva(unsigned m, real* result, unsigned xlen, const real* x, real* grad, void* f_data);
 inline void nlopt_constraints_with_analytical_dynamics(unsigned m, real* result, unsigned xlen, const real* x, real* grad, void* f_data);

@@ -89,7 +89,7 @@ inline host_fn Vec3 GJK_convert_barycentric(Vec3 a, Vec3 b, Vec3 c, Vec3 p) {
     ood = 1 / abc.z;
   }
 
-  Assert(isinf(ood) == false);
+  Assert(std::isinf(ood) == false);
 
   Vec3 result;
   result.x = nu * ood;
@@ -155,13 +155,13 @@ inline host_fn TwoPts GJK_get_local_points(const ComplexSimplex& simplex, Vec3 p
       barycentric3 = GJK_convert_barycentric(simplex.a, simplex.b, simplex.c, p);
       loc.p1       = GJK_convert_cartesian(simplex.a1, simplex.b1, simplex.c1, barycentric3);
       loc.p2       = GJK_convert_cartesian(simplex.a2, simplex.b2, simplex.c2, barycentric3);
-      Assert(isnan(loc.p1.x) == false);
+      Assert(std::isnan(loc.p1.x) == false);
       break;
 
     default:
       Assert(false);
   }
-  Assert(isnan(loc.p1.x) == false);
+  Assert(std::isnan(loc.p1.x) == false);
   return loc;
 }
 
@@ -180,7 +180,7 @@ inline host_fn Vec3 GJK_get_support(Vec3* vertices, size_t count, Vec3 direction
       largest_dot = current_dot;
     }
   }
-  Assert(isinf(largest_dot) == false);
+  Assert(std::isinf(largest_dot) == false);
   return vertices[largest_idx];
 }
 
@@ -656,7 +656,7 @@ inline host_fn real solve_general_GJK(Vec3* v1, size_t count1, Vec3* v2, size_t 
 
     if (dot(p, p) < BLAST_GJK_EPSILON_SQ && old_simplex_count == 4) {
       dist_min = solve_EPA(simplex, v1, count1, v2, count2);
-      Assert(isnan(dist_min) == false);
+      Assert(std::isnan(dist_min) == false);
       break;
     }
 
@@ -715,7 +715,7 @@ inline host_fn real solve_general_GJK(Vec3* v1, size_t count1, Vec3* v2, size_t 
       }
 
       dist_min = norm(p);
-      Assert(isnan(dist_min) == false);
+      Assert(std::isnan(dist_min) == false);
       break;
     }
 

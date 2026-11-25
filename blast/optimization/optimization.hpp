@@ -164,11 +164,25 @@ struct ToleranceSnapshot {
 };
 
 /**
+ * @brief The lower position bound the solver enforces on a joint, for every segment and sample: the
+ *        limit in opt.manip untightened, opt.pinned_position_min while tightened (the tightened limit,
+ *        or widened past a pinned start/goal; see tighten_for_success_tolerance).
+ */
+inline blast_fn real solver_position_min(const Optimization& opt, int joint) {
+  return opt.pinned_tightening_active ? opt.pinned_position_min[joint] : opt.manip.position_min[joint];
+}
+
+/** @brief The upper position bound the solver enforces on a joint; see solver_position_min. */
+inline blast_fn real solver_position_max(const Optimization& opt, int joint) {
+  return opt.pinned_tightening_active ? opt.pinned_position_max[joint] : opt.manip.position_max[joint];
+}
+
+/**
  * @brief Fills the solver's bounds on the decision vector [free control points, joint-major,
  *        (n_ctrl - 6) per joint | T]. Call after tighten_for_success_tolerance().
  *
- * T is bounded to [min_duration, max_duration], and the control points to the tightened position
- * limits widened by control_point_bound_margin of each joint's range; bound_control_points = false
+ * T is bounded to [min_duration, max_duration], and the control points to the solver's position
+ * bounds (solver_position_min/max) widened by control_point_bound_margin of each joint's range; bound_control_points = false
  * skips the control points. Tasks with NaN entries are not supported.
  *
  * @param opt           Optimization with tightened limits.
@@ -189,12 +203,15 @@ inline void decision_bounds(const Optimization* opt, Array& lower_bounds, Array&
   upper_bounds.back() = opt->max_duration;
   if (!opt->bound_control_points)
     return;
-  // Joints without position limits fall back to ±2π, without margin.
+  // Joints without position limits fall back to ±2π, without margin. The margin is a fraction of the
+  // joint's tightened range, so widening one side for a pinned endpoint does not enlarge the other.
   for (int joint = 0; joint < n_joints; joint++) {
-    const real position_lower       = std::isfinite(opt->manip.position_min[joint]) ? opt->manip.position_min[joint] : -2 * PI;
-    const real position_upper       = std::isfinite(opt->manip.position_max[joint]) ? opt->manip.position_max[joint] : 2 * PI;
+    const real bound_min            = solver_position_min(*opt, joint);
+    const real bound_max            = solver_position_max(*opt, joint);
+    const real position_lower       = std::isfinite(bound_min) ? bound_min : -2 * PI;
+    const real position_upper       = std::isfinite(bound_max) ? bound_max : 2 * PI;
     const bool has_position_limits  = std::isfinite(opt->manip.position_max[joint] - opt->manip.position_min[joint]);
-    const real control_point_margin = has_position_limits ? opt->control_point_bound_margin * (position_upper - position_lower) : real(0);
+    const real control_point_margin = has_position_limits ? opt->control_point_bound_margin * (opt->manip.position_max[joint] - opt->manip.position_min[joint]) : real(0);
     for (int control_point = 0; control_point < n_free_control_points; control_point++) {
       lower_bounds[joint * n_free_control_points + control_point] = position_lower - control_point_margin;
       upper_bounds[joint * n_free_control_points + control_point] = position_upper + control_point_margin;
@@ -261,12 +278,14 @@ inline void set_pinned_col_clearances(Optimization* opt) {
 
 /**
  * @brief Tightens the limits and collision geometry by success_tolerance, so that a solve accepted
- *        at success_tolerance (the solver's con_tol) satisfies the true limits.
+ *        at success_tolerance (the solver's con_tol) satisfies the true limits, except on a position
+ *        side widened past a pinned start/goal, where the validation on the true limits decides.
  *
  * Limits shrink by a factor 1 + success_tolerance about their center; each pair of collision
- * objects grows by collision_buffer (each object by half). Where the pinned start/goal is closer to a limit than that, the first/last
- * segment's constraints target the endpoint instead (see position_constraint_params,
- * set_pinned_col_clearances).
+ * objects grows by collision_buffer (each object by half). A position limit the pinned start/goal
+ * lies outside is widened past it, over the whole trajectory (see solver_position_min). Where the pinned start/goal is closer to an obstacle
+ * than collision_buffer, the first/last segment's collision constraints target the endpoint instead
+ * (see set_pinned_col_clearances). Success is re-validated on the true limits.
  * Must be paired with restore_from_tolerance() before the Optimization is returned or reused.
  *
  * @return The true limits and geometry, for restore_from_tolerance().
@@ -305,14 +324,41 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   // The unit change that makes the dimensionless success_tolerance worth collision_buffer metres.
   opt->collision_scale = tol / opt->collision_buffer;
 
-  // An unbounded joint stays unbounded.
+  // The solver's position bounds (solver_position_min/max): the tightened limits, except that a side whose bound the pinned
+  // start or goal lies on or outside is widened past that endpoint, halfway to the true limit, for the
+  // whole trajectory. A tightened bound the endpoint violates is a zero-gradient constraint the solver
+  // cannot fix, and a bound ON the endpoint leaves the pinned sample's row active (c = 0) with zero
+  // gradient, which NLopt's SLSQP can take a wrong QP step with. An endpoint at, past or within a few
+  // ulps of the true limit is left alone: there is no room to widen into, and no trajectory from an
+  // endpoint at the limit passes the true-limit validation. An unbounded joint stays unbounded.
   for (int joint = 0; joint < opt->manip.n_joints; joint++) {
+    opt->pinned_position_min[joint] = opt->manip.position_min[joint];
+    opt->pinned_position_max[joint] = opt->manip.position_max[joint];
     if (opt->manip.position_max[joint] == INF_REAL || opt->manip.position_min[joint] == -INF_REAL)
       continue;
-    const real center              = (opt->manip.position_max[joint] + opt->manip.position_min[joint]) / 2;
-    const real half_range          = (opt->manip.position_max[joint] - opt->manip.position_min[joint]) / 2 / tightening_factor;
-    opt->manip.position_max[joint] = center + half_range;
-    opt->manip.position_min[joint] = center - half_range;
+    const real center               = (opt->manip.position_max[joint] + opt->manip.position_min[joint]) / 2;
+    const real half_range           = (opt->manip.position_max[joint] - opt->manip.position_min[joint]) / 2 / tightening_factor;
+    opt->manip.position_max[joint]  = center + half_range;
+    opt->manip.position_min[joint]  = center - half_range;
+    opt->pinned_position_max[joint] = opt->manip.position_max[joint];
+    opt->pinned_position_min[joint] = opt->manip.position_min[joint];
+    if (!(tol > 0))
+      continue;
+    const real true_max     = snap.position_max[joint];
+    const real true_min     = snap.position_min[joint];
+    const real start        = opt->task(joint, 0); // pinned start and goal (stop-to-stop task)
+    const real goal         = opt->task(joint, 3);
+    const real endpoint_max = std::max(start, goal);
+    const real endpoint_min = std::min(start, goal);
+    // A few ulps of the limits (their magnitude or the range, whichever is larger): an endpoint on the
+    // tightened bound is still on it after rounding in the trajectory evaluation.
+    const real margin      = (real) 16 * std::numeric_limits<real>::epsilon() * std::max({std::abs(true_max), std::abs(true_min), true_max - true_min});
+    const real slack_upper = (true_max - endpoint_max) / (real) 2; // left between the widened bound and the true limit
+    const real slack_lower = (endpoint_min - true_min) / (real) 2;
+    if (endpoint_max + margin > opt->manip.position_max[joint] && slack_upper > margin)
+      opt->pinned_position_max[joint] = true_max - slack_upper;
+    if (endpoint_min - margin < opt->manip.position_min[joint] && slack_lower > margin)
+      opt->pinned_position_min[joint] = true_min + slack_lower;
   }
   for (int j = 0; j < opt->manip.n_joints; j++) {
     opt->manip.velocity_max[j] /= tightening_factor;

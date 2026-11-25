@@ -94,40 +94,47 @@ inline blast_fn void Matrix::resize(u32 r, u32 c) {
 
 inline blast_fn Matrix& Matrix::operator=(const Matrix& m) {
   if (this != &m) {
-    if (m.size == 0) {
-      size = 0;
-      rows = 0;
-      cols = 0;
-      if (data)
-        Free(data);
-      data = nullptr;
-      return *this;
-    } else if (data == nullptr || is_alias) {
-      data = (real*) Malloc(ALIGN, m.size * sizeof(real));
-    } else {
-      Free(data);
-      data = (real*) Malloc(ALIGN, m.size * sizeof(real));
+    // Copy first, free after: m may be a view of this Matrix's own block. A view (is_alias) does
+    // not own its block and never frees it.
+    real* new_data = nullptr; // an empty Matrix has no data
+    if (m.size) {
+      new_data = (real*) Malloc(ALIGN, m.size * sizeof(real));
+      Assert(new_data);
+      memcpy(new_data, m.data, m.size * sizeof(real));
     }
-    Assert(data);
+    if (data && !is_alias)
+      Free(data);
+    data     = new_data;
     size     = m.size;
     cols     = m.cols;
     rows     = m.rows;
     is_alias = false;
-    memcpy(data, m.data, size * sizeof(real));
   }
   return *this;
 }
 
 inline blast_fn Matrix& Matrix::operator=(Matrix&& m) noexcept {
   if (this != &m) {
-    if (data && !is_alias)
-      Free(data);
-    data       = m.data;
-    size       = m.size;
-    rows       = m.rows;
-    cols       = m.cols;
-    is_alias   = m.is_alias;
-    m.is_alias = true; // m is about to be destroid but we don't want it to free the memory
+    if (!is_alias && m.is_alias && points_into(m.data, data, size)) {
+      // m views this Matrix's own block: adopting its pointer and freeing the block would leave
+      // this Matrix on freed memory. Copy the viewed values instead: the only path where this
+      // move allocates. It stays noexcept so containers of Matrix move; a failed allocation is
+      // fatal here as everywhere else in Blast.
+      *this = static_cast<const Matrix&>(m);
+    } else {
+      if (data && !is_alias)
+        Free(data);
+      data     = m.data;
+      size     = m.size;
+      rows     = m.rows;
+      cols     = m.cols;
+      is_alias = m.is_alias;
+    }
+    m.is_alias = true; // m no longer owns anything
+    m.data     = nullptr;
+    m.size     = 0;
+    m.rows     = 0;
+    m.cols     = 0;
   }
   return *this;
 }
@@ -152,6 +159,7 @@ inline blast_fn bool Matrix::operator!=(const Matrix& m) const {
 
 inline blast_fn Matrix& Matrix::alias(Array& a) {
   Assert(a.data);
+  Assert(is_alias || !points_into(a.data, data, size)); // a view of the block about to be freed
   if (data && !is_alias)
     Free(data);
   size     = a.size;
@@ -176,6 +184,7 @@ inline blast_fn Matrix& Matrix::alias(std::vector<real>& v) {
 
 inline blast_fn Matrix& Matrix::alias(real* p, u32 r, u32 c) {
   Assert(p);
+  Assert(is_alias || !points_into(p, data, size)); // a view of the block about to be freed
   if (data && !is_alias)
     Free(data);
   size     = r * c;
