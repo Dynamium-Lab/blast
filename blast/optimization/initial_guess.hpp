@@ -114,9 +114,6 @@ inline Array guess_straight_line(Optimization* opt) {
   return x;
 }
 
-/** @brief Helpers of guess_from_path(). */
-namespace path_fit {
-
 /**
  * @brief Distance along a joint-space path from its first waypoint to each waypoint.
  *
@@ -317,8 +314,6 @@ inline real duration_within_limits(const Matrix& control, u32 degree, const Mani
   return duration;
 }
 
-} // namespace path_fit
-
 /**
  * @brief Initial guess that follows a joint-space waypoint path, e.g. from a sampling-based planner.
  *
@@ -370,7 +365,7 @@ inline Array guess_from_path(Optimization* opt, const Matrix& path, u32 n_sample
     n_samples = default_samples;
 
   // 1. Measure the path.
-  const Array cumulative = path_fit::cumulative_length(path);
+  const Array cumulative = cumulative_length(path);
   if (!(cumulative.back() > 0))
     return guess_straight_line(opt);
 
@@ -385,15 +380,15 @@ inline Array guess_from_path(Optimization* opt, const Matrix& path, u32 n_sample
   }
 
   // 3. Fit the free control points between them, falling back to the default sample count.
-  if (!path_fit::fit_free_control_points(bspline, path, cumulative, n_samples, control)) {
+  if (!fit_free_control_points(bspline, path, cumulative, n_samples, control)) {
     printf("guess_from_path: n_samples %u too few for %u control points; using %u.\n", n_samples, n_ctrl, default_samples);
-    const bool fitted = path_fit::fit_free_control_points(bspline, path, cumulative, default_samples, control);
+    const bool fitted = fit_free_control_points(bspline, path, cumulative, default_samples, control);
     Assert(fitted);
     (void) fitted;
   }
 
   // 4. Pick the duration.
-  const real duration = path_fit::duration_within_limits(control, bspline.degree, opt->manip, opt->min_duration);
+  const real duration = duration_within_limits(control, bspline.degree, opt->manip, opt->min_duration);
 
   // 5. Pack the free control points (joint-major) and the duration, as guess_straight_line() does.
   Array x(bspline.x_len(opt->task));
