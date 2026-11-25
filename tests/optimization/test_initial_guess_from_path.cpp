@@ -84,6 +84,15 @@ std::vector<Array> early_corner_path() {
   return {start, corner, goal};
 }
 
+// The n_joints x n_waypoints Matrix guess_from_path takes, one column per waypoint.
+Matrix as_matrix(const std::vector<Array>& path) {
+  Matrix m(path[0].size, (u32) path.size());
+  for (u32 i = 0; i < m.cols; i++)
+    for (u32 j = 0; j < m.rows; j++)
+      m(j, i) = path[i][j];
+  return m;
+}
+
 Array sample(const Bspline& bspline, u32 point) {
   Array q(bspline.n_joints);
   for (u32 j = 0; j < bspline.n_joints; j++)
@@ -95,7 +104,7 @@ Array sample(const Bspline& bspline, u32 point) {
 
 TEST_CASE("a two-point path gives a straight curve from start to goal", "[Optimization]") {
   Optimization opt(make_UR5e(), Task::stop_to_stop(start, goal));
-  const Array  x = guess_from_path(&opt, {start, goal});
+  const Array  x = guess_from_path(&opt, as_matrix({start, goal}));
   REQUIRE(x.size == opt.bspline.x_len(opt.task));
   opt.bspline.compute_trajectory(x, opt.task);
   for (u32 point = 0; point < opt.bspline.n_points; point++) {
@@ -118,7 +127,7 @@ TEST_CASE("the fit is the least-squares optimum in this optimizer's B-spline", "
   Optimization             opt(make_UR5e(), Task::stop_to_stop(start, goal));
   const std::vector<Array> path      = corner_path();
   const u32                n_samples = 100;
-  const Array              x         = guess_from_path(&opt, path, n_samples);
+  const Array              x         = guess_from_path(&opt, as_matrix(path), n_samples);
   Bspline                  check(opt.bspline.n_ctrl, n_samples, opt.bspline.degree, opt.bspline.n_joints);
   check.compute_trajectory(x, opt.task);
   for (u32 i = 3; i < opt.bspline.n_ctrl - 3; i++) {
@@ -145,7 +154,7 @@ TEST_CASE("the fitted curve follows a path with a corner much closer than the st
       sum += distance_to_path(path, sample(opt.bspline, point));
     return sum / (real) opt.bspline.n_points;
   };
-  const real fitted   = mean_distance(guess_from_path(&opt, path));
+  const real fitted   = mean_distance(guess_from_path(&opt, as_matrix(path)));
   const real straight = mean_distance(guess_straight_line(&opt));
   INFO("mean distance to the path: fitted " << fitted << ", straight line " << straight);
   CHECK(fitted < (real) 0.05 * straight);
@@ -157,7 +166,7 @@ TEST_CASE("the duration keeps velocity and acceleration within limits over the w
   for (const auto& [name, path]: {std::pair{"corner", corner_path()}, std::pair{"early corner", early_corner_path()},
                                   std::pair{"late corner", late_corner_path()}}) {
     INFO(name << " path");
-    const Array x = guess_from_path(&opt, path);
+    const Array x = guess_from_path(&opt, as_matrix(path));
     CHECK(x.back() >= opt.min_duration);
     // Rendered far denser than the optimizer samples: the bound holds on the continuum, not only at samples.
     Bspline dense(opt.bspline.n_ctrl, 4001, opt.bspline.degree, opt.bspline.n_joints);
@@ -183,7 +192,7 @@ TEST_CASE("the default sample count works for any number of control points", "[O
   // 30 control points: the automatic count, max(100, 4 * n_ctrl) = 120, keeps the fit well posed.
   Optimization opt(make_UR5e(), Task::stop_to_stop(start, goal));
   opt.set_bspline(Bspline(30, 150, 5, 6));
-  const Array x = guess_from_path(&opt, corner_path());
+  const Array x = guess_from_path(&opt, as_matrix(corner_path()));
   REQUIRE(x.size == opt.bspline.x_len(opt.task));
   for (u32 i = 0; i < x.size; i++)
     CHECK(std::isfinite(x[i]));
@@ -196,7 +205,7 @@ TEST_CASE("the default sample count works for any number of control points", "[O
 
 TEST_CASE("a path of zero length gives the straight-line guess", "[Optimization]") {
   Optimization opt(make_UR5e(), Task::stop_to_stop(start, start));
-  const Array  fitted   = guess_from_path(&opt, {start, start});
+  const Array  fitted   = guess_from_path(&opt, as_matrix({start, start}));
   const Array  straight = guess_straight_line(&opt);
   REQUIRE(fitted.size == straight.size);
   for (u32 i = 0; i < fitted.size; i++)

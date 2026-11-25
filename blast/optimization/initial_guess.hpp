@@ -141,25 +141,24 @@ inline Array guess_straight_line(Optimization* opt) {
  * guess_straight_line().
  *
  * @param opt        Optimization whose bspline, task and manipulator limits define the guess.
- * @param path       Waypoints, each an Array of n_joints joint positions; at least two.
+ * @param path       Waypoints as an n_joints x n_waypoints Matrix, one column per waypoint (the layout of
+ *                   Bspline trajectories); at least two columns.
  * @param n_samples  Points the curve is fitted at; 0 (the default) means max(100, 4 * n_ctrl). An explicit
  *                   value must be at least 4 * n_ctrl, so that every free control point influences several
  *                   samples and the fit is well posed.
  * @return The optimization vector x (free control points, joint-major, then T), laid out as
  *         guess_straight_line() returns it.
  */
-inline Array guess_from_path(Optimization* opt, const std::vector<Array>& path, u32 n_samples = 0) {
+inline Array guess_from_path(Optimization* opt, const Matrix& path, u32 n_samples = 0) {
   const u32 n_ctrl   = opt->bspline.n_ctrl;
   const u32 degree   = opt->bspline.degree;
   const u32 n_joints = opt->bspline.n_joints;
   const u32 n_free   = n_ctrl - 6;
   Assert(n_ctrl > 6);
-  Assert(path.size() >= 2);
+  Assert(path.rows == n_joints && path.cols >= 2);
   if (n_samples == 0)
     n_samples = std::max((u32) 100, 4 * n_ctrl);
   Assert(n_samples >= 4 * n_ctrl);
-  for (size_t i = 0; i < path.size(); i++)
-    Assert(path[i].size == n_joints);
   for (u32 j = 0; j < n_joints; j++) {
     Assert(std::isfinite(opt->task(j, 0)) && std::isfinite(opt->task(j, 3)));
     Assert(opt->task(j, 1) == 0 && opt->task(j, 2) == 0 && opt->task(j, 4) == 0 && opt->task(j, 5) == 0);
@@ -168,11 +167,11 @@ inline Array guess_from_path(Optimization* opt, const std::vector<Array>& path, 
   // cumulative[i]: distance along the path from its start to waypoint i (sum of Euclidean
   // joint-space segment lengths). This only places the targets; nothing is minimized here. The
   // square root is needed: squared lengths do not add up along a path.
-  std::vector<real> cumulative(path.size(), 0);
-  for (size_t i = 1; i < path.size(); i++) {
+  std::vector<real> cumulative(path.cols, 0);
+  for (u32 i = 1; i < path.cols; i++) {
     real squared = 0;
     for (u32 j = 0; j < n_joints; j++) {
-      const real d = path[i][j] - path[i - 1][j];
+      const real d = path(j, i) - path(j, i - 1);
       squared += d * d;
     }
     cumulative[i] = cumulative[i - 1] + std::sqrt(squared);
@@ -198,17 +197,17 @@ inline Array guess_from_path(Optimization* opt, const std::vector<Array>& path, 
   // Basis values come from this optimizer's own Bspline, sampled at u_k = k / (n_samples - 1).
   const Bspline     samples(n_ctrl, n_samples, degree, n_joints);
   std::vector<real> normal(n_free * n_free, 0), rhs(n_free * n_joints, 0), point(n_joints);
-  size_t            segment = 0;
+  u32               segment = 0;
   for (u32 k = 0; k < n_samples; k++) {
     // target_k: the point at distance u_k * length along the path, interpolated linearly within its
     // segment. u_k only grows, so the segment index only advances.
     const real distance = length * (real) k / (real) (n_samples - 1);
-    while (segment + 2 < path.size() && cumulative[segment + 1] < distance)
+    while (segment + 2 < path.cols && cumulative[segment + 1] < distance)
       segment++;
     const real span     = cumulative[segment + 1] - cumulative[segment];
     const real fraction = span > 0 ? std::clamp((distance - cumulative[segment]) / span, (real) 0, (real) 1) : (real) 0;
     for (u32 j = 0; j < n_joints; j++)
-      point[j] = path[segment][j] + fraction * (path[segment + 1][j] - path[segment][j]);
+      point[j] = path(j, segment) + fraction * (path(j, segment + 1) - path(j, segment));
 
     for (u32 j = 0; j < n_joints; j++) {
       real residual = point[j];

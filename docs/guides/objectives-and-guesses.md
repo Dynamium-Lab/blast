@@ -55,7 +55,7 @@ A joint-space waypoint path, for example from a sampling-based planner, can seed
 optimizer through `guess_from_path`, which returns a `Guess::custom` starting vector:
 
 ```cpp
-std::vector<Array> path = ...;                 // waypoints from start to goal, each n_joints values
+Matrix path = ...;                             // n_joints x n_waypoints, one column per waypoint, start to goal
 opt.guess = Guess(guess_from_path(&opt, path));
 ```
 
