@@ -96,6 +96,7 @@ set(TESTS
         test_optimization_smoothness optimization/test_optimization_smoothness.cpp
         test_gradients_with_segments optimization/test_gradients_with_segments.cpp
         test_decision_bounds optimization/test_decision_bounds.cpp
+        test_initial_guess_from_path optimization/test_initial_guess_from_path.cpp
 
         # Math
         test_math_matrix math/test_matrix.cpp

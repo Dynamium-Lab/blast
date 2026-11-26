@@ -114,6 +114,311 @@ inline Array guess_straight_line(Optimization* opt) {
   return x;
 }
 
+/**
+ * @brief Distance along a joint-space path from its first waypoint to each waypoint.
+ *
+ * Entry i is the sum of the Euclidean joint-space lengths of the segments before waypoint i, so the
+ * last entry is the path's total length.
+ *
+ * @param path  Waypoints, n_joints x n_waypoints, one column per waypoint.
+ */
+inline Array cumulative_length(const Matrix& path) {
+  const u32 n_joints    = path.rows;
+  const u32 n_waypoints = path.cols;
+  Array     cumulative(n_waypoints);
+  for (u32 waypoint = 1; waypoint < n_waypoints; waypoint++) {
+    real squared_segment_length = 0;
+    for (u32 joint = 0; joint < n_joints; joint++) {
+      const real joint_step = path(joint, waypoint) - path(joint, waypoint - 1);
+      squared_segment_length += joint_step * joint_step;
+    }
+    cumulative[waypoint] = cumulative[waypoint - 1] + std::sqrt(squared_segment_length);
+  }
+  return cumulative;
+}
+
+/**
+ * @brief The point at a given distance along a path, interpolated linearly within the segment that
+ *        contains it.
+ *
+ * @param path        Waypoints, n_joints x n_waypoints.
+ * @param cumulative  cumulative_length(path).
+ * @param distance    Distance from the first waypoint, in [0, cumulative.back()].
+ * @param segment     Index of the segment to start searching from; updated to the segment found. Calls
+ *                    with growing distances can pass the same variable, so the search only moves forward.
+ * @param point       Output, n_joints values (allocated by the caller).
+ */
+inline void point_at_distance_along_path(const Matrix& path, const Array& cumulative, real distance, u32& segment, Array& point) {
+  const u32 n_joints    = path.rows;
+  const u32 n_waypoints = path.cols;
+  while (segment + 2 < n_waypoints && cumulative[segment + 1] < distance)
+    segment++;
+  const real segment_length = cumulative[segment + 1] - cumulative[segment];
+  real       fraction       = 0; // of the way from waypoint `segment` to waypoint `segment + 1`
+  if (segment_length > 0)
+    fraction = std::clamp((distance - cumulative[segment]) / segment_length, (real) 0, (real) 1);
+  for (u32 joint = 0; joint < n_joints; joint++)
+    point[joint] = path(joint, segment) + fraction * (path(joint, segment + 1) - path(joint, segment));
+}
+
+/**
+ * @brief Cholesky factorization matrix = L L^T of a symmetric positive definite matrix, in place (L in
+ *        the lower triangle; only the lower triangle is read, the upper one is left as it was).
+ *
+ * @return false if the matrix is not square, or not clearly positive definite: a pivot falls to rounding level relative
+ *         to the largest diagonal entry, as when the samples are too few to determine the unknowns.
+ */
+inline bool cholesky_factor(Matrix& matrix) {
+  Assert(matrix.rows == matrix.cols);
+  if (matrix.rows != matrix.cols)
+    return false;
+  const u32 size         = matrix.rows;
+  real      diagonal_max = 0;
+  for (u32 row = 0; row < size; row++)
+    diagonal_max = std::max(diagonal_max, matrix(row, row));
+  const real pivot_min = std::sqrt(std::numeric_limits<real>::epsilon()) * diagonal_max;
+
+  for (u32 row = 0; row < size; row++) {
+    for (u32 col = 0; col <= row; col++) {
+      real value = matrix(row, col);
+      for (u32 inner = 0; inner < col; inner++)
+        value -= matrix(row, inner) * matrix(col, inner);
+      if (row == col) {
+        if (!(value > pivot_min))
+          return false;
+        matrix(row, row) = std::sqrt(value);
+      } else {
+        matrix(row, col) = value / matrix(col, col);
+      }
+    }
+  }
+  return true;
+}
+
+/**
+ * @brief Solves L L^T x = b for each column b of `columns`, in place, given the factor L from cholesky_factor().
+ *
+ * @param factor   The factored square matrix (L in the lower triangle).
+ * @param columns  On entry the right-hand sides b, one per column; on return the solutions x.
+ */
+inline void cholesky_solve(const Matrix& factor, Matrix& columns) {
+  Assert(factor.rows == factor.cols && columns.rows == factor.rows);
+  const u32 size = factor.rows;
+  for (u32 column = 0; column < columns.cols; column++) {
+    // Forward substitution: L y = b.
+    for (u32 row = 0; row < size; row++) {
+      for (u32 col = 0; col < row; col++)
+        columns(row, column) -= factor(row, col) * columns(col, column);
+      columns(row, column) /= factor(row, row);
+    }
+    // Back substitution: L^T x = y.
+    for (u32 row = size; row-- > 0;) {
+      for (u32 col = row + 1; col < size; col++)
+        columns(row, column) -= factor(col, row) * columns(col, column);
+      columns(row, column) /= factor(row, row);
+    }
+  }
+}
+
+/**
+ * @brief Least-squares fit of the free control points of a stop-to-stop B-spline to a path.
+ *
+ * At `n_samples` evenly spaced parameters u_k = k / (n_samples - 1), the target is the point a fraction
+ * u_k of the way along the path. Over the free control points (rows 3 to n_ctrl - 4 of `control`),
+ * minimizes sum_k |C(u_k) - target_k|^2, C being the curve, through the normal equations
+ * (A^T A) p_j = A^T r_j, with one matrix shared by every joint j:
+ *   A_ki = N_{3+i}(u_k), the basis function of free control point i at sample k;
+ *   r_kj = target_kj minus the pinned control points' contribution at u_k.
+ * The basis values come from a Bspline with the same control points and degree, so the fit uses the
+ * optimizer's own knots and basis.
+ *
+ * @param bspline     The optimizer's B-spline (n_ctrl, degree, n_joints).
+ * @param path        Waypoints, n_joints x n_waypoints.
+ * @param cumulative  cumulative_length(path).
+ * @param n_samples   Number of samples.
+ * @param control     n_ctrl x n_joints control polygon; the pinned rows are read, the free rows written.
+ * @return false, leaving `control` unchanged, if `n_samples` samples are too few to determine the free
+ *         control points.
+ */
+inline bool fit_free_control_points(const Bspline& bspline, const Matrix& path, const Array& cumulative, u32 n_samples, Matrix& control) {
+  const u32 n_ctrl   = bspline.n_ctrl;
+  const u32 n_joints = bspline.n_joints;
+  const u32 n_free   = n_ctrl - 6;
+  if (n_samples < std::max(n_free, (u32) 2))
+    return false;
+
+  const Bspline samples(n_ctrl, n_samples, bspline.degree, n_joints);
+  Matrix        normal(n_free, n_free); // A^T A
+  Matrix        rhs(n_free, n_joints);  // A^T r_j, one column per joint
+  Array         target(n_joints);
+  u32           segment = 0;
+  for (u32 sample = 0; sample < n_samples; sample++) {
+    const real distance = cumulative.back() * (real) sample / (real) (n_samples - 1);
+    point_at_distance_along_path(path, cumulative, distance, segment, target);
+    for (u32 joint = 0; joint < n_joints; joint++) {
+      real residual = target[joint];
+      for (u32 pinned = 0; pinned < 3; pinned++) {
+        const u32 last = n_ctrl - 1 - pinned;
+        residual -= samples.basis_p(pinned, sample) * control(pinned, joint) + samples.basis_p(last, sample) * control(last, joint);
+      }
+      for (u32 free_row = 0; free_row < n_free; free_row++)
+        rhs(free_row, joint) += samples.basis_p(3 + free_row, sample) * residual;
+    }
+    for (u32 free_row = 0; free_row < n_free; free_row++)
+      for (u32 free_col = 0; free_col < n_free; free_col++)
+        normal(free_row, free_col) += samples.basis_p(3 + free_row, sample) * samples.basis_p(3 + free_col, sample);
+  }
+
+  if (!cholesky_factor(normal))
+    return false;
+  cholesky_solve(normal, rhs);
+  for (u32 joint = 0; joint < n_joints; joint++)
+    for (u32 free_row = 0; free_row < n_free; free_row++)
+      control(3 + free_row, joint) = rhs(free_row, joint);
+  return true;
+}
+
+/**
+ * @brief Shortest duration for which a B-spline's velocity and acceleration control points are within limits.
+ *
+ * Velocity is itself a B-spline whose control points are the degree-scaled first differences of the
+ * control polygon, divided by the duration T; acceleration likewise uses second differences over T^2.
+ * Returns the smallest T, at least `min_duration`, that brings every one of those control points within
+ * its joint's limit. By the convex-hull property this is conservative for the whole curve. Knots are
+ * clamped uniform, as Bspline::compute_basis builds them. A limit of 0 or less is ignored.
+ *
+ * @param control  n_ctrl x n_joints control polygon.
+ */
+inline real duration_within_limits(const Matrix& control, u32 degree, const Manipulator& manip, real min_duration) {
+  const u32  n_ctrl   = control.rows;
+  const u32  n_joints = control.cols;
+  const auto knot     = [&](u32 index) -> real {
+    if (index <= degree)
+      return 0;
+    if (index >= n_ctrl)
+      return 1;
+    return (real) (index - degree) / (real) (n_ctrl - degree);
+  };
+  real  duration = min_duration;
+  Array velocity_ctrl(n_ctrl - 1); // velocity control points times T
+  for (u32 joint = 0; joint < n_joints; joint++) {
+    const real velocity_max     = manip.velocity_max[joint];
+    const real acceleration_max = manip.acceleration_max[joint];
+    for (u32 ctrl = 0; ctrl + 1 < n_ctrl; ctrl++) {
+      velocity_ctrl[ctrl] = (real) degree * (control(ctrl + 1, joint) - control(ctrl, joint)) / (knot(ctrl + degree + 1) - knot(ctrl + 1));
+      if (velocity_max > 0)
+        duration = std::max(duration, std::abs(velocity_ctrl[ctrl]) / velocity_max);
+    }
+    for (u32 ctrl = 0; ctrl + 2 < n_ctrl; ctrl++) {
+      // acceleration control point times T^2
+      const real acceleration_ctrl = (real) (degree - 1) * (velocity_ctrl[ctrl + 1] - velocity_ctrl[ctrl]) / (knot(ctrl + degree + 1) - knot(ctrl + 2));
+      if (acceleration_max > 0)
+        duration = std::max(duration, std::sqrt(std::abs(acceleration_ctrl) / acceleration_max));
+    }
+  }
+  return duration;
+}
+
+/**
+ * @brief Initial guess that follows a joint-space waypoint path, e.g. from a sampling-based planner.
+ *
+ * Fits the B-spline (this optimizer's own knots and basis) to the path by least squares:
+ * - The path is a polyline in joint space. Its length is the sum of the Euclidean joint-space
+ *   distances between consecutive waypoints.
+ * - At `n_samples` evenly spaced spline parameters u_k = k / (n_samples - 1) in [0, 1] (evenly
+ *   spaced in time too, since t = u T), the target is the point a fraction u_k of the way along that
+ *   length. E.g. the curve at u = 0.3 should be 30 % of the way along the path. This is not waypoint
+ *   0.3 * (n - 1), so unevenly spaced waypoints do not skew the fit.
+ * - The free control points minimize the sum of squared distances between the curve and these
+ *   targets. The first and last three control points stay pinned, as Bspline::compute_control sets
+ *   them for a stop-to-stop task, so the curve starts and ends at rest.
+ * - The fitted control points sit just outside the path's corners, so the curve follows the path
+ *   instead of cutting them.
+ *
+ * The duration T is the shortest for which every control point of the velocity and acceleration
+ * curves (the derivative control polygons) is within the manipulator's limits, and at least
+ * opt->min_duration. By the convex-hull property this is a conservative choice for the whole curve,
+ * not only at the samples.
+ *
+ * Requires a stop-to-stop task with finite start and goal (zero boundary velocity and acceleration).
+ * The path is expected to start at the task's start and end at its goal: the curve is pinned to the
+ * task's, so a mismatch shows up as fit error near the ends. A path of zero length (every waypoint
+ * the same point) gives guess_straight_line(). So does a path of the wrong shape (not n_joints rows,
+ * or fewer than two waypoints), which is a caller error: an Assert in debug builds, a printed
+ * message in release builds.
+ *
+ * @param opt        Optimization whose bspline, task and manipulator limits define the guess.
+ * @param path       Waypoints as an n_joints x n_waypoints Matrix, one column per waypoint (the layout of
+ *                   Bspline trajectories); at least two columns.
+ * @param n_samples  Points the curve is fitted at; 0 (the default) means max(100, 4 * n_segments), with
+ *                   n_segments = n_ctrl - degree. An explicit value is used as given; if it is too few to
+ *                   determine the free control points (about n_ctrl - 4), a message is printed and the
+ *                   default is used instead.
+ * @return The optimization vector x (free control points, joint-major, then T), laid out as
+ *         guess_straight_line() returns it.
+ */
+inline Array guess_from_path(Optimization* opt, const Matrix& path, u32 n_samples = 0) {
+  const Bspline& bspline  = opt->bspline;
+  const u32      n_ctrl   = bspline.n_ctrl;
+  const u32      n_joints = bspline.n_joints;
+  Assert(n_ctrl > 6);
+  Assert(path.rows == n_joints && path.cols >= 2);
+  for (u32 joint = 0; joint < n_joints; joint++) {
+    Assert(std::isfinite(opt->task(joint, 0)) && std::isfinite(opt->task(joint, 3)));
+    Assert(opt->task(joint, 1) == 0 && opt->task(joint, 2) == 0 && opt->task(joint, 4) == 0 && opt->task(joint, 5) == 0);
+  }
+  const u32 default_samples = std::max((u32) 100, 4 * (n_ctrl - bspline.degree));
+  if (n_samples == 0)
+    n_samples = default_samples;
+
+  // A path of the wrong shape is a caller error (the Assert above), e.g. a path planned for another
+  // robot. Assert is compiled out in release builds, where a wrong row count would write past the end
+  // of the fit's buffers, so report it and fall back instead.
+  if (path.rows != n_joints || path.cols < 2) {
+    printf("guess_from_path: path is %u x %u, expected %u joints x at least 2 waypoints; using the straight line.\n", path.rows, path.cols, n_joints);
+    return guess_straight_line(opt);
+  }
+
+  // 1. Measure the path.
+  const Array cumulative  = cumulative_length(path);
+  const real  path_length = cumulative.back();
+  // Zero when every waypoint is the same point (e.g. start == goal): there is nothing to follow.
+  // Written as !(> 0) so that a NaN in the path also falls back instead of fitting garbage.
+  if (!(path_length > 0))
+    return guess_straight_line(opt);
+
+  // 2. Pin the first and last three control points to the task's start and goal, as
+  //    Bspline::compute_control sets them for a stop-to-stop task.
+  Matrix control(n_ctrl, n_joints);
+  for (u32 joint = 0; joint < n_joints; joint++) {
+    for (u32 pinned = 0; pinned < 3; pinned++) {
+      control(pinned, joint)              = opt->task(joint, 0);
+      control(n_ctrl - 1 - pinned, joint) = opt->task(joint, 3);
+    }
+  }
+
+  // 3. Fit the free control points between them, falling back to the default sample count.
+  if (!fit_free_control_points(bspline, path, cumulative, n_samples, control)) {
+    printf("guess_from_path: %u samples too few for %u control points; using %u.\n", n_samples, n_ctrl, default_samples);
+    const bool fitted = fit_free_control_points(bspline, path, cumulative, default_samples, control);
+    Assert(fitted);
+    (void) fitted;
+  }
+
+  // 4. Pick the duration.
+  const real duration = duration_within_limits(control, bspline.degree, opt->manip, opt->min_duration);
+
+  // 5. Pack the free control points (joint-major) and the duration, as guess_straight_line() does.
+  Array x(bspline.x_len(opt->task));
+  Assert(x.size == n_joints * (n_ctrl - 6) + 1);
+  u32 index = 0;
+  for (u32 joint = 0; joint < n_joints; joint++)
+    for (u32 ctrl = 3; ctrl < n_ctrl - 3; ctrl++)
+      x[index++] = control(ctrl, joint);
+  x.back() = duration;
+  return x;
+}
+
 inline Array init_guess_segments(Optimization* opt) {
   Array x(opt->bspline.x_len(opt->task));
   switch (opt->guess.type) {
