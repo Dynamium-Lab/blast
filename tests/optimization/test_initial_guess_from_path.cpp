@@ -220,6 +220,20 @@ TEST_CASE("the default sample count scales with the number of segments", "[Optim
   }
 }
 
+#if !(defined(BLAST_DEBUG) || defined(_DEBUG)) // a debug build stops on the Assert instead, by design
+TEST_CASE("a path with fewer than two waypoints gives the straight-line guess", "[Optimization]") {
+  Optimization opt(make_UR5e(), Task::stop_to_stop(start, goal));
+  const Array  straight = guess_straight_line(&opt);
+  for (u32 n_waypoints: {0u, 1u}) {
+    INFO(n_waypoints << " waypoints");
+    const Array fitted = guess_from_path(&opt, Matrix(start.size, n_waypoints));
+    REQUIRE(fitted.size == straight.size);
+    for (u32 i = 0; i < fitted.size; i++)
+      CHECK(fitted[i] == straight[i]);
+  }
+}
+#endif
+
 TEST_CASE("a path of zero length gives the straight-line guess", "[Optimization]") {
   Optimization opt(make_UR5e(), Task::stop_to_stop(start, start));
   const Array  fitted   = guess_from_path(&opt, as_matrix({start, start}));
@@ -227,4 +241,70 @@ TEST_CASE("a path of zero length gives the straight-line guess", "[Optimization]
   REQUIRE(fitted.size == straight.size);
   for (u32 i = 0; i < fitted.size; i++)
     CHECK(fitted[i] == straight[i]);
+}
+
+// cholesky_factor and cholesky_solve on their own, against matrices with a known answer.
+
+namespace {
+// A symmetric positive definite matrix: B B^T + I, B a fixed 4 x 4 matrix.
+Matrix spd_matrix() {
+  const real b[4][4] = {{2, -1, 0, 3}, {1, 4, -2, 0}, {0, 1, 3, -1}, {-2, 0, 1, 1}};
+  Matrix     matrix(4, 4);
+  for (u32 row = 0; row < 4; row++)
+    for (u32 col = 0; col < 4; col++) {
+      real value = row == col ? (real) 1 : (real) 0;
+      for (u32 inner = 0; inner < 4; inner++)
+        value += b[row][inner] * b[col][inner];
+      matrix(row, col) = value;
+    }
+  return matrix;
+}
+} // namespace
+
+TEST_CASE("cholesky_factor gives L with L L^T equal to the matrix", "[Optimization]") {
+  const Matrix original = spd_matrix();
+  Matrix       factor   = original;
+  REQUIRE(cholesky_factor(factor));
+  for (u32 row = 0; row < 4; row++) {
+    for (u32 col = 0; col < 4; col++) {
+      // L is the lower triangle of `factor`; its upper triangle is left as it was and must be ignored.
+      real product = 0;
+      for (u32 inner = 0; inner <= std::min(row, col); inner++)
+        product += factor(row, inner) * factor(col, inner);
+      INFO("row " << row << ", col " << col);
+      CHECK(product == Approx(original(row, col)).margin(tolerance * 100));
+    }
+  }
+}
+
+TEST_CASE("cholesky_solve recovers a known solution, one per column", "[Optimization]") {
+  const Matrix matrix = spd_matrix();
+  Matrix       expected(4, 2);
+  const real   values[2][4] = {{1, -2, (real) 0.5, 3}, {0, 1, -1, 2}};
+  for (u32 column = 0; column < 2; column++)
+    for (u32 row = 0; row < 4; row++)
+      expected(row, column) = values[column][row];
+  Matrix columns(4, 2); // right-hand sides b = A x
+  for (u32 column = 0; column < 2; column++)
+    for (u32 row = 0; row < 4; row++)
+      for (u32 inner = 0; inner < 4; inner++)
+        columns(row, column) += matrix(row, inner) * expected(inner, column);
+  Matrix factor = matrix;
+  REQUIRE(cholesky_factor(factor));
+  cholesky_solve(factor, columns);
+  for (u32 column = 0; column < 2; column++)
+    for (u32 row = 0; row < 4; row++) {
+      INFO("row " << row << ", column " << column);
+      CHECK(columns(row, column) == Approx(expected(row, column)).margin(tolerance * 100));
+    }
+}
+
+TEST_CASE("cholesky_factor rejects a singular matrix", "[Optimization]") {
+  // v v^T has rank 1: positive semidefinite but singular, as when samples are too few.
+  const real vector[3] = {1, 2, -1};
+  Matrix     matrix(3, 3);
+  for (u32 row = 0; row < 3; row++)
+    for (u32 col = 0; col < 3; col++)
+      matrix(row, col) = vector[row] * vector[col];
+  CHECK_FALSE(cholesky_factor(matrix));
 }

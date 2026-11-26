@@ -337,7 +337,8 @@ inline real duration_within_limits(const Matrix& control, u32 degree, const Mani
  *
  * Requires a stop-to-stop task with finite start and goal (zero boundary velocity and acceleration).
  * The path is expected to start at the task's start and end at its goal: the curve is pinned to the
- * task's, so a mismatch shows up as fit error near the ends. A path of zero length gives
+ * task's, so a mismatch shows up as fit error near the ends. A path with fewer than two waypoints
+ * (an Assert in debug builds) or of zero length (every waypoint the same point) gives
  * guess_straight_line().
  *
  * @param opt        Optimization whose bspline, task and manipulator limits define the guess.
@@ -364,9 +365,17 @@ inline Array guess_from_path(Optimization* opt, const Matrix& path, u32 n_sample
   if (n_samples == 0)
     n_samples = default_samples;
 
+  // A path needs at least two waypoints. Fewer is a caller error (the Assert above), but Assert is
+  // compiled out in release builds, so fall back instead of reading past the end of the path.
+  if (path.cols < 2)
+    return guess_straight_line(opt);
+
   // 1. Measure the path.
-  const Array cumulative = cumulative_length(path);
-  if (!(cumulative.back() > 0))
+  const Array cumulative  = cumulative_length(path);
+  const real  path_length = cumulative.back();
+  // Zero when every waypoint is the same point (e.g. start == goal): there is nothing to follow.
+  // Written as !(> 0) so that a NaN in the path also falls back instead of fitting garbage.
+  if (!(path_length > 0))
     return guess_straight_line(opt);
 
   // 2. Pin the first and last three control points to the task's start and goal, as
@@ -381,7 +390,7 @@ inline Array guess_from_path(Optimization* opt, const Matrix& path, u32 n_sample
 
   // 3. Fit the free control points between them, falling back to the default sample count.
   if (!fit_free_control_points(bspline, path, cumulative, n_samples, control)) {
-    printf("guess_from_path: n_samples %u too few for %u control points; using %u.\n", n_samples, n_ctrl, default_samples);
+    printf("guess_from_path: %u samples too few for %u control points; using %u.\n", n_samples, n_ctrl, default_samples);
     const bool fitted = fit_free_control_points(bspline, path, cumulative, default_samples, control);
     Assert(fitted);
     (void) fitted;

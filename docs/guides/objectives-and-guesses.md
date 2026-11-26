@@ -68,7 +68,8 @@ outside the path's corners, so the curve follows the path instead of cutting the
 
 The duration is the shortest for which the control points of the velocity and acceleration
 curves are within the joint limits, a conservative choice for the whole curve. It requires a
-stop-to-stop task; a path of zero length gives the straight-line guess.
+stop-to-stop task; a path with fewer than two waypoints or of zero length gives the
+straight-line guess.
 
 See the [API reference](../api/cpp/index.md) for the full `Objective` and `Guess`
 definitions.
