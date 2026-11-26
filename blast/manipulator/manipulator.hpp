@@ -382,6 +382,9 @@ inline Array get_internal_collisions(const Manipulator& manip, const Manipulator
     // if (manip.has_payload && manip._collision_payload[i] != 0)
     //   distances[idx++] = distance(temp.capsule_list[i], temp.payload_collision_model);
   }
+  if (manip._self_collision_offset.size == distances.size) // per-pair offsets (pre-tightened planning model)
+    for (u32 k = 0; k < distances.size; ++k)
+      distances[k] += manip._self_collision_offset[k];
   return distances;
 }
 

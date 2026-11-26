@@ -213,6 +213,9 @@ struct Manipulator {
   Array                                           _collision_tool{};
   Array                                           _collision_payload{};
   Sphere                                          _base_sphere{};
+  Array _self_collision_offset{}; // empty = plain model; else one value per self pair (get_internal_collisions order),
+                                  // added to that pair's distance. Pre-tightened planning: radii + m and offset
+                                  // 2 m - m_ij, so robot-obstacle pairs keep m of clearance and self pair ij m_ij (not 2 m)
 
   Manipulator() = delete;
 

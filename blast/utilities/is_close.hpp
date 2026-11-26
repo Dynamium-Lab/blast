@@ -248,6 +248,11 @@ inline host_fn bool operator==(const Manipulator& a, const Manipulator& b) {
   }
   if (!is_close(a._base_sphere, b._base_sphere))
     return false;
+  if (a._self_collision_offset.size != b._self_collision_offset.size)
+    return false;
+  for (u32 k = 0; k < a._self_collision_offset.size; ++k)
+    if (a._self_collision_offset[k] != b._self_collision_offset[k])
+      return false;
 
   return true;
 }
