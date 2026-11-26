@@ -162,12 +162,16 @@ inline void point_at_distance_along_path(const Matrix& path, const Array& cumula
 }
 
 /**
- * @brief Cholesky factorization matrix = L L^T of a symmetric square matrix, in place (L in the lower triangle).
+ * @brief Cholesky factorization matrix = L L^T of a symmetric positive definite matrix, in place (L in
+ *        the lower triangle; only the lower triangle is read, the upper one is left as it was).
  *
- * @return false if the matrix is not clearly positive definite: a pivot falls to rounding level relative
+ * @return false if the matrix is not square, or not clearly positive definite: a pivot falls to rounding level relative
  *         to the largest diagonal entry, as when the samples are too few to determine the unknowns.
  */
 inline bool cholesky_factor(Matrix& matrix) {
+  Assert(matrix.rows == matrix.cols);
+  if (matrix.rows != matrix.cols)
+    return false;
   const u32 size         = matrix.rows;
   real      diagonal_max = 0;
   for (u32 row = 0; row < size; row++)
@@ -198,6 +202,7 @@ inline bool cholesky_factor(Matrix& matrix) {
  * @param columns  On entry the right-hand sides b, one per column; on return the solutions x.
  */
 inline void cholesky_solve(const Matrix& factor, Matrix& columns) {
+  Assert(factor.rows == factor.cols && columns.rows == factor.rows);
   const u32 size = factor.rows;
   for (u32 column = 0; column < columns.cols; column++) {
     // Forward substitution: L y = b.
@@ -337,9 +342,10 @@ inline real duration_within_limits(const Matrix& control, u32 degree, const Mani
  *
  * Requires a stop-to-stop task with finite start and goal (zero boundary velocity and acceleration).
  * The path is expected to start at the task's start and end at its goal: the curve is pinned to the
- * task's, so a mismatch shows up as fit error near the ends. A path with fewer than two waypoints
- * (an Assert in debug builds) or of zero length (every waypoint the same point) gives
- * guess_straight_line().
+ * task's, so a mismatch shows up as fit error near the ends. A path of zero length (every waypoint
+ * the same point) gives guess_straight_line(). So does a path of the wrong shape (not n_joints rows,
+ * or fewer than two waypoints), which is a caller error: an Assert in debug builds, a printed
+ * message in release builds.
  *
  * @param opt        Optimization whose bspline, task and manipulator limits define the guess.
  * @param path       Waypoints as an n_joints x n_waypoints Matrix, one column per waypoint (the layout of
@@ -365,10 +371,13 @@ inline Array guess_from_path(Optimization* opt, const Matrix& path, u32 n_sample
   if (n_samples == 0)
     n_samples = default_samples;
 
-  // A path needs at least two waypoints. Fewer is a caller error (the Assert above), but Assert is
-  // compiled out in release builds, so fall back instead of reading past the end of the path.
-  if (path.cols < 2)
+  // A path of the wrong shape is a caller error (the Assert above), e.g. a path planned for another
+  // robot. Assert is compiled out in release builds, where a wrong row count would write past the end
+  // of the fit's buffers, so report it and fall back instead.
+  if (path.rows != n_joints || path.cols < 2) {
+    printf("guess_from_path: path is %u x %u, expected %u joints x at least 2 waypoints; using the straight line.\n", path.rows, path.cols, n_joints);
     return guess_straight_line(opt);
+  }
 
   // 1. Measure the path.
   const Array cumulative  = cumulative_length(path);

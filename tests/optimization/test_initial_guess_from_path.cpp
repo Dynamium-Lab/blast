@@ -221,12 +221,17 @@ TEST_CASE("the default sample count scales with the number of segments", "[Optim
 }
 
 #if !(defined(BLAST_DEBUG) || defined(_DEBUG)) // a debug build stops on the Assert instead, by design
-TEST_CASE("a path with fewer than two waypoints gives the straight-line guess", "[Optimization]") {
+TEST_CASE("a path of the wrong shape gives the straight-line guess", "[Optimization]") {
+  // Too few waypoints, or a path planned for a robot with more or fewer joints (6 here).
   Optimization opt(make_UR5e(), Task::stop_to_stop(start, goal));
   const Array  straight = guess_straight_line(&opt);
-  for (u32 n_waypoints: {0u, 1u}) {
-    INFO(n_waypoints << " waypoints");
-    const Array fitted = guess_from_path(&opt, Matrix(start.size, n_waypoints));
+  for (const auto& [n_rows, n_waypoints]: {std::pair{6u, 0u}, std::pair{6u, 1u}, std::pair{7u, 3u}, std::pair{5u, 3u}}) {
+    INFO(n_rows << " x " << n_waypoints << " path");
+    Matrix path(n_rows, n_waypoints);
+    for (u32 waypoint = 0; waypoint < n_waypoints; waypoint++)
+      for (u32 row = 0; row < n_rows; row++)
+        path(row, waypoint) = (real) waypoint; // nonzero length, so only the shape triggers the fallback
+    const Array fitted = guess_from_path(&opt, path);
     REQUIRE(fitted.size == straight.size);
     for (u32 i = 0; i < fitted.size; i++)
       CHECK(fitted[i] == straight[i]);
