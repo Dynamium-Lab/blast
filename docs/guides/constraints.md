@@ -63,6 +63,60 @@ create_static_bounding_volume_hierarchy(opt.world, opt.world.static_bounding_vol
 They give the same constraints and gradients as `with_segments`, and follow the same
 tightening and success rules below.
 
+## Custom constraints
+
+Besides the built-in constraints, any method accepts user constraints of two kinds. Each
+returns an `Array` of values, each satisfied when `<= 0`, and is registered with the number of
+values it returns.
+
+**Per point**: evaluated at every B-spline sample.
+
+```cpp
+// Keep the tool above z = 0.2 m.
+Array tool_above(Optimization* opt, Array* x, ManipulatorTempData* state, u32 point) {
+  return Array(1, (real) 0.2 - state->p_j[opt->manip.n_joints].z);
+}
+opt.constraints.add_point_constraint(tool_above, /*n_values=*/1);
+```
+
+`state` holds the sample's forward kinematics (`rotations`, `rotations_mult`, `p_j`), collision
+model (`capsule_list`) and joint efforts (`efforts`). The sample's joint positions, velocities,
+accelerations and time are `opt->bspline.traj.pos/vel/acc.col(point)` and
+`opt->bspline.traj.t[point]`. A point constraint must not recompute the trajectory.
+
+**Global**: evaluated once per trajectory.
+
+```cpp
+// Duration at most max_duration, passed through custom_data.
+Array duration_cap(Optimization* opt, Array* x) {
+  return Array(1, x->back() - *static_cast<real*>(opt->custom_data));
+}
+opt.constraints.add_global_constraint(duration_cap, /*n_values=*/1);
+```
+
+`x` is the decision vector: the free control points, joint by joint, then the duration
+`x->back()`. A global constraint may call `opt->bspline.compute_trajectory(*x, opt->task)`.
+(`add_constraint` is the former name of `add_global_constraint`.)
+
+Where they go in the constraint vector:
+
+| Method                                                                  | Point constraints                                       | Global constraints |
+|-------------------------------------------------------------------------|---------------------------------------------------------|--------------------|
+| `baseline`, `with_analytical_pva`, `with_analytical_dynamics`           | at the end of every sample's block                      | after the last sample |
+| `with_segments`, `broadphase`, `double_broadphase`                      | at the end of every segment's block, worst sample of the segment, value by value | after the last segment |
+
+Their gradients are forward finite differences in every method: for a point constraint, only the
+sample is perturbed (the control points that affect it, and the duration), so it costs a few
+evaluations of the function and of the kinematics per sample, or per segment for the
+segment-based methods; for a global constraint, one evaluation per decision variable.
+
+Custom constraints follow the tightening and success rules below: during the solve every
+custom value is shifted up by `success_tolerance` (`custom_constraint_shift`), so an accepted
+solve has every custom value `<= 0`, and the output trajectory is checked with the point
+constraints evaluated at every validation sample. Write the values on a scale where
+`success_tolerance` is a sensible margin (for example divide by the limit, as the built-in
+constraints do).
+
 ## Feasibility: `success_tolerance` and `collision_buffer`
 
 `success_tolerance` sets the relative constraint-violation threshold below which a
