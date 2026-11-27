@@ -82,12 +82,18 @@ static bool is_segment_based(OptimizationMethod method) {
 
 static const char* method_name(OptimizationMethod method) {
   switch (method) {
-    case OptimizationMethod::with_segments: return "with_segments";
-    case OptimizationMethod::baseline: return "baseline";
-    case OptimizationMethod::with_analytical_pva: return "with_analytical_pva";
-    case OptimizationMethod::with_analytical_dynamics: return "with_analytical_dynamics";
-    case OptimizationMethod::broadphase: return "broadphase";
-    case OptimizationMethod::double_broadphase: return "double_broadphase";
+    case OptimizationMethod::with_segments:
+      return "with_segments";
+    case OptimizationMethod::baseline:
+      return "baseline";
+    case OptimizationMethod::with_analytical_pva:
+      return "with_analytical_pva";
+    case OptimizationMethod::with_analytical_dynamics:
+      return "with_analytical_dynamics";
+    case OptimizationMethod::broadphase:
+      return "broadphase";
+    case OptimizationMethod::double_broadphase:
+      return "double_broadphase";
   }
   return "?";
 }
@@ -132,20 +138,32 @@ static Array random_x(Optimization& opt, std::mt19937& random_engine, int trial)
 static void evaluate(OptimizationMethod method, Optimization& opt, const Array& x, Array& constraints, real* gradient) {
   const u32 m = constraints.size, x_len = x.size;
   switch (method) {
-    case OptimizationMethod::baseline: nlopt_constraints(m, constraints.data, x_len, x.data, gradient, &opt); return;
-    case OptimizationMethod::with_analytical_pva: nlopt_constraints_with_analytical_pva(m, constraints.data, x_len, x.data, gradient, &opt); return;
-    case OptimizationMethod::with_analytical_dynamics: nlopt_constraints_with_analytical_dynamics(m, constraints.data, x_len, x.data, gradient, &opt); return;
-    case OptimizationMethod::with_segments: nlopt_constraints_with_segments(m, constraints.data, x_len, x.data, gradient, &opt); return;
-    case OptimizationMethod::broadphase: nlopt_constraints_with_broadphase(m, constraints.data, x_len, x.data, gradient, &opt); return;
-    case OptimizationMethod::double_broadphase: nlopt_constraints_with_double_broadphase(m, constraints.data, x_len, x.data, gradient, &opt); return;
+    case OptimizationMethod::baseline:
+      nlopt_constraints(m, constraints.data, x_len, x.data, gradient, &opt);
+      return;
+    case OptimizationMethod::with_analytical_pva:
+      nlopt_constraints_with_analytical_pva(m, constraints.data, x_len, x.data, gradient, &opt);
+      return;
+    case OptimizationMethod::with_analytical_dynamics:
+      nlopt_constraints_with_analytical_dynamics(m, constraints.data, x_len, x.data, gradient, &opt);
+      return;
+    case OptimizationMethod::with_segments:
+      nlopt_constraints_with_segments(m, constraints.data, x_len, x.data, gradient, &opt);
+      return;
+    case OptimizationMethod::broadphase:
+      nlopt_constraints_with_broadphase(m, constraints.data, x_len, x.data, gradient, &opt);
+      return;
+    case OptimizationMethod::double_broadphase:
+      nlopt_constraints_with_double_broadphase(m, constraints.data, x_len, x.data, gradient, &opt);
+      return;
   }
 }
 
 // Rows of the custom constraints, in constraint-vector order.
 static std::vector<u32> custom_rows(const Optimization& opt, OptimizationMethod method) {
   const u32        n_point = opt.constraints.n_point_constraint_values(), n_global = opt.constraints.n_global_constraint_values();
-  const u32        m       = opt.constraints.n_constraints;
-  const u32        n_blocks = is_segment_based(method) ? opt.bspline.n_ctrl - opt.bspline.degree : opt.bspline.n_points;
+  const u32        m         = opt.constraints.n_constraints;
+  const u32        n_blocks  = is_segment_based(method) ? opt.bspline.n_ctrl - opt.bspline.degree : opt.bspline.n_points;
   const u32        per_block = (m - n_global) / n_blocks;
   std::vector<u32> rows;
   for (u32 block = 0; block < n_blocks; block++)
@@ -263,11 +281,11 @@ TEST_CASE("custom constraints: values and layout in every method", "[Optimizatio
 TEST_CASE("custom constraints: gradients match finite differences in every method", "[Optimization][Custom]") {
   for (auto method: all_methods) {
     INFO(method_name(method));
-    Optimization       opt     = make_problem(method);
-    const u32          m       = opt.constraints.n_constraints;
-    const auto         rows    = custom_rows(opt, method);
-    std::mt19937       random_engine(7);
-    int                mismatched = 0, checked = 0;
+    Optimization opt  = make_problem(method);
+    const u32    m    = opt.constraints.n_constraints;
+    const auto   rows = custom_rows(opt, method);
+    std::mt19937 random_engine(7);
+    int          mismatched = 0, checked = 0;
     for (int trial = 0; trial < 4; trial++) {
       const Array x = random_x(opt, random_engine, trial);
       const u32   n = x.size;
@@ -306,7 +324,7 @@ TEST_CASE("custom constraints are enforced by every method", "[Optimization][Cus
       opt.constraints.position     = true;
       opt.constraints.velocity     = true;
       opt.constraints.acceleration = true;
-      opt.guess.type               = Guess::straight_line; // deterministic: the default random guess depends on earlier tests
+      opt.guess.type               = Guess::straight_line;     // deterministic: the default random guess depends on earlier tests
       opt.max_tries                = 3;
       if (method == OptimizationMethod::with_analytical_pva) { // its gradient fill assumes every built-in row exists
         opt.constraints.torque = opt.constraints.tool_speed = opt.constraints.self_collisions = opt.constraints.external_collisions = true;
@@ -336,7 +354,7 @@ TEST_CASE("custom constraints are enforced by every method", "[Optimization][Cus
       REQUIRE(result.success);
       for (u32 point = 0; point < result.trajectory.vel.cols; point++) // the validation trajectory, sampled every millisecond
         CHECK(std::abs(result.trajectory.vel(0, point)) <= limits.joint_0_speed);
-      CHECK(result.x.back() > reference.x.back()); // slowing joint 0 down lengthens the time-optimal trajectory
+      CHECK(result.x.back() > reference.x.back());                     // slowing joint 0 down lengthens the time-optimal trajectory
     }
 
     { // global constraint

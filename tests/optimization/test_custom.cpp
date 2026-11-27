@@ -201,11 +201,11 @@ real custom_objective_velocity_sum_with_gradient(Optimization* opt, Array* x, Ar
 }
 
 TEST_CASE("Custom objective with analytical gradient", "[Optimization][Objective]") {
-  auto analytical = make_base_optimization();
+  auto analytical                  = make_base_optimization();
   analytical.objective.time_weight = (real) 0.5;
   analytical.objective.add_custom_objective_with_gradient(custom_objective_velocity_sum_with_gradient, 2);
 
-  auto finite_differences = make_base_optimization();
+  auto finite_differences                  = make_base_optimization();
   finite_differences.objective.time_weight = (real) 0.5;
   finite_differences.objective.add_custom_objective(custom_objective_velocity_sum, 2);
 
@@ -219,7 +219,7 @@ TEST_CASE("Custom objective with analytical gradient", "[Optimization][Objective
   const real value_finite_differences = objective_function(x.size, x.data, grad_finite_differences.data, &finite_differences);
   CHECK(value_analytical == Approx(value_finite_differences).epsilon(test::approx_tol));
   CHECK(objective_function(x.size, x.data, nullptr, &analytical) == Approx(value_analytical).epsilon(test::approx_tol)); // value-only path
-#if BLAST_USE_DOUBLES // in float, the forward differences of a sum over every sample are mostly rounding noise
+#if BLAST_USE_DOUBLES                                                                                                    // in float, the forward differences of a sum over every sample are mostly rounding noise
   for (u32 variable = 0; variable < x.size; variable++) {
     INFO("variable " << variable);
     CHECK(grad_analytical[variable] == Approx(grad_finite_differences[variable]).epsilon(1e-3).margin(1e-3));
