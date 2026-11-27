@@ -101,8 +101,8 @@ inline void n_con(Optimization* opt) {
     opt->constraints.n_constraints += n_points * opt->manip._n_caps;
 
 
-  for (auto& n: opt->constraints.n_extra_constraints)
-    opt->constraints.n_constraints += n;
+  opt->constraints.n_constraints += n_points * opt->constraints.n_point_constraint_values();
+  opt->constraints.n_constraints += opt->constraints.n_global_constraint_values();
 }
 
 inline void initialize_optimization(Optimization* opt) {
@@ -307,6 +307,7 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   if (!opt->tighten_for_tolerance) {
     opt->collision_scale          = 1;
     opt->pinned_tightening_active = false;
+    opt->custom_constraint_shift  = 0;
     return snap;
   }
 
@@ -323,6 +324,9 @@ inline ToleranceSnapshot tighten_for_success_tolerance(Optimization* opt) {
   }
   // The unit change that makes the dimensionless success_tolerance worth collision_buffer metres.
   opt->collision_scale = tol / opt->collision_buffer;
+  // Custom constraints have no limit to shrink: the solver sees them shifted by the tolerance, so an
+  // accepted value (<= tol) is <= 0 unshifted.
+  opt->custom_constraint_shift = tol;
 
   // The solver's position bounds (solver_position_min/max): the tightened limits, except that a side whose bound the pinned
   // start or goal lies on or outside is widened past that endpoint, halfway to the true limit, for the
@@ -417,6 +421,7 @@ inline void restore_from_tolerance(Optimization* opt, const ToleranceSnapshot& s
   opt->world                    = snap.world;
   opt->collision_scale          = 1; // raw metres again outside the tightening window
   opt->pinned_tightening_active = false;
+  opt->custom_constraint_shift  = 0;
 }
 
 inline Result optimize_baseline_impl(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {
@@ -684,8 +689,9 @@ inline void n_con_with_segments(Optimization* opt) {
   if (opt->constraints.external_collisions) {
     opt->constraints.n_constraints_per_segment += opt->manip._n_caps;
   }
+  opt->constraints.n_constraints_per_segment += opt->constraints.n_point_constraint_values(); // worst value per segment
 
-  opt->constraints.n_constraints = n_segments * opt->constraints.n_constraints_per_segment;
+  opt->constraints.n_constraints = n_segments * opt->constraints.n_constraints_per_segment + opt->constraints.n_global_constraint_values();
 }
 
 inline Result optimize_with_segments_impl(Optimization* opt, u32 output_steps_ms = 1 /*ms*/) {

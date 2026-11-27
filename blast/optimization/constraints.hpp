@@ -1,15 +1,260 @@
 #pragma once
 
+#include <algorithm>
 #include <blast>
 #include "optimization/optimization.hpp"
 
 namespace blast {
 
 
-inline blast_fn void ConstraintSelection::add_constraint(ConstraintFunction constraint, int n_con) {
-  extra_constraints.push_back(constraint);
-  n_extra_constraints.push_back(n_con);
+inline void ConstraintSelection::add_global_constraint(GlobalConstraintFunction constraint, int n_con) {
+  Assert(constraint != nullptr);
+  Assert(n_con > 0);
+  global_constraints.push_back(constraint);
+  n_global_constraints.push_back((u32) n_con);
 }
+
+inline void ConstraintSelection::add_point_constraint(PointConstraintFunction constraint, int n_con) {
+  Assert(constraint != nullptr);
+  Assert(n_con > 0);
+  point_constraints.push_back(constraint);
+  n_point_constraints.push_back((u32) n_con);
+}
+
+inline void ConstraintSelection::add_constraint(GlobalConstraintFunction constraint, int n_con) {
+  add_global_constraint(constraint, n_con);
+}
+
+inline u32 ConstraintSelection::n_global_constraint_values() const {
+  u32 n = 0;
+  for (auto n_con: n_global_constraints)
+    n += n_con;
+  return n;
+}
+
+inline u32 ConstraintSelection::n_point_constraint_values() const {
+  u32 n = 0;
+  for (auto n_con: n_point_constraints)
+    n += n_con;
+  return n;
+}
+
+// ------------------------- Custom constraints --------------------------------
+// Layout of the custom rows in the constraint vector:
+//  - point-based methods: each sample's block ends with the point constraints' values, and the
+//    global constraints' values follow the last sample;
+//  - segment-based methods: each segment's block ends with the worst value of each point
+//    constraint value over the segment's samples, and the global values follow the last segment.
+
+/** @brief Fills what a PointConstraintFunction may read from the state at a sample: kinematics, collision model, efforts. */
+inline void point_constraint_state(const Optimization& opt, ManipulatorTempData& state, u32 point) {
+  auto pos = opt.bspline.traj.pos.col(point);
+  auto vel = opt.bspline.traj.vel.col(point);
+  auto acc = opt.bspline.traj.acc.col(point);
+  forward_kinematics(opt.manip, state, pos);
+  compute_collision_model(opt.manip, state);
+  dynamics(opt.manip, state, vel, acc);
+}
+
+/** @brief Evaluates every point constraint at a sample into result (n_point_constraint_values() values), shifted by custom_constraint_shift. */
+inline void evaluate_point_constraints(Optimization& opt, const Array& x, ManipulatorTempData& state, u32 point, real* result) {
+#if BLAST_TRACE_LEVEL >= 3
+  PROFILE_SCOPE("PointCustomConstraints");
+#endif
+  auto& selection = opt.constraints;
+  for (size_t c = 0; c < selection.point_constraints.size(); c++) {
+    const Array values = selection.point_constraints[c](&opt, const_cast<Array*>(&x), &state, point);
+    Assert(values.size == selection.n_point_constraints[c]);
+    for (u32 v = 0; v < selection.n_point_constraints[c]; v++)
+      *result++ = values[v] + opt.custom_constraint_shift;
+  }
+}
+
+/** @brief Evaluates every global constraint into result (n_global_constraint_values() values), shifted by custom_constraint_shift. */
+inline void evaluate_global_constraints(Optimization& opt, const Array& x, real* result) {
+#if BLAST_TRACE_LEVEL >= 3
+  PROFILE_SCOPE("GlobalCustomConstraints");
+#endif
+  auto& selection = opt.constraints;
+  for (size_t c = 0; c < selection.global_constraints.size(); c++) {
+    const Array values = selection.global_constraints[c](&opt, const_cast<Array*>(&x));
+    Assert(values.size == selection.n_global_constraints[c]);
+    for (u32 v = 0; v < selection.n_global_constraints[c]; v++)
+      *result++ = values[v] + opt.custom_constraint_shift;
+  }
+}
+
+/**
+ * @brief Forward finite-difference gradient of the point constraints at one sample.
+ *
+ * Only the sample is perturbed: for a free control point, its contribution to the sample's position,
+ * velocity and acceleration (basis_p, basis_v / T, basis_a / T^2); for the duration, the sample
+ * recomputed from control_T_plus, the control points at duration T + eps (the pinned ones depend on
+ * T when the task has boundary velocities or accelerations). opt.bspline.traj must hold the
+ * trajectory at x; it is restored before returning. Assumes a fully specified task (no NaN), like
+ * the rest of the gradient code.
+ *
+ * @param values        Point constraint values at x for this sample.
+ * @param fill(row, variable, derivative)  Called for every derivative, row in [0, n_point_constraint_values()).
+ */
+template<typename Fill>
+inline void point_constraints_gradient(Optimization& opt, const Array& x, u32 point, const real* values, const Matrix& control_T_plus, Fill&& fill) {
+#if BLAST_TRACE_LEVEL >= 3
+  PROFILE_SCOPE("PointCustomConstraintsGrad");
+#endif
+  constexpr real eps      = BLAST_FD_STEP;
+  const u32      n_values = opt.constraints.n_point_constraint_values();
+  const int      n_joints = (int) opt.manip.n_joints;
+  const int      n_ctrl   = (int) opt.bspline.n_ctrl;
+  const int      x_len    = (int) x.size;
+  Assert(x_len == n_joints * (n_ctrl - 6) + 1);
+
+  auto&      traj = opt.bspline.traj;
+  const real T    = x.back();
+
+  Array               x_plus = x;
+  Array               values_plus(n_values);
+  ManipulatorTempData state;
+
+  // control points
+  for (int joint = 0; joint < n_joints; joint++) {
+    const real pos = traj.pos(joint, point), vel = traj.vel(joint, point), acc = traj.acc(joint, point);
+    for (int ctrl = 3; ctrl < n_ctrl - 3; ctrl++) {
+      const real bp = opt.bspline.basis_p(ctrl, point), bv = opt.bspline.basis_v(ctrl, point), ba = opt.bspline.basis_a(ctrl, point);
+      if (bp == 0 && bv == 0 && ba == 0)
+        continue;
+      const int variable = joint * (n_ctrl - 6) + ctrl - 3;
+      x_plus[variable] += eps;
+      traj.pos(joint, point) = pos + eps * bp;
+      traj.vel(joint, point) = vel + eps * bv / T;
+      traj.acc(joint, point) = acc + eps * ba / (T * T);
+
+      point_constraint_state(opt, state, point);
+      evaluate_point_constraints(opt, x_plus, state, point, values_plus.data);
+      for (u32 row = 0; row < n_values; row++)
+        fill(row, variable, (values_plus[row] - values[row]) / eps);
+
+      x_plus[variable]       = x[variable];
+      traj.pos(joint, point) = pos;
+      traj.vel(joint, point) = vel;
+      traj.acc(joint, point) = acc;
+    }
+  }
+
+  // duration
+  {
+    const int  variable = x_len - 1;
+    const real T_plus   = T + eps;
+    Array      pos(traj.pos.col(point)), vel(traj.vel.col(point)), acc(traj.acc.col(point)); // copies, for the restore
+    const real t  = traj.t[point];
+    auto       bp = opt.bspline.basis_p.col(point);
+    auto       bv = opt.bspline.basis_v.col(point);
+    auto       ba = opt.bspline.basis_a.col(point);
+    for (int joint = 0; joint < n_joints; joint++) {
+      auto c                 = control_T_plus.col(joint);
+      traj.pos(joint, point) = dot(c, bp);
+      traj.vel(joint, point) = dot(c, bv) / T_plus;
+      traj.acc(joint, point) = dot(c, ba) / (T_plus * T_plus);
+    }
+    traj.t[point]    = T_plus * (real) point / (real) (opt.bspline.n_points - 1);
+    x_plus[variable] = T_plus;
+
+    point_constraint_state(opt, state, point);
+    evaluate_point_constraints(opt, x_plus, state, point, values_plus.data);
+    for (u32 row = 0; row < n_values; row++)
+      fill(row, variable, (values_plus[row] - values[row]) / eps);
+
+    for (int joint = 0; joint < n_joints; joint++) {
+      traj.pos(joint, point) = pos[joint];
+      traj.vel(joint, point) = vel[joint];
+      traj.acc(joint, point) = acc[joint];
+    }
+    traj.t[point] = t;
+  }
+}
+
+/** @brief The control points at duration x.back() + eps (finite difference step of point_constraints_gradient). */
+inline Matrix control_points_at_perturbed_duration(const Optimization& opt, const Array& x) {
+  Array x_plus = x;
+  x_plus.back() += BLAST_FD_STEP;
+  Matrix control(opt.bspline.n_ctrl, opt.bspline.n_joints);
+  opt.bspline.compute_control(x_plus, opt.task, control.data);
+  return control;
+}
+
+/**
+ * @brief Forward finite-difference gradient of the global constraints w.r.t. every variable.
+ *
+ * Recomputes the trajectory at x afterwards, since a global constraint may recompute it.
+ * @param values  Global constraint values at x.
+ * @param fill(row, variable, derivative)  Called for every derivative, row in [0, n_global_constraint_values()).
+ */
+template<typename Fill>
+inline void global_constraints_gradient(Optimization& opt, const Array& x, const real* values, Fill&& fill) {
+#if BLAST_TRACE_LEVEL >= 3
+  PROFILE_SCOPE("GlobalCustomConstraintsGrad");
+#endif
+  constexpr real eps      = BLAST_FD_STEP;
+  const u32      n_values = opt.constraints.n_global_constraint_values();
+  Array          x_plus   = x;
+  Array          values_plus(n_values);
+  for (u32 variable = 0; variable < x.size; variable++) {
+    x_plus[variable] += eps;
+    evaluate_global_constraints(opt, x_plus, values_plus.data);
+    for (u32 row = 0; row < n_values; row++)
+      fill(row, variable, (values_plus[row] - values[row]) / eps);
+    x_plus[variable] = x[variable];
+  }
+  opt.bspline.compute_trajectory(x, opt.task);
+}
+
+/**
+ * @brief Worst value of each point constraint value over a segment, and the sample where it occurs.
+ * Used by the segment-based methods.
+ */
+struct PointConstraintSegmentMax {
+  Array            value;
+  std::vector<u32> point; // global sample index
+
+  explicit PointConstraintSegmentMax(u32 n_values) :
+      value(n_values, -INF_REAL),
+      point(n_values, 0) {}
+
+  void reset() {
+    for (u32 row = 0; row < value.size; row++)
+      value[row] = -INF_REAL, point[row] = 0;
+  }
+
+  /** @brief Evaluates the point constraints at a sample whose state is filled and keeps the worst values. */
+  void update(Optimization& opt, const Array& x, ManipulatorTempData& state, u32 sample, Array& scratch) {
+    evaluate_point_constraints(opt, x, state, sample, scratch.data);
+    for (u32 row = 0; row < value.size; row++)
+      if (scratch[row] > value[row])
+        value[row] = scratch[row], point[row] = sample;
+  }
+
+  /**
+   * @brief Fills the gradient columns of the segment's point constraint rows (grad_rows: x_len x n_values),
+   *        one finite-difference pass per distinct worst sample.
+   */
+  void gradient(Optimization& opt, const Array& x, const Matrix& control_T_plus, Matrix& grad_rows, Array& scratch) const {
+    std::vector<u32> done;
+    for (u32 row = 0; row < value.size; row++) {
+      const u32 sample = point[row];
+      if (std::find(done.begin(), done.end(), sample) != done.end())
+        continue;
+      done.push_back(sample);
+      // values of every row at this sample (the gradient is taken for the rows whose worst sample it is)
+      ManipulatorTempData state;
+      point_constraint_state(opt, state, sample);
+      evaluate_point_constraints(opt, x, state, sample, scratch.data);
+      point_constraints_gradient(opt, x, sample, scratch.data, control_T_plus, [&](u32 r, int variable, real derivative) {
+        if (point[r] == sample)
+          grad_rows(variable, r) = derivative;
+      });
+    }
+  }
+};
 
 inline blast_fn real bound_constraint(const real& value, const real& value_min, const real& value_max) {
 #if BLAST_TRACE_LEVEL >= 3
@@ -199,7 +444,10 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
   const int x_len                     = (int) x.size;
   const int n_capsules                = opt.manip._n_caps;
   const int n_constraints_per_segment = opt.constraints.n_constraints_per_segment;
-  Assert(constraints.size == n_segments * n_constraints_per_segment);
+  const u32 n_point_values            = opt.constraints.n_point_constraint_values();
+  const u32 n_global_values           = opt.constraints.n_global_constraint_values();
+  const int n_builtin_values          = n_constraints_per_segment - (int) n_point_values; // per segment, before the point constraints
+  Assert(constraints.size == n_segments * n_constraints_per_segment + n_global_values);
 
   const auto& world = opt.world;
 
@@ -226,7 +474,15 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
   for (int j = 0; j < n_joints; j++)
     pos_params[j] = position_constraint_params(opt, j);
 
+  // Custom point constraints: worst value per segment, gradients at the worst sample.
+  PointConstraintSegmentMax point_max(n_point_values);
+  Array                     point_scratch(n_point_values);
+  Matrix                    control_T_plus;
+  if (n_point_values > 0 && grad.size)
+    control_T_plus = control_points_at_perturbed_duration(opt, x);
+
   for (int segment = 0; segment < n_segments; segment++) {
+    point_max.reset();
 #if BLAST_TRACE_LEVEL >= 2
     PROFILE_SCOPE("All Segment Constraints");
 #endif
@@ -462,6 +718,10 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
             }
           }
         }
+
+        // custom point constraints
+        if (n_point_values > 0)
+          point_max.update(opt, x, manip_data, (u32) (start_point_for_segment + point_in_segment), point_scratch);
       }
     }
 
@@ -484,6 +744,8 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
       constraints[fill_idx++] = max_internal_col_constraints;
     if (opt.constraints.external_collisions)
       std::copy_n(max_col_constraints.data, n_capsules, &constraints[fill_idx]), fill_idx += n_capsules;
+    Assert(fill_idx == segment * n_constraints_per_segment + n_builtin_values);
+    std::copy_n(point_max.value.data, n_point_values, &constraints[fill_idx]), fill_idx += (int) n_point_values;
 
 
     // The gradient should be a (x_len)x(n_constraints) matrix that looks like this:
@@ -854,7 +1116,21 @@ inline blast_fn void constraints_and_gradients_with_segments(const Array& x, Opt
           con++; // finished filling the column with the gradient of the collision of the current capsule w.r.t. each joint position
         }
       }
+
+      // custom point constraints
+      if (n_point_values > 0) {
+        Matrix grad_point_rows(&grad_segment(0, n_builtin_values), x_len, (int) n_point_values);
+        point_max.gradient(opt, x, control_T_plus, grad_point_rows, point_scratch);
+      }
     }
+  }
+
+  // Custom global constraints, after every segment: they may recompute the trajectory.
+  if (n_global_values > 0) {
+    const int global_idx = n_segments * n_constraints_per_segment;
+    evaluate_global_constraints(opt, x, &constraints[global_idx]);
+    if (grad.size)
+      global_constraints_gradient(opt, x, &constraints[global_idx], [&](u32 row, u32 variable, real derivative) { grad(variable, global_idx + (int) row) = derivative; });
   }
 }
 
@@ -879,7 +1155,10 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
   const int x_len                     = (int) x.size;
   const int n_capsules                = opt.manip._n_caps;
   const int n_constraints_per_segment = opt.constraints.n_constraints_per_segment;
-  Assert(constraints.size == n_segments * n_constraints_per_segment);
+  const u32 n_point_values            = opt.constraints.n_point_constraint_values();
+  const u32 n_global_values           = opt.constraints.n_global_constraint_values();
+  const int n_builtin_values          = n_constraints_per_segment - (int) n_point_values; // per segment, before the point constraints
+  Assert(constraints.size == n_segments * n_constraints_per_segment + n_global_values);
 
   const auto& world = opt.world;
 
@@ -906,7 +1185,15 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
   for (int j = 0; j < n_joints; j++)
     pos_params[j] = position_constraint_params(opt, j);
 
+  // Custom point constraints: worst value per segment, gradients at the worst sample.
+  PointConstraintSegmentMax point_max(n_point_values);
+  Array                     point_scratch(n_point_values);
+  Matrix                    control_T_plus;
+  if (n_point_values > 0 && grad.size)
+    control_T_plus = control_points_at_perturbed_duration(opt, x);
+
   for (int segment = 0; segment < n_segments; segment++) {
+    point_max.reset();
 #if BLAST_TRACE_LEVEL >= 2
     PROFILE_SCOPE("All Segment Constraints");
 #endif
@@ -1069,6 +1356,10 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
             }
           }
         }
+
+        // custom point constraints
+        if (n_point_values > 0)
+          point_max.update(opt, x, manip_data, (u32) (start_point_for_segment + point_in_segment), point_scratch);
       }
     }
 
@@ -1091,6 +1382,8 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
       constraints[fill_idx++] = max_internal_col_constraints;
     if (opt.constraints.external_collisions)
       std::copy_n(max_col_constraints.data, n_capsules, &constraints[fill_idx]), fill_idx += n_capsules;
+    Assert(fill_idx == segment * n_constraints_per_segment + n_builtin_values);
+    std::copy_n(point_max.value.data, n_point_values, &constraints[fill_idx]), fill_idx += (int) n_point_values;
 
 
     // The gradient should be a (x_len)x(n_constraints) matrix that looks like this:
@@ -1461,7 +1754,21 @@ inline blast_fn void constraints_and_gradients_with_broadphase(const Array& x, O
           con++; // finished filling the column with the gradient of the collision of the current capsule w.r.t. each joint position
         }
       }
+
+      // custom point constraints
+      if (n_point_values > 0) {
+        Matrix grad_point_rows(&grad_segment(0, n_builtin_values), x_len, (int) n_point_values);
+        point_max.gradient(opt, x, control_T_plus, grad_point_rows, point_scratch);
+      }
     }
+  }
+
+  // Custom global constraints, after every segment: they may recompute the trajectory.
+  if (n_global_values > 0) {
+    const int global_idx = n_segments * n_constraints_per_segment;
+    evaluate_global_constraints(opt, x, &constraints[global_idx]);
+    if (grad.size)
+      global_constraints_gradient(opt, x, &constraints[global_idx], [&](u32 row, u32 variable, real derivative) { grad(variable, global_idx + (int) row) = derivative; });
   }
 }
 
@@ -1486,7 +1793,10 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
   const int x_len                     = (int) x.size;
   const int n_capsules                = opt.manip._n_caps;
   const int n_constraints_per_segment = opt.constraints.n_constraints_per_segment;
-  Assert(constraints.size == n_segments * n_constraints_per_segment);
+  const u32 n_point_values            = opt.constraints.n_point_constraint_values();
+  const u32 n_global_values           = opt.constraints.n_global_constraint_values();
+  const int n_builtin_values          = n_constraints_per_segment - (int) n_point_values; // per segment, before the point constraints
+  Assert(constraints.size == n_segments * n_constraints_per_segment + n_global_values);
 
   const auto& world = opt.world;
 
@@ -1516,7 +1826,15 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
   for (int j = 0; j < n_joints; j++)
     pos_params[j] = position_constraint_params(opt, j);
 
+  // Custom point constraints: worst value per segment, gradients at the worst sample.
+  PointConstraintSegmentMax point_max(n_point_values);
+  Array                     point_scratch(n_point_values);
+  Matrix                    control_T_plus;
+  if (n_point_values > 0 && grad.size)
+    control_T_plus = control_points_at_perturbed_duration(opt, x);
+
   for (int segment = 0; segment < n_segments; segment++) {
+    point_max.reset();
 #if BLAST_TRACE_LEVEL >= 2
     PROFILE_SCOPE("All Segment Constraints");
 #endif
@@ -1641,6 +1959,10 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
 #endif
           capsules[point_in_segment] = manip_data.capsule_list;
         }
+
+        // custom point constraints
+        if (n_point_values > 0)
+          point_max.update(opt, x, manip_data, (u32) (start_point_for_segment + point_in_segment), point_scratch);
       }
     }
 
@@ -1700,6 +2022,8 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
       constraints[fill_idx++] = max_internal_col_constraints;
     if (opt.constraints.external_collisions)
       std::copy_n(max_col_constraints.data, n_capsules, &constraints[fill_idx]), fill_idx += n_capsules;
+    Assert(fill_idx == segment * n_constraints_per_segment + n_builtin_values);
+    std::copy_n(point_max.value.data, n_point_values, &constraints[fill_idx]), fill_idx += (int) n_point_values;
 
 
     // The gradient should be a (x_len)x(n_constraints) matrix that looks like this:
@@ -2070,7 +2394,21 @@ inline blast_fn void constraints_and_gradients_with_double_broadphase(const Arra
           con++; // finished filling the column with the gradient of the collision of the current capsule w.r.t. each joint position
         }
       }
+
+      // custom point constraints
+      if (n_point_values > 0) {
+        Matrix grad_point_rows(&grad_segment(0, n_builtin_values), x_len, (int) n_point_values);
+        point_max.gradient(opt, x, control_T_plus, grad_point_rows, point_scratch);
+      }
     }
+  }
+
+  // Custom global constraints, after every segment: they may recompute the trajectory.
+  if (n_global_values > 0) {
+    const int global_idx = n_segments * n_constraints_per_segment;
+    evaluate_global_constraints(opt, x, &constraints[global_idx]);
+    if (grad.size)
+      global_constraints_gradient(opt, x, &constraints[global_idx], [&](u32 row, u32 variable, real derivative) { grad(variable, global_idx + (int) row) = derivative; });
   }
 }
 
@@ -2175,6 +2513,9 @@ inline blast_fn void compute_constraints(real* result, Array& x, Optimization* o
   for (int j = 0; j < (int) opt->manip.n_joints; j++)
     pos_params[j] = position_constraint_params(*opt, j);
 
+  const u32  n_point_values        = opt->constraints.n_point_constraint_values();
+  const bool has_point_constraints = n_point_values > 0;
+
   for (int i = 0; i < opt->bspline.n_points; i++) {
 #if BLAST_TRACE_LEVEL >= 3
     PROFILE_SCOPE("ConstraintSinglePoint");
@@ -2243,14 +2584,16 @@ inline blast_fn void compute_constraints(real* result, Array& x, Optimization* o
       }
     }
 
-    if (opt->constraints.torque) {
+    if (opt->constraints.torque || has_point_constraints) {
 #if BLAST_TRACE_LEVEL >= 3
       PROFILE_SCOPE("Dynamics");
 #endif
       auto vel = opt->bspline.traj.vel.col(i);
       auto acc = opt->bspline.traj.acc.col(i);
       dynamics(opt->manip, manip_data, vel, acc); // fills _efforts
+    }
 
+    if (opt->constraints.torque) {
       for (int j = 0; j < opt->manip.n_joints; j++) {
         *moving_result++ = std::abs(manip_data.efforts[j]) / opt->manip.torque_max[j] - 1;
       }
@@ -2323,20 +2666,15 @@ inline blast_fn void compute_constraints(real* result, Array& x, Optimization* o
       for (u32 j = 0; j < n_capsules; j++)
         *moving_result++ = max_col_constraints[j];
     }
-  }
-  {
-#if BLAST_TRACE_LEVEL >= 3
-    PROFILE_SCOPE("CustomConstraints");
-#endif
-    for (u32 i = 0; i < opt->constraints.extra_constraints.size(); i++) { // todo: split in extra_constraint per point or once
-      auto extra_constraint        = opt->constraints.extra_constraints[i];
-      auto extra_constraint_result = extra_constraint(opt, &x);
-      for (int j = 0; j < extra_constraint_result.size; j++) {
-        moving_result[i] = extra_constraint_result[j];
-      }
-      moving_result += opt->constraints.n_extra_constraints[i];
+
+    if (has_point_constraints) {
+      evaluate_point_constraints(*opt, x, manip_data, (u32) i, moving_result);
+      moving_result += n_point_values;
     }
   }
+
+  // after every sample: a global constraint may recompute the trajectory
+  evaluate_global_constraints(*opt, x, moving_result);
 }
 
 inline blast_fn void nlopt_constraints(unsigned m, real* result, unsigned x_len, const real* x, real* grad, void* f_data) {
@@ -2512,10 +2850,10 @@ inline blast_fn bool validate_task(Optimization* opt) {
   }
 
   // todo: Figure out how to make this work with unknown x
-  // for (u32 i = 0; i < constraints.extra_constraints.size(); i++) { // todo: split in extra_constraint per point or once
-  //   Array moving_result(constraints.n_extra_constraints[i]);
-  //   auto  extra_constraint = constraints.extra_constraints[i];
-  //   Array extra_result(constraints.n_extra_constraints[i]);
+  // for (u32 i = 0; i < constraints.global_constraints.size(); i++) {
+  //   Array moving_result(constraints.n_global_constraints[i]);
+  //   auto  extra_constraint = constraints.global_constraints[i];
+  //   Array extra_result(constraints.n_global_constraints[i]);
   //   extra_result = extra_constraint(opt, x);
   //   if (max(extra_result) > 0) {
   //     std::cout << "Extra constraint " << i + 1 << " inadmissible at start/end position." << std::endl;
@@ -2759,6 +3097,8 @@ blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& 
   real* moving_result = result;
   u32   grad_idx      = 0;
 
+  const u32 n_point_values = opt->constraints.n_point_constraint_values();
+
   constexpr real eps = BLAST_FD_STEP;
 
   auto joints     = opt->manip.n_joints;
@@ -2943,6 +3283,13 @@ blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& 
           for (int k = 0; k < n_capsules; k++)
             *moving_result++ = max_col_constraints[k];
         }
+
+        if (n_point_values > 0) {
+          if (!opt->constraints.torque)
+            dynamics(opt->manip, manip_data, vel, acc); // the efforts a point constraint may read
+          evaluate_point_constraints(*opt, x, manip_data, i, moving_result);
+          moving_result += n_point_values;
+        }
       }
     }
     if (is_grad) {
@@ -3051,18 +3398,8 @@ blast_fn void compute_constraints_with_analytical_dynamics(real* result, Array& 
     }
   }
 
-  {
-#if BLAST_TRACE_LEVEL >= 3
-    ZoneScopedN("CustomConstraints");
-#endif
-    // todo: Reactivate
-    // for (u32 i = 0; i < opt->constraints.extra_constraints.size(); i++) {
-    //   auto extra_constraint = opt->constraints.extra_constraints[i];
-    //   extra_constraint(moving_result, opt);
-    //   moving_result += opt->constraints.n_extra_constraints[i];
-    //   grad_idx += opt->constraints.n_extra_constraints[i]; // todo: add analytical gradients
-    // }
-  }
+  // after every sample: a global constraint may recompute the trajectory
+  evaluate_global_constraints(*opt, x, moving_result);
 }
 
 inline blast_fn void compute_constraints_per_point(real* result, real& external_collisions, const u32 i, Optimization* opt) {
@@ -3157,8 +3494,7 @@ inline blast_fn u32 ncon_lb_acc(const Optimization* opt, const u32 x_idx) {
   if (opt->constraints.external_collisions)
     n_constraints += n_points * opt->manip._n_caps;
 
-  for (auto& n_con: opt->constraints.n_extra_constraints)
-    n_constraints += n_con;
+  n_constraints += n_points * opt->constraints.n_point_constraint_values(); // each sample's block ends with them
 
   return n_constraints;
 }
@@ -3179,8 +3515,7 @@ inline u32 ncon_extras(const Optimization* opt) {
     n_constraints += opt->manip._n_internal_collisions;
   }
 
-  for (auto& n_con: opt->constraints.n_extra_constraints)
-    n_constraints += n_con;
+  n_constraints += opt->constraints.n_point_constraint_values();
 
   return n_constraints;
 }
@@ -3209,10 +3544,40 @@ inline u32 ncon_per_point_with_analytical_pva(const Optimization* opt, const int
   if (opt->constraints.external_collisions)
     n_constraints += n_points * opt->manip._n_caps;
 
-  for (auto& n_con: opt->constraints.n_extra_constraints)
-    n_constraints += n_con;
+  n_constraints += n_points * opt->constraints.n_point_constraint_values();
 
   return n_constraints;
+}
+
+/**
+ * @brief Gradients of the custom constraint rows for the point-based methods (with_analytical_pva,
+ *        with_analytical_dynamics), whose analytical fill skips them: every sample's point constraint
+ *        rows, then the global rows. NLopt layout, grad[row * x_len + variable].
+ *
+ * @param result         Constraint values at x (each sample's block ends with its point constraint values).
+ * @param n_per_point    Rows per sample.
+ */
+inline void custom_constraints_gradient_point_based(Optimization* opt, const Array& x, const real* result, real* grad, u32 n_per_point) {
+  const u32 n_point_values  = opt->constraints.n_point_constraint_values();
+  const u32 n_global_values = opt->constraints.n_global_constraint_values();
+  const u32 x_len           = x.size;
+  const u32 n_points        = opt->bspline.n_points;
+  if (n_point_values == 0 && n_global_values == 0)
+    return;
+
+  opt->bspline.compute_trajectory(x, opt->task); // the analytical fill leaves it at a perturbed x
+  if (n_point_values > 0) {
+    const Matrix control_T_plus = control_points_at_perturbed_duration(*opt, x);
+    const u32    first_row      = n_per_point - n_point_values; // of the point constraints, within a sample's block
+    for (u32 point = 0; point < n_points; point++) {
+      const u32 row_offset = point * n_per_point + first_row;
+      point_constraints_gradient(*opt, x, point, &result[row_offset], control_T_plus, [&](u32 row, int variable, real derivative) { grad[(row_offset + row) * x_len + variable] = derivative; });
+    }
+  }
+  if (n_global_values > 0) {
+    const u32 global_offset = n_points * n_per_point;
+    global_constraints_gradient(*opt, x, &result[global_offset], [&](u32 row, u32 variable, real derivative) { grad[(global_offset + row) * x_len + variable] = derivative; });
+  }
 }
 
 inline blast_fn void nlopt_constraints_with_analytical_pva(unsigned m, real* result, unsigned xlen, const real* x, real* grad, void* f_data) {
@@ -3307,6 +3672,9 @@ inline blast_fn void nlopt_constraints_with_analytical_pva(unsigned m, real* res
           grad[grad_idx] = (constraint.collision_constraint(k, i - opt->bspline.lower_bounds[x_idx]) - result[i * n_con_per_point + 4 * n_joints + 2 + k]) / eps;
           grad_idx += xlen;
         }
+
+        // custom point constraints: filled by custom_constraints_gradient_point_based below
+        grad_idx += opt->constraints.n_point_constraint_values() * xlen;
       }
 
       x_plus[j] = x[j];
@@ -3328,6 +3696,9 @@ inline blast_fn void nlopt_constraints_with_analytical_pva(unsigned m, real* res
       for (u32 i = 0; i < m; i++)
         grad[i * xlen + j] = (r_plus[i] - result[i]) / eps;
     }
+
+    const u32 n_per_point = (m - opt->constraints.n_global_constraint_values()) / opt->bspline.n_points;
+    custom_constraints_gradient_point_based(opt, xv, result, grad, n_per_point);
   }
 }
 
@@ -3440,6 +3811,9 @@ inline blast_fn void nlopt_constraints_with_analytical_dynamics(unsigned m, real
               grad_idx += xlen;
             }
           }
+
+          // custom point constraints: filled by custom_constraints_gradient_point_based below
+          grad_idx += opt->constraints.n_point_constraint_values() * xlen;
         }
       }
 
@@ -3448,7 +3822,7 @@ inline blast_fn void nlopt_constraints_with_analytical_dynamics(unsigned m, real
         u32 j = xlen - 1;
 
         auto   n_joints             = opt->manip.n_joints;
-        auto   constraint_per_point = m / opt->bspline.n_points;
+        auto   constraint_per_point = (m - opt->constraints.n_global_constraint_values()) / opt->bspline.n_points;
         auto   one_over_T           = 1 / opt->bspline.traj.t.back();
         Matrix gradients;
         gradients.alias(grad, xlen, m);
@@ -3490,6 +3864,8 @@ inline blast_fn void nlopt_constraints_with_analytical_dynamics(unsigned m, real
           }
         }
       }
+
+      custom_constraints_gradient_point_based(opt, xv, result, grad, (m - opt->constraints.n_global_constraint_values()) / opt->bspline.n_points);
 
       if (opt->constraints.collect_x_each_iteration) { // when more info is needed per iteration
         opt->constraints.x_list.push_back(xv);

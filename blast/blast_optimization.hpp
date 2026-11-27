@@ -17,8 +17,43 @@ struct Objective;
 struct ConstraintSelection;
 struct Guess;
 
-using ConstraintFunction = Array (*)(Optimization*, Array*);
+/**
+ * @brief A custom constraint evaluated once per trajectory.
+ *
+ * Called with the problem and the decision vector x (free control points, then the duration
+ * x->back()). Returns the constraint values, each satisfied when <= 0; the size must match the
+ * count given to ConstraintSelection::add_global_constraint. The function may call
+ * opt->bspline.compute_trajectory(*x, opt->task). Gradients are taken by forward finite differences.
+ */
+using GlobalConstraintFunction = Array (*)(Optimization* opt, Array* x);
+
+/**
+ * @brief A custom constraint evaluated at every B-spline sample.
+ *
+ * Called with the problem, the decision vector x, the manipulator state at the sample and the
+ * sample index. The state holds the forward kinematics, the collision model and the joint efforts
+ * of the sample; its joint positions, velocities, accelerations and time are
+ * opt->bspline.traj.pos/vel/acc.col(point) and opt->bspline.traj.t[point]. Returns the constraint
+ * values, each satisfied when <= 0; the size must match the count given to
+ * ConstraintSelection::add_point_constraint. The function must not recompute the trajectory.
+ * The point-based methods (baseline, with_analytical_pva, with_analytical_dynamics) keep every
+ * sample; the segment-based methods (with_segments, broadphase, double_broadphase) keep the worst
+ * sample of each segment, value by value (done internally). Gradients are taken by forward finite
+ * differences.
+ */
+using PointConstraintFunction = Array (*)(Optimization* opt, Array* x, ManipulatorTempData* state, u32 point);
+
+using ConstraintFunction = GlobalConstraintFunction; // deprecated name of GlobalConstraintFunction
 using ObjectiveFunction  = real (*)(Optimization*, Array*);
+
+/**
+ * @brief A custom objective with an analytical gradient.
+ *
+ * Returns the objective value at x. When grad is not null, also writes the gradient df/dx into it
+ * (x->size values, already zeroed). Called with grad set once per solver gradient evaluation,
+ * instead of the x_len + 1 evaluations a finite-difference ObjectiveFunction costs.
+ */
+using ObjectiveGradientFunction = real (*)(Optimization* opt, Array* x, Array* grad);
 
 struct Objective {
   real time_weight = 1;
@@ -28,9 +63,15 @@ struct Objective {
 
   // Setup function to return the NLopt-compatible objective function
   std::vector<real>              k_extra_objectives{};
-  std::vector<ObjectiveFunction> extra_objectives{};
+  std::vector<ObjectiveFunction> extra_objectives{}; // gradient by forward finite differences
 
+  std::vector<real>                      k_extra_objectives_with_gradient{};
+  std::vector<ObjectiveGradientFunction> extra_objectives_with_gradient{}; // analytical gradient
+
+  /** @brief Adds k * function(x) to the cost; its gradient is taken by forward finite differences. */
   inline void add_custom_objective(ObjectiveFunction function, real k);
+  /** @brief Adds k * function(x) to the cost, with the analytical gradient the function provides. */
+  inline void add_custom_objective_with_gradient(ObjectiveGradientFunction function, real k);
 };
 
 struct Guess {
@@ -103,9 +144,22 @@ struct ConstraintSelection {
   bool               collect_x_each_iteration = false; // set to true to record optimization vector for all iterations
   std::vector<Array> x_list;
 
-  std::vector<ConstraintFunction> extra_constraints   = {};
-  std::vector<u32>                n_extra_constraints = {};
-  void                            add_constraint(ConstraintFunction, int n_con);
+  std::vector<GlobalConstraintFunction> global_constraints   = {};
+  std::vector<u32>                      n_global_constraints = {}; // values returned by each global constraint
+  std::vector<PointConstraintFunction>  point_constraints    = {};
+  std::vector<u32>                      n_point_constraints  = {}; // values returned by each point constraint, per sample
+
+  /** @brief Adds a constraint evaluated once per trajectory, returning n_con values (see GlobalConstraintFunction). */
+  void add_global_constraint(GlobalConstraintFunction constraint, int n_con);
+  /** @brief Adds a constraint evaluated at every sample, returning n_con values per sample (see PointConstraintFunction). */
+  void add_point_constraint(PointConstraintFunction constraint, int n_con);
+  /** @brief Deprecated: same as add_global_constraint. */
+  void add_constraint(GlobalConstraintFunction constraint, int n_con);
+
+  /** @brief Values returned by all global constraints together. */
+  u32 n_global_constraint_values() const;
+  /** @brief Values returned by all point constraints together, for one sample. */
+  u32 n_point_constraint_values() const;
 };
 
 struct Optimization {
@@ -141,7 +195,8 @@ struct Optimization {
   real max_time  = 30;                                     // Maximum time (seconds) for a single NLopt call.
 
   // --- derived, do not set ---
-  real collision_scale = 1; // success_tolerance / collision_buffer while tightened, 1 otherwise
+  real collision_scale         = 1; // success_tolerance / collision_buffer while tightened, 1 otherwise
+  real custom_constraint_shift = 0; // success_tolerance while tightened, 0 otherwise: added to every custom constraint value
   // True while tightened. Then a position bound the pinned start/goal lies on or outside is widened
   // past it (solver_position_min/max), and the first/last segment's collision constraints target the clearance the pinned
   // start [0] / goal [1] configuration achieves, so a pinned configuration at or near a limit does not create a

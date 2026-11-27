@@ -10,8 +10,20 @@ opt.objective.time_weight = 1.0;
 opt.objective.add_custom_objective(my_objective_fn, /*weight=*/0.5);
 ```
 
-A custom objective is a function `double(Optimization*)` that returns the value to be
-added (scaled by its weight) to the total cost.
+A custom objective is a function `real(Optimization*, Array* x)` that returns the value to be
+added (scaled by its weight) to the total cost. Its gradient is taken by forward finite
+differences, one evaluation per decision variable.
+
+An objective that knows its gradient is registered with `add_custom_objective_with_gradient`. It
+has the signature `real(Optimization*, Array* x, Array* grad)`: it returns the value and, when
+`grad` is not null, writes `df/dx` into it (already zeroed, one entry per decision variable):
+
+```cpp
+opt.objective.add_custom_objective_with_gradient(my_objective_with_gradient, /*weight=*/1.0);
+```
+
+`examples/example_04_custom_constraints.cpp` gives the gradients of a sum of absolute velocities
+and of absolute accelerations.
 
 ## Initial guess
 

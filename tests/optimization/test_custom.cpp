@@ -156,7 +156,7 @@ TEST_CASE("Smoothness optimization using custom velocity objective", "[Optimizat
   opt.objective.add_custom_objective(custom_objective_velocity_sum, 1);
   opt.objective.time_weight = 0;
 
-  opt.constraints.add_constraint(custom_constraint_time, 1);
+  opt.constraints.add_global_constraint(custom_constraint_time, 1);
 
   real custom_value = result1.x.back();
   opt.custom_data   = &custom_value;
@@ -181,4 +181,48 @@ TEST_CASE("Smoothness optimization using custom velocity objective", "[Optimizat
   // std::cout << "Result 2 time " << result2.x.back() << std::endl;
 
   CHECK(vel_sum_2 <= vel_sum_1);
+}
+
+// Sum of |vel| with its analytical gradient, for a stop-to-stop task (the pinned control points do not depend on T).
+real custom_objective_velocity_sum_with_gradient(Optimization* opt, Array* x, Array* grad) {
+  const real sum = custom_objective_velocity_sum(opt, x); // computes the trajectory
+  if (grad) {
+    const int  n_free = (int) opt->bspline.n_ctrl - 6;
+    const real T      = x->back();
+    for (int i = 0; i < opt->bspline.traj.vel.cols; i++)
+      for (int j = 0; j < opt->bspline.traj.vel.rows; j++) {
+        const real s = sign(opt->bspline.traj.vel(j, i));
+        for (int k = 3; k < (int) opt->bspline.n_ctrl - 3; k++)
+          (*grad)[j * n_free + k - 3] += s * opt->bspline.basis_v(k, i) / T;
+      }
+    grad->back() = -sum / T;
+  }
+  return sum;
+}
+
+TEST_CASE("Custom objective with analytical gradient", "[Optimization][Objective]") {
+  auto analytical = make_base_optimization();
+  analytical.objective.time_weight = (real) 0.5;
+  analytical.objective.add_custom_objective_with_gradient(custom_objective_velocity_sum_with_gradient, 2);
+
+  auto finite_differences = make_base_optimization();
+  finite_differences.objective.time_weight = (real) 0.5;
+  finite_differences.objective.add_custom_objective(custom_objective_velocity_sum, 2);
+
+  Array x = blast::guess_straight_line(&analytical);
+  for (u32 variable = 0; variable + 1 < x.size; variable++)
+    x[variable] += (real) 0.1 * std::sin((real) variable);
+  x.back() = (real) 1.5;
+
+  Array      grad_analytical(x.size), grad_finite_differences(x.size);
+  const real value_analytical         = objective_function(x.size, x.data, grad_analytical.data, &analytical);
+  const real value_finite_differences = objective_function(x.size, x.data, grad_finite_differences.data, &finite_differences);
+  CHECK(value_analytical == Approx(value_finite_differences).epsilon(test::approx_tol));
+  CHECK(objective_function(x.size, x.data, nullptr, &analytical) == Approx(value_analytical).epsilon(test::approx_tol)); // value-only path
+#if BLAST_USE_DOUBLES // in float, the forward differences of a sum over every sample are mostly rounding noise
+  for (u32 variable = 0; variable < x.size; variable++) {
+    INFO("variable " << variable);
+    CHECK(grad_analytical[variable] == Approx(grad_finite_differences[variable]).epsilon(1e-3).margin(1e-3));
+  }
+#endif
 }

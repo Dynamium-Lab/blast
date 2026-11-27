@@ -280,11 +280,11 @@ inline host_fn bool operator==(const Bspline& a, const Bspline& b) {
 }
 
 inline host_fn bool operator==(const ConstraintSelection& a, const ConstraintSelection& b) {
-  return a.position == b.position && a.velocity == b.velocity && a.acceleration == b.acceleration && a.torque == b.torque && a.tool_speed == b.tool_speed && a.self_collisions == b.self_collisions && a.external_collisions == b.external_collisions && a.n_collision_constraints == b.n_collision_constraints && a.n_collision_skip == b.n_collision_skip && a.n_constraints == b.n_constraints && a.extra_constraints.size() == b.extra_constraints.size() && a.n_extra_constraints == b.n_extra_constraints;
+  return a.position == b.position && a.velocity == b.velocity && a.acceleration == b.acceleration && a.torque == b.torque && a.tool_speed == b.tool_speed && a.self_collisions == b.self_collisions && a.external_collisions == b.external_collisions && a.n_collision_constraints == b.n_collision_constraints && a.n_collision_skip == b.n_collision_skip && a.n_constraints == b.n_constraints && a.global_constraints == b.global_constraints && a.n_global_constraints == b.n_global_constraints && a.point_constraints == b.point_constraints && a.n_point_constraints == b.n_point_constraints;
 }
 
 inline host_fn bool operator==(const Objective& a, const Objective& b) {
-  return is_close(a.time_weight, b.time_weight) && is_close(a.k_extra_objectives, b.k_extra_objectives);
+  return is_close(a.time_weight, b.time_weight) && is_close(a.k_extra_objectives, b.k_extra_objectives) && a.extra_objectives == b.extra_objectives && is_close(a.k_extra_objectives_with_gradient, b.k_extra_objectives_with_gradient) && a.extra_objectives_with_gradient == b.extra_objectives_with_gradient;
 }
 
 inline host_fn bool operator==(const Guess& a, const Guess& b) {
